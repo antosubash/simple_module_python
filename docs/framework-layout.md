@@ -60,7 +60,7 @@ Any old framework submodule path imported outside its owning package (in `module
 | Package | Source dir | Root `.py` (target excludes shims) | Flat `tests/test_*.py` | State |
 | --- | --- | ---: | ---: | --- |
 | `inertia` | `simple_module_inertia` | 1 | 0 | follows this layout |
-| `cli` | `simple_module_cli` | 46 | 83 | legacy flat (`LEGACY_FLAT`) |
+| `cli` | `simple_module_cli` | 2 | 0 | follows this layout |
 | `core` | `simple_module_core` | 71 | 79 | legacy flat (`LEGACY_FLAT`) |
 | `db` | `simple_module_db` | 56 | 78 | legacy flat (`LEGACY_FLAT`) |
 | `hosting` | `simple_module_hosting` | 109 | 177 | legacy flat (`LEGACY_FLAT`) |

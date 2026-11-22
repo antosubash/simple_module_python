@@ -29,7 +29,7 @@ def test_strict_false_builds_on_defaults_in_production_when_db_is_unreachable() 
 def test_openapi_commands_do_not_ask_for_strict_boot() -> None:
     import inspect
 
-    from simple_module_cli import openapi_cmd
+    from simple_module_cli.commands import openapi_cmd
 
     assert "strict=False" in inspect.getsource(openapi_cmd._build_app)
 

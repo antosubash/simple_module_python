@@ -22,7 +22,7 @@ def _no_pypi_version_check(monkeypatch):
     def offline(url: str) -> dict:
         raise OSError(f"network disabled in tests: {url}")
 
-    monkeypatch.setattr("simple_module_cli._version_check._quick_fetcher", offline)
+    monkeypatch.setattr("simple_module_cli.sources._version_check._quick_fetcher", offline)
 
 
 @pytest.fixture

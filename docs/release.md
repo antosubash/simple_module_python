@@ -147,7 +147,7 @@ Two version numbers exist on purpose:
 - **Package version** (`0.0.x`, lockstep). Every `simple_module_*` wheel and published npm package under `packages/` carries the same release, enforced by `scripts/bump_version.py` (`--check` verifies it). Private module manifests are versionless dependency declarations; they are not published or assigned a release version. Python prereleases such as `0.2.0rc1` become npm SemVer `0.2.0-rc.1` (`a`/`b` become `alpha`/`beta`); npm prereleases publish under `next`, stable releases under `latest`. The root and `host/` `pyproject.toml` are not published and are not bumped.
 - **Framework API version** (`FRAMEWORK_API_VERSION` in `simple_module_core/versioning.py`, currently `1.0.0`). It versions the *module contract* (`ModuleBase`, the registries, the event bus, `create_module_base`, the model mixins), independent of release cadence. Modules declare a compatible range in `ModuleMeta.requires_framework` (PEP 440, e.g. `">=1.0,<2.0"`) and boot fails on a mismatch. Bump its major only for a breaking contract change.
 
-A test (`framework/cli/tests/test_template_requires_framework.py`) pins that the scaffolded module template's `requires_framework` contains `FRAMEWORK_API_VERSION`.
+A test (`framework/cli/tests/scaffold/test_template_requires_framework.py`) pins that the scaffolded module template's `requires_framework` contains `FRAMEWORK_API_VERSION`.
 
 ---
 

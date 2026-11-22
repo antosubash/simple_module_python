@@ -5,7 +5,7 @@ Usage:
     make new-module name=<module_name>
 
 A thin wrapper: the files come from the same templates ``smpy create-module``
-uses (``simple_module_cli.scaffolding.create_module``, in-repo variant), then
+uses (``simple_module_cli.scaffold.scaffolding.create_module``, in-repo variant), then
 the module is wired into ``host/pyproject.toml`` and the root ``pyproject.toml``.
 """
 
@@ -15,10 +15,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from simple_module_cli.case import InvalidScaffoldNameError, validate_scaffold_name
-from simple_module_cli.framework_repo import wire_module
-from simple_module_cli.pins import resolve_framework_version
-from simple_module_cli.scaffolding import create_module
+from simple_module_cli.scaffold.case import InvalidScaffoldNameError, validate_scaffold_name
+from simple_module_cli.scaffold.framework_repo import wire_module
+from simple_module_cli.scaffold.scaffolding import create_module
+from simple_module_cli.sources.pins import resolve_framework_version
 
 ROOT = Path(__file__).resolve().parent.parent
 

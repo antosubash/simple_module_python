@@ -203,7 +203,7 @@ ci-api-types-fresh:
 # imports resolve. Needs node_modules; slow and rewrites generated files, so it
 # is not part of `lint`.
 ci-css-build:
-	uv run pytest framework/cli/tests/test_module_css_build.py
+	uv run pytest framework/cli/tests/tooling/test_module_css_build.py
 
 # Builds and boots the production image; deliberately outside the lint loop.
 ci-docker-smoke:
