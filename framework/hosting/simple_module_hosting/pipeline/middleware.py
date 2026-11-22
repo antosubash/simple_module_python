@@ -1,6 +1,7 @@
 """Middleware: security headers, tenant isolation, Inertia shared-props.
 
-Correlation IDs and request logging live in :mod:`._observability`.
+Correlation IDs and request logging live in
+:mod:`simple_module_hosting.observability._observability`.
 
 All middleware classes use the raw ASGI pattern instead of ``BaseHTTPMiddleware``
 to avoid its known issues with streaming responses, extra task creation,
