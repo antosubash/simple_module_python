@@ -113,7 +113,7 @@ def test_eager_task_factory_closes_and_retires_without_deadlock():
     asyncio.run(run())
 
 
-def test_closed_owner_real_redis_transport_releases_socket_without_errors():
+def _pooled_socket_backend():
     import socket
 
     import redis.asyncio as aioredis
@@ -129,7 +129,7 @@ def test_closed_owner_real_redis_transport_releases_socket_without_errors():
 
     backend = RedisLeaseBackend("redis://localhost:6379/0", factory=factory)
 
-    async def open_on_first_loop():
+    async def attach_stream():
         client = backend._redis()
         conn = client.connection_pool.make_connection()
         reader, writer = await asyncio.open_connection(sock=s1)
@@ -139,10 +139,15 @@ def test_closed_owner_real_redis_transport_releases_socket_without_errors():
         client.connection_pool._available_connections.append(conn)
         return conn
 
+    return backend, created, attach_stream, s1, s2
+
+
+def test_closed_owner_real_redis_transport_releases_socket_without_errors():
+    backend, created, attach_stream, s1, s2 = _pooled_socket_backend()
     try:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", ResourceWarning)
-            conn = asyncio.run(open_on_first_loop())
+            conn = asyncio.run(attach_stream())
             pool = created[0].connection_pool
             assert s1.fileno() != -1
             asyncio.run(backend.aclose())
@@ -155,4 +160,48 @@ def test_closed_owner_real_redis_transport_releases_socket_without_errors():
         assert s1.fileno() == -1
         assert not [w for w in caught if issubclass(w.category, ResourceWarning)]
     finally:
+        s2.close()
+
+
+def test_closed_uvloop_real_redis_transport_retires_without_type_error():
+    import uvloop
+
+    backend, created, attach_stream, s1, s2 = _pooled_socket_backend()
+    owner = uvloop.new_event_loop()
+    try:
+        conn = owner.run_until_complete(attach_stream())
+        pool = created[0].connection_pool
+        owner.close()
+        asyncio.run(backend.aclose())
+        assert backend._records == []
+        assert s1.fileno() == -1
+        assert conn._parser._stream is None
+        assert pool._available_connections == []
+        assert pool._in_use_connections == set()
+    finally:
+        if not owner.is_closed():
+            owner.close()
+        s2.close()
+
+
+def test_stopped_owner_real_redis_transport_retires_socket_and_resumes_cleanly():
+    backend, created, attach_stream, s1, s2 = _pooled_socket_backend()
+    owner = asyncio.new_event_loop()
+    loop_errors = []
+    owner.set_exception_handler(lambda loop, ctx: loop_errors.append(ctx))
+    try:
+        conn = owner.run_until_complete(attach_stream())
+        pool = created[0].connection_pool
+        assert s1.fileno() != -1
+        asyncio.run(backend.aclose())
+        assert backend._records == []
+        assert s1.fileno() == -1
+        assert conn._parser._stream is None
+        assert pool._available_connections == []
+        assert pool._in_use_connections == set()
+        # Resuming the stopped owner loop later must not raise selector or transport errors.
+        owner.run_until_complete(asyncio.sleep(0))
+        assert loop_errors == []
+    finally:
+        owner.close()
         s2.close()
