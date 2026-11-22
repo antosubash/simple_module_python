@@ -49,10 +49,11 @@ class SettingsStore:
         self._service.db.on_commit(callback)
 
     async def lock_package(self, package: str) -> None:
-        """Serialize read/validate/write until commit, including absent overrides.
+        """Serialize PostgreSQL read/validate/write until the transaction ends.
 
         PostgreSQL's transaction lock also covers resets of a package's last row.
-        SQLite already permits only one writer and needs no advisory SQL.
+        Other dialects keep their existing behavior; SQLite's single-writer
+        rule does not serialize the reads and validation before a write.
         """
         db = self._service.db
         if db.get_bind().dialect.name != "postgresql":

@@ -211,10 +211,17 @@ def test_empty_parameters_preserve_charset(separator, charset):
 
 
 @pytest.mark.parametrize(
-    "parameter",
-    ['x="unclosed', 'x="a"junk', "x=a,text/html", 'x="a",text/html', 'x="a\r\nb"', 'x="a\tb"'],
+    ("parameter", "expected"),
+    [
+        ('x="unclosed', "application/octet-stream"),
+        ('x="a"junk', "text/plain"),
+        ("x=a,text/html", "application/octet-stream"),
+        ('x="a",text/html', "application/octet-stream"),
+        ('x="a\r\nb"', "application/octet-stream"),
+        ('x="a\tb"', "application/octet-stream"),
+    ],
 )
-def test_malformed_response_parameters_are_not_echoed(parameter):
+def test_malformed_response_parameters_use_safe_fallback(parameter, expected):
     from file_storage.files.media_types import safe_media_type
 
-    assert safe_media_type(f"text/plain; {parameter}") != f"text/plain; {parameter}"
+    assert safe_media_type(f"text/plain; {parameter}") == expected
