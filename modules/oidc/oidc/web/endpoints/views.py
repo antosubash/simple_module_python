@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth_policy import login_redirect_url
 from simple_module_hosting.csrf import require_browser_origin
 from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
-from simple_module_inertia.response import location
+from simple_module_inertia.protocol.response import location
 from starlette.responses import RedirectResponse
 
 from oidc.core.constants import (

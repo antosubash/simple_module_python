@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from simple_module_inertia.config import InertiaConfig
-from simple_module_inertia.errors import inertia_request_validation_exception_handler
-from simple_module_inertia.inertia import Inertia
+from simple_module_inertia.protocol.config import InertiaConfig
+from simple_module_inertia.protocol.errors import inertia_request_validation_exception_handler
+from simple_module_inertia.rendering.inertia import Inertia
 from starlette.requests import Request
 
 OFFSITE = [

@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from fastapi.templating import Jinja2Templates
 
-from simple_module_inertia.head import SiteResolver
+from simple_module_inertia.assets.head import SiteResolver
 
 
 @dataclass

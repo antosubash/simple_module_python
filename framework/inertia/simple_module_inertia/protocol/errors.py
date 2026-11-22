@@ -7,9 +7,9 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import RedirectResponse
 
-from simple_module_inertia.request import is_inertia_request
-from simple_module_inertia.response import back_url, version_conflict
-from simple_module_inertia.validation import errors_from_validation, scope_errors
+from simple_module_inertia.protocol.request import is_inertia_request
+from simple_module_inertia.protocol.response import back_url, version_conflict
+from simple_module_inertia.protocol.validation import errors_from_validation, scope_errors
 
 
 class InertiaVersionConflictException(Exception):  # noqa: N818 - upstream name; hosting imports it

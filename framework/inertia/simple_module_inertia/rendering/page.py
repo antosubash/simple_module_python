@@ -16,8 +16,8 @@ from urllib.parse import urlsplit
 
 from fastapi.encoders import jsonable_encoder
 
-from simple_module_inertia._json_snapshot import JsonSnapshot
-from simple_module_inertia.resolve import JSON_SCALARS, ResolvedProps
+from simple_module_inertia.rendering._json_snapshot import JsonSnapshot
+from simple_module_inertia.rendering.resolve import JSON_SCALARS, ResolvedProps
 
 _URL_LEADING_CONTROLS = "".join(chr(code) for code in range(33))
 

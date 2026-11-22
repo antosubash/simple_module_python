@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_inertia.props import (
+from simple_module_inertia.rendering.props import (
     Prop,
     ScrollMeta,
     always,

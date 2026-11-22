@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
-from simple_module_inertia.errors import (
+from simple_module_inertia.protocol.errors import (
     InertiaVersionConflictException,
     inertia_request_validation_exception_handler,
     inertia_version_conflict_exception_handler,

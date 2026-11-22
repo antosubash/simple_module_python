@@ -6,7 +6,7 @@ import tomllib
 from importlib.metadata import version
 from pathlib import Path
 
-_PKG_DIR = Path(__file__).resolve().parents[1]
+_PKG_DIR = Path(__file__).resolve().parents[2]
 
 
 def test_package_is_importable_at_the_lockstep_version() -> None:

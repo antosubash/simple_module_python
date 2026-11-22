@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
-from simple_module_inertia.page import (
+from simple_module_inertia.rendering.page import (
     PropEncodingError,
     build_page,
     encode_page,
     to_relative_url,
 )
-from simple_module_inertia.resolve import ResolvedProps
+from simple_module_inertia.rendering.resolve import ResolvedProps
 
 
 class TestToRelativeUrl:
@@ -199,7 +199,7 @@ class TestPlainJsonFastPath:
         assert encode_page(page)["props"] == {"a": 1}
 
     def test_cyclic_data_is_not_walked_forever(self) -> None:
-        from simple_module_inertia.page import _is_plain_json
+        from simple_module_inertia.rendering.page import _is_plain_json
 
         props: dict[str, object] = {}
         props["self"] = props

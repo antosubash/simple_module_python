@@ -9,15 +9,13 @@ from jinja2.utils import htmlsafe_json_dumps
 from pydantic import BaseModel
 from starlette.responses import RedirectResponse, Response
 
-from simple_module_inertia._json_snapshot import dumps
-from simple_module_inertia.config import InertiaConfig, resolved_version
-from simple_module_inertia.errors import InertiaVersionConflictException
-from simple_module_inertia.head import HEAD_PROP, Head, SiteInfo, head_tags
-from simple_module_inertia.manifest import entry_assets
-from simple_module_inertia.page import build_page, encode_page, to_relative_url
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
-from simple_module_inertia.response import (
+from simple_module_inertia.assets.head import HEAD_PROP, Head, SiteInfo, head_tags
+from simple_module_inertia.assets.manifest import entry_assets
+from simple_module_inertia.assets.templating import InertiaContext
+from simple_module_inertia.protocol.config import InertiaConfig, resolved_version
+from simple_module_inertia.protocol.errors import InertiaVersionConflictException
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.protocol.response import (
     InertiaResponse,
     back_url,
     fragment_redirect,
@@ -25,7 +23,9 @@ from simple_module_inertia.response import (
     location,
     redirect,
 )
-from simple_module_inertia.templating import InertiaContext
+from simple_module_inertia.rendering._json_snapshot import dumps
+from simple_module_inertia.rendering.page import build_page, encode_page, to_relative_url
+from simple_module_inertia.rendering.resolve import resolve_props
 
 
 class Inertia:

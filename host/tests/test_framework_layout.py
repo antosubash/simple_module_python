@@ -81,7 +81,7 @@ FACADE_AREAS: dict[str, frozenset[str]] = {
 }
 
 # Packages still awaiting their move PR; shrink per PR until removed in PR 6.
-LEGACY_FLAT: frozenset[str] = frozenset({"inertia", "cli", "core", "db", "hosting", "testing"})
+LEGACY_FLAT: frozenset[str] = frozenset({"cli", "core", "db", "hosting", "testing"})
 
 
 def assert_framework_layout(project: Path, project_name: str) -> None:

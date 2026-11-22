@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from simple_module_inertia.request import InertiaRequest
+from simple_module_inertia.protocol.request import InertiaRequest
 
 
 def test_a_plain_browser_request_is_not_inertia() -> None:

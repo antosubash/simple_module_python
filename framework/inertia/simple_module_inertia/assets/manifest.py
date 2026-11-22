@@ -16,7 +16,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from simple_module_inertia.config import InertiaConfig
+from simple_module_inertia.protocol.config import InertiaConfig
 
 
 @dataclass

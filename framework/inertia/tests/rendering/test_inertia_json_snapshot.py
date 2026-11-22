@@ -5,16 +5,16 @@ from datetime import UTC, datetime
 
 import pytest
 from jinja2.utils import htmlsafe_json_dumps
-from simple_module_inertia._json_snapshot import (
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.protocol.response import json_response
+from simple_module_inertia.rendering._json_snapshot import (
     _HTML_ENCODER,
     _RESPONSE_ENCODER,
     JsonSnapshot,
     dumps,
 )
-from simple_module_inertia.page import _is_plain_json, build_page, encode_page
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
-from simple_module_inertia.response import json_response
+from simple_module_inertia.rendering.page import _is_plain_json, build_page, encode_page
+from simple_module_inertia.rendering.resolve import resolve_props
 from starlette.responses import JSONResponse
 
 

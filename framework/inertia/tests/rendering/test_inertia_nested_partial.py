@@ -1,9 +1,9 @@
 """Dotted partial paths filter plain dictionaries before evaluation (#772)."""
 
 import pytest
-from simple_module_inertia.props import always, defer, merge, once, optional
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.rendering.props import always, defer, merge, once, optional
+from simple_module_inertia.rendering.resolve import resolve_props
 
 
 def request():

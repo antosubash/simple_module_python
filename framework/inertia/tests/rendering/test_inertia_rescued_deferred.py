@@ -3,10 +3,10 @@
 import logging
 
 import pytest
-from simple_module_inertia.page import build_page
-from simple_module_inertia.props import defer, merge, once
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.rendering.page import build_page
+from simple_module_inertia.rendering.props import defer, merge, once
+from simple_module_inertia.rendering.resolve import resolve_props
 
 
 def broken():
@@ -44,7 +44,7 @@ async def test_rescued_failure_logs_exception(caplog):
     with caplog.at_level(logging.ERROR):
         await resolve_props({"analytics": defer(broken, rescue=True)}, {}, "Page", request())
     assert any(
-        record.name == "simple_module_inertia.resolve"
+        record.name == "simple_module_inertia.rendering.resolve"
         and record.exc_info
         and "analytics backend down" in str(record.exc_info[1])
         for record in caplog.records

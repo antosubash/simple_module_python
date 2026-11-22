@@ -6,8 +6,8 @@ import json
 
 import pytest
 from fastapi.templating import Jinja2Templates
-from simple_module_inertia.config import InertiaConfig
-from simple_module_inertia.manifest import entry_assets, read_manifest
+from simple_module_inertia.assets.manifest import entry_assets, read_manifest
+from simple_module_inertia.protocol.config import InertiaConfig
 
 
 def _manifest(tmp_path, entries: dict) -> str:

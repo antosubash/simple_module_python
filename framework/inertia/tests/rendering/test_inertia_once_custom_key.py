@@ -1,9 +1,9 @@
 """Once exclusions use the announced cache key (#694)."""
 
 import pytest
-from simple_module_inertia.props import once
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.rendering.props import once
+from simple_module_inertia.rendering.resolve import resolve_props
 
 
 async def test_custom_once_key_exclusion_skips_loader_and_value():
