@@ -39,6 +39,10 @@ class TestSafeRefererBasics:
     def test_empty_string_referer_returns_root(self) -> None:
         assert safe_referer_or_root(_make_request(referer="")) == "/"
 
+    @pytest.mark.parametrize("referer", ["http://[", "//[", "http://[invalid]/"])
+    def test_malformed_referer_returns_root(self, referer: str) -> None:
+        assert safe_referer_or_root(_make_request(referer=referer)) == "/"
+
     def test_same_origin_relative_path_preserved(self) -> None:
         assert safe_referer_or_root(_make_request(referer="/dashboard")) == "/dashboard"
 

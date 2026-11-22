@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -117,21 +118,40 @@ def test_healthcheck_shell_only_pings_workers(tmp_path, role, ping_status):
 
 
 @pytest.mark.parametrize("role", ["worker", "beat"])
-def test_compose_uses_one_redis_url_and_direct_celery_commands(monkeypatch, role):
-    from background_tasks.core.settings import BackgroundTasksSettings
-
+def test_compose_uses_direct_celery_commands(role):
     service = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"][role]
     environment = service["environment"]
     assert environment["SM_REDIS_URL"] == "redis://redis:6379/4"
-    assert "SM_BG_TASKS_BROKER_URL" not in environment
-    assert "SM_BG_TASKS_RESULT_BACKEND" not in environment
     assert service["command"][:4] == ["celery", "-A", "scripts.run_worker:celery", role]
     assert "appdata:/app/data" in service["volumes"]
 
-    # Container environment must win cleanly over a host-style SM_REDIS_URL and resolve cleanly.
-    monkeypatch.setenv("SM_REDIS_URL", environment["SM_REDIS_URL"])
-    monkeypatch.delenv("SM_BG_TASKS_BROKER_URL", raising=False)
-    monkeypatch.delenv("SM_BG_TASKS_RESULT_BACKEND", raising=False)
+
+@pytest.mark.parametrize("role", ["worker", "beat"])
+@pytest.mark.parametrize("legacy_source", ["unset", "env_file", "process"])
+def test_compose_redis_overrides_legacy_localhost_urls(monkeypatch, tmp_path, role, legacy_source):
+    from background_tasks.core.settings import BackgroundTasksSettings
+
+    service = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"][role]
+    host_environment = {"SM_REDIS_URL": "redis://localhost:6379/4"}
+    legacy_environment = {
+        "SM_BG_TASKS_BROKER_URL": "redis://localhost:6379/4",
+        "SM_BG_TASKS_RESULT_BACKEND": "redis://localhost:6379/4",
+    }
+    for key in legacy_environment:
+        monkeypatch.delenv(key, raising=False)
+    if legacy_source == "env_file":
+        host_environment.update(legacy_environment)
+    elif legacy_source == "process":
+        for key, value in legacy_environment.items():
+            monkeypatch.setenv(key, value)
+
+    env_file = tmp_path / service["env_file"][0]["path"]
+    env_file.write_text("".join(f"{key}={value}\n" for key, value in host_environment.items()))
+    # Apply Compose's environment-over-env_file precedence before resolving settings.
+    container_environment = {**dotenv_values(env_file), **service["environment"]}
+    for key, value in container_environment.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("SM_ENVIRONMENT", "production")
     settings = BackgroundTasksSettings()
     assert settings.broker_url == "redis://redis:6379/4"
     assert settings.result_backend == "redis://redis:6379/4"
