@@ -34,6 +34,7 @@ async def test_setup_tokens_survive_restart_and_workers_converge(
         monkeypatch.delenv(env, raising=False)
     if explicit_root:
         monkeypatch.setenv("SM_SECRET_KEY", "explicit-root")
+    (tmp_path / "templates").mkdir()
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     database = tmp_path / "fresh.db"
     url = f"sqlite+aiosqlite:///{database}"

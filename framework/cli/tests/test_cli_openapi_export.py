@@ -56,6 +56,7 @@ def test_openapi_host_settings_warning(
     elif state == "unreachable":
         url = "postgresql+asyncpg://nobody:nobody@127.0.0.1:1/nothing"
 
+    (tmp_path / "templates").mkdir()
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("SM_DATABASE_URL", url)
