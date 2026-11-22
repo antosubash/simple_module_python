@@ -10,6 +10,7 @@ from contextlib import suppress
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_POLL_SECONDS = 0.02
 
 
 async def _noop() -> None:
@@ -61,19 +62,35 @@ def _close_selector_socket(target: Any, transport: Any, loop: Any) -> None:
         transport._closed = True
 
 
-async def _abort_on_running_loop(loop: Any, transport: Any) -> None:
+async def _abort_on_running_loop(loop: Any, transport: Any) -> bool:
     done: Future[None] = Future()
 
     def run_abort() -> None:
+        if not done.set_running_or_notify_cancel():
+            return
         try:
             transport.abort()
         finally:
             if not done.done():
                 done.set_result(None)
 
-    with suppress(RuntimeError):
+    try:
         loop.call_soon_threadsafe(run_abort)
-        await asyncio.wrap_future(done)
+    except RuntimeError:
+        return False
+    wrapped = asyncio.wrap_future(done)
+    wrapped.add_done_callback(lambda future: None if future.cancelled() else future.exception())
+    try:
+        while not wrapped.done():
+            await asyncio.wait({wrapped}, timeout=_POLL_SECONDS)
+            if done.done():
+                break
+            if (loop.is_closed() or not loop.is_running()) and done.cancel():
+                return False
+    except asyncio.CancelledError:
+        done.cancel()
+        raise
+    return not done.cancelled()
 
 
 async def _abort_transport(transport: Any, *, owner_loop: Any = None, forked: bool = False) -> None:
@@ -105,9 +122,9 @@ async def _abort_transport(transport: Any, *, owner_loop: Any = None, forked: bo
         return
 
     loop = getattr(target, "_loop", None) or owner_loop
-    if loop is not None and not loop.is_closed() and loop.is_running():
-        await _abort_on_running_loop(loop, transport)
-        return
+    while loop is not None and not loop.is_closed() and loop.is_running():
+        if await _abort_on_running_loop(loop, transport):
+            return
     if hasattr(target, "_sock"):
         _close_selector_socket(target, transport, loop)
         return

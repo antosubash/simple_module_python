@@ -219,3 +219,61 @@ def test_stopped_owner_real_redis_transport_retires_socket_and_resumes_cleanly(
 )
 def test_real_fork_closes_child_fd_without_breaking_parent_selector(mode):
     run_fork_probe(_FORK_PROBE, mode)
+
+
+def test_owner_resumes_then_stops_before_abort_runs_still_closes_socket():
+    from threading import Event, Thread
+
+    backend, _created, attach_stream, s1, s2 = _pooled_socket_backend()
+    owner = asyncio.new_event_loop()
+    loop_errors = []
+    owner.set_exception_handler(lambda loop, ctx: loop_errors.append(ctx))
+    block_entered, release_blocker = Event(), Event()
+    thread = None
+
+    def block_in_owner():
+        block_entered.set()
+        assert release_blocker.wait(3)
+
+    async def exercise():
+        nonlocal thread
+        current = asyncio.get_running_loop()
+        abort_queued = asyncio.Event()
+        orig_call_soon = owner.call_soon_threadsafe
+
+        def intercept_abort(*args, **kwargs):
+            handle = orig_call_soon(*args, **kwargs)
+            if args and getattr(args[0], "__name__", None) == "run_abort":
+                current.call_soon_threadsafe(abort_queued.set)
+            return handle
+
+        owner.call_soon_threadsafe = intercept_abort
+        close_task = asyncio.create_task(backend.aclose())
+        await asyncio.sleep(0)  # allow aclose() to pick stopped owner's fallback host
+        owner.call_soon(block_in_owner)
+        thread = Thread(
+            target=lambda: (asyncio.set_event_loop(owner), owner.run_forever()), daemon=True
+        )
+        thread.start()
+        assert block_entered.wait(2)
+        await asyncio.wait_for(abort_queued.wait(), 2)
+        owner.stop()
+        release_blocker.set()
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+        await asyncio.wait_for(close_task, 2)
+
+    try:
+        owner.run_until_complete(attach_stream())
+        asyncio.run(exercise())
+        assert backend._records == []
+        assert s1.fileno() == -1
+        owner.run_until_complete(asyncio.sleep(0))
+        assert loop_errors == []
+    finally:
+        release_blocker.set()
+        if thread is not None and thread.is_alive():
+            owner.call_soon_threadsafe(owner.stop)
+            thread.join(timeout=2)
+        owner.close()
+        s2.close()
