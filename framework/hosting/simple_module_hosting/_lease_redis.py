@@ -1,16 +1,8 @@
 """Redis :class:`~simple_module_core.leases.LeaseBackend` (GH #539).
 
-* A lease is ``SET key token NX PX ttl``; refresh and release are Lua scripts
-  that compare the stored token first, so only the live owner can touch it —
-  an expired key is simply gone.
-* A semaphore is a sorted set of tokens scored by expiry in milliseconds of
-  Redis' own ``TIME`` (never this process's clock); every attempt first drops
-  members whose score has passed, then admits while ``ZCARD < slots``.
-* ``INCR <key>:fence`` hands out the fencing token, inside the same script.
-
-There is no per-process fallback: unavailable Redis cannot confirm a lease.
-Acquire connectivity errors become ConnectionError for the lease handle;
-release connectivity errors are logged and return False. Refresh errors propagate.
+A lease uses ``SET key token NX PX ttl`` with token-checked Lua scripts;
+a semaphore uses a sorted set scored by Redis ``TIME``. Unavailable Redis raises
+ConnectionError on acquire, logs/returns False on release, and propagates refresh.
 """
 
 from __future__ import annotations
@@ -24,15 +16,8 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import Any
 
+from simple_module_hosting import _lease_redis_scripts as _scripts
 from simple_module_hosting._lease_redis_close import close_redis_client
-from simple_module_hosting._lease_redis_scripts import (
-    _ACQUIRE,
-    _REFRESH,
-    _RELEASE,
-    _SEM_ACQUIRE,
-    _SEM_REFRESH,
-    _SEM_RELEASE,
-)
 
 logger = logging.getLogger(__name__)
 _SOCKET_TIMEOUT = 2.0
@@ -63,6 +48,25 @@ class _ClientRecord:
     close_pid: int | None = None
 
 
+_BACKENDS: set[weakref.ref[RedisLeaseBackend]] = set()
+
+
+def _reset_forked_backends() -> None:
+    pid = os.getpid()
+    for ref in tuple(_BACKENDS):
+        backend = ref()
+        if backend is None:
+            continue
+        backend._lock = threading.Lock()
+        backend._records = [r for r in backend._records if not r.closed]
+        for record in backend._records:
+            backend._discard_forked_close_locked(record, pid)
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_forked_backends)
+
+
 class RedisLeaseBackend:
     """Leases shared by every process on one Redis.
 
@@ -76,6 +80,7 @@ class RedisLeaseBackend:
         self._factory = factory
         self._lock = threading.Lock()
         self._records: list[_ClientRecord] = []
+        _BACKENDS.add(weakref.ref(self, _BACKENDS.discard))
 
     def _new_client(self) -> Any:
         if self._factory is not None:
@@ -144,8 +149,9 @@ class RedisLeaseBackend:
             cf.set_exception(exc) if exc is not None else cf.set_result(None)
 
     @staticmethod
-    def _discard_forked_close_locked(record: _ClientRecord) -> None:
-        if record.close_pid is not None and record.close_pid != os.getpid():
+    def _discard_forked_close_locked(record: _ClientRecord, pid: int | None = None) -> None:
+        current_pid = os.getpid() if pid is None else pid
+        if record.close_pid is not None and record.close_pid != current_pid:
             record.closing = False
             record.future = record.host_ref = record.task = record.close_pid = None
 
@@ -202,12 +208,8 @@ class RedisLeaseBackend:
                 return record.closed
         wrapped = asyncio.wrap_future(cf)
 
-        def consume_error(done: asyncio.Future[None]) -> None:
-            if not done.cancelled():
-                done.exception()
-
         # A cancelled waiter may leave before the shared close eventually fails.
-        wrapped.add_done_callback(consume_error)
+        wrapped.add_done_callback(lambda done: None if done.cancelled() else done.exception())
         while not wrapped.done():
             # Neither a timeout nor cancellation of this waiter cancels the shared close.
             await asyncio.wait({wrapped}, timeout=_CROSS_LOOP_POLL_SECONDS)
@@ -244,14 +246,8 @@ class RedisLeaseBackend:
             records = [record for record in self._records if not record.closed]
             for record in records:
                 owner = record.loop_ref()
-                host = (
-                    owner
-                    if record.pid == pid
-                    and owner is not None
-                    and not owner.is_closed()
-                    and owner.is_running()
-                    else current
-                )
+                live = record.pid == pid and owner is not None and not owner.is_closed()
+                host = owner if live and owner.is_running() else current
                 try:
                     self._start_close(record, host)
                 except RuntimeError:
@@ -268,29 +264,30 @@ class RedisLeaseBackend:
         try:
             return int(await self._redis().eval(script, len(keys), *keys, *args))
         except (RedisConnectionError, RedisTimeoutError) as exc:
-            if script in (_ACQUIRE, _SEM_ACQUIRE):
+            if script in (_scripts._ACQUIRE, _scripts._SEM_ACQUIRE):
                 raise ConnectionError("Redis lease acquire unavailable") from exc
-            if script not in (_RELEASE, _SEM_RELEASE):
+            if script not in (_scripts._RELEASE, _scripts._SEM_RELEASE):
                 raise
             logger.warning("Redis lease release unavailable (%s)", type(exc).__name__)
             return 0
 
     async def acquire(self, name: str, token: str, ttl: float) -> int | None:
         keys = [_HOLDER_PREFIX + name, _FENCE_PREFIX + name]
-        return await self._eval(_ACQUIRE, keys, token, _ms(ttl)) or None
+        return await self._eval(_scripts._ACQUIRE, keys, token, _ms(ttl)) or None
 
     async def refresh(self, name: str, token: str, ttl: float) -> bool:
-        return bool(await self._eval(_REFRESH, [_HOLDER_PREFIX + name], token, _ms(ttl)))
+        return bool(await self._eval(_scripts._REFRESH, [_HOLDER_PREFIX + name], token, _ms(ttl)))
 
     async def release(self, name: str, token: str) -> bool:
-        return bool(await self._eval(_RELEASE, [_HOLDER_PREFIX + name], token))
+        return bool(await self._eval(_scripts._RELEASE, [_HOLDER_PREFIX + name], token))
 
     async def semaphore_acquire(self, name: str, token: str, slots: int, ttl: float) -> int | None:
         keys = [_SEM_HOLDER_PREFIX + name, _SEM_FENCE_PREFIX + name]
-        return await self._eval(_SEM_ACQUIRE, keys, token, slots, _ms(ttl)) or None
+        return await self._eval(_scripts._SEM_ACQUIRE, keys, token, slots, _ms(ttl)) or None
 
     async def semaphore_refresh(self, name: str, token: str, ttl: float) -> bool:
-        return bool(await self._eval(_SEM_REFRESH, [_SEM_HOLDER_PREFIX + name], token, _ms(ttl)))
+        k = [_SEM_HOLDER_PREFIX + name]
+        return bool(await self._eval(_scripts._SEM_REFRESH, k, token, _ms(ttl)))
 
     async def semaphore_release(self, name: str, token: str) -> bool:
-        return bool(await self._eval(_SEM_RELEASE, [_SEM_HOLDER_PREFIX + name], token))
+        return bool(await self._eval(_scripts._SEM_RELEASE, [_SEM_HOLDER_PREFIX + name], token))

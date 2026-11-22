@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
 import threading
 import time
@@ -90,6 +91,15 @@ class LeaseBackend(Protocol):
 _backend: LeaseBackend = InProcessLeaseBackend()
 _lock = threading.RLock()
 _listeners: set[Callable[[LeaseBackend], None]] = set()
+
+
+def _reset_after_fork() -> None:
+    global _lock
+    _lock = threading.RLock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_after_fork)
 
 
 def _add_lease_listener(cb: Callable[[LeaseBackend], None]) -> None:

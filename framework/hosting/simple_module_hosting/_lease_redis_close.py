@@ -90,22 +90,14 @@ async def _abort_transport(transport: Any, *, owner_loop: Any = None, forked: bo
         fd = _transport_fileno(target)
         if fd < 0:
             fd = _transport_fileno(transport)
-        if fd >= 0:
+        if fd >= 0 and _fd_open(fd):
+            devnull = os.open(os.devnull, os.O_RDWR | getattr(os, "O_CLOEXEC", 0))
             try:
-                devnull = os.open(os.devnull, os.O_RDWR)
-            except OSError:
-                with suppress(OSError):
-                    os.close(fd)
-            else:
-                try:
-                    os.dup2(devnull, fd, inheritable=False)
-                except OSError:
+                os.dup2(devnull, fd, inheritable=False)
+            finally:
+                if devnull != fd:
                     with suppress(OSError):
-                        os.close(fd)
-                finally:
-                    if devnull != fd:
-                        with suppress(OSError):
-                            os.close(devnull)
+                        os.close(devnull)
         return
 
     loop = getattr(target, "_loop", None) or owner_loop

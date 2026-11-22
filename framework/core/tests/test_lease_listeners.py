@@ -1,5 +1,7 @@
 """Lifespan observers see backend replacements without changing public exports."""
 
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from simple_module_core.leases import (
@@ -76,3 +78,51 @@ def test_listener_can_read_and_replace_backend_during_notification():
         assert get_leases() is final
     finally:
         _remove_lease_listener(listener)
+
+
+def test_fork_while_listener_holds_lock_resets_child_lock():
+    probe = """
+import os, signal, threading
+from simple_module_core.leases import (
+    InProcessLeaseBackend,
+    _add_lease_listener,
+    _remove_lease_listener,
+    configure_leases,
+    get_leases,
+)
+
+held, release = threading.Event(), threading.Event()
+seen = []
+
+def slow_listener(_backend):
+    held.set()
+    release.wait(3)
+
+_add_lease_listener(slow_listener)
+thread = threading.Thread(target=configure_leases, args=(InProcessLeaseBackend(),))
+thread.start()
+assert held.wait(2)
+
+pid = os.fork()
+if pid == 0:
+    signal.alarm(2)
+    code = 1
+    try:
+        _remove_lease_listener(slow_listener)
+        _add_lease_listener(seen.append)
+        configure_leases(None)
+        assert seen == [get_leases()]
+        code = 0
+    except BaseException:
+        import traceback
+
+        traceback.print_exc()
+    finally:
+        os._exit(code)
+
+release.set()
+thread.join(timeout=2)
+_, status = os.waitpid(pid, 0)
+assert os.waitstatus_to_exitcode(status) == 0
+"""
+    subprocess.run([sys.executable, "-c", probe], check=True, timeout=10)

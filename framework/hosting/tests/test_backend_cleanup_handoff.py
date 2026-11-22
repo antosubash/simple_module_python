@@ -183,3 +183,56 @@ loop.close()
 
 def test_fork_with_in_flight_parent_close_runs_child_cleanup():
     subprocess.run([sys.executable, "-c", _FORK_IN_FLIGHT_PROBE], check=True, timeout=15)
+
+
+_FORK_HELD_LOCK_PROBE = """
+import asyncio, os, signal, threading
+from simple_module_hosting._lease_redis import RedisLeaseBackend
+
+closed = []
+
+class SimpleClient:
+    async def eval(self, *_args):
+        return 1
+
+    async def aclose(self):
+        closed.append(os.getpid())
+
+backend = RedisLeaseBackend("redis://localhost:6379/0", factory=SimpleClient)
+asyncio.run(backend.acquire("k", "owner", 10))
+held, release = threading.Event(), threading.Event()
+
+def hold():
+    with backend._lock:
+        held.set()
+        release.wait(3)
+
+thread = threading.Thread(target=hold)
+thread.start()
+assert held.wait(2)
+
+pid = os.fork()
+if pid == 0:
+    signal.alarm(2)
+    code = 1
+    try:
+        asyncio.run(asyncio.wait_for(backend.aclose(), 1.5))
+        assert closed == [os.getpid()], closed
+        assert backend._records == [], backend._records
+        code = 0
+    except BaseException:
+        import traceback
+
+        traceback.print_exc()
+    finally:
+        os._exit(code)
+
+release.set()
+thread.join(timeout=2)
+_, status = os.waitpid(pid, 0)
+assert os.waitstatus_to_exitcode(status) == 0
+"""
+
+
+def test_fork_while_another_thread_holds_backend_lock_runs_child_cleanup():
+    subprocess.run([sys.executable, "-c", _FORK_HELD_LOCK_PROBE], check=True, timeout=10)
