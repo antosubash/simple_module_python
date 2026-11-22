@@ -90,3 +90,23 @@ async def test_get_range_missing_raises_not_found(tmp_path):
     backend = FilesystemBackend(root=tmp_path)
     with pytest.raises(StorageNotFoundError):
         await backend.get_range("missing/key", 0, 1)
+
+
+@pytest.mark.parametrize("bad_key", ["", ".", "..abc", "a\\b", "a\x00b", "ab/../../escape"])
+async def test_bad_keys_rejected_canonically(tmp_path, bad_key):
+    backend = FilesystemBackend(root=tmp_path)
+    with pytest.raises(StorageBackendError):
+        await backend.put(bad_key, _bytes_stream(b"x"), content_type="text/plain", size=1)
+
+
+async def test_symlink_escape_rejected(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = tmp_path / "root"
+    (root / "ab" / "ab").mkdir(parents=True)
+    (root / "ab" / "ab" / "escape").symlink_to(outside)
+    backend = FilesystemBackend(root=root)
+    with pytest.raises(StorageBackendError):
+        await backend.put(
+            "ab/escape/pwn.txt", _bytes_stream(b"x"), content_type="text/plain", size=1
+        )

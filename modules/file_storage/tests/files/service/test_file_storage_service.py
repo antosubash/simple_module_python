@@ -207,4 +207,18 @@ async def _drain(stream: AsyncIterator[bytes]) -> bytes:
     return out
 
 
+def test_generate_key_sanitizes_suffix() -> None:
+    from file_storage.files.service import generate_key
+
+    assert "\x00" not in generate_key("t1", "a.png\x00")
+    assert generate_key("t1", "a.png").endswith(".png")
+    ext16 = "." + "x" * 16
+    assert generate_key("t1", "a" + ext16).endswith(ext16)
+    ext17_key = generate_key("t1", "a." + "x" * 17)
+    assert len(ext17_key.rsplit("/", 1)[-1]) == 32
+    long_key = generate_key("t1", "a." + "x" * 240)
+    assert len(long_key.rsplit("/", 1)[-1]) == 32
+    assert generate_key("t1", "a.tar.gz").endswith(".gz")
+
+
 _unused: Any = None

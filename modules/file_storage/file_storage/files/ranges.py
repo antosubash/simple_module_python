@@ -19,6 +19,7 @@ from fastapi.responses import StreamingResponse
 
 from file_storage.backends.guard import require_backend
 from file_storage.contracts.service import StorageBackend
+from file_storage.files.media_types import safe_media_type
 from file_storage.models import StoredFile
 
 # 19 digits bounds every value below 2**63; longer numbers are treated as
@@ -107,7 +108,7 @@ async def file_body_response(
     if parsed is None:
         body = await backend.get(row.key)
         out["Content-Length"] = str(size)
-        return StreamingResponse(body, media_type=row.content_type, headers=out)
+        return StreamingResponse(body, media_type=safe_media_type(row.content_type), headers=out)
 
     if parsed == UNSATISFIABLE:
         out["Content-Range"] = f"bytes */{size}"
@@ -123,6 +124,6 @@ async def file_body_response(
     return StreamingResponse(
         ranged,
         status_code=status.HTTP_206_PARTIAL_CONTENT,
-        media_type=row.content_type,
+        media_type=safe_media_type(row.content_type),
         headers=out,
     )

@@ -8,6 +8,7 @@ longer depends on the ``settings`` plugin being installed or enabled.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Final, get_args, get_origin
 from urllib.parse import urlsplit
@@ -91,6 +92,40 @@ def is_named_secret(name: str, value_type: str | None = None) -> bool:
     return is_secret_field(name)
 
 
+def _value_holds_secret(value: Any, *, decode_json: bool = False) -> bool:
+    """True when *value* holds embedded credentials or secret dict keys."""
+    stack: list[tuple[Any, int]] = [(value, 3 if decode_json else 2)]
+    while stack:
+        item, decodes_left = stack.pop()
+        if isinstance(item, str):
+            if embeds_credential(item):
+                return True
+            if (decode_json and item is value) or item.lstrip()[:1] in {'"', "[", "{"}:
+                try:
+                    decoded = json.loads(item)
+                except RecursionError:
+                    return True
+                except ValueError:
+                    continue
+                if isinstance(decoded, (bool, int, float, type(None))):
+                    continue
+                if decodes_left <= 0:
+                    return True
+                stack.append((decoded, decodes_left - 1))
+        elif isinstance(item, (list, tuple, set, frozenset)):
+            stack.extend((elem, decodes_left) for elem in item)
+        elif isinstance(item, dict):
+            for k, v in item.items():
+                if (
+                    isinstance(k, str)
+                    and is_secret_field(k)
+                    and not isinstance(v, (bool, int, float, type(None)))
+                ):
+                    return True
+                stack.append((v, decodes_left))
+    return False
+
+
 def conceals_secret(name: str, value: Any, value_type: str | None = None) -> bool:
     """True if this name/value pair must be masked on the way out.
 
@@ -103,7 +138,7 @@ def conceals_secret(name: str, value: Any, value_type: str | None = None) -> boo
         name in SENSITIVE_KEYS
         or name in _TYPED_SECRET_KEYS
         or is_named_secret(name, value_type)
-        or embeds_credential(value)
+        or _value_holds_secret(value, decode_json=(value_type == "json"))
     )
 
 

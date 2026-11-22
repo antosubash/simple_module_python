@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from file_storage.backends.guard import require_backend
+from file_storage.files.media_types import safe_media_type
 
 if TYPE_CHECKING:
     from file_storage.contracts.service import StorageBackend
@@ -59,5 +60,5 @@ async def presigned_download_url(
         row.key,
         ttl_seconds,
         content_disposition=content_disposition(row.filename, attachment=attachment),
-        content_type=row.content_type,
+        content_type=safe_media_type(row.content_type),
     )

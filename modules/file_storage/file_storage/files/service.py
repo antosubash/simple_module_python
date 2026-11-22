@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -52,6 +53,7 @@ if TYPE_CHECKING:
 
 
 _logger = logging.getLogger(__name__)
+_SAFE_KEY_SUFFIX = re.compile(r"\.[A-Za-z0-9]{1,16}")
 
 
 class FileTooLargeError(Exception):
@@ -182,6 +184,8 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
         return StoredFileOut.model_validate(queries.to_out_dict(row))
 
     def _check_content_type(self, content_type: str) -> None:
+        if any(ord(c) < 0x20 or ord(c) == 0x7F for c in content_type):
+            raise ContentTypeNotAllowedError("Content-Type contains invalid control characters.")
         allowed = self.settings.allowed_content_types
         if allowed is not None and content_type not in allowed:
             raise ContentTypeNotAllowedError(f"Content-Type {content_type!r} not in allow-list.")
@@ -250,5 +254,6 @@ def generate_key(tenant_id: str, filename: str) -> str:
     cannot be ``..``, so the prefix is always exactly one path segment.
     """
     today = datetime.now(UTC)
-    suffix = Path(filename).suffix
+    raw_suffix = Path(filename).suffix
+    suffix = raw_suffix if _SAFE_KEY_SUFFIX.fullmatch(raw_suffix) else ""
     return f"{tenant_id}/{today:%Y/%m/%d}/{uuid.uuid4().hex}{suffix}"

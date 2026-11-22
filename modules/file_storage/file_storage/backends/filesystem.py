@@ -39,11 +39,20 @@ class FilesystemBackend(FilesystemMultipartMixin):
         self.root = root
 
     def _resolve(self, key: str) -> Path:
-        # Reject path traversal: ".." segments and absolute paths can escape root.
-        if key.startswith("/") or ".." in Path(key).parts:
+        if (
+            not key
+            or "\\" in key
+            or key.startswith("/")
+            or any(ord(c) < 0x20 or ord(c) == 0x7F for c in key)
+            or any(seg in {".", ".."} for seg in key.split("/"))
+        ):
             raise StorageBackendError(f"Invalid storage key: {key!r}")
+        root = self.root.resolve()
         shard = key[:2] if len(key) >= 2 else "_"
-        return self.root / shard / key
+        candidate = (root / shard / key).resolve()
+        if not candidate.is_relative_to(root) or candidate == root:
+            raise StorageBackendError(f"Invalid storage key: {key!r}")
+        return candidate
 
     async def put(
         self,

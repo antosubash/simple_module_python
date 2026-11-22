@@ -166,3 +166,52 @@ def test_lease_ownership_value_is_redacted():
         session.add(LeaseRow(name="audit", slot=0, holder="private", expires_at=datetime.now(UTC)))
         changes = collect_audit_records(session)[0].changes
         assert next(c["new"] for c in changes if c["field"] == "holder") == "[redacted]"
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "value_type", "expected"),
+    [
+        ("host.redis_url", '"redis://:secret@host/4"', "json", "[redacted]"),
+        ("custom.dsns", '["postgres://u:pw@db/app"]', "json", "[redacted]"),
+        ("custom.cfg", '{"api_key": "secret-val", "ttl": 60}', "json", "[redacted]"),
+        ("custom.cfg_nullable", '"{\\"api_key\\": \\"secret-val\\"}"', "json", "[redacted]"),
+        (
+            "custom.cfg",
+            '{"reset_password_token_lifetime_seconds": 3600}',
+            "json",
+            '{"reset_password_token_lifetime_seconds": 3600}',
+        ),
+    ],
+)
+def test_json_setting_credential_redaction(key, value, value_type, expected):
+    with Session() as session:
+        session.add(Setting(key=key, value=value, value_type=value_type))
+        record = collect_audit_records(session)[0]
+        assert next(c["new"] for c in record.changes if c["field"] == "value") == expected
+
+
+@pytest.mark.parametrize(
+    ("depth", "payload", "expected"),
+    [
+        (600, '{"api_key": "private"}', "[redacted]"),
+        (600, "1", "[" * 600 + "1" + "]" * 600),
+    ],
+)
+def test_deeply_nested_json_audit_redaction_does_not_recurse(depth, payload, expected):
+    nested = "[" * depth + payload + "]" * depth
+    with Session() as session:
+        session.add(Setting(key="custom.deep", value=nested, value_type="json"))
+        record = collect_audit_records(session)[0]
+        assert next(c["new"] for c in record.changes if c["field"] == "value") == expected
+
+
+def test_decode_budget_exhaustion_fails_closed_in_audit_redaction():
+    import json
+
+    stored_triple_wrapped = json.dumps(json.dumps(json.dumps(json.dumps({"api_key": "private"}))))
+    with Session() as session:
+        session.add(
+            Setting(key="custom.cfg_nullable", value=stored_triple_wrapped, value_type="json")
+        )
+        record = collect_audit_records(session)[0]
+        assert next(c["new"] for c in record.changes if c["field"] == "value") == "[redacted]"

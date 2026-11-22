@@ -55,7 +55,7 @@ from simple_module_db.audit import _excluded_fields, format_pk
 from simple_module_db.audit_redaction import redact_changes
 from simple_module_db.bulk_audit_targets import _is_set, _shown, _targets
 from simple_module_db.query_filter import engine_policy
-from simple_module_db.tenancy import ALL_TENANTS_OPTION
+from simple_module_db.scopes import _scopes
 
 logger = logging.getLogger(__name__)
 
@@ -149,9 +149,10 @@ def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[s
     query = select(*cols).options(*criteria).limit(cap + 1)
     if stmt.whereclause is not None:
         query = query.where(stmt.whereclause)
-    options = {"include_deleted": True}
-    if execute_state.execution_options.get(ALL_TENANTS_OPTION):
-        options[ALL_TENANTS_OPTION] = True
+    options: dict[str, Any] = {"include_deleted": True}
+    for scope in _scopes.values():
+        if execute_state.execution_options.get(scope.bypass_option):
+            options[scope.bypass_option] = True
     rows = execute_state.session.execute(
         query.execution_options(**options),
         _bound_params(

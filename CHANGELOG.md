@@ -14,6 +14,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Security
+
+- Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
+- Validate incoming `X-Correlation-ID` headers in `CorrelationIdMiddleware` for bounded length and safe token characters (#1065).
+- Reject ASCII control characters in `file_storage` media types and `branding` image normalization, preserve validated MIME parameters while falling back safely on downloads, sanitize generated storage key suffixes, and enforce canonical `is_relative_to` confinement in `FilesystemBackend._resolve` (#1069).
+
+### Fixed
+
+- Clear `_AUDIT_PENDING_KEY` before flush and on `after_soft_rollback` so rolled-back savepoints never leak phantom audit records to a subsequent flush (#1066).
+- Forward all active custom `ScopeFilter.bypass_option` flags during `bulk_audit._prefetch_ids` (#1067).
+- Honor `__audit_exclude__` when logging hard-delete events (`db.entity.deleted`) (#1068).
+
 ## [0.0.49] — 2026-11-20
 
 ### Added

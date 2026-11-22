@@ -55,7 +55,7 @@ _SIGNATURES: Final[tuple[tuple[tuple[int, bytes], ...], ...]] = (
 
 def normalize_content_type(raw: str | None) -> str:
     """Strip any ``; charset=…`` parameter and lowercase the media type."""
-    if not raw:
+    if not raw or any(ord(c) < 0x20 or ord(c) == 0x7F for c in raw):
         return ""
     return raw.split(";", 1)[0].strip().lower()
 

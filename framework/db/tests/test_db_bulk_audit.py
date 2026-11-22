@@ -191,3 +191,55 @@ async def test_broken_prefetch_never_breaks_the_write(audited, monkeypatch):
     await session.execute(
         update(AuditTestItem).values(name="ok3").execution_options(sm_audit=False)
     )
+
+
+async def test_prefetch_forwards_custom_scope_bypass_options(audited):
+    from contextvars import ContextVar
+
+    from simple_module_db.scopes import ScopeFilter, _scopes, register_scope
+    from sqlmodel import Field, SQLModel
+
+    class CustomScopeMixin:
+        ws_id: str
+
+    class ScopedAuditRow(CustomScopeMixin, SQLModel, table=True):
+        __tablename__ = "test_bulk_audit_custom_scope"
+        id: int | None = Field(default=None, primary_key=True)
+        ws_id: str
+        val: str
+
+    ws_var: ContextVar[str | None] = ContextVar("test_bulk_audit_ws", default=None)
+    scope = ScopeFilter(
+        name="test_bulk_audit_ws",
+        applies_to=CustomScopeMixin,
+        criteria=lambda target, ctx: (
+            target.ws_id == ctx if hasattr(target, "ws_id") else target.c.ws_id == ctx
+        ),
+        context=ws_var,
+        bypass_option="all_test_bulk_ws",
+        column="ws_id",
+    )
+    register_scope(scope)
+    _state, session, recorder = audited
+    try:
+        conn = await session.connection()
+        await conn.run_sync(ScopedAuditRow.__table__.create, checkfirst=True)
+        for ws in ("w1", "w2"):
+            tok = ws_var.set(ws)
+            try:
+                session.add(ScopedAuditRow(ws_id=ws, val="old"))
+                await session.flush()
+            finally:
+                ws_var.reset(tok)
+        recorder.records.clear()
+        tok = ws_var.set("w1")
+        try:
+            await session.execute(
+                update(ScopedAuditRow).values(val="new").execution_options(all_test_bulk_ws=True)
+            )
+        finally:
+            ws_var.reset(tok)
+        assert len(recorder.records) == 2
+        assert sorted(r.entity_id for r in recorder.records) == ["1", "2"]
+    finally:
+        _scopes.pop("test_bulk_audit_ws", None)
