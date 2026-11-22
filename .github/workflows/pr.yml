@@ -85,7 +85,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -129,7 +129,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -159,7 +159,7 @@ jobs:
       SM_TEST_REDIS_URL: redis://127.0.0.1:6379/0
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -225,7 +225,7 @@ jobs:
           cache: "npm"
       # Need uv too — pages.ts imports ./modules.generated, which is
       # produced by `smpy gen-pages` from the installed Python modules.
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -248,7 +248,7 @@ jobs:
           cache: "npm"
       # gen-pages needs the Python modules installed so Vite's import.meta.glob
       # sees every module's pages/ dir — which is how dep-scan failures surface.
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -287,7 +287,7 @@ jobs:
       SM_MIGRATIONS_PG_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/sm_migrations_check
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -302,7 +302,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -346,7 +346,7 @@ jobs:
       E2E_BASE_URL: http://localhost:8000
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -427,7 +427,7 @@ jobs:
       PERF_BUILD: ci-prod
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -499,7 +499,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -518,7 +518,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
