@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 
 class AuditLogSettings(DbBackedSettings):

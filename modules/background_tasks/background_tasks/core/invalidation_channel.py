@@ -1,6 +1,6 @@
 """Default installation channel and the temporary rolling-upgrade bridge."""
 
-from simple_module_core.deprecation import deprecate
+from simple_module_core.runtime.deprecation import deprecate
 
 from background_tasks.core.constants import DEFAULT_INVALIDATION_CHANNEL
 

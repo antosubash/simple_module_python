@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.user_directory import get_user_directory
 from simple_module_db.deps import get_db
 from simple_module_db.pagination import PageParams, clamp_page
 from simple_module_hosting.inertia_deps import InertiaDep

@@ -18,9 +18,9 @@ from settings.core.services import SettingsServices
 from settings.core.settings import SettingsSettings
 from settings.module_settings.reload import EnvPinnedError, apply_changes_and_reload
 from settings.module_settings.store import SettingsStore
-from simple_module_core.events import EventBus
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.settings_hydrate import env_supplied_fields
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.settings.settings_hydrate import env_supplied_fields
 
 
 class _Cfg(BaseSettings):

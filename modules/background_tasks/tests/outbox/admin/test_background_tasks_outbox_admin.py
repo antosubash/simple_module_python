@@ -13,8 +13,8 @@ from background_tasks.models import OutboxMessage
 from background_tasks.outbox.claim import OutboxPolicy
 from background_tasks.outbox.dispatch import dispatch
 from simple_module_core import DurableContext
-from simple_module_core.durable_events import event_key, serialize_event
-from simple_module_core.events import Event
+from simple_module_core.eventing.durable_events import event_key, serialize_event
+from simple_module_core.eventing.events import Event
 from sqlalchemy import event
 
 API = "/api/background_tasks/admin/outbox"

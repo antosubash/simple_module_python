@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
-from simple_module_core.spa_mount import SpaMount
+from simple_module_core.web.spa_mount import SpaMount
 from simple_module_hosting import app_builder
 from simple_module_test import inertia_page
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_core.durable_events import DurableContext
+from simple_module_core.eventing.durable_events import DurableContext
 from simple_module_db import all_tenants
 from sqlmodel import col, delete
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from simple_module_core.tenancy import is_tenant_role
+from simple_module_core.access.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 
 logger = logging.getLogger(__name__)

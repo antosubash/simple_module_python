@@ -9,7 +9,7 @@ an admin which role to edit if they want the permission gone.
 from __future__ import annotations
 
 from permissions.core.service import PermissionService
-from simple_module_core.permissions import WILDCARD, PermissionRegistry
+from simple_module_core.access.permissions import WILDCARD, PermissionRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.core.directory import UsersDirectory
 

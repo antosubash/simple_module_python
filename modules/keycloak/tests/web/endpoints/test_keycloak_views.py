@@ -121,7 +121,7 @@ class TestLoggedOutPage:
 class TestPublicPaths:
     def test_provider_exempts_the_signed_out_route(self):
         from keycloak.module import KeycloakModule
-        from simple_module_core.public_routes import PublicRouteRegistry
+        from simple_module_core.web.public_routes import PublicRouteRegistry
 
         registry = PublicRouteRegistry()
         KeycloakModule().register_public_routes(registry)

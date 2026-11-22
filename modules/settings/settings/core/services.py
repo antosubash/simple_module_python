@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from simple_module_core.module_settings import ModuleSettingsRegistry
+from simple_module_core.settings.module_settings import ModuleSettingsRegistry
 
 from settings.contracts.registry import SettingsRegistry
 from settings.core.settings import SettingsSettings
@@ -28,7 +28,7 @@ class SettingsServices:
     declared defaults.
 
     ``module_registry`` is the framework's registry of per-module
-    ``BaseSettings`` classes (``simple_module_core.module_settings``), the
+    ``BaseSettings`` classes (``simple_module_core.settings.module_settings``), the
     same object the hosting lifespan hydrates from the DB before
     ``on_startup`` runs.
     """

@@ -18,7 +18,7 @@ You usually don't install this directly — it's pulled in by `simple_module_hos
 - `ModuleMeta` — required `meta = ModuleMeta(name=..., depends_on=...)` attribute on each module.
 - `discover_modules()` — loads all `[project.entry-points.simple_module]` modules, topologically sorts by `depends_on`.
 - Diagnostic registry — `SM001` missing meta, `SM003` orphan page, `SM008` duplicate name, `SM009` framework→plugin coupling violation, and the rest of the `SM0xx` set through `SM025`.
-- Tenant-role vocabulary (`simple_module_core.tenancy`) — `TenantRole`, `TENANT_ROLE_PREFIX`, `tenant_role()`, so any module can map `tenant:<role>` onto its permissions without depending on `tenants`.
+- Tenant-role vocabulary (`simple_module_core.access.tenancy`) — `TenantRole`, `TENANT_ROLE_PREFIX`, `tenant_role()`, so any module can map `tenant:<role>` onto its permissions without depending on `tenants`.
 - Tiny event-bus (`pyee`) for decoupled module-to-module communication.
 
 ## Usage

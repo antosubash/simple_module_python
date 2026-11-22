@@ -8,8 +8,12 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
-from simple_module_core.role_directory import NullRoleDirectory, RoleDirectory, get_role_directory
-from simple_module_core.user_directory import DirectoryUser, NullUserDirectory, UserDirectory
+from simple_module_core.access.role_directory import (
+    NullRoleDirectory,
+    RoleDirectory,
+    get_role_directory,
+)
+from simple_module_core.access.user_directory import DirectoryUser, NullUserDirectory, UserDirectory
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -27,7 +31,7 @@ from permissions.core.write_safety import check_permission_write
 from permissions.models import RolePermission, UserPermission
 
 if TYPE_CHECKING:
-    from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.access.permissions import PermissionRegistry
 
 
 def _user_out(user: DirectoryUser) -> UserOut:

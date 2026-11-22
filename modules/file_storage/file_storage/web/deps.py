@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from fastapi import Depends, Request
-from simple_module_core.events import EventBus
-from simple_module_core.file_access import file_access_policies
-from simple_module_core.permissions import grants
+from simple_module_core.access.file_access import file_access_policies
+from simple_module_core.access.permissions import grants
+from simple_module_core.eventing.events import EventBus
 from simple_module_db.deps import get_db
 from simple_module_db.listeners import current_user_id
 from simple_module_hosting.permissions import ensure_resolved_permissions

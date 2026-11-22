@@ -356,7 +356,7 @@ Modules without configuration need no settings class or `register_settings` hook
 The scaffold omits both by default; use `smpy create-module <name> --with-settings`
 (or `make new-module name=<name> ARGS=--with-settings` in this repo) to include them.
 
-For configurable modules, subclass `simple_module_core.settings_base.DbBackedSettings`
+For configurable modules, subclass `simple_module_core.settings.settings_base.DbBackedSettings`
 and call `register_module_settings(app, package, SettingsCls, services_factory)`
 from `register_settings(app)`. The host hydrates settings from the database before
 `on_startup` and mounts the services on `app.state.<module_package_lower>`.

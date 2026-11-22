@@ -6,8 +6,8 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from simple_module_core.durable_events import DurableContext
-from simple_module_core.events import Event, EventBus
+from simple_module_core.eventing.durable_events import DurableContext
+from simple_module_core.eventing.events import Event, EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db import tenant_context
 from sqlmodel import col, delete, select

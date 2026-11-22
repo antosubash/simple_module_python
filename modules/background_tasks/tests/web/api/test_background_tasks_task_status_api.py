@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 from background_tasks.core.constants import TaskStatus
-from simple_module_core.tenancy import TenantRole
+from simple_module_core.access.tenancy import TenantRole
 
 URL = "/api/background_tasks/tasks/{}/status"
 SECRETS = {"args", "kwargs", "result", "traceback", "owner_user_id", "tenant_id"}

@@ -16,8 +16,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from settings.core.service import SettingService
 from settings.module_settings.discovery import SECRET_MASK
 from settings.module_settings.store import SettingsStore
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.secret_fields import annotation_holds_secret
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.settings.secret_fields import annotation_holds_secret
 
 PACKAGE = "typedsecret"
 URL = f"/api/settings/modules/{PACKAGE}"

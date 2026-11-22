@@ -12,7 +12,7 @@ import contextlib
 import importlib
 from functools import lru_cache
 
-from simple_module_core.discovery import discover_modules
+from simple_module_core.modules.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 
 

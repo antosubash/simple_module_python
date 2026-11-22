@@ -50,7 +50,7 @@ Test directories contain no `__init__.py` and no flat `tests/test_*.py` files; p
 
 Any old framework submodule path imported outside its owning package (in `modules/`, `host/`, or downstream `smpy_modules`) keeps a `sys.modules` alias shim at the old root location with `remove_in="0.0.52"` (`docs/framework/deprecations.md`):
 
-- Packages that depend on `simple_module_core` (`core`, `db`, `hosting`, `testing`) use `simple_module_core.deprecation.deprecated_module`.
+- Packages that depend on `simple_module_core` (`core`, `db`, `hosting`, `testing`) use `simple_module_core.runtime.deprecation.deprecated_module`.
 - Leaf packages (`inertia`, `cli`) keep zero dependency on `core` by emitting stdlib `DeprecationWarning` before aliasing `sys.modules[__name__]` and registering the expiry target via `deprecate(...)` in `_register_all()` of `host/tests/test_deprecation_expiry.py`.
 
 `host/tests/test_framework_layout.py` enforces this contract per package once removed from `LEGACY_FLAT`. `host/tests/test_deprecation_expiry.py` auto-discovers active framework alias shims and fails once the framework reaches `remove_in`.
@@ -61,7 +61,7 @@ Any old framework submodule path imported outside its owning package (in `module
 | --- | --- | ---: | ---: | --- |
 | `inertia` | `simple_module_inertia` | 1 | 0 | follows this layout |
 | `cli` | `simple_module_cli` | 2 | 0 | follows this layout |
-| `core` | `simple_module_core` | 71 | 79 | legacy flat (`LEGACY_FLAT`) |
+| `core` | `simple_module_core` | 4 | 0 | follows this layout |
 | `db` | `simple_module_db` | 56 | 78 | legacy flat (`LEGACY_FLAT`) |
 | `hosting` | `simple_module_hosting` | 109 | 177 | legacy flat (`LEGACY_FLAT`) |
 | `testing` | `simple_module_test` | 22 | 14 | legacy flat (`LEGACY_FLAT`) |

@@ -41,8 +41,12 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
-from simple_module_core.durable_events import IN_DELIVERY, DurableContext, deserialize_event
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.durable_events import (
+    IN_DELIVERY,
+    DurableContext,
+    deserialize_event,
+)
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import is_valid_tenant_id
 from simple_module_db.callbacks import discard_on_commit_callbacks, run_on_commit_callbacks
 from sqlalchemy import update

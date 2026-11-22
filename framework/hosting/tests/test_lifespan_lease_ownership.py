@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from backend_cleanup_helpers import run_fork_probe
 from fastapi import FastAPI
-from simple_module_core.leases import InProcessLeaseBackend, configure_leases, lease
+from simple_module_core.runtime.leases import InProcessLeaseBackend, configure_leases, lease
 from simple_module_hosting import _lifespan
 from simple_module_hosting.app_builder import create_app
 
@@ -124,7 +124,7 @@ import asyncio, os, signal, threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from fastapi import FastAPI
-from simple_module_core.leases import configure_leases
+from simple_module_core.runtime.leases import configure_leases
 from simple_module_hosting import _lifespan
 
 closed = []

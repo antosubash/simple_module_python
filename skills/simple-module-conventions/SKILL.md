@@ -50,7 +50,7 @@ An optional root `__main__.py` provides `python -m <package>` administration.
 ### 3. Per-module settings: `register_module_settings` → `app.state.<module>`
 
 ```python
-from simple_module_core.module_settings import register_module_settings
+from simple_module_core.settings.module_settings import register_module_settings
 
 
 class SiteLockModule(ModuleBase):
@@ -63,8 +63,8 @@ class SiteLockModule(ModuleBase):
         )
 ```
 
-- Settings are DB-backed: subclass `simple_module_core.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env. The optional host root secret is resolved before module registration; Users derives purpose-specific token keys from it, outside editable DB settings.
-- Import from the framework, not the plugin: `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers).
+- Settings are DB-backed: subclass `simple_module_core.settings.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env. The optional host root secret is resolved before module registration; Users derives purpose-specific token keys from it, outside editable DB settings.
+- Import from the framework, not the plugin: `simple_module_core.settings.module_settings`, `simple_module_core.settings.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers).
 - Shared account/invitation origins use `simple_module_hosting.public_urls.public_origin`: blank module origins inherit `host.public_base_url`; never derive emailed links from request Host. All auth providers use host cookie-security and post-login policy. Body/rate/CORS host guards reload live through immutable policy snapshots; module rules still apply.
 - Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
 - The state attribute key is the lowercase package name or the lowercased `meta.name` — the diagnostics check accepts either. For module package `auth` with `meta.name="Auth"`, `app.state.auth` works either way.
@@ -127,16 +127,16 @@ Projects using `ty` 0.0.100 should globally suppress `missing-attribute`, `missi
 
 The host CSP blocks any origin you don't declare — a font CDN or tile server your pages load from will silently fail in every host. Declare it in the hook: `registry.add("style-src", "https://rsms.me")`. Fetch directives only (never `default-src` / `base-uri` / `form-action` / `frame-ancestors`); single-token sources, validated at boot.
 
-### 11. Send mail through `simple_module_core.mail`, never SMTP directly
+### 11. Send mail through `simple_module_core.mailer.mail`, never SMTP directly
 
 Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()` (request code) or `await resolve_mail_sender(db)` (durable handlers, which run in the outbox worker without an app). With no transport installed both return a logging sender, so never guard on "is mail configured"; read `sender.delivers_email` when a screen must hand the link back instead. The `mail` module owns SMTP and its settings. In tests, request the `captured_mail` fixture.
 
 ### 12. Read users through the user directory, never `users.models`
 
-Which module holds the accounts depends on the auth provider (`users`, `oidc` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
+Which module holds the accounts depends on the auth provider (`users`, `oidc` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.access.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
 
 For role catalogs and membership, use `get_role_directory(app)` from
-`simple_module_core.role_directory`: `list_roles(db)` returns name/label/description
+`simple_module_core.access.role_directory`: `list_roles(db)` returns name/label/description
 and an optional local UUID; `user_roles(db, user_id)` returns names or `None`
 (unknown). Check `editable` before exposing local role assignment controls.
 Permission mappings use role names and remain editable for external providers.

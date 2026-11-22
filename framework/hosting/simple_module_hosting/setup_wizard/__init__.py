@@ -1,13 +1,13 @@
 """The first-run setup wizard, shipped with the framework.
 
 ``SetupMiddleware`` redirects every request to ``/setup`` while a required
-:class:`~simple_module_core.setup_steps.SetupStep` is incomplete. The wizard
+:class:`~simple_module_core.web.setup_steps.SetupStep` is incomplete. The wizard
 those redirects land on used to live in this repository's own host, so any
 other host taking the package got ``/`` → ``/setup`` → 404 (GH #351).
 ``create_app`` now mounts it for every host.
 
 The wizard is generic: it lists the registered steps and renders a form for
-each pending step that carries a :class:`~simple_module_core.setup_steps.SetupAction`.
+each pending step that carries a :class:`~simple_module_core.web.setup_steps.SetupAction`.
 What a step's form *does* belongs to the module that owns the step — the
 framework never imports a plugin module (SM009); the module hands the wizard a
 handler instead.

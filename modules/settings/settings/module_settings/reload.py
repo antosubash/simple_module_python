@@ -9,9 +9,9 @@ from fastapi import FastAPI
 from pydantic import SecretBytes, SecretStr, ValidationError
 from pydantic_core import to_jsonable_python
 from pydantic_settings import BaseSettings
-from simple_module_core.events import EventBus
-from simple_module_core.module_settings import module_settings_registry
-from simple_module_core.settings_hydrate import (
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.settings.module_settings import module_settings_registry
+from simple_module_core.settings.settings_hydrate import (
     build_settings,
     env_supplied_fields,
     hydrate_settings,

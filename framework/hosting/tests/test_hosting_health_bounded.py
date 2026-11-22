@@ -8,8 +8,13 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from fastapi import FastAPI
-from simple_module_core.correlation import correlation_id
-from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
+from simple_module_core.runtime.correlation import correlation_id
+from simple_module_core.web.health import (
+    HealthCheck,
+    HealthCheckResult,
+    HealthRegistry,
+    HealthStatus,
+)
 from simple_module_hosting import health as health_module
 from simple_module_hosting._db_health import CHECK_DATABASE, build_database_check
 from simple_module_hosting.health import router

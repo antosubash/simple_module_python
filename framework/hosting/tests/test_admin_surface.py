@@ -59,7 +59,7 @@ def test_registration_scopes_defaults_and_preserves_existing_module_menus():
 
     from api_tokens.module import ApiTokensModule
     from dashboard.module import DashboardModule
-    from simple_module_core.menu import MenuRegistry, MenuSection
+    from simple_module_core.web.menu import MenuRegistry, MenuSection
     from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
     from tenants.module import TenantsModule
     from users.module import UsersModule

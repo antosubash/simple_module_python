@@ -15,8 +15,8 @@ from file_storage.core import constants
 from file_storage.core.tenant_deletion import register_tenant_deletion
 from file_storage.files.thumbnails import variant_key
 from file_storage.models import StoredFile, UploadSession
-from simple_module_core.events import EventBus
-from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.eventing.invalidation import InvalidationBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db import all_tenants, tenant_context
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker

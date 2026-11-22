@@ -7,7 +7,10 @@ from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 from settings.core.services import SettingsServices
 from settings.core.settings import SettingsSettings
-from simple_module_core.module_settings import module_settings_registry, register_module_settings
+from simple_module_core.settings.module_settings import (
+    module_settings_registry,
+    register_module_settings,
+)
 
 
 class _FakeModuleServices:

@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock
 import pytest
 from _hosting_settings_db import connection_refused, seed_settings_db, unmigrated_db_url
 from pydantic_settings import BaseSettings
-from simple_module_core.setup_steps import SetupRegistry, SetupStep
-from simple_module_core.stored_settings import parse_stored_value
+from simple_module_core.settings.stored_settings import parse_stored_value
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
 from simple_module_hosting import _secret_key
 from simple_module_hosting._hydrate_step import hydrate_all
 from simple_module_hosting._preapp_config import (

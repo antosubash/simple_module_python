@@ -247,7 +247,7 @@ def test_generation_honors_core_allowlist_selectors(project, monkeypatch, enable
     settings, modules = gen_cmd._settings_and_modules()
     settings.modules_enabled = enabled
     ep = EntryPoint(name="custom_widget", value="widget.module:Widget", group="simple_module")
-    monkeypatch.setattr("simple_module_core.discovery.entry_points", lambda **_: [ep])
+    monkeypatch.setattr("simple_module_core.modules.discovery.entry_points", lambda **_: [ep])
     monkeypatch.setattr(EntryPoint, "load", lambda _: type(modules[0]))
     monkeypatch.setattr(gen_cmd, "_settings_and_modules", lambda: (settings, modules))
     gen_cmd.run_generation(root)

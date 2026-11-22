@@ -18,7 +18,7 @@ from _audit_models import (
     PartialExcludeModel,
     SoftDeleteItem,
 )
-from simple_module_core.correlation import correlation_id
+from simple_module_core.runtime.correlation import correlation_id
 from simple_module_db.audit import (
     AuditRecord,
     collect_audit_records,

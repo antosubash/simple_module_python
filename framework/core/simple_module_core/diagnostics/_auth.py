@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_core._auth_providers import provides_auth, resembles_auth_provider
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
+from simple_module_core.modules._auth_providers import provides_auth, resembles_auth_provider
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 
 def check_auth_providers(modules: list[ModuleBase]) -> list[Diagnostic]:

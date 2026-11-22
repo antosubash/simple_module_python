@@ -6,8 +6,8 @@ import importlib.resources
 from pathlib import Path
 
 {{SETTINGS_FASTAPI_IMPORT}}from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-{{SETTINGS_IMPORT}}
+{{SETTINGS_IMPORT}}from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
+
 from {{PACKAGE_NAME}}.core.constants import (
     API_PREFIX,
     MENU_ICON,

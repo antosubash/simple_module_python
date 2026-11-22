@@ -4,7 +4,7 @@ import logging
 
 import pytest
 from _audit_models import AuditTestItem, ExcludedModel, SoftDeleteItem
-from simple_module_core.correlation import correlation_id
+from simple_module_core.runtime.correlation import correlation_id
 from simple_module_db.listeners import current_user_id
 from simple_module_db.writes import hard_delete
 from sqlalchemy import bindparam, delete, select, update

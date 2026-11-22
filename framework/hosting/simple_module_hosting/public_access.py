@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_public_routes
+from simple_module_core.modules.app_state import get_public_routes
 
 
 def is_public(app: FastAPI, method: str, path: str) -> bool:

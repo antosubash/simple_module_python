@@ -197,7 +197,7 @@ Module settings should:
 ```python
 class SiteLockModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from simple_module_core.module_settings import register_module_settings
+        from simple_module_core.settings.module_settings import register_module_settings
         from site_lock.core.settings import SiteLockSettings
         from site_lock.core.state import SiteLockState
 
@@ -609,7 +609,7 @@ restyle the editor chrome along with it.
 
 ## Events
 
-Base class: `Event` from `simple_module_core.events`. Subclass per domain event:
+Base class: `Event` from `simple_module_core.eventing.events`. Subclass per domain event:
 
 ```python
 @dataclass

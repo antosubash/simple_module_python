@@ -16,8 +16,8 @@ from collections.abc import Iterable
 from typing import Final
 
 from pydantic_settings import BaseSettings
-from simple_module_core.secret_fields import conceals_secret
-from simple_module_core.settings_hydrate import build_settings
+from simple_module_core.settings.secret_fields import conceals_secret
+from simple_module_core.settings.settings_hydrate import build_settings
 from sqlalchemy import Select, UniqueConstraint, inspect, select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 from sqlalchemy.orm import Session

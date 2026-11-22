@@ -10,7 +10,7 @@ import httpx
 import pytest
 from fastapi import APIRouter, FastAPI
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.spa_mount import SpaMount
+from simple_module_core.web.spa_mount import SpaMount
 from simple_module_hosting import _fallback_routes, _lifespan, app_builder
 from simple_module_hosting._app_boot import mount_host_static
 from simple_module_hosting._module_routes import wire_fallback_routes

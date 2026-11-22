@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from simple_module_core.resources import ACTION_DELETE, ACTION_VIEW
+from simple_module_core.access.resources import ACTION_DELETE, ACTION_VIEW
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

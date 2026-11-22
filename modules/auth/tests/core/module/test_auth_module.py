@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from auth.module import AuthModule
-from simple_module_core.menu import MenuRegistry
+from simple_module_core.web.menu import MenuRegistry
 
 
 class TestAuthModuleRegistration:

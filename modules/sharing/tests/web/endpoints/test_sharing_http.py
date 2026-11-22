@@ -8,9 +8,9 @@ import pytest
 from _sharing_support import NOTE_TYPE, SharingTestNote, create_note_table, register_note_type
 from sharing.core.constants import PERM_SHARE
 from sharing.core.policy import share_exists_for
-from simple_module_core.resources import ACTION_SHARE, ACTION_VIEW, ResourceType
-from simple_module_core.tenancy import TenantRole
-from simple_module_core.user_directory import DirectoryUser, set_user_directory
+from simple_module_core.access.resources import ACTION_SHARE, ACTION_VIEW, ResourceType
+from simple_module_core.access.tenancy import TenantRole
+from simple_module_core.access.user_directory import DirectoryUser, set_user_directory
 from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
 from simple_module_test.tenant_client import session_client
 

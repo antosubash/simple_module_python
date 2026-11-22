@@ -26,9 +26,10 @@ from background_tasks.outbox import worker as outbox_worker
 from background_tasks.outbox.claim import OutboxPolicy
 from background_tasks.outbox.dispatch import dispatch
 from background_tasks.tasks import dispatch_outbox
-from simple_module_core import DurableContext, discovery
-from simple_module_core.durable_events import event_key, serialize_event
-from simple_module_core.events import Event, EventBus
+from simple_module_core import DurableContext
+from simple_module_core.eventing.durable_events import event_key, serialize_event
+from simple_module_core.eventing.events import Event, EventBus
+from simple_module_core.modules import discovery
 from simple_module_db import finalize_session
 from simple_module_db.transaction import SESSION_START_KEY
 from sqlalchemy.pool import NullPool

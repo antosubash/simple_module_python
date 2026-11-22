@@ -1,8 +1,8 @@
 """Delegated permission edits are bounded by platform-level access (#687)."""
 
 from fastapi import HTTPException, Request, status
-from simple_module_core.permissions import ADMIN_ROLE, PermissionRegistry, grants
-from simple_module_core.user_directory import DirectoryUser
+from simple_module_core.access.permissions import ADMIN_ROLE, PermissionRegistry, grants
+from simple_module_core.access.user_directory import DirectoryUser
 from simple_module_hosting.permissions import resolve_principal_permissions
 
 from permissions.core.constants import Permissions

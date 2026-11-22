@@ -6,7 +6,7 @@ import pytest
 from pydantic import model_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings
-from simple_module_core.stored_settings import RELATED_FIELDS_CTX, construct_leniently
+from simple_module_core.settings.stored_settings import RELATED_FIELDS_CTX, construct_leniently
 from simple_module_hosting._preapp_config import HostSettingsUnavailableError, merge_host_settings
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 

@@ -25,7 +25,7 @@ def test_oidc_provider_satisfies_protocol():
 
 def test_public_routes():
     from oidc.module import OidcModule
-    from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.web.public_routes import PublicRouteRegistry
 
     registry = PublicRouteRegistry()
     OidcModule().register_public_routes(registry)

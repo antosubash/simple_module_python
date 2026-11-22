@@ -10,8 +10,8 @@ from permissions.module import PermissionsModule
 from sharing.core.constants import SUBJECT_USER
 from sharing.models import ResourceShare
 from sharing.module import SharingModule
-from simple_module_core.durable_events import event_key
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.durable_events import event_key
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import all_tenants, tenant_context
 from simple_module_db.transaction import finalize_session, rollback_session
 from sqlmodel import select

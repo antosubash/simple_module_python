@@ -3,12 +3,12 @@
 import logging
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_services
-from simple_module_core.events import EventBus
-from simple_module_core.invalidation import InvalidationBus
-from simple_module_core.invalidation_refresh import InvalidationRefresh
-from simple_module_core.module_settings import module_settings_registry
-from simple_module_core.settings_hydrate import hydrate_settings
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.eventing.invalidation import InvalidationBus
+from simple_module_core.eventing.invalidation_refresh import InvalidationRefresh
+from simple_module_core.modules.app_state import get_services
+from simple_module_core.settings.module_settings import module_settings_registry
+from simple_module_core.settings.settings_hydrate import hydrate_settings
 from simple_module_db.stored_settings import settings_table_exists
 
 from settings.contracts.events import SettingsReloaded

@@ -16,8 +16,8 @@ import secrets
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
-from simple_module_core.events import Event, EventBus
-from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.eventing.events import Event, EventBus
+from simple_module_core.eventing.invalidation import InvalidationBus
 from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 from simple_module_db import PLATFORM_TENANT_ID
 from simple_module_db.admission import serialize_sqlite_writes

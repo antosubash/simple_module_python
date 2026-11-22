@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from simple_module_core import ModuleBase
-from simple_module_core.i18n import I18nRegistry
+from simple_module_core.localization.i18n import I18nRegistry
 
 from simple_module_hosting.settings import Settings
 

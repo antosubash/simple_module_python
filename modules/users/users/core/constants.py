@@ -2,9 +2,9 @@
 
 import uuid
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
+from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY
 
 ADMIN_ROLE_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 USER_ROLE_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")

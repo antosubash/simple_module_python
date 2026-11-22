@@ -9,8 +9,8 @@ empty dropdown and reject every pack, with nothing in the logs to explain why.
 from __future__ import annotations
 
 import simple_module_hosting.app_builder as app_builder
-from simple_module_core.design_packs import DesignPack, DesignPackRegistry
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.web.design_packs import DesignPack, DesignPackRegistry
 from simple_module_hosting.app_builder import create_app
 
 _PACK = DesignPack(value="pack-fixture", label="Pack Fixture")

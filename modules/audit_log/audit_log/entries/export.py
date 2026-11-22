@@ -18,8 +18,8 @@ import json
 from collections.abc import AsyncIterator, Collection
 from typing import Any
 
-from simple_module_core.audit_links import AuditLinkRegistry
-from simple_module_core.user_directory import UserDirectory
+from simple_module_core.access.user_directory import UserDirectory
+from simple_module_core.web.audit_links import AuditLinkRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.contracts.schemas import AuditEntryRead

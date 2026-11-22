@@ -127,7 +127,7 @@ Migration `f999a1b2c3d4` adds the nullable column on the `file_storage` branch;
 existing rows remain untagged and retain uploader / `file_storage.manage` access,
 including the uploader's ability to publish.
 
-Registration lives in `simple_module_core.file_access`, which imports no storage
+Registration lives in `simple_module_core.access.file_access`, which imports no storage
 module. Register once from `register_settings(app)`; the registry belongs to that
 app, survives settings hydration, and rejects duplicate or malformed tags.
 A consumer may declare `optional_depends_on=[_MODULE_FILE_STORAGE]` (where the
@@ -139,7 +139,7 @@ A trade-licence example lets its uploader and holders of `guides.review` read th
 file, and forbids publishing for everyone, including admins:
 
 ```python
-from simple_module_core.file_access import register_file_access_policy
+from simple_module_core.access.file_access import register_file_access_policy
 from simple_module_db.resource_policy import OwnedResourcePolicy
 
 from guides.core.constants import FILE_OWNER_LICENCE, PERM_REVIEW
@@ -181,8 +181,8 @@ uploads and compensate the backend write if authorization fails.
 Policies implement the existing `ResourcePolicy` protocol and receive the
 request's resolved `ResourcePrincipal` (including token scope limits). Their
 `filter(principal, action, stmt)` narrows SELECTs over `StoredFile`; use
-`ACTION_VIEW`, `ACTION_DELETE` from `simple_module_core.resources` and
-`ACTION_PUBLISH` from `simple_module_core.file_access`. Unpublishing uses
+`ACTION_VIEW`, `ACTION_DELETE` from `simple_module_core.access.resources` and
+`ACTION_PUBLISH` from `simple_module_core.access.file_access`. Unpublishing uses
 `ACTION_EDIT`. As with `RequiresResource`, SQL filtering is authoritative;
 a false `can()` result falls back to the action filter, allowing EXISTS/share
 policies. Filters must preserve the incoming statement and agree with `can()`.

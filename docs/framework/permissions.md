@@ -10,7 +10,7 @@ member; there is no repeated permission list:
 
 ```python
 from simple_module_core import ModuleBase
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
 
 
 class Permissions(PermissionCatalogue, group="Orders", label_key="orders.permission_group"):
@@ -167,7 +167,7 @@ hooks, **not** settings/startup hooks, and builds no app. Persisted role overlay
 and direct grants are read through the caller's session on each resolution, so
 workers need no permission invalidation listener. Transaction-local role overlays
 never mutate another session's registry. Custom factories can use
-`build_principal_registry(modules, settings)` from `simple_module_core.principals`
+`build_principal_registry(modules, settings)` from `simple_module_core.access.principals`
 and `bind_principal_registry(factory, registry)` from `simple_module_db.principals`;
 pass the same selected, dependency-ordered modules as the host.
 
@@ -197,7 +197,7 @@ the previous tenant context; it does not scope queries made afterwards.
 from celery import shared_task
 from background_tasks.outbox.loop import run_on_worker_loop
 from background_tasks.outbox.worker import worker_session_factory
-from simple_module_core.resources import ACTION_VIEW
+from simple_module_core.access.resources import ACTION_VIEW
 from simple_module_db import principal_for, tenant_context
 from sqlmodel import select
 
@@ -229,7 +229,7 @@ is never proof of identity. Keep the feed's scope limited to its calendar policy
 
 ```python
 from fastapi import Depends, HTTPException
-from simple_module_core.resources import ACTION_VIEW
+from simple_module_core.access.resources import ACTION_VIEW
 from simple_module_db import get_db, principal_for, tenant_context
 from sqlmodel import select
 
@@ -342,7 +342,7 @@ registry.add(
 )
 ```
 
-Menu visibility is **role**-based (`MenuItem` has no `required_permission` field) — see `simple_module_core.menu`. Enforce the actual permission on the endpoint with `RequiresPermission`.
+Menu visibility is **role**-based (`MenuItem` has no `required_permission` field) — see `simple_module_core.web.menu`. Enforce the actual permission on the endpoint with `RequiresPermission`.
 
 ## Client-side checks
 
@@ -388,5 +388,5 @@ async def test_create_requires_permission(client, db_session):
 
 - **Namespace with the module name.** `orders.create`, not `create_order`.
 - **Use `<module>.<verb>` form.** Nouns like `orders.admin` are fine for broad grants.
-- **Don't inline string checks.** `if "orders.create" in principal.permissions: ...` scattered through code is hard to audit. Use `RequiresPermission` or refactor into a dependency. When the thing to gate is part of a *response* rather than a route — a column, a label, a card — read the caller's grants with `resolved_permissions_for(request)` and test them with `simple_module_core.permissions.grants`, which is where the wildcard rule lives. A hand-rolled `in` check forgets that `admin` holds `*` and no named permission at all.
+- **Don't inline string checks.** `if "orders.create" in principal.permissions: ...` scattered through code is hard to audit. Use `RequiresPermission` or refactor into a dependency. When the thing to gate is part of a *response* rather than a route — a column, a label, a card — read the caller's grants with `resolved_permissions_for(request)` and test them with `simple_module_core.access.permissions.grants`, which is where the wildcard rule lives. A hand-rolled `in` check forgets that `admin` holds `*` and no named permission at all.
 - **Don't use roles in business logic.** Check permissions, not `user.roles`. Roles are an admin concept; permissions are the enforcement boundary.

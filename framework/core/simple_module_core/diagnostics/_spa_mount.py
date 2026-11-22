@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
-from simple_module_core.spa_mount import RESERVED_PREFIXES, prefixes_overlap
+from simple_module_core.web.spa_mount import RESERVED_PREFIXES, prefixes_overlap
 
 SPA_MOUNT_OVERLAP_CODE = "SM032"
 

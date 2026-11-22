@@ -15,7 +15,7 @@ import httpx
 import pytest
 import simple_module_hosting.app_builder as app_builder
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.csp import CspSourceRegistry
+from simple_module_core.web.csp import CspSourceRegistry
 from simple_module_hosting.middleware import SecurityHeadersMiddleware
 from simple_module_test.fixtures import _build_app
 from starlette.applications import Starlette

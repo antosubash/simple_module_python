@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from simple_module_core.audit_links import AuditLink
+from simple_module_core.web.audit_links import AuditLink
 from simple_module_db import ALL_TENANTS_OPTION
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

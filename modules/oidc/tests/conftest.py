@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 from oidc.core.settings import OidcSettings
 from oidc_flow_helpers import _AUDIENCE, _KID, _PRIVATE_KEY
-from simple_module_core.discovery import discover_modules
+from simple_module_core.modules.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.migrations import resolve_head_revisions

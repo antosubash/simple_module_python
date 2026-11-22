@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING
 
-from simple_module_core.events import Event
+from simple_module_core.eventing.events import Event
 from simple_module_db.pagination import Page, PageParams, paginate
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError

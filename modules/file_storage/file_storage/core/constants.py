@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import Final
 
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
 
 # ── Module identity ──────────────────────────────────────────────────
 # ``MODULE_NAME`` is the snake_case package name; ``MODULE_PASCAL`` matches the

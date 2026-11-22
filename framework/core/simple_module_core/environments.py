@@ -1,15 +1,13 @@
-"""Shared environment-classification constants.
+"""Deprecated alias for simple_module_core.settings.environments."""
 
-Both the host and module settings validators need to know which ``SM_ENVIRONMENT``
-values are "non-prod" — anything outside this set is treated as production
-and subject to stricter defaults (e.g. placeholder-secret rejection).
+import sys
+from importlib import import_module
 
-Duplicating this constant in each settings module would mean an operator who
-adds ``"staging"`` to one list but forgets the other gets inconsistent
-validation. Lives in ``simple_module_core`` because both the host package and
-module settings already depend on it.
-"""
+from simple_module_core.runtime.deprecation import deprecated_module
 
-from __future__ import annotations
-
-NON_PROD_ENVIRONMENTS: frozenset[str] = frozenset({"development", "testing"})
+deprecated_module(
+    "simple_module_core.environments",
+    remove_in="0.0.52",
+    use="simple_module_core.settings.environments",
+)
+sys.modules[__name__] = import_module("simple_module_core.settings.environments")

@@ -8,9 +8,9 @@ import pytest
 import sharing
 from _sharing_support import NOTE_TYPE, FakeDirectory, register_note_type
 from sharing.core.service import SharingService
-from simple_module_core.i18n import I18nRegistry, Translator
-from simple_module_core.resources import ResourcePrincipal, ResourceTypeRegistry
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
+from simple_module_core.access.tenancy import TenantRole, tenant_role
+from simple_module_core.localization.i18n import I18nRegistry, Translator
 from simple_module_db.tenancy import tenant_context
 
 

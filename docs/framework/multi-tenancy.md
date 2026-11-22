@@ -380,7 +380,7 @@ is never the platform `admin`. The vocabulary lives in core, so a module maps
 these onto its own permissions without depending on `tenants`:
 
 ```python
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 
 
 def register_permissions(self, registry):
@@ -426,7 +426,7 @@ See [branding](/modules/branding#per-tenant-branding).
 
 Screens that take a tenant id from the URL can vet it without importing
 `tenants`: the module publishes `app.state.tenant_exists`, and
-`await simple_module_core.tenancy.tenant_exists(app, tenant_id)` answers
+`await simple_module_core.access.tenancy.tenant_exists(app, tenant_id)` answers
 `True`/`False`, or `None` when no module can say (the id is then accepted).
 `feature_flags` uses it to 404 on an unknown tenant when setting or listing
 overrides; clearing stays unvalidated so a stale override can still be removed.

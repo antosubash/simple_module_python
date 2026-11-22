@@ -3,7 +3,7 @@
 import pytest
 from file_storage.core.constants import ROUTE_PREFIX_VIEW, Permission
 from file_storage.module import FileStorageModule
-from simple_module_core.menu import MenuRegistry, MenuSection
+from simple_module_core.web.menu import MenuRegistry, MenuSection
 
 
 @pytest.mark.parametrize("granted", [False, True])

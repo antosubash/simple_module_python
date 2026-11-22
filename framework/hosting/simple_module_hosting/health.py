@@ -6,9 +6,14 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Request
-from simple_module_core.app_state import get_migration_status
-from simple_module_core.correlation import correlation_id
-from simple_module_core.health import HealthCheckFn, HealthCheckResult, HealthRegistry, HealthStatus
+from simple_module_core.modules.app_state import get_migration_status
+from simple_module_core.runtime.correlation import correlation_id
+from simple_module_core.web.health import (
+    HealthCheckFn,
+    HealthCheckResult,
+    HealthRegistry,
+    HealthStatus,
+)
 
 logger = logging.getLogger(__name__)
 

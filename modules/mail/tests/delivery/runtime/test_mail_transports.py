@@ -12,10 +12,10 @@ from settings.core.service import SettingService
 from settings.module_settings.discovery import collect_module_settings
 from settings.module_settings.reload import apply_changes_and_reload
 from settings.module_settings.store import SettingsStore
-from simple_module_core import mail as core_mail
-from simple_module_core.events import EventBus
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.mailer import mail as core_mail
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.settings.settings_base import DbBackedSettings
 from simple_module_db.transaction import finalize_session
 from simple_module_test.mail import CapturedMail
 
@@ -217,7 +217,7 @@ async def test_outbox_delivers_through_registered_transport(
     from background_tasks.outbox.dispatch import dispatch
     from background_tasks.outbox.transport import WorkerOutboxTransport
     from mail.contracts import register_mail_transport
-    from simple_module_core.events import Event
+    from simple_module_core.eventing.events import Event
 
     @dataclass
     class SendViaProvider(Event):

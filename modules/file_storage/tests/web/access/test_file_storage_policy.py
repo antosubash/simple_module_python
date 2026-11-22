@@ -6,8 +6,8 @@ import uuid
 
 import pytest
 from file_storage.contracts import StoredFile
-from simple_module_core.file_access import register_file_access_policy
-from simple_module_core.resources import ACTION_VIEW
+from simple_module_core.access.file_access import register_file_access_policy
+from simple_module_core.access.resources import ACTION_VIEW
 from simple_module_db import tenant_context
 from simple_module_db.resource_policy import OwnedResourcePolicy
 
@@ -160,8 +160,8 @@ async def test_service_upload_sets_owner_tag_and_refuses_public_before_writing(
 
     from fastapi import UploadFile
     from file_storage.files.service import FileStorageService
-    from simple_module_core.file_access import file_access_policies
-    from simple_module_core.permission_denied import PermissionDenied
+    from simple_module_core.access.file_access import file_access_policies
+    from simple_module_core.access.permission_denied import PermissionDenied
 
     uploader, _ = licence
     with tenant_context(uploader.tenant_id):
@@ -189,9 +189,9 @@ async def test_bound_upload_honors_publish_action(app, licence, storage):
 
     from fastapi import UploadFile
     from file_storage.files.service import FileStorageService
-    from simple_module_core.file_access import file_access_policies
-    from simple_module_core.permission_denied import PermissionDenied
-    from simple_module_core.resources import ResourcePrincipal
+    from simple_module_core.access.file_access import file_access_policies
+    from simple_module_core.access.permission_denied import PermissionDenied
+    from simple_module_core.access.resources import ResourcePrincipal
 
     class ReadOnly:
         def filter(self, principal, action, stmt):

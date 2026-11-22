@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import FastAPI
-from simple_module_core.health import HealthCheckResult, HealthStatus
+from simple_module_core.web.health import HealthCheckResult, HealthStatus
 
 CHECK_REDIS = "background_tasks.redis"
 

@@ -9,8 +9,8 @@ from __future__ import annotations
 import uuid
 
 from audit_log.entries.resolve import actor_link, entity_link, resolve_actors
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
-from simple_module_core.user_directory import NullUserDirectory
+from simple_module_core.access.user_directory import NullUserDirectory
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.core.directory import UsersDirectory
 from users.models import User

@@ -3,7 +3,7 @@
 from pydantic import Field
 from settings.module_settings.discovery import ModuleSettingsView, _field_view
 from settings.module_settings.props import serialize
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 
 def test_control_hint_is_serialized():

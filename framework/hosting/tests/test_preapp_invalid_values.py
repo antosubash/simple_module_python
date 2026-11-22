@@ -16,7 +16,7 @@ from simple_module_hosting import _secret_key
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 
-_LOGGER = "simple_module_core.stored_settings"
+_LOGGER = "simple_module_core.settings.stored_settings"
 
 
 @pytest.fixture(autouse=True)

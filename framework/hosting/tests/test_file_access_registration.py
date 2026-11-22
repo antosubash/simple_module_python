@@ -20,8 +20,8 @@ class NoStorage(MetaPathFinder):
             raise ImportError('file_storage is not installed')
 
 sys.meta_path.insert(0, NoStorage())
-from simple_module_core.file_access import register_file_access_policy, file_access_policies
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.access.file_access import register_file_access_policy, file_access_policies
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 
 class Policy:
     def filter(self, principal, action, stmt): return stmt

@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 from fastapi import FastAPI
-from simple_module_core.i18n import I18nRegistry
+from simple_module_core.localization.i18n import I18nRegistry
 from simple_module_hosting._i18n_json import catalog_json
 from simple_module_hosting._inertia_shared import build_i18n_block
 from starlette.requests import Request

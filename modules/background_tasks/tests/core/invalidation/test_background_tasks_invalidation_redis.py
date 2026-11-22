@@ -22,7 +22,7 @@ import os
 import pytest
 from background_tasks.core import invalidation as bg_invalidation
 from background_tasks.core.invalidation import RedisInvalidationTransport
-from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
 from simple_module_test import wait_for
 
 # Per process: under pytest-xdist every worker shares one Redis (CI points them

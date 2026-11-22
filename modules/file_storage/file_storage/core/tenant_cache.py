@@ -4,8 +4,8 @@ from collections import OrderedDict
 from time import monotonic
 
 from fastapi import FastAPI
-from simple_module_core.invalidation import Invalidation, InvalidationBus
-from simple_module_core.tenancy import tenant_exists
+from simple_module_core.access.tenancy import tenant_exists
+from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
 from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 
 TENANT_EXISTS_TTL_SECONDS = 60

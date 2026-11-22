@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_core.public_routes import PublicRouteRegistry
-from simple_module_core.rate_limit import (
+from simple_module_core.web.public_routes import PublicRouteRegistry
+from simple_module_core.web.rate_limit import (
     InProcessWindowStore,
     RateLimitError,
     RateSpec,

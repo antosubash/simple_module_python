@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 
-from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.web.body_limits import BodyLimitRegistry
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 from starlette.requests import Request

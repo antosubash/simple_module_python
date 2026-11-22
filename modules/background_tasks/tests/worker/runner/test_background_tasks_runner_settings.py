@@ -111,7 +111,7 @@ def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypa
     from background_tasks.executions import tenant_context
     from background_tasks.worker import celery_app, principals
     from background_tasks.worker.runner import build_runner_celery
-    from simple_module_core import leases
+    from simple_module_core.runtime import leases
     from simple_module_db.leases import DbLeaseBackend
     from simple_module_hosting.installation import load_installation_id
 

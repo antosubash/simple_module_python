@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

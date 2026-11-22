@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_hosting._rate_limit import RateLimitMiddleware
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse

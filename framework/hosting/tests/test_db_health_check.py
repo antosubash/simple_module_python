@@ -13,7 +13,7 @@ dots are blank by design — nothing is polling those dependencies.
 from __future__ import annotations
 
 import httpx
-from simple_module_core.health import HealthStatus
+from simple_module_core.web.health import HealthStatus
 from simple_module_hosting._db_health import CHECK_DATABASE
 
 

@@ -19,7 +19,7 @@ from auth.web.deps import CurrentUser
 from fastapi import Depends, HTTPException, Request
 from fastapi_users import FastAPIUsers
 from fastapi_users import exceptions as fu_exceptions
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 

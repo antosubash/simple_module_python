@@ -1,11 +1,11 @@
-"""Purpose-separated keys derived from the resolved application root secret."""
+"""Deprecated alias for simple_module_core.runtime.crypto."""
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+import sys
+from importlib import import_module
 
+from simple_module_core.runtime.deprecation import deprecated_module
 
-def derive_key(secret: str, info: bytes) -> bytes:
-    """Derive 32 bytes with HKDF-SHA256; keep each purpose's label stable."""
-    if not secret.strip():
-        raise ValueError("The root secret must not be blank")
-    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=info).derive(secret.encode())
+deprecated_module(
+    "simple_module_core.crypto", remove_in="0.0.52", use="simple_module_core.runtime.crypto"
+)
+sys.modules[__name__] = import_module("simple_module_core.runtime.crypto")

@@ -11,10 +11,10 @@ import typer
 from fastapi import FastAPI
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings
-from simple_module_core.dotenv import find_env_file, parse_dotenv
-from simple_module_core.module_settings import module_settings_registry
-from simple_module_core.settings_hydrate import value_type_for_field
-from simple_module_core.stored_settings import parse_stored_value
+from simple_module_core.settings.dotenv import find_env_file, parse_dotenv
+from simple_module_core.settings.module_settings import module_settings_registry
+from simple_module_core.settings.settings_hydrate import value_type_for_field
+from simple_module_core.settings.stored_settings import parse_stored_value
 
 from settings.contracts.schemas import SettingUpsert, SettingValueType
 from settings.core.env_vars import env_prefix_for

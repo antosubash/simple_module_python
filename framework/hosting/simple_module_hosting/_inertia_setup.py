@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_branding, get_host_services
+from simple_module_core.modules.app_state import get_branding, get_host_services
 from simple_module_inertia import InertiaConfig, SiteInfo, inertia_dependency_factory
 from starlette.requests import Request
 
@@ -144,7 +144,7 @@ def setup_inertia(
     # The adapter only switches to the asset manifest when environment equals
     # the literal "production"; normalise anything non-dev (staging, qa, ...)
     # to that so built assets are referenced rather than a Vite dev url.
-    from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+    from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 
     use_dev_server = settings.environment in NON_PROD_ENVIRONMENTS
     inertia_environment = "development" if use_dev_server else "production"

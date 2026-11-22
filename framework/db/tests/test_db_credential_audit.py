@@ -133,7 +133,7 @@ def test_bulk_insert_and_summary_redaction(credential_session, monkeypatch, core
 
 def test_typed_setting_redaction():
     from pydantic import SecretStr
-    from simple_module_core.secret_fields import register_typed_secrets
+    from simple_module_core.settings.secret_fields import register_typed_secrets
     from sqlmodel import SQLModel
 
     class CredentialSettings(SQLModel):

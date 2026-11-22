@@ -10,7 +10,7 @@ never linking. Only the missing anchor gave it away, in the browser.
 from __future__ import annotations
 
 import httpx
-from simple_module_core.audit_links import AuditLinkRegistry
+from simple_module_core.web.audit_links import AuditLinkRegistry
 
 
 class TestRegisteredKeysAreClassNames:

@@ -4,7 +4,7 @@ import uuid
 
 from keycloak.module import KeycloakModule
 from permissions.module import PermissionsModule
-from simple_module_core.principals import build_principal_registry
+from simple_module_core.access.principals import build_principal_registry
 from simple_module_db.principals import bind_principal_registry, principal_for
 from tenants.module import TenantsModule
 

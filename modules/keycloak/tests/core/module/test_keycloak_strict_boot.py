@@ -9,8 +9,8 @@ come from Keycloak.
 from __future__ import annotations
 
 from keycloak.identity.directory import KeycloakDirectory
-from simple_module_core.role_directory import MappedRoleDirectory, get_role_directory
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.role_directory import MappedRoleDirectory, get_role_directory
+from simple_module_core.access.user_directory import get_user_directory
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 

@@ -4,7 +4,7 @@ from oidc.core.settings import OidcSettings
 from settings.core.invalidation import reload_package
 from settings.core.service import SettingService
 from settings.module_settings.store import SettingsStore
-from simple_module_core.module_settings import module_settings_registry
+from simple_module_core.settings.module_settings import module_settings_registry
 
 
 async def test_boot_hydrates_db_settings_without_settings_ui(oidc_app):

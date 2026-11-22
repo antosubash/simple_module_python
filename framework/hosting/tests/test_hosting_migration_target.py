@@ -11,7 +11,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import HTTPException
-from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard import migrate
 from sqlalchemy.ext.asyncio import create_async_engine

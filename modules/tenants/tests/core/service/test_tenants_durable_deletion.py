@@ -3,8 +3,8 @@
 import pytest
 from _tenants_deletion_support import deletion_bus
 from background_tasks.models import OutboxMessage
-from simple_module_core.durable_events import event_key
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.durable_events import event_key
+from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db.transaction import finalize_session, rollback_session
 from sqlalchemy import select

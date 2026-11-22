@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_core.exceptions import NotFoundError
+from simple_module_core.runtime.exceptions import NotFoundError
 
 
 @pytest.fixture

@@ -8,8 +8,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from simple_module_core.mail import ConsoleMailSender, MailSender
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.mailer.mail import ConsoleMailSender, MailSender
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 from mail.core import constants as c
 

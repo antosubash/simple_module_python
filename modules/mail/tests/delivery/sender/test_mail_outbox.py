@@ -7,9 +7,9 @@ from background_tasks.models import OutboxMessage
 from background_tasks.outbox.claim import OutboxPolicy
 from background_tasks.outbox.dispatch import dispatch
 from background_tasks.outbox.transport import WorkerOutboxTransport
-from simple_module_core.durable_events import DurableContext
-from simple_module_core.events import Event, EventBus
-from simple_module_core.mail import MailAttachment, MailMessage, resolve_mail_sender
+from simple_module_core.eventing.durable_events import DurableContext
+from simple_module_core.eventing.events import Event, EventBus
+from simple_module_core.mailer.mail import MailAttachment, MailMessage, resolve_mail_sender
 from sqlmodel import select
 
 

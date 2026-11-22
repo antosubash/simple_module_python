@@ -6,7 +6,7 @@ from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from simple_module_core.user_directory import (
+from simple_module_core.access.user_directory import (
     DirectoryStats,
     DirectoryUser,
     chunked,

@@ -6,8 +6,8 @@ from enum import StrEnum
 from typing import Final
 
 from auth.contracts.tokens import PAT_PREFIX, SERVICE_KEY_PREFIX
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
 
 MODULE_NAME: Final = "ApiTokens"
 MODULE_PACKAGE: Final = "api_tokens"

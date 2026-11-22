@@ -4,7 +4,7 @@
 permanent record — display names change, ids do not — and useless in a table:
 a column of uuids names nobody.
 
-Names come from the app's user directory (``simple_module_core.user_directory``),
+Names come from the app's user directory (``simple_module_core.access.user_directory``),
 whichever auth provider installed it; ``file_storage`` imports no user module.
 With no directory, or ids from another id space, the screen falls back to
 showing what it stored rather than failing the page (GH #501).
@@ -12,7 +12,7 @@ showing what it stored rather than failing the page (GH #501).
 
 from __future__ import annotations
 
-from simple_module_core.user_directory import resolve_user_labels as resolve_uploader_labels
+from simple_module_core.access.user_directory import resolve_user_labels as resolve_uploader_labels
 
 from file_storage.core import constants
 

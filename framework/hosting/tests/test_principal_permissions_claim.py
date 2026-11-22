@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
 from simple_module_hosting.permissions import (
     RequiresPermission,
     resolve_principal_permissions,

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
 
 # The role vocabulary lives in core so other modules can map ``tenant:<role>``
 # onto their permissions without depending on this module (#380).
-from simple_module_core.tenancy import TENANT_ROLE_PREFIX, tenant_role
-from simple_module_core.tenancy import TenantRole as MembershipRole
+from simple_module_core.access.tenancy import TENANT_ROLE_PREFIX, tenant_role
+from simple_module_core.access.tenancy import TenantRole as MembershipRole
 
 MODULE_PACKAGE = "tenants"
 DISPLAY_NAME = "Tenants"

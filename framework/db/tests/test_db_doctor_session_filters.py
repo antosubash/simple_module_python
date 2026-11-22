@@ -2,8 +2,8 @@
 
 import pytest
 import sqlalchemy as sa
-from simple_module_core.data_compatibility import collect_data_compatibility
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.migrations.data_compatibility import collect_data_compatibility
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 from simple_module_db.base import create_module_base
 from simple_module_db.data_compatibility import database_compatibility_diagnostics
 from simple_module_db.listeners import register_listeners

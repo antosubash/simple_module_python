@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-from simple_module_core.user_directory import (
+from simple_module_core.access.user_directory import (
     DirectoryStats,
     NullUserDirectory,
     get_user_directory,

@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 import pytest
 from background_tasks.core.constants import PERM_MANAGE, PERM_VIEW, OutboxStatus
 from background_tasks.models import OutboxMessage
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 
 API = "/api/background_tasks/admin/outbox"
 VIEW = "/admin/background-tasks/outbox"

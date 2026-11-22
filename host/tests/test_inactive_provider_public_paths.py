@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from keycloak.core.constants import PUBLIC_PATH_PREFIXES as KEYCLOAK_PREFIXES
 from keycloak.module import KeycloakModule
-from simple_module_core.discovery import select_auth_provider
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.modules.discovery import select_auth_provider
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from users.core.constants import PUBLIC_PATH_PREFIXES as USERS_PREFIXES
 from users.module import UsersModule
 

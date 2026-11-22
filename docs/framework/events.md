@@ -6,13 +6,13 @@ Events are the preferred way for modules to react to **other modules'** actions 
 
 ## Defining events
 
-Base class is `Event` from `simple_module_core.events`. Subclass per domain event. Use `@dataclass`:
+Base class is `Event` from `simple_module_core.eventing.events`. Subclass per domain event. Use `@dataclass`:
 
 ```python
 # modules/orders/orders/contracts/events.py
 from dataclasses import dataclass
 from decimal import Decimal
-from simple_module_core.events import Event
+from simple_module_core.eventing.events import Event
 
 
 @dataclass
@@ -85,7 +85,7 @@ Get the bus as a FastAPI dependency:
 ```python
 # modules/orders/orders/deps.py
 from fastapi import Depends, Request
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 
 
 def _event_bus(request: Request) -> EventBus:
@@ -182,7 +182,7 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
   publisher).
 - A durable handler may itself `publish_durable(..., ctx.db)`; the new event
   commits with the handler's delivery.
-- Public `simple_module_core.durable_events.in_delivery()` reports whether the
+- Public `simple_module_core.eventing.durable_events.in_delivery()` reports whether the
   current context is running a durable handler (#682). The outbox transport sets
   the public `IN_DELIVERY: ContextVar[bool]` around the handler and resets it in
   `finally`, including after failure or cancellation. Child tasks inherit `True`
@@ -195,7 +195,7 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
 - Events must be `@dataclass` classes serialisable to JSON; `UUID`, `datetime`,
   `Enum`, `Decimal` and nested dataclasses round-trip. This is checked when you
   subscribe.
-- Events containing `simple_module_core.mail.MailMessage` also preserve its
+- Events containing `simple_module_core.mailer.mail.MailMessage` also preserve its
   attachments: content bytes are stored as base64 in the JSON payload and
   restored before delivery. Old message payloads without `attachments` remain
   valid. Custom `headers` round-trip too; old payloads without them default to
@@ -205,7 +205,7 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
   `register_event_handlers(bus, None)` — subscribe durably *before* any early
   `return` taken when `app is None`.
 
-`DurableTransport` (`simple_module_core.durable_events`) is the extension point: a protocol (`async enqueue(event, handler_names, db)`), so
+`DurableTransport` (`simple_module_core.eventing.durable_events`) is the extension point: a protocol (`async enqueue(event, handler_names, db)`), so
 another module could provide one; `background_tasks` is the shipped
 implementation — see [its docs](/modules/background_tasks#durable-events-outbox)
 for the outbox, retries, the admin page and the worker side.

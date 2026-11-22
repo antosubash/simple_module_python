@@ -11,7 +11,7 @@ from background_tasks.executions.retry_service import RetryCoordinator
 from background_tasks.models import TaskExecution
 from background_tasks.worker.signals import on_task_publish, on_task_success
 from celery import Celery
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from sqlalchemy import select
 
 VALUES = [datetime(2026, 1, 1, tzinfo=UTC), UUID(int=1), Decimal("1.25")]

@@ -42,7 +42,7 @@ class TestTestableShape:
         self, app: FastAPI, authenticated_client: httpx.AsyncClient
     ) -> None:
         """Two checks on one module must come back in a stable order."""
-        from simple_module_core.health import HealthCheck, HealthCheckResult, HealthStatus
+        from simple_module_core.web.health import HealthCheck, HealthCheckResult, HealthStatus
 
         async def _ok() -> HealthCheckResult:
             return HealthCheckResult(status=HealthStatus.HEALTHY)

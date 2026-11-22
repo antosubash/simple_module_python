@@ -3,7 +3,7 @@
 import pytest
 from branding.core.constants import MENU_URL, PERM_VIEW
 from branding.module import BrandingModule
-from simple_module_core.menu import MenuRegistry, MenuSection
+from simple_module_core.web.menu import MenuRegistry, MenuSection
 
 
 @pytest.mark.parametrize("granted", [False, True])

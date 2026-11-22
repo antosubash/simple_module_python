@@ -7,9 +7,9 @@ from collections.abc import Awaitable, Callable, Collection, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from simple_module_core.principals import PRINCIPALS_KEY, PrincipalRegistry
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.user_directory import UserDirectory
+from simple_module_core.access.principals import PRINCIPALS_KEY, PrincipalRegistry
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.user_directory import UserDirectory
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sharing.contracts.schemas import ShareCandidate

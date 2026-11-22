@@ -12,8 +12,8 @@ from settings.core.services import SettingsServices
 from settings.core.settings import SettingsSettings
 from settings.module_settings.reload import apply_changes_and_reload, clear_override_and_reload
 from settings.module_settings.store import SettingsStore
-from simple_module_core.events import EventBus
-from simple_module_core.module_settings import register_module_settings
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.settings.module_settings import register_module_settings
 from simple_module_db.transaction import finalize_session
 
 

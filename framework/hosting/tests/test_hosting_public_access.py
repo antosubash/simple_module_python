@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_hosting._route_access import is_public_operation
 from simple_module_hosting.public_access import is_public
 

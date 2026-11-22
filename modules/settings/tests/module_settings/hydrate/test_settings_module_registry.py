@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from pydantic_settings import BaseSettings
-from simple_module_core.module_settings import ModuleSettingsRegistry
+from simple_module_core.settings.module_settings import ModuleSettingsRegistry
 
 
 class _Foo(BaseSettings):

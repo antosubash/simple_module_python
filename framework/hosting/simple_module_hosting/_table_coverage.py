@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from fastapi import FastAPI
 from simple_module_core.diagnostics import Diagnostic
 from simple_module_core.diagnostics._migration import MigrationDiagnostics, module_table_names
-from simple_module_core.module import ModuleBase
+from simple_module_core.modules.module import ModuleBase
 from sqlalchemy import inspect
 
 from simple_module_hosting._dev_boot import print_boot_diagnostics

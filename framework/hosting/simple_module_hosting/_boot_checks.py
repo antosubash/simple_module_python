@@ -13,14 +13,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core.app_state import get_tenant_resolver
 from simple_module_core.diagnostics import Diagnostic, check_tenant_resolver
+from simple_module_core.modules.app_state import get_tenant_resolver
 
 from simple_module_hosting._route_access import check_unguarded_api_routes
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from simple_module_core.services import DiagnosticsState
+    from simple_module_core.modules.services import DiagnosticsState
 
 logger = logging.getLogger(__name__)
 

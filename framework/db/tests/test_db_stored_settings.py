@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
-from simple_module_core.settings_base import DbBackedSettings
-from simple_module_core.settings_hydrate import hydrate_settings
+from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_hydrate import hydrate_settings
 from simple_module_db.stored_settings import (
     SCOPE_SYSTEM,
     SCOPE_TENANT,

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from backend_cleanup_helpers import Client, make_backend, running_loop
 from fastapi import FastAPI
-from simple_module_core.leases import configure_leases
+from simple_module_core.runtime.leases import configure_leases
 from simple_module_hosting import _lifespan
 from simple_module_hosting._lease_redis import RedisLeaseBackend
 from simple_module_hosting._rate_limit_store import RedisWindowStore

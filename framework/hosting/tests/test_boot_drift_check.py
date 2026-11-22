@@ -20,8 +20,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
-from simple_module_core.app_state import get_migration_status
-from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_core.modules.app_state import get_migration_status
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
 from simple_module_hosting._lifespan import build_lifespan
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS, _database_migrated, is_first_run
 

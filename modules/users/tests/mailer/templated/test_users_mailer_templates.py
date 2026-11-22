@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from jinja2 import TemplateNotFound, TemplateSyntaxError
 from jinja2.exceptions import SecurityError
-from simple_module_core.settings_hydrate import build_settings
+from simple_module_core.settings.settings_hydrate import build_settings
 from users.core.settings import UsersSettings
 from users.core.startup import _build_mailer
 from users.mailer import build_mailer

@@ -107,7 +107,7 @@ Declare a control hint on a DB-backed settings field:
 ```python
 from pydantic import Field
 
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 
 class MySettings(DbBackedSettings):

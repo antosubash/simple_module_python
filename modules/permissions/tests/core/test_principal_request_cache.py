@@ -7,7 +7,7 @@ import pytest
 from fastapi import Depends
 from permissions.grants import source as grants
 from permissions.models import RolePermission, UserPermission
-from simple_module_core.resources import ResourcePrincipal
+from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_hosting import middleware
 from simple_module_hosting.resource_deps import resource_principal
 from sqlalchemy import delete, event

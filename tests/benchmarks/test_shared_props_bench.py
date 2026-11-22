@@ -12,8 +12,8 @@ Sized to a realistically loaded app: 40 menu items and 160 permissions across
 from __future__ import annotations
 
 import pytest
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 
 pytestmark = pytest.mark.perf

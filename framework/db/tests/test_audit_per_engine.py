@@ -12,7 +12,7 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from _audit_models import AuditBase, AuditTestItem
-from simple_module_core.correlation import correlation_id
+from simple_module_core.runtime.correlation import correlation_id
 from simple_module_db.audit import AuditRecord
 from simple_module_db.listeners import attach_session_listeners, register_listeners
 from simple_module_db.query_filter import EngineTenancy, bind_engine_policy

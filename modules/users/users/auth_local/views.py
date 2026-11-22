@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.deps import get_db
 from simple_module_hosting.auth_policy import login_redirect_url
 from simple_module_hosting.csrf import get_csrf_token

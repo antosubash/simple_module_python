@@ -7,8 +7,8 @@ import pytest
 from auth.core.state import AuthState
 from auth.web.middleware import AuthMiddleware
 from fastapi import FastAPI, Request
-from simple_module_core.public_routes import PublicRouteRegistry
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+from simple_module_core.web.public_routes import PublicRouteRegistry
+from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
 

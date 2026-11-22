@@ -11,7 +11,7 @@ The middleware that consumes this lives in ``test_setup_gate``.
 
 from __future__ import annotations
 
-from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
 
 
 def _step(step_id: str, done: bool, *, required: bool = True, order: int = 100) -> SetupStep:

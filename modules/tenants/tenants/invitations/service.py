@@ -11,8 +11,8 @@ import secrets
 from datetime import timedelta
 from functools import partial
 
-from simple_module_core.datetimes import aware as _aware
-from simple_module_core.datetimes import utcnow as _now
+from simple_module_core.runtime.datetimes import aware as _aware
+from simple_module_core.runtime.datetimes import utcnow as _now
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

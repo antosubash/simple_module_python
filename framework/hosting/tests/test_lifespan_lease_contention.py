@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 from backend_cleanup_helpers import Client
 from fastapi import FastAPI
-from simple_module_core import leases
+from simple_module_core.runtime import leases
 from simple_module_hosting import _lifespan
 
 

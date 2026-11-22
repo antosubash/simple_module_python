@@ -7,9 +7,9 @@ from background_tasks.core._lifecycle import install_durable_transport
 from background_tasks.core.settings import BackgroundTasksSettings
 from background_tasks.outbox import worker
 from background_tasks.worker import principals
-from simple_module_core.events import EventBus
-from simple_module_core.principals import PRINCIPALS_KEY, PrincipalRegistry
-from simple_module_core.user_directory import DirectoryUser
+from simple_module_core.access.principals import PRINCIPALS_KEY, PrincipalRegistry
+from simple_module_core.access.user_directory import DirectoryUser
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import init_db, principal_for
 
 

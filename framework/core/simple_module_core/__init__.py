@@ -1,19 +1,39 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
-from simple_module_core.admin_surface import AdminSurface
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry, LabelResolver
-from simple_module_core.body_limits import BodyLimitRegistry
-from simple_module_core.cors import CorsPolicy, CorsPolicyRegistry
-from simple_module_core.csp import CspSourceError, CspSourceRegistry
-from simple_module_core.data_compatibility import DataCompatibilityIssue
-from simple_module_core.design_packs import DesignPack, DesignPackRegistry
+from simple_module_core.access.permissions import PermissionCatalogue, PermissionRegistry
+from simple_module_core.access.principals import PrincipalRegistry
+from simple_module_core.access.resources import (
+    ResourcePolicy,
+    ResourcePrincipal,
+    ResourceType,
+    ResourceTypeRegistry,
+)
+from simple_module_core.access.tenancy import (
+    TENANT_ROLE_PREFIX,
+    TenantRole,
+    is_tenant_role,
+    tenant_role,
+)
 from simple_module_core.diagnostics import (
     DiagnosticLevel,
     MigrationDiagnostics,
     print_diagnostics,
     run_diagnostics,
 )
-from simple_module_core.discovery import (
+from simple_module_core.eventing.durable_events import (
+    DurableContext,
+    DurableDeliveryUnavailable,
+    DurableTransport,
+)
+from simple_module_core.eventing.events import Event, EventBus
+from simple_module_core.eventing.invalidation import (
+    Invalidation,
+    InvalidationBus,
+    InvalidationTransport,
+)
+from simple_module_core.localization.i18n import I18nRegistry, Translator
+from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
+from simple_module_core.modules.discovery import (
     DEFAULT_AUTH_PROVIDER,
     discover_modules,
     get_module_package_name,
@@ -22,13 +42,13 @@ from simple_module_core.discovery import (
     select_auth_provider,
     topological_sort,
 )
-from simple_module_core.durable_events import (
-    DurableContext,
-    DurableDeliveryUnavailable,
-    DurableTransport,
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.modules.services import Services
+from simple_module_core.modules.versioning import (
+    FRAMEWORK_API_VERSION,
+    check_framework_compatibility,
 )
-from simple_module_core.events import Event, EventBus
-from simple_module_core.exceptions import (
+from simple_module_core.runtime.exceptions import (
     CircularDependencyError,
     FrameworkVersionError,
     InvalidModuleError,
@@ -37,7 +57,13 @@ from simple_module_core.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from simple_module_core.feature_flags import (
+from simple_module_core.web.admin_surface import AdminSurface
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry, LabelResolver
+from simple_module_core.web.body_limits import BodyLimitRegistry
+from simple_module_core.web.cors import CorsPolicy, CorsPolicyRegistry
+from simple_module_core.web.csp import CspSourceError, CspSourceRegistry
+from simple_module_core.web.design_packs import DesignPack, DesignPackRegistry
+from simple_module_core.web.feature_flags import (
     FeatureFlagDefinition,
     FeatureFlagRegistry,
     feature_flag,
@@ -45,29 +71,16 @@ from simple_module_core.feature_flags import (
     is_flag_enabled,
     require_flag,
 )
-from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
-from simple_module_core.i18n import I18nRegistry, Translator
-from simple_module_core.invalidation import (
-    Invalidation,
-    InvalidationBus,
-    InvalidationTransport,
+from simple_module_core.web.health import (
+    HealthCheck,
+    HealthCheckResult,
+    HealthRegistry,
+    HealthStatus,
 )
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionCatalogue, PermissionRegistry
-from simple_module_core.principals import PrincipalRegistry
-from simple_module_core.public_routes import PublicRoute, PublicRouteRegistry
-from simple_module_core.resources import (
-    ResourcePolicy,
-    ResourcePrincipal,
-    ResourceType,
-    ResourceTypeRegistry,
-)
-from simple_module_core.services import Services
-from simple_module_core.setup_steps import SetupAction, SetupField, SetupRegistry, SetupStep
-from simple_module_core.spa_mount import SpaMount
-from simple_module_core.tenancy import TENANT_ROLE_PREFIX, TenantRole, is_tenant_role, tenant_role
-from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework_compatibility
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.web.public_routes import PublicRoute, PublicRouteRegistry
+from simple_module_core.web.setup_steps import SetupAction, SetupField, SetupRegistry, SetupStep
+from simple_module_core.web.spa_mount import SpaMount
 
 __all__ = [
     "DEFAULT_AUTH_PROVIDER",

@@ -9,8 +9,8 @@ from sharing.contracts import SubjectProvider
 from sharing.contracts.subjects import SUBJECTS_KEY
 from sharing.core.subjects import default_subject_registry
 from sharing.models import ResourceShare
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 from simple_module_db.tenancy import tenant_context
 from sqlalchemy import event
 from sqlmodel import select
@@ -135,7 +135,7 @@ async def test_equal_user_and_role_ids_are_distinct_and_do_not_allow_group_self_
     from _sharing_support import FakeDirectory, register_note_type
     from sharing.contracts import ShareGrant
     from sharing.core.service import SharingError, SharingService
-    from simple_module_core.resources import ResourceTypeRegistry
+    from simple_module_core.access.resources import ResourceTypeRegistry
 
     types = ResourceTypeRegistry()
     register_note_type(types)

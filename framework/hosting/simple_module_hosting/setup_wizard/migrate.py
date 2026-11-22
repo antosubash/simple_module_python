@@ -57,7 +57,7 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     """Run every module's migrations to head and refresh the boot snapshot."""
     from alembic import command
     from alembic.config import Config as AlembicConfig
-    from simple_module_core.migration_support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
+    from simple_module_core.migrations.support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
 
     from simple_module_hosting.migrations import (
         ALEMBIC_DATABASE_URL_ATTRIBUTE,

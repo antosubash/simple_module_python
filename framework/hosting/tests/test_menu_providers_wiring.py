@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from simple_module_core.menu import MenuItem, MenuRegistry
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.web.menu import MenuItem, MenuRegistry
 from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware
 from starlette.middleware.sessions import SessionMiddleware

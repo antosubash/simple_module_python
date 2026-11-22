@@ -3,9 +3,9 @@
 import logging
 
 import pytest
-from simple_module_core.durable_events import DurableContext, event_key
-from simple_module_core.events import EventBus
-from simple_module_core.mail import ConsoleMailSender, install_mail_sender
+from simple_module_core.eventing.durable_events import DurableContext, event_key
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.mailer.mail import ConsoleMailSender, install_mail_sender
 from tenants.contracts.events import InvitationCreated
 from tenants.contracts.schemas import InvitationCreate
 from tenants.core.service import TenantService
@@ -159,7 +159,7 @@ async def _invite_with(db_session, base_url: str):
 
 async def test_tenants_no_transport_queues_no_mail(db_session):
     """Without the mail module the token must not be persisted in the outbox."""
-    from simple_module_core.mail import install_mail_resolver
+    from simple_module_core.mailer.mail import install_mail_resolver
 
     install_mail_sender(None)
     install_mail_resolver(None)
@@ -174,7 +174,7 @@ async def test_tenants_relative_link_is_not_queued(db_session, captured_mail):
 
 async def test_tenants_worker_without_transport_retries(db_session):
     """A worker started without Mail must fail the delivery, not mark it sent."""
-    from simple_module_core.mail import install_mail_resolver
+    from simple_module_core.mailer.mail import install_mail_resolver
     from tenants.invitations.mail import send_invitation_email
 
     install_mail_sender(None)

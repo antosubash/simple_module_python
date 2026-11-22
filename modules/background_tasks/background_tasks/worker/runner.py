@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from simple_module_core.dotenv import find_env_file, load_dotenv_into_environ
+from simple_module_core.settings.dotenv import find_env_file, load_dotenv_into_environ
 
 if TYPE_CHECKING:
     from celery import Celery

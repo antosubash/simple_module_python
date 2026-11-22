@@ -15,7 +15,7 @@ from settings.contracts.invalidation import invalidation_key
 from settings.core.constants import INVALIDATION_CHANNEL
 
 if TYPE_CHECKING:
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 

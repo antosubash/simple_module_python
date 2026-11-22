@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from _users_app_builders import ALICE
-from simple_module_core.rate_limit import InProcessWindowStore
+from simple_module_core.web.rate_limit import InProcessWindowStore
 from sqlalchemy import select
 from users.auth_local import lockout
 from users.auth_local.lockout import (

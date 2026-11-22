@@ -19,8 +19,8 @@ from background_tasks.outbox import worker as outbox_worker
 from background_tasks.tasks import dispatch_outbox, purge_old_executions, sweep_outbox
 from background_tasks.worker.celery_app import build_celery
 from simple_module_core import DurableContext
-from simple_module_core.durable_events import event_key, serialize_event
-from simple_module_core.events import Event, EventBus
+from simple_module_core.eventing.durable_events import event_key, serialize_event
+from simple_module_core.eventing.events import Event, EventBus
 from simple_module_db import current_tenant_id
 from sqlalchemy import select
 

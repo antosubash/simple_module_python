@@ -8,9 +8,9 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from simple_module_core.file_access import ACTION_PUBLISH, FileAccessPolicyRegistry
-from simple_module_core.permission_denied import PermissionDenied
-from simple_module_core.resources import ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
+from simple_module_core.access.file_access import ACTION_PUBLISH, FileAccessPolicyRegistry
+from simple_module_core.access.permission_denied import PermissionDenied
+from simple_module_core.access.resources import ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
 from simple_module_db import finalize_session
 from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
 from sqlalchemy import select

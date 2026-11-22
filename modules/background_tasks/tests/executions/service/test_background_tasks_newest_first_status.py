@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from background_tasks.core.constants import TaskStatus
 from background_tasks.executions.service import BackgroundTaskService
 from background_tasks.models import TaskExecution
-from simple_module_core.tenancy import TenantRole
+from simple_module_core.access.tenancy import TenantRole
 
 URL = "/api/background_tasks/tasks/{}/status"
 

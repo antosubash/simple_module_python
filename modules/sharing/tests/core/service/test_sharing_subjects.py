@@ -9,8 +9,8 @@ from pydantic import ValidationError
 from sharing.contracts.schemas import ShareGrant
 from sharing.core.service import SharingError, SharingService
 from sharing.models import ResourceShare
-from simple_module_core.resources import ResourcePrincipal, ResourceTypeRegistry
-from simple_module_core.user_directory import DirectoryUser
+from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
+from simple_module_core.access.user_directory import DirectoryUser
 from sqlalchemy.orm import make_transient_to_detached
 
 

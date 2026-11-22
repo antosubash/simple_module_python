@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from simple_module_core import _i18n_translator, _invalidation_message, invalidation, menu
+from simple_module_core.eventing import _invalidation_message, invalidation
+from simple_module_core.localization import _i18n_translator
+from simple_module_core.web import menu
 from simple_module_db import listeners
 from simple_module_hosting import setup_gate
 

@@ -9,7 +9,7 @@ use the registry for a path or prefix.
 from __future__ import annotations
 
 from fastapi import HTTPException, Request
-from simple_module_core.rate_limit import RateKey, RateSpec, parse_rate
+from simple_module_core.web.rate_limit import RateKey, RateSpec, parse_rate
 
 from simple_module_hosting._rate_limit_keys import KEY_USER_OR_IP, methods_label, rule_key
 from simple_module_hosting.token_guard import effective_route

@@ -83,12 +83,12 @@ From then on, edit at `/admin/settings/` (requires the `settings.manage` permiss
 
 ## Per-module settings convention
 
-When you write your own module, declare settings as a `DbBackedSettings` subclass (`simple_module_core.settings_base`; constructor + DB, no env source) and register it from `register_settings(app)` with `register_module_settings`, which mounts your services object on `app.state.<module_lower>` (the lowercase package name) and lets the host hydrate it from the database before `on_startup`.
+When you write your own module, declare settings as a `DbBackedSettings` subclass (`simple_module_core.settings.settings_base`; constructor + DB, no env source) and register it from `register_settings(app)` with `register_module_settings`, which mounts your services object on `app.state.<module_lower>` (the lowercase package name) and lets the host hydrate it from the database before `on_startup`.
 
 ```python
 # modules/orders/orders/core/settings.py
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 
 class OrdersSettings(DbBackedSettings):
@@ -108,7 +108,7 @@ class OrdersServices:
 
 
 # modules/orders/orders/module.py
-from simple_module_core.module_settings import register_module_settings
+from simple_module_core.settings.module_settings import register_module_settings
 
 
 class OrdersModule(ModuleBase):

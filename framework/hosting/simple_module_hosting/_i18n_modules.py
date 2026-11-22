@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from simple_module_core import ModuleBase, get_module_package_name
-from simple_module_core.i18n import I18nRegistry
+from simple_module_core.localization.i18n import I18nRegistry
 
 from simple_module_hosting._generated_files import _write_if_changed
 from simple_module_hosting.settings import Settings

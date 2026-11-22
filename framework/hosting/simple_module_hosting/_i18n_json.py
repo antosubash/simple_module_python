@@ -2,7 +2,7 @@
 
 from weakref import WeakKeyDictionary
 
-from simple_module_core.i18n import I18nRegistry
+from simple_module_core.localization.i18n import I18nRegistry
 from simple_module_inertia.rendering._json_snapshot import JsonSnapshot
 
 _catalogs: WeakKeyDictionary[

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from file_storage.files.resolve import label_for, resolve_uploader_labels
-from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
+from simple_module_core.access.user_directory import DirectoryUser, NullUserDirectory
 
 
 class _Directory(NullUserDirectory):

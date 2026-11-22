@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 
 import pytest
-from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER, resolve_auth_provider
+from simple_module_core.modules.discovery import DEFAULT_AUTH_PROVIDER, resolve_auth_provider
 from simple_module_hosting.settings import Settings
 
 

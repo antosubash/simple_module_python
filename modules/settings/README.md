@@ -26,7 +26,7 @@ class OrdersModule(ModuleBase):
     meta = ModuleMeta(name="orders")
 
     def register_settings(self, app: FastAPI) -> None:
-        from simple_module_core.module_settings import register_module_settings
+        from simple_module_core.settings.module_settings import register_module_settings
         from orders.settings import OrdersSettings
         from orders.services import OrdersServices
 
@@ -35,7 +35,7 @@ class OrdersModule(ModuleBase):
         )
 ```
 
-That surfaces the module's settings fields under `/admin/settings/`, hydrated from the DB store at startup. The settings class is normally a `simple_module_core.settings_base.DbBackedSettings` (DB is the only source). Registration and hydration live in the framework (#500); this module adds the admin editor, hot reload and the key/value API.
+That surfaces the module's settings fields under `/admin/settings/`, hydrated from the DB store at startup. The settings class is normally a `simple_module_core.settings.settings_base.DbBackedSettings` (DB is the only source). Registration and hydration live in the framework (#500); this module adds the admin editor, hot reload and the key/value API.
 
 ## Depends on
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
-from simple_module_core.i18n import Translator
+from simple_module_core.localization.i18n import Translator
 
 
 async def get_translator(request: Request) -> Translator:

@@ -10,7 +10,7 @@ import httpx
 import pytest
 from _resacc_models import EDITOR, OWNER, POLICY, SHARED, STRANGER, ResaccDoc, seed
 from fastapi import Depends, FastAPI, Request
-from simple_module_core.resources import ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
+from simple_module_core.access.resources import ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
 from simple_module_db import PageParams, paginate
 from simple_module_hosting.resource_deps import RequiresResource, resource_principal
 from simple_module_hosting.token_guard import route_admits_tokens, token_route_guard

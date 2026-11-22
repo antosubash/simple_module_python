@@ -21,7 +21,7 @@ Both run the definition's ``check`` (:func:`run_check`) before writing.
 from __future__ import annotations
 
 from fastapi import HTTPException, Request
-from simple_module_core.tenancy import tenant_exists
+from simple_module_core.access.tenancy import tenant_exists
 
 from settings.contracts.registry import SettingDefinition, SettingsRegistry
 from settings.contracts.schemas import SettingOut, SettingScope

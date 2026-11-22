@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from background_tasks.core.constants import OutboxStatus
 from background_tasks.models import TaskExecution
 from simple_module_core import DurableContext
-from simple_module_core.events import Event
+from simple_module_core.eventing.events import Event
 
 
 @dataclass

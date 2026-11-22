@@ -161,7 +161,7 @@ caching it. That read is not guaranteed to be newer than an invalidation that
 landed during it: it is equivalent to an uncached read racing a concurrent
 change, and it is never cached. The 60-second membership TTL and invalidation
 bus remain the fallback for changes in other workers. Permission grants and
-subdomain lookups use the same `simple_module_core.singleflight.fill` loop;
+subdomain lookups use the same `simple_module_core.runtime.singleflight.fill` loop;
 grants keep their 30-second TTL.
 
 Unknown subdomain slugs are negatively cached for five seconds (bounded to 10,000

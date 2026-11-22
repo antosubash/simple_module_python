@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 from cachetools import TTLCache
-from simple_module_core.singleflight import MISS, SingleFlight, fill
+from simple_module_core.runtime.singleflight import MISS, SingleFlight, fill
 
 __all__ = [
     "SESSION_VERSION_TTL_SECONDS",

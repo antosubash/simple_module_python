@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from feature_flags.module import FeatureFlagsModule
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 
 
 class _BoomService:

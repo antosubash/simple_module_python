@@ -11,7 +11,7 @@ import concurrent.futures
 import logging
 from typing import Any
 
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 
 logger = logging.getLogger("background_tasks.signals")
 

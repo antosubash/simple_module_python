@@ -102,7 +102,7 @@ The current framework version is 0.0.47; the next minor release is **0.1.0**.
 Until that release, derived-default processes **publish and subscribe on both**
 the derived channel and the legacy global `simple_module.invalidation` channel.
 This preserves old → new and new → old invalidations. The bridge registers a
-`simple_module_core.deprecation` warning with `remove_in="0.1.0"`, enforced by
+`simple_module_core.runtime.deprecation` warning with `remove_in="0.1.0"`, enforced by
 `host/tests/test_deprecation_expiry.py`. New publishers attach a message ID;
 receivers retain the most recent 1024 IDs and dispatch each once, even when both
 bridge copies arrive. Version-1 messages from old publishers remain accepted
@@ -149,7 +149,7 @@ A standalone worker never builds the FastAPI app, so it installs no transport: i
 
 ## Concurrent cache fills
 
-`simple_module_core.singleflight.SingleFlight` serializes in-process fills for
+`simple_module_core.runtime.singleflight.SingleFlight` serializes in-process fills for
 one cache key. Keep one helper per app/cache and use `async with flight.hold(key)`
 on a miss. Recheck the cache after acquiring the lock: an earlier reader may
 already have filled it. Different keys proceed independently; idle keys are
@@ -158,7 +158,7 @@ lock, so a waiter can retry without a cached failed task.
 
 The lock does not version or invalidate cached data. Authorization caches must
 also compare their invalidation epoch before storing a DB read, and retry
-against a fresh session if the epoch changed. `simple_module_core.singleflight.fill`
+against a fresh session if the epoch changed. `simple_module_core.runtime.singleflight.fill`
 is that loop:
 
 ```python

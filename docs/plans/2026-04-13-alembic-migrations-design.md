@@ -38,7 +38,7 @@ host/
 4. Read `Settings.database_url` and convert async drivers to sync equivalents (`+aiosqlite` → removed, `+asyncpg` → `+psycopg2` or removed).
 
 ```python
-from simple_module_core.discovery import discover_modules
+from simple_module_core.modules.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 
 # Trigger model registration

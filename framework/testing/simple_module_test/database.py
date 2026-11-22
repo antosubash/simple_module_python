@@ -93,7 +93,7 @@ async def reset_schema(engine: Any) -> None:
 
 
 def _create_declared_extensions(sync_conn: Any) -> None:
-    from simple_module_core.discovery import discover_modules
+    from simple_module_core.modules.discovery import discover_modules
     from simple_module_db.extensions import ensure_db_extensions
 
     ensure_db_extensions(sync_conn, discover_modules())

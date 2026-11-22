@@ -62,7 +62,7 @@ def test_removed_rows_are_ignored_before_parsing(package, removed, caplog):
     from background_tasks.core.settings import BackgroundTasksSettings
     from keycloak.core.settings import KeycloakSettings
     from oidc.core.settings import OidcSettings
-    from simple_module_core.settings_hydrate import build_settings
+    from simple_module_core.settings.settings_hydrate import build_settings
     from users.core.settings import UsersSettings
 
     cls = {

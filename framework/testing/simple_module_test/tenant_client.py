@@ -31,7 +31,7 @@ from typing import Any, NamedTuple
 
 import httpx
 import pytest
-from simple_module_core.tenancy import TenantRole
+from simple_module_core.access.tenancy import TenantRole
 
 from simple_module_test.inertia import inertia_headers
 from simple_module_test.session_cookie import forge_session_cookie

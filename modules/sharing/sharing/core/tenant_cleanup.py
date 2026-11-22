@@ -1,6 +1,6 @@
 """Durable teardown of tenant-owned sharing rows."""
 
-from simple_module_core.durable_events import DurableContext
+from simple_module_core.eventing.durable_events import DurableContext
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db.tenancy import tenant_context
 from sqlmodel import delete

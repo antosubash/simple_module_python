@@ -12,10 +12,10 @@ from typing import Any
 
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
-from simple_module_core.module_settings import get_module_settings_registry
+from simple_module_core.settings.module_settings import get_module_settings_registry
 
 # Re-exported: callers reach for ``SECRET_MASK`` / ``is_secret_field`` here.
-from simple_module_core.secret_fields import (  # noqa: F401
+from simple_module_core.settings.secret_fields import (  # noqa: F401
     _NEVER_SECRET_TYPES,
     SECRET_MASK,
     annotation_holds_secret,
@@ -25,7 +25,7 @@ from simple_module_core.secret_fields import (  # noqa: F401
     is_secret_field,
     mask,
 )
-from simple_module_core.settings_hydrate import (
+from simple_module_core.settings.settings_hydrate import (
     env_supplied_fields,
     input_type_for_field,
     value_type_for_field,

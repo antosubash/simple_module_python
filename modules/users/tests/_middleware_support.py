@@ -60,7 +60,7 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
 
     app = FastAPI()
     app.state.sm = SimpleNamespace(db=db_state)
-    from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.web.public_routes import PublicRouteRegistry
     from users.accounts.provider import UsersAuthProvider
     from users.module import UsersModule
 

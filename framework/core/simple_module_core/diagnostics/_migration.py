@@ -9,7 +9,7 @@ from simple_module_core.diagnostics._expression_index import module_all_tables
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 MIGRATION_DRIFT_CODE = "SM010"
 MIGRATION_OWNER = "migrations"

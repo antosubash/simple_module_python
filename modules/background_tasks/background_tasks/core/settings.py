@@ -40,7 +40,7 @@ from typing import Literal
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
-from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX
+from simple_module_core.settings.settings_hydrate import RELATED_FIELDS_CTX
 
 from background_tasks.core.constants import (
     DEFAULT_OUTBOX_LEASE_SECONDS,

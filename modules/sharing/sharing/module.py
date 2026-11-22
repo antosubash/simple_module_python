@@ -5,18 +5,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.audit_links import AuditLink
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
+from simple_module_core.web.audit_links import AuditLink
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 
 from sharing.core import constants as c
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from simple_module_core.audit_links import AuditLinkRegistry
-    from simple_module_core.events import EventBus
-    from simple_module_core.permissions import PermissionRegistry
-    from simple_module_core.rate_limit import RateLimitRegistry
+    from simple_module_core.access.permissions import PermissionRegistry
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.web.audit_links import AuditLinkRegistry
+    from simple_module_core.web.rate_limit import RateLimitRegistry
 
 
 class SharingModule(ModuleBase):
@@ -70,7 +70,7 @@ class SharingModule(ModuleBase):
             registry.map_role(tenant_role(role), [c.Permissions.SHARE])
 
     def register_rate_limits(self, registry: RateLimitRegistry) -> None:
-        from simple_module_core.rate_limit import RateLimitRule
+        from simple_module_core.web.rate_limit import RateLimitRule
 
         registry.add_exact(
             c.CANDIDATES_URL,

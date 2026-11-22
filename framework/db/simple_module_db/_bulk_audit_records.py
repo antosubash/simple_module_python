@@ -6,7 +6,7 @@ import logging
 from collections.abc import Iterable
 from typing import Any, Final
 
-from simple_module_core.correlation import correlation_id
+from simple_module_core.runtime.correlation import correlation_id
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import ORMExecuteState, Session
 
