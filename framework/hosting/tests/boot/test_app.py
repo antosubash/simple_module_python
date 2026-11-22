@@ -121,6 +121,7 @@ class TestCreateApp:
         """
         from simple_module_core import ModuleBase, ModuleMeta
         from simple_module_hosting.boot import app_builder
+        from simple_module_test.fixtures import _create_all_tables, _seed_setup_admin
 
         class FakeGisMod(ModuleBase):
             meta = ModuleMeta(name="FakeGis", route_prefix="/api/fakegis")
@@ -145,12 +146,17 @@ class TestCreateApp:
         monkeypatch.setattr(app_builder, "discover_modules", fake_discover)
 
         app = create_app(settings)
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://testserver", follow_redirects=False
-        ) as client:
-            public = await client.get("/api/fakegis/stac")
-            gated = await client.get("/api/fakegis/secret")
+        try:
+            await _create_all_tables(app.state.sm.db.engine)
+            await _seed_setup_admin(app)
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://testserver", follow_redirects=False
+            ) as client:
+                public = await client.get("/api/fakegis/stac")
+                gated = await client.get("/api/fakegis/secret")
+        finally:
+            await app.state.sm.db.engine.dispose()
 
         assert public.status_code == 200
         assert public.json() == {"type": "Catalog"}
