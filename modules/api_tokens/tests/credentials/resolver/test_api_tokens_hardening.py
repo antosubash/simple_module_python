@@ -186,7 +186,7 @@ async def test_no_pat_for_an_account_the_resolver_cannot_load(app, actor, monkey
 
 async def test_has_usable_account(app):
     from api_tokens.credentials.service import ApiTokenService
-    from simple_module_core.user_directory import get_user_directory
+    from simple_module_core.access.user_directory import get_user_directory
 
     user_id = await create_user(app, f"u-{uuid.uuid4().hex[:6]}@example.com")
     async with app.state.sm.db.session_factory() as session:

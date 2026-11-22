@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Final
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
-from simple_module_core.resources import ACTION_EDIT, ACTION_VIEW
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.access.resources import ACTION_EDIT, ACTION_VIEW
+from simple_module_core.runtime.deprecation import deprecate
 
 MODULE_NAME: Final = "Sharing"
 MODULE_PACKAGE: Final = "sharing"

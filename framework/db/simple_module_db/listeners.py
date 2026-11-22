@@ -7,7 +7,7 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
-from simple_module_core.correlation import correlation_id
+from simple_module_core.runtime.correlation import correlation_id
 from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session

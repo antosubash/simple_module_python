@@ -18,9 +18,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from simple_module_core.app_state import get_migration_status
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, collect_tsx_pages
-from simple_module_core.discovery import get_module_package_name
+from simple_module_core.modules.app_state import get_migration_status
+from simple_module_core.modules.discovery import get_module_package_name
 from simple_module_hosting.migrations import list_migrations
 
 logger = logging.getLogger(__name__)
@@ -171,7 +171,7 @@ def dev_server(request: Request) -> dict[str, Any]:
     server at all — the same condition ``_inertia_setup`` uses to choose
     between the dev server and the built manifest.
     """
-    from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+    from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 
     settings = request.app.state.sm.settings
     return {

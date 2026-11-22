@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 
 import pytest
-from simple_module_core.setup_steps import SetupAction, SetupRegistry, SetupStep
+from simple_module_core.web.setup_steps import SetupAction, SetupRegistry, SetupStep
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard import report_unactionable_steps
 from simple_module_test.setup_wizard import post_step, wizard_client, wizard_headers

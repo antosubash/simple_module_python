@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_core.redirect_safety import safe_next
+from simple_module_core.web.redirect_safety import safe_next
 from site_lock.web.page import render_unlock_page
 
 

@@ -20,8 +20,8 @@ from typing import Any
 
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, is_api_token, parse_bearer
-from simple_module_core.tenancy import is_tenant_role
-from simple_module_core.user_directory import UserDirectory, get_user_directory
+from simple_module_core.access.tenancy import is_tenant_role
+from simple_module_core.access.user_directory import UserDirectory, get_user_directory
 from simple_module_db import ALL_TENANTS_OPTION, independent_session
 from sqlalchemy import or_, select, update
 from sqlmodel import col

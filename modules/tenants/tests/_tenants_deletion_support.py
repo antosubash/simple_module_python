@@ -1,7 +1,7 @@
 """Outbox writer with dispatch deliberately paused for deletion tests."""
 
 from background_tasks.outbox.transport import _OutboxWriter
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 
 
 class PausedTransport(_OutboxWriter):

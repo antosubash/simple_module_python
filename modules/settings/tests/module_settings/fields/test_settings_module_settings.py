@@ -8,8 +8,8 @@ from pydantic_settings import BaseSettings
 from settings.core.services import SettingsServices
 from settings.core.settings import SettingsSettings
 from settings.module_settings.discovery import collect_module_settings
-from simple_module_core.module import ModuleMeta
-from simple_module_core.services import Services
+from simple_module_core.modules.module import ModuleMeta
+from simple_module_core.modules.services import Services
 
 
 class _DemoCfg(BaseSettings):

@@ -475,7 +475,7 @@ Trade-offs to know about:
 
 ## Mailer
 
-`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the verify / reset / invite templates (bundled, or [overridden by the host](#overriding-auth-email-templates)) and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.mailer` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
+`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the verify / reset / invite templates (bundled, or [overridden by the host](#overriding-auth-email-templates)) and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mailer.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.mailer` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
 
 Bulk invite failures return a known, safe reason for an existing account and a
 generic retry message for unexpected errors (#698). SQL statements, parameters
@@ -548,7 +548,7 @@ For example, a module wrapping a separate GitHub application can register:
 ```python
 from httpx_oauth.clients.github import GitHubOAuth2
 from pydantic import SecretStr
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 from users.contracts import OAuthProvider, register_oauth_provider
 
 

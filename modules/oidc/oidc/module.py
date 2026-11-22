@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
-from simple_module_core.user_directory import set_user_directory
+from simple_module_core.access.role_directory import MappedRoleDirectory, set_role_directory
+from simple_module_core.access.user_directory import set_user_directory
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 
 from oidc.core.constants import (
     _MODULE_AUTH,

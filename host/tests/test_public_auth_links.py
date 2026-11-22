@@ -67,7 +67,7 @@ def _declared_path(constant: str) -> str:
 
 
 def _users_meta():
-    from simple_module_core.discovery import discover_modules
+    from simple_module_core.modules.discovery import discover_modules
 
     for module in discover_modules():
         if module.meta.name.lower() == "users":

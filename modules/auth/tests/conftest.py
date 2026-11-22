@@ -9,7 +9,7 @@ import pytest
 from auth.contracts.schemas import UserContext
 from auth.oidc_common.renewal import refresh_session
 from auth.oidc_common.session import SessionKeys
-from simple_module_core.leases import configure_leases, reset_lease_backend
+from simple_module_core.runtime.leases import configure_leases, reset_lease_backend
 from simple_module_db.leases import DbLeaseBackend
 from starlette.requests import Request
 

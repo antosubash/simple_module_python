@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.web.public_routes import PublicRouteRegistry
 
 from keycloak.core.constants import PUBLIC_PATH_PREFIXES
 
@@ -51,8 +51,8 @@ class KeycloakModule(ModuleBase):
         )
 
         # Other modules read accounts through the directory (GH #501).
-        from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
-        from simple_module_core.user_directory import set_user_directory
+        from simple_module_core.access.role_directory import MappedRoleDirectory, set_role_directory
+        from simple_module_core.access.user_directory import set_user_directory
 
         from keycloak.identity.directory import KeycloakDirectory
 

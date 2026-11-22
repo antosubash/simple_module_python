@@ -6,19 +6,19 @@ import logging
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
-from simple_module_core.body_limits import BodyLimitRegistry
-from simple_module_core.cors import CorsPolicyRegistry
-from simple_module_core.csp import CspSourceRegistry
-from simple_module_core.events import EventBus
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
-from simple_module_core.invalidation import InvalidationBus
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.permissions import PermissionRegistry
-from simple_module_core.public_routes import PublicRouteRegistry
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.access.tenancy import TenantRole, tenant_role
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.eventing.invalidation import InvalidationBus
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.web.body_limits import BodyLimitRegistry
+from simple_module_core.web.cors import CorsPolicyRegistry
+from simple_module_core.web.csp import CspSourceRegistry
+from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.web.public_routes import PublicRouteRegistry
 
 from file_storage.core import constants
 from file_storage.core.audit_labels import _resolve_file_labels
@@ -223,7 +223,7 @@ class FileStorageModule(ModuleBase):
         # Registered here, not in register_health_checks: the backend does not
         # exist until this hook builds it, and the check must follow later
         # settings changes rather than pinning the boot-time instance.
-        from simple_module_core.health import HealthCheck
+        from simple_module_core.web.health import HealthCheck
 
         from file_storage.core.health import CHECK_BACKEND, build_backend_check
 

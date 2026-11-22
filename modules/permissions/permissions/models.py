@@ -1,7 +1,7 @@
 """SQLModel tables for the Permissions module.
 
 The *set* of available permission keys lives in the in-memory
-:class:`simple_module_core.permissions.PermissionRegistry` — each module
+:class:`simple_module_core.access.permissions.PermissionRegistry` — each module
 declares them via :meth:`ModuleBase.register_permissions`, and they are
 auto-discovered at boot. What needs persistence is the mutable mapping
 of those keys onto the principals that receive them:

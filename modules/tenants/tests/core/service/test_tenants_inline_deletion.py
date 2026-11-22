@@ -9,7 +9,7 @@ from feature_flags.models import FeatureFlagOverride
 from feature_flags.module import FeatureFlagsModule
 from sharing.models import ResourceShare
 from sharing.module import SharingModule
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import all_tenants, tenant_context
 from simple_module_db.stored_settings import SCOPE_TENANT, Setting
 from simple_module_db.tenant_cleanup import register_tenant_cleanup

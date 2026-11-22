@@ -1,8 +1,8 @@
 """Doctor checks semantic upgrades without importing host code (#711)."""
 
 import pytest
-from simple_module_core.data_compatibility import DataCompatibilityIssue
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -70,8 +70,8 @@ async def test_db_doctor_warns_on_unreachable_database(tmp_path):
 
 
 async def test_db_doctor_fails_when_a_module_check_crashes(tmp_path):
-    from simple_module_core.module import ModuleBase
-    from simple_module_core.module_meta import ModuleMeta
+    from simple_module_core.modules.module import ModuleBase
+    from simple_module_core.modules.module_meta import ModuleMeta
     from simple_module_db.data_compatibility import database_compatibility_diagnostics
     from sqlalchemy import create_engine, text
 

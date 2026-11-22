@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 from fastapi import FastAPI
-from simple_module_core.health import (
+from simple_module_core.web.health import (
     HealthCheck,
     HealthCheckResult,
     HealthRegistry,

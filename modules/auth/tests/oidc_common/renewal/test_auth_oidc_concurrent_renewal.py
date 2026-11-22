@@ -59,7 +59,7 @@ async def test_waiter_timeout_leaves_the_cookie_untouched(renewal, monkeypatch):
     import hashlib
 
     from auth.oidc_common import renewal_outcomes
-    from simple_module_core.leases import lease
+    from simple_module_core.runtime.leases import lease
 
     r = renewal
     name = hashlib.sha256(f"{r.keys.refresh}:opaque-session".encode()).hexdigest()

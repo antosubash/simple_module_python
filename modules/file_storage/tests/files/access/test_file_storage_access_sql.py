@@ -9,12 +9,17 @@ import pytest
 from file_storage.core.constants import Permission
 from file_storage.files.access import FileAccess
 from file_storage.models import StoredFile
-from simple_module_core.file_access import (
+from simple_module_core.access.file_access import (
     ACTION_PUBLISH,
     FileAccessPolicyRegistry,
     register_file_access_policy,
 )
-from simple_module_core.resources import ACTION_DELETE, ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
+from simple_module_core.access.resources import (
+    ACTION_DELETE,
+    ACTION_EDIT,
+    ACTION_VIEW,
+    ResourcePrincipal,
+)
 from simple_module_db.resource_policy import OwnedResourcePolicy
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session

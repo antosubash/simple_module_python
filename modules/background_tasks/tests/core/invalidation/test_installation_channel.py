@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from background_tasks.core._lifecycle import start_invalidation_transport
 from background_tasks.core.settings import BackgroundTasksSettings
-from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.eventing.invalidation import InvalidationBus
 from simple_module_db.stored_settings import Setting
 from sqlalchemy import create_engine
 

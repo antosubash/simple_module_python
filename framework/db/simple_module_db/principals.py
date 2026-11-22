@@ -8,11 +8,11 @@ from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
-from simple_module_core.permissions import WILDCARD
-from simple_module_core.principal_permissions import load_principal
-from simple_module_core.principals import PRINCIPALS_KEY, PrincipalRegistry
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.tenancy import is_tenant_role, tenant_role
+from simple_module_core.access.permissions import WILDCARD
+from simple_module_core.access.principal_permissions import load_principal
+from simple_module_core.access.principals import PRINCIPALS_KEY, PrincipalRegistry
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.tenancy import is_tenant_role, tenant_role
 
 from simple_module_db.tenancy import is_valid_tenant_id, no_tenant, tenant_context
 

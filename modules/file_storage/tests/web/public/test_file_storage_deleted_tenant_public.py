@@ -74,7 +74,7 @@ async def test_tenant_existence_cache_hit_invalidation_and_ttl(monkeypatch):
 
     from fastapi import FastAPI
     from file_storage.core.tenant_cache import cached_tenant_exists
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
 
     app = FastAPI()
     bus = InvalidationBus()

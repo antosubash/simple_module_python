@@ -143,7 +143,7 @@ import logging
 from logging.config import fileConfig
 
 from alembic import context
-from simple_module_core.discovery import discover_modules
+from simple_module_core.modules.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_hosting.settings import Settings
 from sqlalchemy import MetaData, engine_from_config, pool

@@ -71,7 +71,7 @@ async def test_admin_reaches_the_overview(app) -> None:
 async def test_admin_reaches_it_even_with_an_empty_sidebar(app) -> None:
     """An install with no admin modules must still reach the page's own empty
     state — 403'ing there would make that copy unreachable."""
-    from simple_module_core.menu import MenuSection
+    from simple_module_core.web.menu import MenuSection
 
     registry = app.state.sm.menu_registry
     registry._items = [i for i in registry._items if i.section != MenuSection.ADMIN_SIDEBAR]

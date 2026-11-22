@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-from simple_module_core.setup_steps import SetupAction, SetupField, SetupRegistry, SetupStep
+from simple_module_core.web.setup_steps import SetupAction, SetupField, SetupRegistry, SetupStep
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard.composition import migration_follow_up
 from simple_module_hosting.setup_wizard.payloads import steps_payload

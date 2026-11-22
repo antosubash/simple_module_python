@@ -12,8 +12,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
-from simple_module_core.permissions import grants
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.permissions import grants
+from simple_module_core.access.user_directory import get_user_directory
 from simple_module_hosting.pagination import PageParamsDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
 from simple_module_hosting.public_urls import public_origin

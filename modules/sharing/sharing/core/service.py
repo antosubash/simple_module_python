@@ -12,15 +12,15 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from simple_module_core.datetimes import aware as _aware
-from simple_module_core.datetimes import utcnow
-from simple_module_core.resources import (
+from simple_module_core.access.resources import (
     ACTION_SHARE,
     ResourcePrincipal,
     ResourceType,
     ResourceTypeRegistry,
 )
-from simple_module_core.user_directory import UserDirectory
+from simple_module_core.access.user_directory import UserDirectory
+from simple_module_core.runtime.datetimes import aware as _aware
+from simple_module_core.runtime.datetimes import utcnow
 from simple_module_db.resource_policy import load_authorized
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

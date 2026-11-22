@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from mail.delivery.sender import SmtpMailSender
-from simple_module_core.mail import MailAttachment, MailMessage
+from simple_module_core.mailer.mail import MailAttachment, MailMessage
 
 
 @pytest.mark.parametrize(

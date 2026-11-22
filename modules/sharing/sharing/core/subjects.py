@@ -5,9 +5,9 @@ from __future__ import annotations
 import unicodedata
 from collections.abc import Collection, Mapping
 
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.tenancy import TenantRole, tenant_role
-from simple_module_core.user_directory import resolve_user_labels
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.tenancy import TenantRole, tenant_role
+from simple_module_core.access.user_directory import resolve_user_labels
 from simple_module_db.tenancy import current_tenant_id
 from sqlalchemy import false
 

@@ -10,7 +10,7 @@ from api_tokens.credentials.resolver import _personal
 from api_tokens.credentials.service import ApiTokenService
 from api_tokens.models import ApiToken
 from auth.contracts.tokens import AUTH_KIND_PAT
-from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
+from simple_module_core.access.user_directory import DirectoryUser, NullUserDirectory
 
 _OWNER = uuid.uuid4()
 

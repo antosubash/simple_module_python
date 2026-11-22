@@ -11,7 +11,7 @@ import pytest
 from auth.contracts.schemas import UserContext
 from auth.web.deps import get_current_user
 from fastapi import Depends, HTTPException
-from simple_module_core.i18n import I18nRegistry, Translator
+from simple_module_core.localization.i18n import I18nRegistry, Translator
 from simple_module_hosting.permissions import RequiresPermission
 
 

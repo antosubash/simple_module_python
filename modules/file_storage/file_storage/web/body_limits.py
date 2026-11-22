@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.web.body_limits import BodyLimitRegistry
 
 from file_storage.core import constants
 from file_storage.multipart.support import choose_part_size

@@ -22,10 +22,10 @@ from weakref import WeakKeyDictionary
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, AUTH_KIND_SESSION
 from cachetools import TTLCache
 from fastapi import FastAPI
-from simple_module_core.app_state import get_services
-from simple_module_core.invalidation import Invalidation, InvalidationBus
-from simple_module_core.singleflight import MISS, SingleFlight, fill
-from simple_module_core.tenancy import is_tenant_role
+from simple_module_core.access.tenancy import is_tenant_role
+from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
+from simple_module_core.modules.app_state import get_services
+from simple_module_core.runtime.singleflight import MISS, SingleFlight, fill
 from simple_module_db import is_valid_tenant_id
 from simple_module_hosting.middleware import TenantResolution
 from starlette.requests import Request

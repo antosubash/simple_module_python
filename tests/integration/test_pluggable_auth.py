@@ -29,7 +29,7 @@ def test_sm020_fires_with_both_modules():
 
 def test_sm021_fires_with_neither():
     from simple_module_core.diagnostics._module import ModuleDiagnostics
-    from simple_module_core.module import ModuleBase, ModuleMeta
+    from simple_module_core.modules.module import ModuleBase, ModuleMeta
 
     class StubModule(ModuleBase):
         meta = ModuleMeta(name="Stub")

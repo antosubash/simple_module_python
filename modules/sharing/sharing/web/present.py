@@ -6,8 +6,8 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.user_directory import UserDirectory, resolve_user_labels
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.user_directory import UserDirectory, resolve_user_labels
 
 from sharing.contracts.schemas import ShareOut
 from sharing.contracts.subjects import SubjectContext, SubjectRegistry

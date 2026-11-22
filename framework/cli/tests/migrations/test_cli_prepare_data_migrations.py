@@ -13,7 +13,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from simple_module_cli.cli import app
-from simple_module_core.data_compatibility import DataCompatibilityIssue
+from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
 from typer.testing import CliRunner
 
 

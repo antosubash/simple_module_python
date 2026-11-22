@@ -3,9 +3,9 @@
 from collections.abc import Sequence
 
 from alembic.runtime.migration import MigrationContext
-from simple_module_core.data_compatibility import collect_data_compatibility
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
-from simple_module_core.module import ModuleBase
+from simple_module_core.migrations.data_compatibility import collect_data_compatibility
+from simple_module_core.modules.module import ModuleBase
 
 from simple_module_db.listeners import register_listeners
 from simple_module_db.migration_state import database_exists

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 
 from simple_module_hosting._host_settings_support import DEFAULT_LOGIN_REDIRECT_URL
 from simple_module_hosting.settings import Settings

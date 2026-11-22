@@ -41,7 +41,7 @@ def assert_not_placeholder(settings) -> None:
     whoever built the Settings object — including callers that construct it
     themselves rather than going through ``merge_host_settings``.
     """
-    from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+    from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 
     from simple_module_hosting.bootstrap_settings import PLACEHOLDER_SECRET_KEY
 

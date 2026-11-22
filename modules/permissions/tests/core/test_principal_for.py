@@ -7,8 +7,8 @@ import pytest
 from fastapi import Depends
 from permissions.core.service import PermissionService
 from permissions.models import RolePermission, UserPermission
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 from simple_module_hosting.resource_deps import resource_principal
 from simple_module_test.tenant_client import create_user, session_client
 from sqlalchemy import delete

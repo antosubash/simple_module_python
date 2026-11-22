@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from simple_module_core.i18n import I18nRegistry
-from simple_module_core.menu import MenuRegistry
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.localization.i18n import I18nRegistry
+from simple_module_core.web.menu import MenuRegistry
 from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware

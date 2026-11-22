@@ -20,8 +20,8 @@ import asyncio
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.diagnostics import DiagnosticLevel, run_diagnostics
-from simple_module_core.invalidation import InvalidationBus
-from simple_module_core.services import Services
+from simple_module_core.eventing.invalidation import InvalidationBus
+from simple_module_core.modules.services import Services
 
 _SM007 = "SM007"
 

@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from simple_module_core.i18n import I18nRegistry
+from simple_module_core.localization.i18n import I18nRegistry
 from simple_module_hosting._i18n_modules import write_module_keys
 from simple_module_hosting.i18n_manifest import write_generated_resources
 

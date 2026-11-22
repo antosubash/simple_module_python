@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from settings.module_settings.reload import apply_changes_and_reload
-from simple_module_core.settings_hydrate import build_settings
+from simple_module_core.settings.settings_hydrate import build_settings
 
 
 class _SecretCfg(BaseSettings):

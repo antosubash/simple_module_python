@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from simple_module_core.feature_flags import FeatureFlagRegistry
+from simple_module_core.web.feature_flags import FeatureFlagRegistry
 from simple_module_hosting.permissions import RequiresPermission
 
 from feature_flags.contracts.schemas import FeatureFlagView, ToggleRequest

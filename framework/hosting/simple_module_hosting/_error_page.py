@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from http import HTTPStatus
 
 from fastapi.responses import JSONResponse
-from simple_module_core.app_state import get_auth_provider, get_inertia_dependency
+from simple_module_core.modules.app_state import get_auth_provider, get_inertia_dependency
 from simple_module_inertia import (
     Inertia,
     InertiaConfig,

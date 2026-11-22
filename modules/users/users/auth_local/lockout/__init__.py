@@ -33,8 +33,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from fastapi import Request
-from simple_module_core.datetimes import utcnow as _utcnow
-from simple_module_core.rate_limit import RateSpec
+from simple_module_core.runtime.datetimes import utcnow as _utcnow
+from simple_module_core.web.rate_limit import RateSpec
 from simple_module_db import independent_session
 from sqlalchemy import case, func, select, update
 from sqlmodel import col

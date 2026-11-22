@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from audit_log.entries.resolve import resolve_entity_labels
 from audit_log.models import AuditEntry
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -15,7 +15,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
-from simple_module_core.crypto import derive_key
+from simple_module_core.runtime.crypto import derive_key
 
 logger = logging.getLogger(__name__)
 # Browsers drop a cookie over 4096 bytes, and a dropped session cookie means a

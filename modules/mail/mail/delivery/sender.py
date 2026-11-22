@@ -9,7 +9,7 @@ from email.utils import formatdate, make_msgid
 from typing import Any
 
 import aiosmtplib
-from simple_module_core.mail import (
+from simple_module_core.mailer.mail import (
     MailMessage,
     MailSender,
     smtp_address_header,

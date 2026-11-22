@@ -1,4 +1,4 @@
-"""The users module's :class:`~simple_module_core.user_directory.UserDirectory`.
+"""The users module's :class:`~simple_module_core.access.user_directory.UserDirectory`.
 
 Other modules read user records through ``get_user_directory(app)`` rather than
 importing ``users.models`` (GH #501), so the same audit log, dashboard and
@@ -14,8 +14,8 @@ from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from simple_module_core.role_directory import DirectoryRole
-from simple_module_core.user_directory import (
+from simple_module_core.access.role_directory import DirectoryRole
+from simple_module_core.access.user_directory import (
     DirectoryStats,
     DirectoryUser,
     chunked,

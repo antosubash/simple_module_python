@@ -11,8 +11,7 @@ from sharing.contracts.schemas import ShareGrant
 from sharing.core.constants import ROLE_MAX
 from sharing.core.policy import roles_granting, share_exists_for
 from sharing.core.service import SharingError, SharingService
-from simple_module_core.datetimes import utcnow
-from simple_module_core.resources import (
+from simple_module_core.access.resources import (
     ACTION_EDIT,
     ACTION_SHARE,
     ACTION_VIEW,
@@ -21,6 +20,7 @@ from simple_module_core.resources import (
     ResourceTypeError,
     ResourceTypeRegistry,
 )
+from simple_module_core.runtime.datetimes import utcnow
 from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
 from simple_module_db.tenancy import tenant_context
 from sqlmodel import select
@@ -219,5 +219,6 @@ def test_role_ids_must_fit_the_share_column(role):
 
 
 def test_core_role_pattern_matches_share_column_width():
-    # ``simple_module_core.resources._ROLE_ID`` hard-codes the width (core can't import sharing).
+    # ``simple_module_core.access.resources._ROLE_ID`` hard-codes the width
+    # (core can't import sharing).
     assert ROLE_MAX == 32

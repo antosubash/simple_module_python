@@ -3,7 +3,7 @@
 Every compat shim carries a removal release and the test suite enforces it (#515).
 
 ```python
-from simple_module_core.deprecation import deprecate, deprecated, deprecated_module
+from simple_module_core.runtime.deprecation import deprecate, deprecated, deprecated_module
 
 
 @deprecated(remove_in="0.1.0", use="new_fn()")
@@ -38,12 +38,12 @@ for every removed name and its replacement.
 - Define `register_event_handlers(self, bus, app)` and pass `app` explicitly.
   Workers pass `None`; subscribe durable handlers before an `app is None` return.
 - Use `optional()` for Inertia props, `ResourceType.share_roles` for share roles,
-  and `simple_module_core.redirect_safety.safe_next` for safe redirects.
+  and `simple_module_core.web.redirect_safety.safe_next` for safe redirects.
 
 `ModuleMeta.requires_framework=None` permanently means **no version constraint**;
 only its deprecation was removed. A declared range is still checked at boot.
 
 `simple_module_hosting.settings.Settings`, `simple_module_hosting._registrations`,
-`simple_module_core.public_routes`, `simple_module_core.versioning` and
-`simple_module_core.resources` are live implementations, not import-path shims.
+`simple_module_core.web.public_routes`, `simple_module_core.modules.versioning` and
+`simple_module_core.access.resources` are live implementations, not import-path shims.
 They remain; only their deprecated compatibility paths were removed.

@@ -10,7 +10,7 @@ from __future__ import annotations
 import secrets
 
 from pydantic import PrivateAttr, model_validator
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 from simple_module_hosting.host_settings import HostSettings

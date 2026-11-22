@@ -69,7 +69,7 @@ def build_host_app(
     if str(host_dir) not in sys.path:
         sys.path.insert(0, str(host_dir))
 
-    from simple_module_core.dotenv import load_dotenv_into_environ
+    from simple_module_core.settings.dotenv import load_dotenv_into_environ
 
     root_env = os.environ.get("SM_PROJECT_ROOT")
     root = root_env or project_root

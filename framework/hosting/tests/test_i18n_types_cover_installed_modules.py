@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_core.discovery import discover_modules
+from simple_module_core.modules.discovery import discover_modules
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.settings import Settings
 

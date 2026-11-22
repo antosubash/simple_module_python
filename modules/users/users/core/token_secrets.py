@@ -6,9 +6,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 
-from simple_module_core.crypto import derive_key
-from simple_module_core.deprecation import deprecate
-from simple_module_core.dotenv import env_str
+from simple_module_core.runtime.crypto import derive_key
+from simple_module_core.runtime.deprecation import deprecate
+from simple_module_core.settings.dotenv import env_str
 
 logger = logging.getLogger(__name__)
 

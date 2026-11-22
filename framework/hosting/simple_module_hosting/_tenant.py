@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from simple_module_core.app_state import get_tenant_resolver
+from simple_module_core.modules.app_state import get_tenant_resolver
 from simple_module_db import current_tenant_id, is_valid_tenant_id
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request

@@ -163,9 +163,9 @@ Note the absence of `self.session.commit()`. The per-request `get_db` dependency
 
 ```python
 # modules/orders/orders/module.py
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.access.permissions import PermissionRegistry
 
 
 class OrdersModule(ModuleBase):

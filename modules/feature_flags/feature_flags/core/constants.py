@@ -1,7 +1,7 @@
 """Stable identifiers for the feature_flags module."""
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
 
 # Shown as a heading in the role editor, so it follows the same sentence case
 # as the menu label and the page title rather than reading "Feature Flags"

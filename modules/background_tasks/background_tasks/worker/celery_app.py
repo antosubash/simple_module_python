@@ -22,7 +22,7 @@ from importlib.metadata import entry_points
 
 from celery import Celery
 from celery.schedules import schedule
-from simple_module_core.discovery import ENTRY_POINT_GROUP
+from simple_module_core.modules.discovery import ENTRY_POINT_GROUP
 
 from background_tasks.core.config_guards import celery_overrides_from_env
 from background_tasks.core.constants import (

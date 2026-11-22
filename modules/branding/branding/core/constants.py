@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 from typing import Final
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.design_packs import SLUG_RE
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
+from simple_module_core.web.design_packs import SLUG_RE
 
 ROUTE_PREFIX: Final = "/api/branding"
 VIEW_PREFIX: Final = "/admin/branding"

@@ -63,7 +63,7 @@ registry objects; do not replace `app.state.sm` or swap referenced registries.
 ## Menu — `register_menu_items(registry: MenuRegistry)`
 
 ```python
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 
 
 class OrdersModule(ModuleBase):
@@ -102,7 +102,7 @@ only in an active tenant, validated by the builder's session-owned `tenant_activ
 provider; see `docs/framework/permissions.md`.
 
 ```python
-from simple_module_core.permissions import PermissionCatalogue, PermissionRegistry
+from simple_module_core.access.permissions import PermissionCatalogue, PermissionRegistry
 
 
 class Permissions(PermissionCatalogue, group="Orders", label_key="orders.permission_group"):
@@ -126,7 +126,7 @@ No catalogue declaration grants a role or guards a route. Built-in modules use
 `Permissions` from their `core.constants`; file_storage retains `Permission`.
 Imported legacy `PERM_*` aliases are deprecated for removal in 0.0.50 (#1037).
 
-Read role catalogs with `get_role_directory(app)` from `simple_module_core.role_directory`,
+Read role catalogs with `get_role_directory(app)` from `simple_module_core.access.role_directory`,
 not provider tables. Its `editable` flag gates local assignment controls, while
 role-name permission mappings work for Users, OIDC and Keycloak.
 
@@ -139,7 +139,7 @@ To check inside an endpoint, depend on `RequiresPermission(Permissions.VIEW)` (f
 ## Feature flags — `register_feature_flags(registry: FeatureFlagRegistry)`
 
 ```python
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 
 
 class OrdersModule(ModuleBase):
@@ -158,7 +158,7 @@ class OrdersModule(ModuleBase):
 **Checking a flag** (in an endpoint) — use the helper, not raw registry access:
 
 ```python
-from simple_module_core.feature_flags import is_flag_enabled, require_flag, feature_flag
+from simple_module_core.web.feature_flags import is_flag_enabled, require_flag, feature_flag
 
 # Gate a whole endpoint (preferred — standard FastAPI, composes with dependencies=[]):
 @router.post("/import", dependencies=[Depends(require_flag("orders.bulk_import"))])
@@ -187,7 +187,7 @@ The event bus is async and in-process (backed by `pyee`'s `AsyncIOEventEmitter`)
 ```python
 # orders/contracts/events.py
 from dataclasses import dataclass
-from simple_module_core.events import Event
+from simple_module_core.eventing.events import Event
 
 
 @dataclass
@@ -199,7 +199,7 @@ class OrderPlaced(Event):
 
 ```python
 # notifications/module.py
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from orders.contracts.events import OrderPlaced
 
 

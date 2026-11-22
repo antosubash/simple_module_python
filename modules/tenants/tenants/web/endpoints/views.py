@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
-from simple_module_core.permissions import grants
+from simple_module_core.access.permissions import grants
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.pagination import LenientPageParamsDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for

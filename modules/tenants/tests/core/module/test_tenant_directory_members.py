@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from simple_module_core.tenancy import tenant_member_ids
+from simple_module_core.access.tenancy import tenant_member_ids
 from sqlalchemy import create_engine
 from tenants.models import Membership, Tenant
 from tenants.module import _tenant_members

@@ -2,8 +2,8 @@
 
 from unittest.mock import AsyncMock, patch
 
-from simple_module_core.durable_events import DurableContext
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.durable_events import DurableContext
+from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db.stored_settings import SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER, Setting
 from simple_module_db.tenant_cleanup import register_tenant_cleanup
@@ -20,7 +20,7 @@ async def test_settings_cleanup_is_durable_scoped_and_idempotent():
     register_tenant_cleanup(bus)
     names = bus.durable.handler_names(TenantDeleted)
     assert len(names) == 1
-    from simple_module_core.durable_events import event_key
+    from simple_module_core.eventing.durable_events import event_key
 
     subscription = bus.durable.lookup(event_key(TenantDeleted), names[0])
     assert subscription is not None

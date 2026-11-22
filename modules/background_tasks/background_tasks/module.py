@@ -7,10 +7,10 @@ import uuid
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
-from simple_module_core.audit_links import AuditLinkRegistry
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.web.audit_links import AuditLinkRegistry
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 
 from background_tasks.core.constants import (
     _MODULE_SETTINGS,
@@ -87,7 +87,7 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
-        from simple_module_core.audit_links import AuditLink
+        from simple_module_core.web.audit_links import AuditLink
 
         from background_tasks.models import TaskExecution
 

@@ -20,7 +20,7 @@ from background_tasks.outbox.claim import OutboxPolicy
 from background_tasks.outbox.dispatch import dispatch
 from file_storage.models import StoredFile
 from simple_module_core import DurableContext
-from simple_module_core.events import Event
+from simple_module_core.eventing.events import Event
 from simple_module_db import (
     TenantIsolationError,
     all_tenants,

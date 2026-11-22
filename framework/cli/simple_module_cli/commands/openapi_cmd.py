@@ -43,7 +43,7 @@ def _project_root() -> Path:
 def _build_app(project_root: Path) -> Any:
     """The host app, built in process; never serves a request."""
     try:
-        from simple_module_core.dotenv import load_dotenv_into_environ
+        from simple_module_core.settings.dotenv import load_dotenv_into_environ
         from simple_module_hosting import create_app, merge_host_settings
     except ImportError:
         typer.echo(

@@ -22,8 +22,8 @@ from background_tasks.models import OutboxMessage, TaskExecution
 from background_tasks.outbox.claim import OutboxPolicy
 from background_tasks.outbox.dispatch import dispatch
 from simple_module_core import DurableContext
-from simple_module_core.durable_events import event_key, serialize_event
-from simple_module_core.events import Event, EventBus
+from simple_module_core.eventing.durable_events import event_key, serialize_event
+from simple_module_core.eventing.events import Event, EventBus
 from simple_module_db import finalize_session, init_db
 from simple_module_db.listeners import register_listeners
 from simple_module_db.transaction import SESSION_START_KEY

@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.setup_steps import SetupRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.web.setup_steps import SetupRegistry
 from simple_module_hosting._lifespan import build_lifespan
 from simple_module_hosting.setup_gate import register_migration_step
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 async def test_hosting_compatibility_before_hydration(
     monkeypatch, environment, severity, never_migrated, refuses
 ):
-    from simple_module_core.data_compatibility import DataCompatibilityIssue
+    from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
 
     events = []
 
@@ -101,7 +101,7 @@ async def test_unmigrated_first_run_defers_the_check(monkeypatch):
 
 
 async def test_hosting_deferred_checks_gate_replay_before_hydration(monkeypatch):
-    from simple_module_core.data_compatibility import DataCompatibilityIssue
+    from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
     from simple_module_hosting._deferred_startup import run_deferred_startup
 
     class Module(ModuleBase):
@@ -130,7 +130,7 @@ async def test_hosting_deferred_checks_gate_replay_before_hydration(monkeypatch)
 
 @pytest.mark.parametrize("check_raises", [False, True])
 async def test_hosting_setup_gate_keeps_incompatible_replay_closed(monkeypatch, check_raises):
-    from simple_module_core.data_compatibility import DataCompatibilityIssue
+    from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
     from simple_module_hosting.setup_gate import _database_migrated
 
     class Module(ModuleBase):

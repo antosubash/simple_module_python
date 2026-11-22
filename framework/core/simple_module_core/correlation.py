@@ -1,12 +1,13 @@
-"""The request/task correlation id, shared by every layer.
+"""Deprecated alias for simple_module_core.runtime.correlation."""
 
-Lives in core rather than ``simple_module_hosting.logging`` (which re-exports
-it) so the db layer can stamp audit records with it without importing the
-hosting package (#498).
-"""
+import sys
+from importlib import import_module
 
-from __future__ import annotations
+from simple_module_core.runtime.deprecation import deprecated_module
 
-from contextvars import ContextVar
-
-correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
+deprecated_module(
+    "simple_module_core.correlation",
+    remove_in="0.0.52",
+    use="simple_module_core.runtime.correlation",
+)
+sys.modules[__name__] = import_module("simple_module_core.runtime.correlation")

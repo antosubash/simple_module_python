@@ -1,7 +1,7 @@
 """FeatureFlagService — manages persisted overrides and syncs them to the registry.
 
 Resolution semantics (tenant > system > default) live in
-``simple_module_core.feature_flags``; this layer only persists overrides and
+``simple_module_core.web.feature_flags``; this layer only persists overrides and
 mirrors mutations into the registry.
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from fastapi import FastAPI
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

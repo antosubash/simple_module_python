@@ -65,7 +65,7 @@ The distinction exists so developer ergonomics aren't gated on fixing every warn
 
 ## The Services container
 
-Framework singletons live on `app.state.sm`, a frozen dataclass defined in `simple_module_core.services`:
+Framework singletons live on `app.state.sm`, a frozen dataclass defined in `simple_module_core.modules.services`:
 
 ```python
 @dataclass(frozen=True, slots=True)

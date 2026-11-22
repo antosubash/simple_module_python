@@ -7,8 +7,8 @@ import logging
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from simple_module_core.exceptions import NotFoundError
-from simple_module_core.permission_denied import PermissionDenied
+from simple_module_core.access.permission_denied import PermissionDenied
+from simple_module_core.runtime.exceptions import NotFoundError
 from simple_module_inertia import errors_from_validation, is_inertia_request
 from starlette.exceptions import HTTPException
 from starlette.requests import Request

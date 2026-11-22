@@ -18,7 +18,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.eventing.invalidation import InvalidationBus
 from users.accounts.session_revocation import CHANNEL, publish_revocation, subscribe
 from users.accounts.session_version_cache import (
     clear_session_version_cache,

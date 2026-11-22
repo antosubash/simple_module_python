@@ -8,7 +8,7 @@ import pytest
 from background_tasks.core.constants import TaskStatus
 from background_tasks.executions.service import BackgroundTaskService
 from background_tasks.models import TaskExecution
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from sqlalchemy import event
 
 

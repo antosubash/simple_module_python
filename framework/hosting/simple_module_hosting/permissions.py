@@ -7,10 +7,9 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
-from simple_module_core.app_state import get_services
-from simple_module_core.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
-from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
-from simple_module_core.principal_permissions import (
+from simple_module_core.access.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
+from simple_module_core.access.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
+from simple_module_core.access.principal_permissions import (
     _role_and_claimed,
     apply_scope_cap,
     lacks_required_permission,
@@ -18,15 +17,16 @@ from simple_module_core.principal_permissions import (
     resolve_permissions,
     resolve_principal_permissions,
 )
-from simple_module_core.principals import PRINCIPALS_KEY
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.tenancy import is_tenant_role, tenant_role
+from simple_module_core.access.principals import PRINCIPALS_KEY
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.tenancy import is_tenant_role, tenant_role
+from simple_module_core.modules.app_state import get_services
 
 from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION
 
 if TYPE_CHECKING:
-    from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.access.permissions import PermissionRegistry
 
 
 __all__ = [

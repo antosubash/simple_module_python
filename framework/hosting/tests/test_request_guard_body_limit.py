@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.web.body_limits import BodyLimitRegistry
 from simple_module_hosting._body_limit import BodyLimitMiddleware
 from starlette.applications import Starlette
 from starlette.requests import Request

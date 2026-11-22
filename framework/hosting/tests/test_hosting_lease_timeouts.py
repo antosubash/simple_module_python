@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 from redis.exceptions import ConnectionError, TimeoutError
-from simple_module_core.leases import _ATTEMPT_FLOOR, LeaseNotAcquiredError, lease, semaphore
+from simple_module_core.runtime.leases import (
+    _ATTEMPT_FLOOR,
+    LeaseNotAcquiredError,
+    lease,
+    semaphore,
+)
 from simple_module_hosting._lease_redis import _SOCKET_TIMEOUT, RedisLeaseBackend
 
 

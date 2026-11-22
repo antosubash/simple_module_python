@@ -61,7 +61,7 @@ Rejected alternatives:
 
 ### 2.2 `discover_modules` swallowing load errors
 
-**Problem.** `framework/core/simple_module_core/discovery.py:38-39` catches `Exception` on entry-point load failure and logs it. In dev this is helpful; in prod it can ship a partial app whose missing module silently breaks a feature.
+**Problem.** `framework/core/simple_module_core/modules/discovery.py:38-39` catches `Exception` on entry-point load failure and logs it. In dev this is helpful; in prod it can ship a partial app whose missing module silently breaks a feature.
 
 **Decision.** Gate the swallow on `Settings.is_development`. Production must fail hard.
 

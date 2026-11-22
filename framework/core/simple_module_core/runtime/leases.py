@@ -1,0 +1,256 @@
+"""Distributed TTL leases: owner-checked locks and counted slots (GH #539).
+
+A *lease* is a lock that expires on its own. Whoever acquires it gets a random
+``token`` and a ``fence`` number; only the holder of the token can refresh or
+release it, and once the TTL lapses the old holder cannot do either, even if
+someone else has not taken it yet. ``fence`` strictly increases per name, so a
+downstream write can reject a stale holder that woke up late::
+
+    from simple_module_core.runtime.leases import lease, semaphore
+
+    async with lease("import:42", ttl=60) as held:
+        ...
+        await held.refresh()  # extend before the TTL runs out
+
+    # At most 4 concurrent downloads per host, across every process.
+    async with semaphore("dl:example.org", slots=4, ttl=120, wait=30):
+        ...
+
+The backend is process-global (Celery workers have no ``app.state``): the host
+installs one with :func:`configure_leases` when the app is built and when a
+worker boots — Redis when ``SM_REDIS_URL`` is set, else the ``sm_lease`` table,
+else :class:`InProcessLeaseBackend`, which only coordinates one process.
+Acquire timeouts and connectivity failures log a warning and return False.
+Other backend errors propagate; an unconfirmed lease is never reported as held.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import random
+import threading
+import time
+import uuid
+from collections.abc import Callable
+from typing import Protocol, Self
+
+from simple_module_core.runtime._lease_memory import InProcessLeaseBackend as InProcessLeaseBackend
+
+__all__ = [
+    "InProcessLeaseBackend",
+    "Lease",
+    "LeaseBackend",
+    "LeaseNotAcquiredError",
+    "configure_leases",
+    "get_leases",
+    "lease",
+    "reset_lease_backend",
+    "semaphore",
+]
+
+# Seconds between attempts while waiting for a held lease.
+_POLL = 0.05
+_POLL_MAX = 0.5
+# Shortest deadline one acquire attempt gets, even when the wait has run out:
+# ``wait=0`` means "don't queue", not "fail a healthy backend that takes 60 ms".
+_ATTEMPT_FLOOR = 1.0
+logger = logging.getLogger(__name__)
+
+
+class LeaseNotAcquiredError(RuntimeError):
+    """``async with lease(...)`` could not take the lease (held, or the wait ran out)."""
+
+
+class LeaseBackend(Protocol):
+    """Storage for leases. ``ttl`` is in seconds; every call is atomic.
+
+    ``acquire``/``semaphore_acquire`` return the new fence number, or ``None``
+    when the lease (or every slot) is held by someone else. ``refresh`` and
+    ``release`` return ``False`` when *token* no longer holds it — expired,
+    released, or taken by another owner. Connectivity failures during acquire
+    should raise built-in ConnectionError; release may log and return False.
+    """
+
+    async def acquire(self, name: str, token: str, ttl: float) -> int | None: ...
+
+    async def refresh(self, name: str, token: str, ttl: float) -> bool: ...
+
+    async def release(self, name: str, token: str) -> bool: ...
+
+    async def semaphore_acquire(
+        self, name: str, token: str, slots: int, ttl: float
+    ) -> int | None: ...
+
+    async def semaphore_refresh(self, name: str, token: str, ttl: float) -> bool: ...
+
+    async def semaphore_release(self, name: str, token: str) -> bool: ...
+
+
+_backend: LeaseBackend = InProcessLeaseBackend()
+_lock = threading.RLock()
+_listeners: set[Callable[[LeaseBackend], None]] = set()
+
+
+def _reset_after_fork() -> None:
+    global _lock
+    _lock = threading.RLock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_after_fork)
+
+
+def _add_lease_listener(cb: Callable[[LeaseBackend], None]) -> None:
+    with _lock:
+        _listeners.add(cb)
+
+
+def _remove_lease_listener(cb: Callable[[LeaseBackend], None]) -> None:
+    with _lock:
+        _listeners.discard(cb)
+
+
+def configure_leases(backend: LeaseBackend | None) -> None:
+    """Install the process-wide backend; ``None`` restores a fresh in-process one."""
+    global _backend
+    with _lock:
+        _backend = backend if backend is not None else InProcessLeaseBackend()
+        installed = _backend
+        for cb in tuple(_listeners):
+            cb(installed)
+
+
+def reset_lease_backend() -> None:
+    """Discard process lease configuration and held in-process leases."""
+    configure_leases(None)
+
+
+def get_leases() -> LeaseBackend:
+    """The process-wide backend :func:`lease` and :func:`semaphore` use."""
+    return _backend
+
+
+class Lease:
+    """One owner's handle on a lease or a semaphore slot.
+
+    Not acquired until :meth:`acquire` returns ``True`` (or ``async with``
+    enters). ``fence`` is the number handed out at the last acquire.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        ttl: float,
+        *,
+        owner: str | None = None,
+        slots: int | None = None,
+        blocking: bool = True,
+        wait: float | None = None,
+        backend: LeaseBackend | None = None,
+    ) -> None:
+        if ttl <= 0:
+            raise ValueError("ttl must be positive")
+        if slots is not None and slots < 1:
+            raise ValueError("slots must be at least 1")
+        self.name = name
+        self.ttl = ttl
+        self.slots = slots
+        self.token = owner or uuid.uuid4().hex
+        self.fence: int | None = None
+        self._blocking = blocking
+        self._wait = wait
+        self._backend = backend
+
+    @property
+    def backend(self) -> LeaseBackend:
+        return self._backend if self._backend is not None else get_leases()
+
+    @property
+    def acquired(self) -> bool:
+        return self.fence is not None
+
+    async def _try(self) -> int | None:
+        if self.slots is None:
+            return await self.backend.acquire(self.name, self.token, self.ttl)
+        return await self.backend.semaphore_acquire(self.name, self.token, self.slots, self.ttl)
+
+    async def acquire(self, *, blocking: bool | None = None, wait: float | None = None) -> bool:
+        """Take the lease. Non-blocking tries once; blocking polls until it is
+        free, giving up after *wait* seconds (``None`` waits forever)."""
+        blocking = self._blocking if blocking is None else blocking
+        wait = self._wait if wait is None else wait
+        deadline = None if wait is None else time.monotonic() + wait
+        delay = _POLL
+        while True:
+            remaining = (
+                None if deadline is None else max(_ATTEMPT_FLOOR, deadline - time.monotonic())
+            )
+            try:
+                fence = await asyncio.wait_for(self._try(), remaining)
+            except (TimeoutError, ConnectionError):
+                logger.warning("Lease %r acquire timed out or backend unavailable", self.name)
+                return False
+            if fence is not None:
+                self.fence = fence
+                return True
+            if not blocking:
+                return False
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                return False
+            pause = delay * (0.5 + random.random())  # jitter, not crypto
+            await asyncio.sleep(pause if remaining is None else min(pause, remaining))
+            delay = min(delay * 2, _POLL_MAX)
+
+    async def refresh(self, ttl: float | None = None) -> bool:
+        """Extend the TTL from now; ``False`` once the lease is no longer ours."""
+        ttl = self.ttl if ttl is None else ttl
+        if self.slots is None:
+            return await self.backend.refresh(self.name, self.token, ttl)
+        return await self.backend.semaphore_refresh(self.name, self.token, ttl)
+
+    async def release(self) -> bool:
+        """Give the lease up; ``False`` if it had already expired or moved on."""
+        if self.slots is None:
+            released = await self.backend.release(self.name, self.token)
+        else:
+            released = await self.backend.semaphore_release(self.name, self.token)
+        self.fence = None
+        return released
+
+    async def __aenter__(self) -> Self:
+        if not await self.acquire():
+            raise LeaseNotAcquiredError(f"lease {self.name!r} is held elsewhere")
+        return self
+
+    async def __aexit__(self, *_exc: object) -> None:
+        await self.release()
+
+
+def lease(
+    name: str,
+    ttl: float,
+    owner: str | None = None,
+    *,
+    blocking: bool = True,
+    wait: float | None = None,
+    backend: LeaseBackend | None = None,
+) -> Lease:
+    """An exclusive lease on *name* for *ttl* seconds (see the module docstring)."""
+    return Lease(name, ttl, owner=owner, blocking=blocking, wait=wait, backend=backend)
+
+
+def semaphore(
+    name: str,
+    slots: int,
+    ttl: float,
+    owner: str | None = None,
+    *,
+    blocking: bool = True,
+    wait: float | None = None,
+    backend: LeaseBackend | None = None,
+) -> Lease:
+    """One of *slots* concurrent leases on *name*; expired holders are reclaimed."""
+    return Lease(name, ttl, owner=owner, slots=slots, blocking=blocking, wait=wait, backend=backend)

@@ -24,7 +24,7 @@ Install the module in a host, and any other module can register a menu entry:
 ```python
 # modules/orders/orders/module.py
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.menu import MenuItem, MenuRegistry
+from simple_module_core.web.menu import MenuItem, MenuRegistry
 
 
 class OrdersModule(ModuleBase):

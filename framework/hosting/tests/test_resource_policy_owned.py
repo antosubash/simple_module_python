@@ -14,7 +14,7 @@ from _resacc_models import (
     principal,
     seed,
 )
-from simple_module_core.resources import (
+from simple_module_core.access.resources import (
     ACTION_EDIT,
     ACTION_VIEW,
     ResourceType,

@@ -103,7 +103,7 @@ Order is roughly "safest, smallest" first so the branch stays green after each c
 
 ## Task 5: Enforce `ModuleMeta` at discovery time
 
-**Files:** `framework/core/simple_module_core/discovery.py`, `framework/core/simple_module_core/exceptions.py`, `framework/core/tests/test_core.py`
+**Files:** `framework/core/simple_module_core/modules/discovery.py`, `framework/core/simple_module_core/runtime/exceptions.py`, `framework/core/tests/test_core.py`
 
 **Steps:**
 
@@ -132,7 +132,7 @@ Order is roughly "safest, smallest" first so the branch stays green after each c
 
 ## Task 6: `discover_modules(strict=...)` and wire it up
 
-**Files:** `framework/core/simple_module_core/discovery.py`, `framework/hosting/simple_module_hosting/app_builder.py`
+**Files:** `framework/core/simple_module_core/modules/discovery.py`, `framework/hosting/simple_module_hosting/app_builder.py`
 
 **Steps:**
 

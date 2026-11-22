@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 
 import pytest
-from simple_module_core.permissions import PermissionCatalogue, PermissionRegistry
+from simple_module_core.access.permissions import PermissionCatalogue, PermissionRegistry
 from simple_module_hosting.app_builder import create_app
 
 # Keys and registration snapshots captured before migration from origin/main
@@ -219,7 +219,7 @@ _ALIASES = {
 
 @pytest.mark.parametrize("package", _ALIASES)
 def test_deprecated_permission_aliases_keep_their_keys_and_removal_release(package: str) -> None:
-    from simple_module_core.deprecation import registered_deprecations
+    from simple_module_core.runtime.deprecation import registered_deprecations
 
     constants = importlib.import_module(f"{package}.core.constants")
     for old_name, member_name in _ALIASES[package].items():

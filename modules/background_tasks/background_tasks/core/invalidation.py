@@ -23,7 +23,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ a round trip on an open socket, not a connect.
 class RedisInvalidationTransport:
     """Publishes and listens on a channel plus an optional rolling-upgrade bridge.
 
-    Satisfies ``simple_module_core.invalidation.InvalidationTransport``
+    Satisfies ``simple_module_core.eventing.invalidation.InvalidationTransport``
     structurally — no import of the Protocol at runtime, so this file costs
     nothing when the bus is unused.
     """

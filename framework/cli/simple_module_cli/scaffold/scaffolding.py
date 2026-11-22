@@ -236,7 +236,7 @@ def create_module(
             ),
             "{{SETTINGS_FASTAPI_IMPORT}}": "from fastapi import FastAPI\n" if with_settings else "",
             "{{SETTINGS_IMPORT}}": (
-                "from simple_module_core.module_settings import register_module_settings\n"
+                "from simple_module_core.settings.module_settings import register_module_settings\n"
                 if with_settings
                 else ""
             ),

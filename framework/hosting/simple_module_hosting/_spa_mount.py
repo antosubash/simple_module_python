@@ -20,9 +20,13 @@ from pathlib import Path
 import anyio
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from simple_module_core.app_state import get_host_services, get_public_routes, get_spa_prefixes
 from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
-from simple_module_core.spa_mount import SPA_AUTH_PUBLIC, SpaMount
+from simple_module_core.modules.app_state import (
+    get_host_services,
+    get_public_routes,
+    get_spa_prefixes,
+)
+from simple_module_core.web.spa_mount import SPA_AUTH_PUBLIC, SpaMount
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 from starlette.responses import FileResponse, Response

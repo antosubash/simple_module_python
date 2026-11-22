@@ -25,14 +25,14 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from simple_module_core.app_state import get_services
+from simple_module_core.modules.app_state import get_services
 from sqlalchemy import select
 
 from users.models import Role
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
 
 CHANNEL = "users.roles"
 # Invalidation only ever forgets and delivery is not guaranteed, so the cache

@@ -60,7 +60,7 @@ class TestModulesView:
         """A class that really reads env must not read as 'Default'."""
         from pydantic_settings import BaseSettings, SettingsConfigDict
         from settings.module_settings.discovery import _field_view
-        from simple_module_core.settings_hydrate import env_supplied_fields
+        from simple_module_core.settings.settings_hydrate import env_supplied_fields
 
         class _EnvBacked(BaseSettings):
             model_config = SettingsConfigDict(env_prefix="SM_DEMO_", extra="ignore")

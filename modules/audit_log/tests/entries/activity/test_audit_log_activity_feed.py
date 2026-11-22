@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 from audit_log.entries.activity import AuditActivityFeed
 from audit_log.models import AuditEntry
-from simple_module_core.activity_feed import get_activity_feed
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
-from simple_module_core.permissions import WILDCARD
+from simple_module_core.access.activity_feed import get_activity_feed
+from simple_module_core.access.permissions import WILDCARD
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
 
 _GATE = "secrets.view"
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from simple_module_core.user_directory import DirectoryUser, UserDirectory
+from simple_module_core.access.user_directory import DirectoryUser, UserDirectory
 
 
 async def usable_owner(directory: UserDirectory, db: Any, owner_id: str) -> DirectoryUser | None:

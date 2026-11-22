@@ -8,7 +8,7 @@ import aiosmtplib
 import pytest
 from aiosmtplib.response import SMTPResponse
 from mail.delivery.sender import SmtpMailSender
-from simple_module_core.mail import MailMessage
+from simple_module_core.mailer.mail import MailMessage
 
 
 @pytest.mark.parametrize("supported", [False, True])

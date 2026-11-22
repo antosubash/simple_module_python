@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from file_storage.files.service import FileStorageService
 from file_storage.web.deps import get_file_storage_service
-from simple_module_core.app_state import get_design_packs
+from simple_module_core.modules.app_state import get_design_packs
 from simple_module_hosting.permissions import RequiresPermission
 
 from branding.assets.images import store_image, validate_image

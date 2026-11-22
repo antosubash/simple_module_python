@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core.app_state import (
+from simple_module_core.modules.app_state import (
     INERTIA_SHARED_PROVIDERS_STATE_ATTR,
     get_inertia_shared_providers,
 )

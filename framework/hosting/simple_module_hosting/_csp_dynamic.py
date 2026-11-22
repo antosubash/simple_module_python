@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from simple_module_core.csp import CspSourceRegistry, is_valid_source
+from simple_module_core.web.csp import CspSourceRegistry, is_valid_source
 
 logger = logging.getLogger(__name__)
 

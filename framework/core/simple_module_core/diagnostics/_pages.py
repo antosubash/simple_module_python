@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 
 def _assignment(s: ast.stmt) -> tuple[ast.Name, ast.expr] | None:

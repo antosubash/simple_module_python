@@ -28,7 +28,7 @@ from _audit_log_support import entity_of as _entity
 from _audit_log_support import seed_entry as _seed_entry
 from audit_log.core.constants import PERM_VIEW
 from audit_log.entries.resolve import resolve_entity_labels
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_db.stored_settings import Setting
 from simple_module_test import forge_session_cookie, inertia_headers
 from sqlalchemy.ext.asyncio import AsyncSession

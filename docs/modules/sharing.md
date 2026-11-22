@@ -18,7 +18,7 @@ own share model. Nothing depends on it: the framework only sees the
 ## Wiring a resource type
 
 ```python
-from simple_module_core.resources import ResourceType
+from simple_module_core.access.resources import ResourceType
 from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
 from sharing.core.policy import share_exists_for
 
@@ -47,7 +47,7 @@ Removing a role from the mapping later revokes the access of every share
 stored with that role (the rows stay, but no longer match):
 
 ```python
-from simple_module_core.resources import ACTION_EDIT, ACTION_SHARE, ACTION_VIEW
+from simple_module_core.access.resources import ACTION_EDIT, ACTION_SHARE, ACTION_VIEW
 
 NOTE_SHARE_ROLES = {
     "viewer": (ACTION_VIEW,),
@@ -256,7 +256,7 @@ non-member gets the same `422 Unknown user` as an id that names nobody, so the
 API cannot be used to probe other tenants' accounts. User labels (subject and
 granter) are only filled in for members of the active tenant; anyone else is
 shown by raw id. Membership is read through
-`simple_module_core.tenancy.tenant_member_ids`, which the `tenants` module
+`simple_module_core.access.tenancy.tenant_member_ids`, which the `tenants` module
 publishes as `app.state.tenant_members`. With no active tenant or no
 membership store, nobody qualifies. Single-tenant apps have no such check.
 

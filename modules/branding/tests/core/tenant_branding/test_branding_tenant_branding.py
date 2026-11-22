@@ -140,7 +140,7 @@ class TestCacheInvalidation:
             assert (await _branding(b.client))["appName"] == "Quiet B"
 
     async def test_a_notice_from_another_worker_is_applied(self, app, tenant_client):
-        from simple_module_core.invalidation import Invalidation
+        from simple_module_core.eventing.invalidation import Invalidation
 
         async with tenant_client() as a:
             await _branding(a.client)

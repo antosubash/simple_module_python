@@ -1,7 +1,7 @@
 """Revoke a deleted user's direct permission grants."""
 
-from simple_module_core.durable_events import DurableContext
-from simple_module_core.invalidation import Invalidation
+from simple_module_core.eventing.durable_events import DurableContext
+from simple_module_core.eventing.invalidation import Invalidation
 from simple_module_core.user_events import UserDeleted
 from simple_module_db.callbacks import register_on_commit
 from sqlmodel import col, delete

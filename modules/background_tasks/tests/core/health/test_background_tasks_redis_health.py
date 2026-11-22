@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 from background_tasks.core.health import CHECK_REDIS, build_redis_check
-from simple_module_core.health import HealthStatus
+from simple_module_core.web.health import HealthStatus
 
 
 class _FakeConnection:

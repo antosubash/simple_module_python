@@ -11,8 +11,8 @@ from __future__ import annotations
 import logging
 from urllib.parse import urlsplit
 
-from simple_module_core.app_state import get_openapi_url
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_core.modules.app_state import get_openapi_url
+from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
 from simple_module_hosting.inertia_deps import is_inertia_request
 from simple_module_hosting.path_matching import matches_path, validated_prefixes

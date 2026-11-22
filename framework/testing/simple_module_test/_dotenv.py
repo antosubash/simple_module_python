@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from pydantic_settings import DotEnvSettingsSource
-from simple_module_core import dotenv
+from simple_module_core.settings import dotenv
 from simple_module_hosting import _preapp_config
 
 

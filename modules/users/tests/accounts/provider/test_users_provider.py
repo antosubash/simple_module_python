@@ -22,7 +22,7 @@ def test_logout_url():
 
 
 def test_public_paths_come_from_the_registry():
-    from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.web.public_routes import PublicRouteRegistry
     from users.module import UsersModule
 
     registry = PublicRouteRegistry()

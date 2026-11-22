@@ -11,7 +11,7 @@ import html
 import importlib.resources
 from string import Template
 
-from simple_module_core.redirect_safety import safe_next as _safe_next
+from simple_module_core.web.redirect_safety import safe_next as _safe_next
 
 __all__ = ["render_unlock_page"]
 

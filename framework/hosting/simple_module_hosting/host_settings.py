@@ -17,9 +17,9 @@ from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, DotEnvSettingsSource, SettingsConfigDict
-from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
-from simple_module_core.dotenv import find_env_file
-from simple_module_core.redirect_safety import non_empty_redirect, safe_next_or_none
+from simple_module_core.modules.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.settings.dotenv import find_env_file
+from simple_module_core.web.redirect_safety import non_empty_redirect, safe_next_or_none
 
 from simple_module_hosting import _host_settings_support as v
 from simple_module_hosting._api_version import default_api_version as _default_api_version

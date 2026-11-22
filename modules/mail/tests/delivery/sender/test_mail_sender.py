@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 from mail.core.settings import MailSettings
 from mail.delivery.sender import SmtpMailSender, build_sender
-from simple_module_core.mail import ConsoleMailSender, MailAttachment, MailMessage
+from simple_module_core.mailer.mail import ConsoleMailSender, MailAttachment, MailMessage
 
 
 def test_defaults() -> None:

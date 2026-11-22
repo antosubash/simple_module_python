@@ -21,7 +21,7 @@ from background_tasks.core import sync_db
 from background_tasks.core.constants import TaskStatus
 from background_tasks.executions.service import BackgroundTaskService
 from background_tasks.models import TaskExecution
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession, finalize_session
 from simple_module_db.transaction import SESSION_START_KEY, rollback_session
 from sqlalchemy import event, select

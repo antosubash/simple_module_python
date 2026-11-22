@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from permissions.core.service import PermissionService
-from simple_module_core.i18n import Translator
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.localization.i18n import Translator
 
 
 def _translator(app, locale: str) -> Translator:

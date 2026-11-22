@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Any
 
-from simple_module_core.rate_limit import (
+from simple_module_core.web.rate_limit import (
     InProcessWindowStore,
     RateSpec,
     WindowResult,

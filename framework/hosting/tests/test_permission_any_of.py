@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import Depends, FastAPI, Request
 from httpx import ASGITransport, AsyncClient
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
 from simple_module_hosting.permissions import RequiresPermission
 
 

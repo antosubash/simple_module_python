@@ -32,6 +32,6 @@ def test_simple_module_cli_runtime_deps_are_minimal() -> None:
 def test_vendored_migration_support_matches_core() -> None:
     framework = Path(__file__).resolve().parents[3]
     vendored = framework / "cli/simple_module_cli/migrations/_migration_support.py"
-    core = framework / "core/simple_module_core/migration_support/__init__.py"
+    core = framework / "core/simple_module_core/migrations/support.py"
     assert not vendored.is_symlink()
     assert vendored.read_bytes() == core.read_bytes()

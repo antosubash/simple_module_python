@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from simple_module_core.permissions import is_admin_principal
+from simple_module_core.access.permissions import is_admin_principal
 from simple_module_inertia import InertiaResponse
 
 from simple_module_hosting.admin_overview import PAGE_OVERVIEW

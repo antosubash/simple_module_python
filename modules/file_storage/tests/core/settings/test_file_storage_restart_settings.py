@@ -31,7 +31,7 @@ async def test_health_check_reads_current_backend(tmp_path):
     from fastapi import FastAPI
     from file_storage.backends.filesystem import FilesystemBackend
     from file_storage.core.health import build_backend_check
-    from simple_module_core.health import HealthStatus
+    from simple_module_core.web.health import HealthStatus
 
     app = FastAPI()
     app.state.file_storage = SimpleNamespace(backend=None)

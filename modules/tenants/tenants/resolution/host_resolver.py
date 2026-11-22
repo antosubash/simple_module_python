@@ -24,9 +24,9 @@ from typing import Literal
 
 from cachetools import TTLCache
 from fastapi import FastAPI
-from simple_module_core.app_state import get_public_routes, get_services
-from simple_module_core.invalidation import Invalidation, InvalidationBus
-from simple_module_core.singleflight import MISS, Miss, fill
+from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
+from simple_module_core.modules.app_state import get_public_routes, get_services
+from simple_module_core.runtime.singleflight import MISS, Miss, fill
 from sqlalchemy import select
 from starlette.requests import Request
 

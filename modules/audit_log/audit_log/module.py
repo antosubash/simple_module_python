@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 
 from audit_log.core.constants import (
     API_PREFIX,
@@ -56,7 +56,7 @@ class AuditLogModule(ModuleBase):
         )
 
     async def on_startup(self, app: FastAPI) -> None:
-        from simple_module_core.activity_feed import set_activity_feed
+        from simple_module_core.access.activity_feed import set_activity_feed
 
         from audit_log.core.capture import audit_callback
         from audit_log.entries.activity import AuditActivityFeed
@@ -69,7 +69,7 @@ class AuditLogModule(ModuleBase):
         set_activity_feed(app, AuditActivityFeed(app))
 
     async def on_shutdown(self, app: FastAPI) -> None:
-        from simple_module_core.activity_feed import set_activity_feed
+        from simple_module_core.access.activity_feed import set_activity_feed
 
         app.state.sm.db.audit_callback = None
         app.state.sm.db.refuse_unaudited_dml = False

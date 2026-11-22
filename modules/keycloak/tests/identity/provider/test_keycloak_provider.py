@@ -49,7 +49,7 @@ def test_logout_url(provider):
 
 def test_public_paths_come_from_the_registry(provider):
     from keycloak.module import KeycloakModule
-    from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.web.public_routes import PublicRouteRegistry
 
     registry = PublicRouteRegistry()
     KeycloakModule().register_public_routes(registry)

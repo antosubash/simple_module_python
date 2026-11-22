@@ -2,13 +2,7 @@
 
 from unittest.mock import Mock
 
-from simple_module_core.leases import (
-    InProcessLeaseBackend,
-    configure_leases,
-    get_leases,
-    reset_lease_backend,
-)
-from simple_module_core.mail import (
+from simple_module_core.mailer.mail import (
     ConsoleMailSender,
     current_mail_sender,
     install_mail_resolver,
@@ -16,6 +10,12 @@ from simple_module_core.mail import (
     mail_transport_installed,
     reset_mail_sender,
     resolve_mail_sender,
+)
+from simple_module_core.runtime.leases import (
+    InProcessLeaseBackend,
+    configure_leases,
+    get_leases,
+    reset_lease_backend,
 )
 from simple_module_hosting import sentry
 from simple_module_test.mail import CapturedMail

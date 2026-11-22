@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_core.leases import InProcessLeaseBackend, configure_leases, get_leases
+from simple_module_core.runtime.leases import InProcessLeaseBackend, configure_leases, get_leases
 from simple_module_db.leases import DbLeaseBackend
 from simple_module_hosting.leases import (
     RedisLeaseBackend,

@@ -5,11 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from simple_module_core._module_conventions import (
-    get_module_package_name,
-    has_conventional_module,
-    package_spec,
-)
 from simple_module_core.diagnostics._auth import check_auth_providers
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
 from simple_module_core.diagnostics._css import check_module_css
@@ -22,9 +17,14 @@ from simple_module_core.diagnostics._pages import check_pages, find_render_calls
 from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
 from simple_module_core.diagnostics._tenancy import check_tenant_unique_keys, module_tables
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
+from simple_module_core.modules._module_conventions import (
+    get_module_package_name,
+    has_conventional_module,
+    package_spec,
+)
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 
 class ModuleDiagnostics:

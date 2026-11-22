@@ -2,8 +2,8 @@
 
 from sharing.models import ResourceShare
 from sharing.module import SharingModule
-from simple_module_core.durable_events import DurableContext, event_key
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.durable_events import DurableContext, event_key
+from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db.tenancy import all_tenants, tenant_context
 from sqlmodel import select

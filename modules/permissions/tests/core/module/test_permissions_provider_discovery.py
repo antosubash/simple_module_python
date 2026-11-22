@@ -6,7 +6,7 @@ from keycloak.module import KeycloakModule
 from oidc.module import OidcModule
 from permissions.module import PermissionsModule
 from simple_module_core.diagnostics import ModuleDiagnostics
-from simple_module_core.discovery import (
+from simple_module_core.modules.discovery import (
     missing_dependencies,
     select_auth_provider,
     topological_sort,

@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from oidc.models import OidcUserCache
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.user_directory import get_user_directory
 
 
 async def _cached(db, email, **kw):
@@ -68,7 +68,7 @@ def test_module_installs_directory_during_registration():
 
     from fastapi import FastAPI
     from oidc.module import OidcModule
-    from simple_module_core.user_directory import NullUserDirectory
+    from simple_module_core.access.user_directory import NullUserDirectory
 
     app = FastAPI()
     app.state.auth = SimpleNamespace()

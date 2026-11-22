@@ -13,7 +13,7 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from fastapi_users.exceptions import UserAlreadyExists
 from pydantic import EmailStr, TypeAdapter, ValidationError
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import independent_session
 
 from users.accounts.db_adapter import UserDatabaseWithRoles

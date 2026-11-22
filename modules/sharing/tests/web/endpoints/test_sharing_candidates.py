@@ -14,8 +14,8 @@ from _sharing_support import (
 )
 from sharing.core.constants import PERM_SHARE
 from sharing.module import SharingModule
-from simple_module_core.rate_limit import RateLimitRegistry
-from simple_module_core.user_directory import DirectoryUser, set_user_directory
+from simple_module_core.access.user_directory import DirectoryUser, set_user_directory
+from simple_module_core.web.rate_limit import RateLimitRegistry
 
 PATH = "/api/sharing/candidates"
 SHARES = "/api/sharing/shares"
@@ -105,7 +105,7 @@ async def test_short_queries_do_not_search_directory(picker, tenant_client, q):
 
 
 async def test_candidates_exclude_owner_when_caller_bypasses_policy(picker, tenant_client):
-    from simple_module_core.tenancy import TenantRole, tenant_role
+    from simple_module_core.access.tenancy import TenantRole, tenant_role
 
     async with (
         tenant_client() as owner,
@@ -136,7 +136,7 @@ async def test_daily_budget_is_per_user_and_resets_after_a_day():
 
     from fastapi import HTTPException
     from sharing.web.endpoints.api import router
-    from simple_module_core.rate_limit import InProcessWindowStore
+    from simple_module_core.web.rate_limit import InProcessWindowStore
     from simple_module_hosting.rate_limit_deps import RateLimit
     from starlette.requests import Request
 
@@ -171,7 +171,7 @@ async def test_daily_budget_is_per_user_and_resets_after_a_day():
 
 
 def test_directory_discovery_permission_is_registered_but_not_granted_to_ordinary_roles():
-    from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.access.permissions import PermissionRegistry
 
     registry = PermissionRegistry()
     SharingModule().register_permissions(registry)

@@ -23,7 +23,7 @@ Declare permissions at module boot:
 
 ```python
 # modules/orders/orders/module.py
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
 
 
 class OrdersModule(ModuleBase):

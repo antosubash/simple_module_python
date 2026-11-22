@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 

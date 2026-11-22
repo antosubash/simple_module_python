@@ -16,7 +16,7 @@ Runtime feature toggles. Modules register named flags with a default value; an a
 Anywhere a module has access to `app.state.sm.feature_flags` (typically inside `register_feature_flags`):
 
 ```python
-from simple_module_core.feature_flags import FeatureFlag
+from simple_module_core.web.feature_flags import FeatureFlag
 
 
 class OrdersModule(ModuleBase):

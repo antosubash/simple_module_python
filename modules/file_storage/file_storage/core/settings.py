@@ -15,8 +15,8 @@ from pathlib import Path
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
-from simple_module_core.stored_settings import field_error
+from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.settings.stored_settings import field_error
 
 from file_storage.core import constants
 

@@ -1,0 +1,262 @@
+"""Tests for ModuleDiagnostics — file-based structural checks."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import pytest
+from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
+from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
+from simple_module_core.diagnostics._types import DiagnosticLevel
+
+
+@dataclass
+class _FakeMeta:
+    name: str
+
+
+@dataclass
+class _FakeModule:
+    meta: _FakeMeta
+
+
+def _mk_module_tree(root: Path, name: str, *, with_pkg_json: bool, with_tsconfig: bool) -> Path:
+    """Create modules/<name>/<name>/pages/Browse.tsx and optional workspace files."""
+    module_dir = root / "modules" / name
+    src_dir = module_dir / name
+    (src_dir / "pages").mkdir(parents=True)
+    (src_dir / "pages" / "Browse.tsx").write_text("export default function Browse() {}")
+    if with_pkg_json:
+        (module_dir / "package.json").write_text("{}")
+    if with_tsconfig:
+        (module_dir / "tsconfig.json").write_text("{}")
+    return src_dir
+
+
+class TestSm017JsWorkspaceFiles:
+    async def test_silent_when_both_missing(self, tmp_path: Path):
+        src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=False, with_tsconfig=False)
+        mod = _FakeModule(meta=_FakeMeta(name="Orders"))
+
+        results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+    @pytest.mark.parametrize("with_tsconfig", [True, False])
+    async def test_silent_with_valid_manifest(self, tmp_path: Path, with_tsconfig: bool):
+        src_dir = _mk_module_tree(
+            tmp_path, "orders", with_pkg_json=True, with_tsconfig=with_tsconfig
+        )
+        mod = _FakeModule(meta=_FakeMeta(name="Orders"))
+
+        results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+    async def test_silent_when_no_tsx_pages(self, tmp_path: Path):
+        # Module with no pages/ dir at all — purely backend.
+        module_dir = tmp_path / "modules" / "backend_only"
+        src_dir = module_dir / "backend_only"
+        src_dir.mkdir(parents=True)
+        mod = _FakeModule(meta=_FakeMeta(name="BackendOnly"))
+
+        results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+    async def test_reports_invalid_dependency_manifest(self, tmp_path):
+        src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=False, with_tsconfig=False)
+        (src_dir.parent / "package.json").write_text('{"dependencies": ["broken"]}')
+        mod = _FakeModule(meta=_FakeMeta(name="Orders"))
+        results = check_js_workspace_files(mod, src_dir)
+        assert len(results) == 1
+        assert results[0].code == "SM017"
+        assert "package.json" in results[0].file
+
+    async def test_silent_when_module_lives_in_site_packages(self, tmp_path: Path):
+        site_packages = tmp_path / ".venv" / "lib" / "python3.12" / "site-packages"
+        src_dir = site_packages / "orders"
+        (src_dir / "pages").mkdir(parents=True)
+        (src_dir / "pages" / "Browse.tsx").write_text("export default function Browse() {}")
+        mod = _FakeModule(meta=_FakeMeta(name="Orders"))
+
+        results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+
+def _mk_page(src_dir: Path, filename: str, body: str) -> Path:
+    pages = src_dir / "pages"
+    pages.mkdir(parents=True, exist_ok=True)
+    page = pages / filename
+    page.write_text(body)
+    return page
+
+
+class TestSM018InertiaApiCalls:
+    async def test_flags_router_post_to_api_path(self, tmp_path: Path):
+        src_dir = tmp_path / "datasets" / "datasets"
+        _mk_page(src_dir, "Create.tsx", "router.post('/api/datasets/', data, {})")
+        mod = _FakeModule(meta=_FakeMeta(name="Datasets"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert len(results) == 1
+        assert results[0].code == "SM018"
+        assert results[0].level == DiagnosticLevel.WARNING
+        assert "router.post()" in results[0].message
+        assert "Create.tsx:1" in (results[0].file or "")
+
+    async def test_flags_all_mutating_methods(self, tmp_path: Path):
+        src_dir = tmp_path / "m" / "m"
+        body = "\n".join(
+            [
+                "router.post('/api/a/', d)",
+                "router.patch('/api/a/1', d)",
+                "router.put(`/api/a/${id}`, d)",
+                'router.delete("/api/a/1")',
+            ]
+        )
+        _mk_page(src_dir, "X.tsx", body)
+        mod = _FakeModule(meta=_FakeMeta(name="M"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        methods = sorted(r.message.split("()")[0].split(".")[-1] for r in results)
+        assert methods == ["delete", "patch", "post", "put"]
+        assert all(r.code == "SM018" for r in results)
+
+    async def test_silent_on_view_path(self, tmp_path: Path):
+        src_dir = tmp_path / "m" / "m"
+        _mk_page(src_dir, "Create.tsx", "router.post('/datasets/', data)")
+        mod = _FakeModule(meta=_FakeMeta(name="Datasets"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+    async def test_silent_on_router_get(self, tmp_path: Path):
+        src_dir = tmp_path / "m" / "m"
+        _mk_page(src_dir, "Browse.tsx", "router.get('/api/search', params)")
+        mod = _FakeModule(meta=_FakeMeta(name="M"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+    async def test_silent_when_no_pages_dir(self, tmp_path: Path):
+        src_dir = tmp_path / "backend_only" / "backend_only"
+        src_dir.mkdir(parents=True)
+        mod = _FakeModule(meta=_FakeMeta(name="BackendOnly"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+
+class TestSM007EmptyModules:
+    """SM007 fires only when a module overrides no registration hooks at all."""
+
+    def _diags(self, modules):
+        from simple_module_core.diagnostics._module import ModuleDiagnostics
+
+        return list(ModuleDiagnostics()._check_empty_modules(modules))
+
+    async def test_fires_when_no_hooks_overridden(self):
+        from simple_module_core.modules.module import ModuleBase, ModuleMeta
+
+        class Bare(ModuleBase):
+            meta = ModuleMeta(name="Bare")
+
+        results = self._diags([Bare()])
+        assert len(results) == 1
+        assert results[0].code == "SM007"
+
+    async def test_silent_when_only_public_routes_registered(self):
+        from simple_module_core.modules.module import ModuleBase, ModuleMeta
+
+        class PublicOnly(ModuleBase):
+            meta = ModuleMeta(name="PublicOnly")
+
+            def register_public_routes(self, registry):
+                registry.add_prefix("/api/public_only/stac")
+
+        assert self._diags([PublicOnly()]) == []
+
+
+class TestSM019ViewsWithoutMenu:
+    """SM019 fires when a module ships view routes but never registers a menu item."""
+
+    def _diags(self, modules):
+        from simple_module_core.diagnostics._module import ModuleDiagnostics
+
+        return list(ModuleDiagnostics()._check_views_without_menu(modules))
+
+    async def test_fires_when_views_present_but_no_menu(self):
+        from simple_module_core.modules.module import ModuleBase, ModuleMeta
+
+        class ViewsNoMenu(ModuleBase):
+            meta = ModuleMeta(name="ViewsNoMenu", view_prefix="/views_no_menu")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+        results = self._diags([ViewsNoMenu()])
+        assert len(results) == 1
+        assert results[0].code == "SM019"
+        assert results[0].level == DiagnosticLevel.WARNING
+        assert "ViewsNoMenu" in results[0].message
+
+    async def test_silent_when_menu_registered(self):
+        from simple_module_core.modules.module import ModuleBase, ModuleMeta
+
+        class WithMenu(ModuleBase):
+            meta = ModuleMeta(name="WithMenu", view_prefix="/with_menu")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+            def register_menu_items(self, registry):
+                pass
+
+        assert self._diags([WithMenu()]) == []
+
+    async def test_silent_when_api_only_module(self):
+        from simple_module_core.modules.module import ModuleBase, ModuleMeta
+
+        class ApiOnly(ModuleBase):
+            meta = ModuleMeta(name="ApiOnly", route_prefix="/api/only", view_prefix="")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+        assert self._diags([ApiOnly()]) == []
+
+    async def test_silent_when_register_routes_not_overridden(self):
+        from simple_module_core.modules.module import ModuleBase, ModuleMeta
+
+        class NoRoutes(ModuleBase):
+            meta = ModuleMeta(name="NoRoutes", view_prefix="/no_routes")
+
+        assert self._diags([NoRoutes()]) == []
+
+    async def test_silent_when_permissions_registered(self):
+        """A module that registers permissions is visible in the role editor.
+
+        This covers modules whose views are sub-pages of another module (e.g.
+        Permissions' RoleEdit/UserEdit views, reached from the Users admin
+        page) — they don't need a sidebar entry to be discoverable.
+        """
+        from simple_module_core.modules.module import ModuleBase, ModuleMeta
+
+        class WithPermissions(ModuleBase):
+            meta = ModuleMeta(name="WithPermissions", view_prefix="/with_permissions")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+            def register_permissions(self, registry):
+                pass
+
+        assert self._diags([WithPermissions()]) == []

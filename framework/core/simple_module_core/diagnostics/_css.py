@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 THEME_CSS = "theme.css"
 STYLES_CSS = "styles.css"

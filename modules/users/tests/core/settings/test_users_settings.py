@@ -66,7 +66,7 @@ class TestUsersSettingsDbOverrides:
     async def test_allow_signup_override_from_db(self, db_session):
         from settings.core.service import SettingService
         from settings.module_settings.store import SettingsStore
-        from simple_module_core.settings_hydrate import hydrate_settings
+        from simple_module_core.settings.settings_hydrate import hydrate_settings
         from users.core.settings import UsersSettings
 
         store = SettingsStore(SettingService(db_session))
@@ -79,7 +79,7 @@ class TestUsersSettingsDbOverrides:
     async def test_base_url_override_from_db(self, db_session):
         from settings.core.service import SettingService
         from settings.module_settings.store import SettingsStore
-        from simple_module_core.settings_hydrate import hydrate_settings
+        from simple_module_core.settings.settings_hydrate import hydrate_settings
         from users.core.settings import UsersSettings
 
         store = SettingsStore(SettingService(db_session))

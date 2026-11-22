@@ -7,7 +7,7 @@ from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from settings.core.service import SettingService
 from settings.module_settings.store import SettingsStore
-from simple_module_core.settings_hydrate import hydrate_settings, value_type_for_field
+from simple_module_core.settings.settings_hydrate import hydrate_settings, value_type_for_field
 
 
 class _Cfg(BaseSettings):
@@ -190,7 +190,7 @@ def test_env_beats_db_for_sync_hydration(tmp_path, monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_db_backed_settings_ignore_env_and_keep_db(db_session, monkeypatch) -> None:
     """``DbBackedSettings`` has no env source, so a same-named var changes nothing."""
-    from simple_module_core.settings_base import DbBackedSettings
+    from simple_module_core.settings.settings_base import DbBackedSettings
 
     class _Db(DbBackedSettings):
         model_config = SettingsConfigDict(env_prefix="SM_TEST_DBB_")

@@ -17,7 +17,7 @@ from api_tokens.models import ApiToken
 from auth.contracts.tokens import AUTH_KIND_SERVICE
 from keycloak.models import KeycloakUserCache
 from keycloak_test_modules import keycloak_modules_enabled
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.user_directory import get_user_directory
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 from simple_module_test._schema import _create_all_tables

@@ -4,7 +4,7 @@ from simple_module_hosting.host import build_host_app
 
 app = build_host_app(__file__, routers=("host.routes:router",))
 
-from simple_module_core.menu import MenuItem, MenuSection  # noqa: E402
+from simple_module_core.web.menu import MenuItem, MenuSection  # noqa: E402
 
 from host.e2e_inertia import mount_if_development as mount_e2e_inertia_if_development  # noqa: E402
 

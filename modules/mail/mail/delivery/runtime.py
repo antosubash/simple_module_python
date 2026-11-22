@@ -7,15 +7,15 @@ from typing import Any
 
 from settings.core.service import SettingService
 from settings.module_settings.store import SettingsStore
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
-from simple_module_core.health import HealthCheckResult, HealthStatus
-from simple_module_core.mail import (
+from simple_module_core.mailer.mail import (
     MailMessage,
     MailSender,
     current_mail_sender,
     install_default_mail_sender,
 )
-from simple_module_core.settings_hydrate import hydrate_settings
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.settings_hydrate import hydrate_settings
+from simple_module_core.web.health import HealthCheckResult, HealthStatus
 
 from mail.core import constants as c
 from mail.core.settings import MailSettings

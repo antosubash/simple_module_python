@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pydantic_core import PydanticCustomError
-from simple_module_core.cors import WILDCARD as CORS_WILDCARD
-from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
-from simple_module_core.stored_settings import RELATED_FIELDS_CTX
+from simple_module_core.modules.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.settings.stored_settings import RELATED_FIELDS_CTX
+from simple_module_core.web.cors import WILDCARD as CORS_WILDCARD
 
 if TYPE_CHECKING:
     from simple_module_hosting.host_settings import HostSettings
@@ -42,7 +42,7 @@ def check_public_base_url(value: str) -> str:
 
 
 def check_rate(value: str) -> str:
-    from simple_module_core.rate_limit import parse_rate
+    from simple_module_core.web.rate_limit import parse_rate
 
     parse_rate(value)  # raises RateLimitError (a ValueError) on a typo
     return value.strip()

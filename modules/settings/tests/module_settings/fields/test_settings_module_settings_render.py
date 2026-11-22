@@ -20,7 +20,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
-from simple_module_core.module import ModuleMeta
+from simple_module_core.modules.module import ModuleMeta
 
 _OK = 200
 _SERVER_ERROR = 500

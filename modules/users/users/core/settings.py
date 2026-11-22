@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 from users.accounts.session_version_cache import SESSION_VERSION_TTL_SECONDS
 from users.core._signup_role import _validate_signup_role

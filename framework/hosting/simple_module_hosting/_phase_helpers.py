@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from simple_module_core.exceptions import NotFoundError
+from simple_module_core.runtime.exceptions import NotFoundError
 from simple_module_inertia import (
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,

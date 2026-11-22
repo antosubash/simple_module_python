@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, FastAPI
 from simple_module_core.diagnostics import DiagnosticLevel
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_hosting._openapi import (
     BEARER_SCHEME,
     SESSION_SCHEME,

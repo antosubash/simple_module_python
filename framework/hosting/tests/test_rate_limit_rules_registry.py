@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI
-from simple_module_core.public_routes import PublicRouteRegistry
-from simple_module_core.rate_limit import (
+from simple_module_core.web.public_routes import PublicRouteRegistry
+from simple_module_core.web.rate_limit import (
     InProcessWindowStore,
     RateKey,
     RateLimitRegistry,

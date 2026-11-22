@@ -7,9 +7,9 @@ import pytest
 from _sharing_support import NOTE_TYPE, FakeDirectory, register_note_type
 from sharing.core.audience import Audience
 from sharing.core.service import SharingError, SharingService
-from simple_module_core.resources import ResourcePrincipal, ResourceTypeRegistry
-from simple_module_core.tenancy import TenancyMode
-from simple_module_core.user_directory import DirectoryUser
+from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
+from simple_module_core.access.tenancy import TenancyMode
+from simple_module_core.access.user_directory import DirectoryUser
 from simple_module_db.tenancy import current_tenant_id, tenant_context
 
 

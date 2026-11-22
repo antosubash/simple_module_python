@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_users import exceptions as fu_exceptions
 from httpx import HTTPError
 from httpx_oauth.exceptions import HTTPXOAuthError
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_hosting.auth_policy import login_redirect_url
 from starlette.responses import RedirectResponse
 

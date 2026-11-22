@@ -20,7 +20,7 @@ pip install simple_module_feature_flags
 Declare a flag in your module:
 
 ```python
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 
 
 class OrdersModule(ModuleBase):

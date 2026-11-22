@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.core.constants import ENV_PREFIX, ENV_REDIS_URL
 

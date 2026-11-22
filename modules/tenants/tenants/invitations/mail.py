@@ -8,8 +8,8 @@ from importlib.resources import files
 from string import Template
 from urllib.parse import urlsplit
 
-from simple_module_core.durable_events import DurableContext
-from simple_module_core.mail import (
+from simple_module_core.eventing.durable_events import DurableContext
+from simple_module_core.mailer.mail import (
     MailMessage,
     current_mail_sender,
     mail_transport_installed,

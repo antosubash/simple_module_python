@@ -220,7 +220,7 @@ Don't rely on `datetime.now()` assertions with tolerance windows — they're fla
 
 For HTTP, SMTP, storage backends — mock at the boundary with `httpx_mock`, `aiosmtpd`, or a service-registered fake. **Don't** monkeypatch the module you're testing; its behavior is what's under test.
 
-For mail, request `captured_mail` instead of mocking SMTP: everything sent through `simple_module_core.mail` lands in `captured_mail.messages` as `MailMessage`s. `CapturedMail(delivers_email=False)` installed with `install_mail_sender` exercises the "share the link by hand" paths. The process sender is reset after every test, so one test's sender never reaches the next.
+For mail, request `captured_mail` instead of mocking SMTP: everything sent through `simple_module_core.mailer.mail` lands in `captured_mail.messages` as `MailMessage`s. `CapturedMail(delivers_email=False)` installed with `install_mail_sender` exercises the "share the link by hand" paths. The process sender is reset after every test, so one test's sender never reaches the next.
 
 Example with `httpx_mock`:
 

@@ -13,8 +13,8 @@ import uuid
 from collections.abc import Sequence
 from datetime import timedelta
 
-from simple_module_core.datetimes import utcnow as _utcnow
-from simple_module_core.user_directory import NullUserDirectory, UserDirectory
+from simple_module_core.access.user_directory import NullUserDirectory, UserDirectory
+from simple_module_core.runtime.datetimes import utcnow as _utcnow
 from simple_module_db import ALL_TENANTS_OPTION, all_tenants
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

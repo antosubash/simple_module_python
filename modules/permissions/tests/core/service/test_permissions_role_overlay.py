@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 from fastapi import FastAPI
 from permissions.core.constants import PERM_VIEW
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
 
 
 def test_overlay_replace_keeps_code_mapping_and_drops_removed_db_keys():

@@ -8,7 +8,7 @@ from auth.contracts.schemas import UserContext
 from auth.core.state import AuthState
 from auth.web.middleware import AuthMiddleware
 from fastapi import FastAPI, Request
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
 
@@ -135,7 +135,7 @@ async def test_root_is_public(unauthenticated_app):
 
 async def test_registry_public_route_skips_auth():
     """A module-contributed public route lets an unauthenticated GET through."""
-    from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.web.public_routes import PublicRouteRegistry
 
     registry = PublicRouteRegistry()
     registry.add_prefix("/api/gis/stac")
@@ -150,7 +150,7 @@ async def test_registry_public_route_skips_auth():
 
 async def test_registry_method_scoping_gates_other_verbs():
     """A GET-scoped public rule exempts GET but still gates PATCH on the same path."""
-    from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.web.public_routes import PublicRouteRegistry
 
     registry = PublicRouteRegistry()
     registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"})
@@ -212,7 +212,7 @@ class TestDeepLinkPreservation:
 
     The value is replayed into a ``Location`` header after login, so it is
     stored relative and sanitised on the way in — see
-    ``simple_module_core.redirect_safety``.
+    ``simple_module_core.web.redirect_safety``.
     """
 
     async def _get(self, app, path: str):

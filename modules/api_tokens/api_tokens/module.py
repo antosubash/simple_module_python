@@ -5,18 +5,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from simple_module_core import AdminSurface
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 
 from api_tokens.core import constants as c
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
-    from simple_module_core.audit_links import AuditLinkRegistry
-    from simple_module_core.events import EventBus
-    from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.access.permissions import PermissionRegistry
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.web.audit_links import AuditLinkRegistry
 
 
 class ApiTokensModule(ModuleBase):

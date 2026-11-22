@@ -1,6 +1,6 @@
 """Read-only checks for ambiguous email identities and legacy bearer credentials."""
 
-from simple_module_core.data_compatibility import DataCompatibilityIssue
+from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
 from sqlalchemy import String, column, func, inspect, or_, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 

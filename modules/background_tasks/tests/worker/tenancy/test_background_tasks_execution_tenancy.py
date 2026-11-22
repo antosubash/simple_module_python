@@ -19,7 +19,7 @@ from background_tasks.executions.retry_service import RetryCoordinator
 from background_tasks.executions.tenant_context import TENANT_HEADER
 from background_tasks.models import TaskExecution
 from background_tasks.worker.signals import on_task_publish
-from simple_module_core.tenancy import TenantRole
+from simple_module_core.access.tenancy import TenantRole
 from simple_module_db import current_tenant_id, tenant_context
 from sqlalchemy import select
 

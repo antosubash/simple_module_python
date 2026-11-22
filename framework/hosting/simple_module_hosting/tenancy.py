@@ -12,8 +12,8 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from fastapi import HTTPException, Request
-from simple_module_core.app_state import get_services
-from simple_module_core.tenancy import TenancyMode
+from simple_module_core.access.tenancy import TenancyMode
+from simple_module_core.modules.app_state import get_services
 from simple_module_db import DEFAULT_TENANT_ID, is_valid_tenant_id, tenant_context
 
 __all__ = [

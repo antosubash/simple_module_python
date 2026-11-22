@@ -7,7 +7,7 @@ import pytest
 from api_tokens.core.constants import TokenKind
 from api_tokens.models import ApiToken
 from api_tokens.module import ApiTokensModule
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_core.user_events import UserDeleted
 from simple_module_db import all_tenants, tenant_context
 from simple_module_db.transaction import finalize_session, rollback_session

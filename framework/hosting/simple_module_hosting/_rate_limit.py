@@ -27,8 +27,8 @@ from __future__ import annotations
 
 import logging
 
-from simple_module_core.app_state import get_public_routes, get_rate_limit_rules
-from simple_module_core.rate_limit import (
+from simple_module_core.modules.app_state import get_public_routes, get_rate_limit_rules
+from simple_module_core.web.rate_limit import (
     InProcessWindowStore,
     RateLimitRule,
     RateSpec,

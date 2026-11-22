@@ -1,4 +1,4 @@
-"""The stock :class:`~simple_module_core.resources.ResourcePolicy` (GH #526).
+"""The stock :class:`~simple_module_core.access.resources.ResourcePolicy` (GH #526).
 
 :class:`OwnedResourcePolicy` covers the common shape — a row has an owner,
 maybe a visibility flag, maybe shares in another table — as one SQL predicate::
@@ -22,7 +22,7 @@ import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core.resources import ACTION_VIEW, ResourcePolicy, ResourcePrincipal
+from simple_module_core.access.resources import ACTION_VIEW, ResourcePolicy, ResourcePrincipal
 from sqlalchemy import false, inspect, or_
 
 if TYPE_CHECKING:

@@ -13,7 +13,7 @@ from __future__ import annotations
 import httpx
 import pytest
 from fastapi import Depends, HTTPException, Request
-from simple_module_core.permission_denied import PermissionDenied
+from simple_module_core.access.permission_denied import PermissionDenied
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_test import inertia_page
 

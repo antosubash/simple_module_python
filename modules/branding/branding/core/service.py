@@ -99,7 +99,7 @@ class BrandingService:
         # the in-process object only changes after commit.
         from settings.core.service import SettingService
         from settings.module_settings.store import SettingsStore
-        from simple_module_core.settings_hydrate import hydrate_settings
+        from simple_module_core.settings.settings_hydrate import hydrate_settings
 
         from branding.core.settings import BrandingSettings
 

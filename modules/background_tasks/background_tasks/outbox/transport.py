@@ -31,7 +31,7 @@ import uuid
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core.durable_events import event_key, serialize_event
+from simple_module_core.eventing.durable_events import event_key, serialize_event
 from simple_module_db import RequestSession, current_tenant_id
 from simple_module_db.tenancy import is_all_tenants
 from simple_module_db.transaction import SESSION_START_KEY
@@ -46,7 +46,7 @@ from background_tasks.outbox.clock import db_now
 from background_tasks.outbox.dispatch import dispatch
 
 if TYPE_CHECKING:
-    from simple_module_core.events import EventBus
+    from simple_module_core.eventing.events import EventBus
     from simple_module_db import DatabaseState
 
     from background_tasks.core.services import BackgroundTasksServices

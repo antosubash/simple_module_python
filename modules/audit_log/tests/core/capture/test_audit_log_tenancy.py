@@ -13,7 +13,7 @@ import pytest
 from audit_log.core.capture import audit_callback
 from audit_log.core.constants import PLATFORM_TENANT_FILTER
 from audit_log.models import AuditEntry
-from simple_module_core.tenancy import TenantRole
+from simple_module_core.access.tenancy import TenantRole
 from simple_module_db import all_tenants, tenant_context
 from simple_module_db.audit import AuditRecord
 from sqlalchemy import select

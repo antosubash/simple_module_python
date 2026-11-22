@@ -13,7 +13,7 @@ import pytest
 from branding.contracts.schemas import BrandingUpdate
 from branding.core.settings import BrandingSettings
 from branding.web.shared_props import branding_payload
-from simple_module_core.design_packs import DesignPack
+from simple_module_core.web.design_packs import DesignPack
 
 _GCA = DesignPack(value="gca", label="Canopy Atlas")
 

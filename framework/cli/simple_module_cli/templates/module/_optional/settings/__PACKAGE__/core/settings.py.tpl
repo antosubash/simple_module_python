@@ -10,7 +10,7 @@ source. Add fields here as the module grows.
 from __future__ import annotations
 
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 
 class {{MODULE_NAME}}Settings(DbBackedSettings):

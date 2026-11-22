@@ -3,8 +3,8 @@
 from feature_flags.core.constants import SCOPE_SYSTEM, SCOPE_TENANT
 from feature_flags.models import FeatureFlagOverride
 from feature_flags.module import FeatureFlagsModule
-from simple_module_core.durable_events import DurableContext, event_key
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.durable_events import DurableContext, event_key
+from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from sqlmodel import select
 
@@ -38,7 +38,7 @@ async def test_feature_flags_tenant_event_clears_only_deleted_tenant():
     from types import SimpleNamespace
 
     from fastapi import FastAPI
-    from simple_module_core.feature_flags import FeatureFlagRegistry
+    from simple_module_core.web.feature_flags import FeatureFlagRegistry
 
     app = FastAPI()
     registry = FeatureFlagRegistry()
@@ -57,7 +57,7 @@ async def test_feature_flags_tenant_event_clears_only_deleted_tenant():
 
 
 async def test_feature_flags_remote_tenant_deletion_clears_registry(app):
-    from simple_module_core.invalidation import Invalidation
+    from simple_module_core.eventing.invalidation import Invalidation
     from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 
     registry = app.state.sm.feature_flags

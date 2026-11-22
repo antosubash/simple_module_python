@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from simple_module_core.rate_limit import RateSpec
+from simple_module_core.web.rate_limit import RateSpec
 from simple_module_hosting._rate_limit_store import RedisWindowStore
 
 

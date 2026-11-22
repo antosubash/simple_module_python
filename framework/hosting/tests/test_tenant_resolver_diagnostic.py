@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from fastapi import FastAPI
-from simple_module_core.services import DiagnosticsState
+from simple_module_core.modules.services import DiagnosticsState
 from simple_module_hosting._boot_checks import report_tenant_resolution
 
 

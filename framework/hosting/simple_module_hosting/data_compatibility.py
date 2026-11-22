@@ -4,8 +4,11 @@ import logging
 from collections.abc import Sequence
 
 from fastapi import FastAPI
-from simple_module_core.data_compatibility import checking_modules, collect_data_compatibility
-from simple_module_core.module import ModuleBase
+from simple_module_core.migrations.data_compatibility import (
+    checking_modules,
+    collect_data_compatibility,
+)
+from simple_module_core.modules.module import ModuleBase
 
 logger = logging.getLogger(__name__)
 

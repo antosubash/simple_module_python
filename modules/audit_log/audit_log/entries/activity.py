@@ -1,4 +1,4 @@
-"""The audit log as the app's :class:`~simple_module_core.activity_feed.ActivityFeed`.
+"""The audit log as the app's :class:`~simple_module_core.access.activity_feed.ActivityFeed`.
 
 The users edit page shows what an account did lately. It asks the core
 activity feed rather than importing this module (GH #501): ``users`` and
@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Any
 
-from simple_module_core.activity_feed import ActivityItem
+from simple_module_core.access.activity_feed import ActivityItem
 
 from audit_log.entries.resolve import resolve_entity_labels
 from audit_log.entries.service import AuditLogService

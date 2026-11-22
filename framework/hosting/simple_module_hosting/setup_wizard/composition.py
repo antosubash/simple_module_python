@@ -3,8 +3,8 @@
 import logging
 
 from fastapi import Request
-from simple_module_core.app_state import get_migration_status
-from simple_module_core.setup_steps import SetupStep
+from simple_module_core.modules.app_state import get_migration_status
+from simple_module_core.web.setup_steps import SetupStep
 
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS, is_first_run
 

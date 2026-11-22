@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from settings.contracts.events import SettingsReloaded
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 
 
 @pytest.mark.asyncio

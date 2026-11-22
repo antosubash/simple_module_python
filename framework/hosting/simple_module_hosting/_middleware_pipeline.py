@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_body_limits
+from simple_module_core.modules.app_state import get_body_limits
 from simple_module_db import CommitBeforeResponseMiddleware
 from simple_module_inertia import InertiaMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -33,10 +33,10 @@ from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import SetupMiddleware
 
 if TYPE_CHECKING:
-    from simple_module_core.csp import CspSourceRegistry
-    from simple_module_core.menu import MenuRegistry
-    from simple_module_core.permissions import PermissionRegistry
-    from simple_module_core.rate_limit import WindowStore
+    from simple_module_core.access.permissions import PermissionRegistry
+    from simple_module_core.web.csp import CspSourceRegistry
+    from simple_module_core.web.menu import MenuRegistry
+    from simple_module_core.web.rate_limit import WindowStore
 
 
 # Below this, gzip framing costs more than it saves. Starlette's own default.

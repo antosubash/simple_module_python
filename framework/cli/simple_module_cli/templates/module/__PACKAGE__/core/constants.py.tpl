@@ -4,7 +4,7 @@ Permissions, menu and routing values live here. Inertia keys are checked
 against this module's discovered pages.
 """
 
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
 
 
 class Permissions(PermissionCatalogue, group="{{MODULE_NAME}}"):

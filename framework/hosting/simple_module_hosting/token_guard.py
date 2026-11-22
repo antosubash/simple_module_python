@@ -40,7 +40,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import HTTPException
-from simple_module_core.app_state import get_services
+from simple_module_core.modules.app_state import get_services
 from starlette.requests import HTTPConnection
 
 from simple_module_hosting._anonymous import demote_to_anonymous
@@ -177,7 +177,7 @@ def _translate(request: HTTPConnection, key: str, fallback: str) -> str:
     registry = getattr(sm, "i18n_registry", None)
     if registry is None:
         return fallback
-    from simple_module_core.i18n import Translator
+    from simple_module_core.localization.i18n import Translator
 
     default = sm.settings.i18n_default_locale
     locale = getattr(request.state, "locale", default)

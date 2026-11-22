@@ -5,8 +5,8 @@ from __future__ import annotations
 import uuid
 
 from permissions.core.service import PermissionService
-from simple_module_core.permissions import ADMIN_ROLE, PermissionRegistry
-from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
+from simple_module_core.access.permissions import ADMIN_ROLE, PermissionRegistry
+from simple_module_core.access.user_directory import DirectoryUser, NullUserDirectory
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _UID = uuid.uuid4()

@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import Field, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX
+from simple_module_core.settings.settings_hydrate import RELATED_FIELDS_CTX
 
 from background_tasks.core.config_guards import parse_task_routes
 from background_tasks.core.constants import (

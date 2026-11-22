@@ -36,7 +36,7 @@ def test_soft_time_limit_must_be_below_hard_limit() -> None:
 async def test_stored_invalid_limit_pair_does_not_break_lenient_hydration(db_session) -> None:
     from settings.core.service import SettingService
     from settings.module_settings.store import SettingsStore
-    from simple_module_core.settings_hydrate import hydrate_settings
+    from simple_module_core.settings.settings_hydrate import hydrate_settings
 
     store = SettingsStore(SettingService(db_session))
     await store.set_override("background_tasks", "task_soft_time_limit", "100", "int")
@@ -55,14 +55,14 @@ async def test_hydration_drops_the_stored_soft_limit(db_session, caplog, monkeyp
     limit is the half to drop (#548)."""
     from settings.core.service import SettingService
     from settings.module_settings.store import SettingsStore
-    from simple_module_core.settings_hydrate import hydrate_settings
+    from simple_module_core.settings.settings_hydrate import hydrate_settings
 
     monkeypatch.setenv("SM_BG_TASKS_TASK_TIME_LIMIT", "50")
     store = SettingsStore(SettingService(db_session))
     await store.set_override("background_tasks", "task_soft_time_limit", "100", "int")
     await store.set_override("background_tasks", "retention_days", "7", "int")
 
-    with caplog.at_level(logging.ERROR, logger="simple_module_core.settings_hydrate"):
+    with caplog.at_level(logging.ERROR, logger="simple_module_core.settings.settings_hydrate"):
         cfg = await hydrate_settings(
             BackgroundTasksSettings, store, "background_tasks", lenient=True
         )

@@ -8,8 +8,8 @@ from sharing.contracts import SubjectProvider, SubjectRegistry
 from sharing.contracts.schemas import ShareGrant
 from sharing.core.service import SharingError, SharingService
 from sharing.models import ResourceShare
-from simple_module_core.resources import ResourcePrincipal, ResourceTypeRegistry
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 from simple_module_db.tenancy import tenant_context
 from sqlalchemy import column
 
@@ -79,7 +79,7 @@ async def test_unregistered_subject_is_refused_before_writing():
 def test_sharing_registers_builtins_for_each_host_and_worker():
     from sharing.contracts import get_subject_registry
     from sharing.module import SharingModule
-    from simple_module_core.principals import PrincipalRegistry
+    from simple_module_core.access.principals import PrincipalRegistry
 
     first, second = PrincipalRegistry(), PrincipalRegistry()
     SharingModule().register_principal_builder(first)
@@ -136,7 +136,7 @@ async def test_user_provider_preserves_canonical_directory_ids():
     from sharing.contracts import SubjectContext
     from sharing.core.audience import OpenAudience
     from sharing.core.subjects import default_subject_registry
-    from simple_module_core.user_directory import DirectoryUser
+    from simple_module_core.access.user_directory import DirectoryUser
 
     canonical = "12345678-1234-1234-1234-123456789abc"
     alias = canonical.upper()

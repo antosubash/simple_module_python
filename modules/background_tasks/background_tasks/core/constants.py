@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
 
 # ── Module identity ─────────────────────────────────────────────
 MODULE_NAME = "background_tasks"

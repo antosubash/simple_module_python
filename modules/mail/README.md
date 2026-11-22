@@ -3,7 +3,7 @@
 Outgoing mail for `simple_module` apps. The module owns the transport (SMTP via
 `aiosmtplib`, or a console backend that logs each message) and its settings, and
 installs a process-level sender that any module can use through
-`simple_module_core.mail` without knowing whether mail is configured.
+`simple_module_core.mailer.mail` without knowing whether mail is configured.
 
 The default backend is `console`: messages are logged, nothing is delivered.
 Switch to `smtp` and fill in the server details to deliver real email.
@@ -34,7 +34,7 @@ uv sync --all-packages
 From code, send through the core interface:
 
 ```python
-from simple_module_core.mail import MailMessage, current_mail_sender
+from simple_module_core.mailer.mail import MailMessage, current_mail_sender
 
 await current_mail_sender().send(
     MailMessage(to="a@example.com", subject="Hello", text="Plain body")

@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
 
 from settings.core.constants import (
     API_PREFIX,
@@ -23,7 +23,7 @@ from settings.core.constants import (
 )
 
 if TYPE_CHECKING:
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -58,7 +58,7 @@ class SettingsModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from simple_module_core.module_settings import module_settings_registry
+        from simple_module_core.settings.module_settings import module_settings_registry
 
         from settings.contracts.registry import SettingsRegistry
         from settings.core.services import SettingsServices
@@ -125,7 +125,7 @@ class SettingsModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        from simple_module_core.tenancy import TenantRole, tenant_role
+        from simple_module_core.access.tenancy import TenantRole, tenant_role
 
         super().register_permissions(registry)
         # Tenant owners and admins edit their own tenant's overridable keys

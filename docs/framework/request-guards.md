@@ -121,7 +121,7 @@ action (a POST that sends mail, an export), register a rule; it applies to
 anonymous and signed-in requests, before the tiers above:
 
 ```python
-from simple_module_core.rate_limit import RateLimitRule
+from simple_module_core.web.rate_limit import RateLimitRule
 
 
 def register_rate_limits(self, registry) -> None:
@@ -208,7 +208,7 @@ the shared store instead (see [Sharing the store](#sharing-the-store)).
 
 ## Where it lives
 
-- `simple_module_core.body_limits.BodyLimitRegistry`, `simple_module_core.rate_limit`
+- `simple_module_core.web.body_limits.BodyLimitRegistry`, `simple_module_core.web.rate_limit`
   (rate parsing, in-process store), `PublicRoute.rate`
 - `simple_module_hosting._body_limit`, `_rate_limit`, `_request_guard_responses`
 - Wiring: `_middleware_pipeline.install_middleware`; registry on `app.state.body_limits`

@@ -9,15 +9,15 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from simple_module_core.permissions import ADMIN_ROLE, WILDCARD
-from simple_module_core.user_directory import DirectoryUser
+from simple_module_core.access.permissions import ADMIN_ROLE, WILDCARD
+from simple_module_core.access.user_directory import DirectoryUser
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from permissions.models import RolePermission
 
 if TYPE_CHECKING:
-    from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.access.permissions import PermissionRegistry
 
 # Attempts at the admin-grant insert before a persistent conflict is re-raised.
 _SYNC_ATTEMPTS = 3

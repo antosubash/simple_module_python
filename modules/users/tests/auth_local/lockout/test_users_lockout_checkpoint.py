@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from _users_app_builders import ALICE, _build_users_app, _client, _make_standard_user, user_row
 from pwdlib.hashers.bcrypt import BcryptHasher
-from simple_module_core.rate_limit import InProcessWindowStore
+from simple_module_core.web.rate_limit import InProcessWindowStore
 from sqlalchemy import select
 from users.auth_local.lockout import LoginAttempt, admit
 from users.models import Role, User

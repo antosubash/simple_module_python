@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 HEAVY_PACKAGES = frozenset(
     {"torch", "tensorflow", "ultralytics", "osgeo", "rasterio", "cv2", "sklearn"}
