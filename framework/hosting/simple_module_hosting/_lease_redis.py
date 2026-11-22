@@ -109,54 +109,68 @@ class RedisLeaseBackend:
         record.host_ref = weakref.ref(host)
         record.task = None
 
-        def spawn() -> None:
+        def on_task_done(done: asyncio.Task[None]) -> None:
+            exc = None if done.cancelled() else done.exception()
+            with self._lock:
+                # Clear pre-step cancellations that bypassed _close_record's try block.
+                self._clear_pending_locked(record, cf)
+                self._resolve_cf(cf, exc)
+
+        def launch_locked() -> None:
             if not cf.set_running_or_notify_cancel():
                 return
-            with self._lock:
-                if record.closed or record.future is not cf:
-                    if not cf.done():
-                        cf.set_result(None)
-                    return
-                record.task = host.create_task(self._close_record(record, cf))
+            if record.closed or record.future is not cf:
+                self._resolve_cf(cf)
+                return
+            task = host.create_task(self._close_record(record, cf))
+            task.add_done_callback(on_task_done)
+            record.task = task
 
+        def spawn() -> None:
+            with self._lock:
+                launch_locked()
+
+        try:
+            if host is asyncio.get_running_loop():
+                launch_locked()
+                return
+        except RuntimeError:
+            pass
         try:
             # Allocate the coroutine only after the host actually accepts the handoff.
             host.call_soon_threadsafe(spawn)
         except RuntimeError:
+            self._clear_pending_locked(record, cf)
+            raise
+
+    @staticmethod
+    def _resolve_cf(cf: Future[None], exc: BaseException | None = None) -> None:
+        if not cf.done():
+            cf.set_exception(exc) if exc is not None else cf.set_result(None)
+
+    @staticmethod
+    def _clear_pending_locked(record: _ClientRecord, cf: Future[None]) -> None:
+        if not record.closed and record.future is cf:
             record.closing = False
             record.future = record.host_ref = record.task = None
-            raise
 
     async def _close_record(self, record: _ClientRecord, cf: Future[None]) -> None:
         with self._lock:
             if record.closed or record.future is not cf:
-                if not cf.done():
-                    cf.set_result(None)
                 return
         try:
             await _close_client(record.client)
-        except asyncio.CancelledError:
-            with self._lock:
-                if record.future is cf:
-                    record.closing = False
-                    record.future = record.host_ref = record.task = None
-                if not cf.done():
-                    cf.set_result(None)
         except BaseException as exc:
             with self._lock:
-                if record.future is cf:
-                    record.closing = False
-                    record.future = record.host_ref = record.task = None
-                if not cf.done():
-                    cf.set_exception(exc)
+                self._clear_pending_locked(record, cf)
+                self._resolve_cf(cf, None if isinstance(exc, asyncio.CancelledError) else exc)
         else:
             with self._lock:
                 record.closed = True
                 if record in self._records:
                     self._records.remove(record)
                 record.future = record.host_ref = record.task = None
-                if not cf.done():
-                    cf.set_result(None)
+                self._resolve_cf(cf)
 
     def _redis(self) -> Any:
         current, pid = asyncio.get_running_loop(), os.getpid()
@@ -208,9 +222,7 @@ class RedisLeaseBackend:
                         pass  # The host closed while cancellation was being queued.
             cf.cancel()
             with self._lock:
-                if record.future is cf:
-                    record.closing = False
-                    record.future = record.host_ref = record.task = None
+                self._clear_pending_locked(record, cf)
             break
         if wrapped.done() and not wrapped.cancelled():
             error = wrapped.exception()

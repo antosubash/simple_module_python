@@ -68,3 +68,31 @@ def test_owner_discards_queued_close_without_unawaited_coroutine_warning():
         gc.collect()
     assert clients[0].close_count == 1
     assert not [warning for warning in caught if issubclass(warning.category, RuntimeWarning)]
+
+
+async def test_pre_step_cancelled_close_task_recovers_and_closes_once():
+    import concurrent.futures
+
+    backend, clients = make_backend()
+    cancelled = concurrent.futures.Future()
+    with running_loop() as owner:
+        await asyncio.wait_for(
+            asyncio.wrap_future(
+                asyncio.run_coroutine_threadsafe(backend.acquire("one", "owner", 10), owner)
+            ),
+            2,
+        )
+
+        def cancel_before_first_step():
+            with backend._lock:
+                backend._start_close(backend._records[0], owner)
+                task = backend._records[0].task
+                assert task is not None
+                task.cancel()
+            cancelled.set_result(None)
+
+        owner.call_soon_threadsafe(cancel_before_first_step)
+        await asyncio.wait_for(asyncio.wrap_future(cancelled), 2)
+        await asyncio.wait_for(backend.aclose(), 2)
+    assert clients[0].close_count == 1
+    assert backend._records == []

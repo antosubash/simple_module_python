@@ -53,9 +53,10 @@ The backend is process-global because a Celery worker has no `app.state`. `creat
 | a database, no Redis | `DbLeaseBackend` (`simple_module_db`) | Rows in `sm_lease (name, slot, holder, fence, expires_at)`, primary key `(name, slot)`. Every comparison uses the database clock, so clock skew between hosts does not matter; on Postgres the clock is read after the slot row is locked, so a lock wait never shortens a TTL. |
 | neither | `InProcessLeaseBackend` | One process only. Also what tests and eager Celery get when nothing else is configured. |
 
-Acquisition timeouts, and Redis connection failures, log a WARNING and return
-`False` (other backends' errors, such as a database outage under
-`DbLeaseBackend`, still propagate); `async with` consequently raises `LeaseNotAcquiredError`. An explicit
+Acquisition timeouts, Redis connection failures, and recognized
+`DbLeaseBackend` connectivity or resource outages log a WARNING and return
+`False` (`async with` consequently raises `LeaseNotAcquiredError`); SQL,
+schema, integrity, and unrecognized database errors still propagate. An explicit
 `wait` bounds backend calls as well as polling, with a 1-second minimum attempt
 budget (including `wait=0`). Redis connections and socket reads each have a
 2-second timeout and at most one immediate reconnect (so roughly 4 s at
