@@ -220,6 +220,8 @@ class RedisLeaseBackend:
                 if host.is_running():
                     continue
                 if not cf.cancel():
+                    if cf.done():
+                        break
                     # A started close must finish or acknowledge cancellation before retry.
                     with self._lock:
                         task = record.task if record.future is cf else None
@@ -233,8 +235,8 @@ class RedisLeaseBackend:
             with self._lock:
                 self._clear_pending_locked(record, cf)
             break
-        if wrapped.done() and not wrapped.cancelled():
-            error = wrapped.exception()
+        if cf.done() and not cf.cancelled():
+            error = cf.exception()
             if error is not None:
                 raise error
         with self._lock:

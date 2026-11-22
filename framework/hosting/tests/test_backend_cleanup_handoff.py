@@ -234,3 +234,30 @@ assert os.waitstatus_to_exitcode(status) == 0
 
 def test_fork_while_another_thread_holds_backend_lock_runs_child_cleanup():
     run_fork_probe(_FORK_HELD_LOCK_PROBE, timeout=10)
+
+
+async def test_await_shared_close_raises_when_future_fails_before_wrapper_syncs(monkeypatch):
+    import os
+    import weakref
+    from concurrent.futures import Future
+
+    import pytest
+    from simple_module_hosting._lease_redis import RedisLeaseBackend, _ClientRecord
+
+    loop = asyncio.get_running_loop()
+    backend = RedisLeaseBackend("redis://unused")
+    cf: Future[None] = Future()
+    record = _ClientRecord(
+        os.getpid(), weakref.ref(loop), object(), future=cf, host_ref=weakref.ref(loop)
+    )
+    real_wait = asyncio.wait
+
+    async def wait_then_fail(futures, *, timeout=None):
+        result = await real_wait(futures, timeout=0)
+        cf.set_exception(OSError("quarantine failed"))
+        return result
+
+    monkeypatch.setattr("simple_module_hosting._lease_redis.asyncio.wait", wait_then_fail)
+    with pytest.raises(OSError, match="quarantine failed"):
+        await backend._await_shared_close(record)
+    await asyncio.sleep(0)
