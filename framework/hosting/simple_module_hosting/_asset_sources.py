@@ -5,13 +5,14 @@ from pathlib import Path
 
 
 def source_dirs(base: Path) -> list[Path]:
-    """Directories directly containing TS/TSX, pruning caches and package metadata."""
+    """Directories directly containing TS/TSX, pruning caches, contracts, and package metadata."""
     found = []
     for dirpath, dirnames, filenames in os.walk(base):
         dirnames[:] = [
             name
             for name in dirnames
             if name not in {"__pycache__", "node_modules"}
+            and not (Path(dirpath) == base and name == "contracts")
             and not name.startswith(".")
             and not name.endswith((".dist-info", ".egg-info"))
         ]
