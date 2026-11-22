@@ -26,7 +26,10 @@ def safe_referer_or_root(request: Request) -> str:
     if not referer:
         return "/"
 
-    parsed = urlsplit(referer)
+    try:
+        parsed = urlsplit(referer)
+    except ValueError:
+        return "/"
     # Relative reference (no scheme+host). ``safe_next`` owns the rules here —
     # it rejects protocol-relative ("//host") and backslash-prefixed ("/\\host")
     # targets, both of which browsers resolve off-site, plus anything carrying
