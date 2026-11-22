@@ -36,12 +36,13 @@ from __future__ import annotations
 import importlib.resources
 import json
 import logging
-import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from simple_module_core import ModuleBase, get_module_package_name
+
+from simple_module_hosting._asset_sources import module_source_dirs, source_dirs
 
 logger = logging.getLogger(__name__)
 
@@ -138,8 +139,18 @@ def compute_module_assets(
             components_dir=components_dir.resolve() if components_dir.is_dir() else None,
             ui_dir=ui_dir.resolve() if ui_dir.is_dir() else None,
         )
-        if include_empty or any(
-            (entry.pages_dir, entry.theme_css, entry.styles_css, entry.components_dir, entry.ui_dir)
+        if (
+            include_empty
+            or any(
+                (
+                    entry.pages_dir,
+                    entry.theme_css,
+                    entry.styles_css,
+                    entry.components_dir,
+                    entry.ui_dir,
+                )
+            )
+            or source_dirs(pkg_root)
         ):
             result.append(entry)
     return result
@@ -186,27 +197,6 @@ _CSS_HEADER = """\
  */"""
 
 
-_SKIP_DIRS = frozenset({"__pycache__", "node_modules"})
-
-
-def _source_dirs(base: Path) -> list[Path]:
-    """``base`` plus every descendant directory that directly holds a .ts/.tsx file.
-
-    uv writes ``.venv/.gitignore`` = ``*`` and Tailwind's scanner honours ignore
-    files *below* an ``@source`` base, so a wheel module's base directory was
-    scanned but none of its subdirectories (#419). Each one becomes its own
-    base. A directory that doesn't exist yields just ``base``.
-    """
-    found: list[Path] = []
-    if base.is_dir():
-        for dirpath, dirnames, filenames in os.walk(base):
-            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]  # prune, don't walk
-            here = Path(dirpath)
-            if here != base and any(Path(f).suffix in {".ts", ".tsx"} for f in filenames):
-                found.append(here)
-    return [base, *sorted(found)]
-
-
 def render_modules_css(
     assets: Sequence[ModuleAssets],
     *,
@@ -220,7 +210,8 @@ def render_modules_css(
     ``@import`` is emitted for *every* module, in-repo and wheel alike, because
     there is no static-glob equivalent for CSS.
 
-    ``pages/``, ``ui/`` and legacy ``components/`` are scanned. A wheel module's widgets
+    Conventional frontend directories and domain areas containing TS/TSX are
+    scanned. A wheel module's widgets
     live under ``components/``, and leaving them out meant every host had to
     hand-write a ``@source`` pointing into ``.venv`` — which cannot be written
     portably: POSIX venvs nest under ``lib/python3.x/site-packages`` while
@@ -239,9 +230,8 @@ def render_modules_css(
     source_lines = [
         f'@source "{s.as_posix()}/**/*.{{ts,tsx}}";'
         for e in assets
-        for d in (e.pages_dir, e.components_dir, e.ui_dir)
-        if d and not in_repo(d)
-        for s in _source_dirs(d)
+        if not in_repo(e.package_dir)
+        for s in module_source_dirs(e.package_dir, (e.pages_dir, e.components_dir, e.ui_dir))
     ]
     theme_lines = [f'@import "{e.theme_css.as_posix()}";' for e in assets if e.theme_css]
     style_lines = [

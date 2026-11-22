@@ -106,5 +106,10 @@
     "showing": "Mostrando {from}–{to} de {total}",
     "previous": "Anterior",
     "next": "Siguiente"
+  },
+  "offline": {
+    "title": "Sin conexión",
+    "description": "Es posible que los cambios no se guarden hasta que se restablezca la conexión.",
+    "restored": "Conexión restablecida"
   }
 }

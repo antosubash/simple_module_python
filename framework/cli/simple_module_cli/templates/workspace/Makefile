@@ -79,8 +79,9 @@ migrate:
 	uv run --project host alembic -c host/alembic.ini upgrade heads
 
 migration:
-	@test -n "$(msg)" || (echo 'Usage: make migration msg="describe the change"' && exit 1)
-	uv run --project host alembic -c host/alembic.ini revision --autogenerate -m "$(msg)"
+	@test -n "$(strip $(LABEL))" || (echo 'Usage: make migration LABEL=orders msg="describe the change"' && exit 1)
+	@test -n "$(msg)" || (echo 'Usage: make migration LABEL=orders msg="describe the change"' && exit 1)
+	uv run --project host alembic -c host/alembic.ini revision --autogenerate -m "$(msg)" --head "$(LABEL)@head"
 
 kill:
 	@echo "Stop smpy dev with Ctrl-C (or send SIGTERM to its PID); it cleans up both process groups."

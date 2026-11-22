@@ -229,3 +229,22 @@ def test_legacy_generators_register_keys_in_either_order(project):
     before = manifest.read_text()
     write_module_pages_manifest(modules, client)
     assert manifest.read_text() == before
+
+
+@pytest.mark.parametrize(
+    "enabled", [["EP:custom_widget"], ["not-installed", "ep:custom_widget"], ["wIdGeT"]]
+)
+def test_generation_honors_core_allowlist_selectors(project, monkeypatch, enabled):
+    from importlib.metadata import EntryPoint
+
+    from simple_module_cli import gen_cmd
+
+    root, client, _, _ = project
+    settings, modules = gen_cmd._settings_and_modules()
+    settings.modules_enabled = enabled
+    ep = EntryPoint(name="custom_widget", value="widget.module:Widget", group="simple_module")
+    monkeypatch.setattr("simple_module_core.discovery.entry_points", lambda **_: [ep])
+    monkeypatch.setattr(EntryPoint, "load", lambda _: type(modules[0]))
+    monkeypatch.setattr(gen_cmd, "_settings_and_modules", lambda: (settings, modules))
+    gen_cmd.run_generation(root)
+    assert "Widget" in json.loads((client / "modules.manifest.json").read_text())

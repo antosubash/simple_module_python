@@ -38,7 +38,7 @@ def _sync_deps(client: Path, deps: dict[str, dict[str, str]]) -> None:
 
 
 def run_generation(project_root: Path | None = None) -> list[str]:
-    from simple_module_core import get_module_package_name, select_auth_provider
+    from simple_module_core import discover_modules, get_module_package_name, select_auth_provider
     from simple_module_core.dotenv import load_dotenv_into_environ
     from simple_module_hosting._i18n_modules import module_key_outputs
     from simple_module_hosting._i18n_target import app_i18n_dir, resolve_i18n_types_dir
@@ -60,11 +60,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
     load_dotenv_into_environ(root / ".env")
     settings, installed = _settings_and_modules()
     enabled = settings.modules_enabled
-    active = (
-        installed
-        if enabled is None
-        else [m for m in installed if m.meta.name.lower() in {name.lower() for name in enabled}]
-    )
+    active = installed if enabled is None else discover_modules(enabled=enabled, strict=True)
     modules = select_auth_provider(active, settings.auth_provider)
     roots = [Path(str(importlib.resources.files(get_module_package_name(m)))) for m in installed]
     hosting = Path(str(importlib.resources.files("simple_module_hosting")))
@@ -129,6 +125,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
                 [
                     hosting / "manifest.py",
                     hosting / "assets.py",
+                    hosting / "_asset_sources.py",
                     hosting / "page_globs.py",
                     hosting / "admin_surfaces.py",
                     hosting / "frontend_extensions.py",

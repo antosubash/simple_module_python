@@ -11,12 +11,15 @@ import { render } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-const handlers: Array<() => boolean> = [];
+const handlers: Array<(event: { detail: { visit: { prefetch: boolean } } }) => boolean> = [];
 const stopListening = vi.fn();
 
 vi.mock('@inertiajs/react', () => ({
   router: {
-    on: (_event: string, handler: () => boolean) => {
+    on: (
+      _event: string,
+      handler: (event: { detail: { visit: { prefetch: boolean } } }) => boolean,
+    ) => {
       handlers.push(handler);
       return stopListening;
     },
@@ -64,11 +67,11 @@ describe('with unsaved changes', () => {
     render(<Harness dirty={true} saving={saveFlag()} />);
 
     expect(handlers).toHaveLength(1);
-    expect(handlers[0]()).toBe(true);
+    expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(true);
     expect(confirm).toHaveBeenCalledWith(MESSAGE);
 
     confirm.mockReturnValue(false);
-    expect(handlers[0]()).toBe(false);
+    expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(false);
   });
 
   test("the page's own save is not prompted about", () => {
@@ -76,7 +79,7 @@ describe('with unsaved changes', () => {
     // this the guard interrupts the very action that resolves it.
     render(<Harness dirty={true} saving={saveFlag(true)} />);
 
-    expect(handlers[0]()).toBe(true);
+    expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(true);
     expect(confirm).not.toHaveBeenCalled();
   });
 
@@ -112,4 +115,11 @@ describe('the browser-level guard', () => {
     window.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);
   });
+});
+
+test('prefetching while dirty never prompts or blocks', () => {
+  render(<Harness dirty={true} saving={saveFlag()} />);
+  confirm.mockReturnValue(false);
+  expect(handlers[0]({ detail: { visit: { prefetch: true } } })).toBe(true);
+  expect(confirm).not.toHaveBeenCalled();
 });

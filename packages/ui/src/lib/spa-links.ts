@@ -50,9 +50,10 @@ export function isExcluded(url: URL, exclude: SpaLinkExclude | undefined): boole
   if (!exclude) return false;
   if (typeof exclude === 'function') return exclude(url);
   const prefixes = typeof exclude === 'string' ? [exclude] : exclude;
-  return prefixes.some(
-    (prefix) => url.pathname === prefix.replace(/\/$/, '') || url.pathname.startsWith(prefix),
-  );
+  return prefixes.some((prefix) => {
+    const base = prefix.replace(/\/+$/, '');
+    return url.pathname === base || url.pathname.startsWith(`${base}/`);
+  });
 }
 
 /** The `nativePrefixes` shared prop, tolerant of it being absent or malformed. */
@@ -141,9 +142,13 @@ export function startSpaLinkInterception(options: { exclude?: SpaLinkExclude } =
   // error modal over a link that used to work.
   let takenOver: string | null = null;
 
-  const offSuccess = router.on('success', () => {
+  const clear = () => {
     takenOver = null;
-  });
+  };
+  const offSuccess = router.on('success', clear);
+  const offFinish = router.on('finish', clear);
+  const offCancel = router.on('cancel', clear);
+  const offError = router.on('error', clear);
 
   const offInvalid = router.on('httpException', (event) => {
     if (!takenOver) return;
@@ -178,6 +183,9 @@ export function startSpaLinkInterception(options: { exclude?: SpaLinkExclude } =
   return () => {
     document.removeEventListener('click', onClick);
     offSuccess();
+    offFinish();
+    offCancel();
+    offError();
     offInvalid();
   };
 }

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { toast } from 'sonner';
 import { describe, expect, it, vi } from 'vitest';
 
 const page = vi.hoisted(() => ({ appName: 'Acme' as string | null }));
@@ -139,3 +140,16 @@ describe('AuthCardShell control sizing', () => {
     expectDeckSizing(screen.getByRole('form', { name: 'Sign in' }).parentElement);
   });
 });
+
+it.each(['card', 'split-dark', 'split-light'] as const)(
+  'mounts one toaster in %s',
+  async (variant) => {
+    render(<AuthCardShell variant={variant}>content</AuthCardShell>);
+    await act(async () => {
+      toast.success('Layout toast probe');
+    });
+    expect(await screen.findByText('Layout toast probe')).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-sonner-toaster]')).toHaveLength(1);
+    toast.dismiss();
+  },
+);

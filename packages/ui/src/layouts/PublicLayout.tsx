@@ -10,6 +10,7 @@ import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { NavIcon } from '../components/NavIcon';
+import { Toaster } from '../components/ui/sonner';
 import { usePageProps } from '../hooks/usePageProps';
 import { LOGIN_PATH } from '../lib/auth-routes';
 import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME } from '../lib/brand';
@@ -95,6 +96,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <BrandingHead />
+      <Toaster richColors position="top-right" />
       <BrandingBanner />
       <nav className="sticky top-0 z-50 border-b border-border bg-background">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:px-8 sm:py-3.5">

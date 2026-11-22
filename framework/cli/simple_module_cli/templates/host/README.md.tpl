@@ -13,7 +13,7 @@ cp .env.example .env
 
 # First time only — initialize the migration history for the modules you
 # picked. Inspect the generated file, then apply it.
-alembic revision --autogenerate -m "initial schema"
+uv run smpy migrations new initial -m "initial schema"
 alembic upgrade heads
 
 # Run the API
@@ -40,7 +40,7 @@ uv add simple_module_my_module
 smpy add git+https://github.com/you/your-module@v1.2.0
 
 # 2) generate & apply the migration (new tables + any schema changes)
-alembic revision --autogenerate -m "add my-module"
+uv run smpy migrations new my_module -m "add my-module"
 alembic upgrade heads
 
 # 3) restart the host — the module's routes, menu items, permissions,

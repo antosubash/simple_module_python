@@ -40,10 +40,5 @@
     "cta_body": "Öffnen Sie die Administrationsoberfläche, um Benutzer, Module und Hintergrundaufgaben zu verwalten.",
     "cta_sign_in": "An der Administrationsoberfläche anmelden",
     "copied_label": "✓ Kopiert"
-  },
-  "offline": {
-    "title": "Sie sind offline",
-    "description": "Änderungen werden möglicherweise erst gespeichert, wenn die Verbindung wiederhergestellt ist.",
-    "restored": "Wieder online"
   }
 }

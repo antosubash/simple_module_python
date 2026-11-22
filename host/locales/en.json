@@ -40,10 +40,5 @@
     "cta_body": "Open the admin UI to manage users, modules and background tasks.",
     "cta_sign_in": "Sign in to the admin UI",
     "copied_label": "✓ Copied"
-  },
-  "offline": {
-    "title": "You're offline",
-    "description": "Changes may not be saved until your connection returns.",
-    "restored": "Back online"
   }
 }

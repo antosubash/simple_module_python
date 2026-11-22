@@ -106,5 +106,10 @@
     "showing": "{from}–{to} von {total}",
     "previous": "Zurück",
     "next": "Weiter"
+  },
+  "offline": {
+    "title": "Sie sind offline",
+    "description": "Änderungen werden möglicherweise erst gespeichert, wenn die Verbindung wiederhergestellt ist.",
+    "restored": "Wieder online"
   }
 }

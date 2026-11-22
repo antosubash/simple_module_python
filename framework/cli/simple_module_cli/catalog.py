@@ -37,6 +37,7 @@ CATALOG: dict[str, ModuleEntry] = {
         "Permissions",
         requires=("auth", "users"),
     ),
+    "tenants": ModuleEntry("tenants", "simple_module_tenants", "Tenants", requires=("auth",)),
     "dashboard": ModuleEntry("dashboard", "simple_module_dashboard", "Dashboard"),
     "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
     "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),

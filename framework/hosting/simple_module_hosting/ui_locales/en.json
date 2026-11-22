@@ -106,5 +106,10 @@
     "showing": "Showing {from}–{to} of {total}",
     "previous": "Previous",
     "next": "Next"
+  },
+  "offline": {
+    "title": "You're offline",
+    "description": "Changes may not be saved until your connection returns.",
+    "restored": "Back online"
   }
 }

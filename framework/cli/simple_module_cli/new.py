@@ -144,6 +144,9 @@ def new_project(
             typer.echo("Aborted.", err=True)
             raise typer.Exit(code=1) from None
 
+    if tenancy_final:
+        resolved, _ = expand_deps([*resolved, "tenants"])
+
     try:
         host_dir, preserved = create_app_project(
             target,
@@ -178,7 +181,11 @@ def new_project(
             rel = path.relative_to(target) if path.is_relative_to(target) else path
             typer.echo(f"  {rel}")
     typer.echo("\nGenerated secrets were written to .env (gitignored), not .env.example.")
-    manual_setup = ["make install", 'make migration msg="initial schema"', "make migrate"]
+    manual_setup = [
+        "make install",
+        'uv run smpy migrations new initial -m "initial schema"',
+        "make migrate",
+    ]
     if no_install:
         _echo_next_steps(target, manual_setup, resolved)
         return
