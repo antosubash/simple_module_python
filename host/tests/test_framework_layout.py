@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-import ast
 from pathlib import Path
 
 import pytest
+from simple_module_test.layout import (
+    is_docstring_only_init,
+    is_layout_shim,
+    is_shim_package,
+    only_bytecode,
+)
 
 FRAMEWORK = Path(__file__).resolve().parents[2] / "framework"
 
@@ -37,29 +42,29 @@ AREAS: dict[str, frozenset[str]] = {
         {
             "modules",
             "access",
-            "events",
+            "eventing",
             "settings",
             "web",
-            "i18n",
-            "mail",
+            "localization",
+            "mailer",
             "runtime",
             "diagnostics",
             "migrations",
         }
     ),
-    "db": frozenset({"engine", "models", "scopes", "audit", "migrations", "queries"}),
+    "db": frozenset({"engine", "models", "scoping", "auditing", "schema", "queries"}),
     "hosting": frozenset(
         {
             "boot",
-            "settings",
-            "middleware",
+            "config",
+            "pipeline",
             "rate_limit",
             "auth",
-            "errors",
+            "error_handling",
             "frontend",
             "i18n",
             "observability",
-            "leases",
+            "locking",
         }
     ),
     "inertia": frozenset({"protocol", "rendering", "assets"}),
@@ -79,64 +84,6 @@ FACADE_AREAS: dict[str, frozenset[str]] = {
 LEGACY_FLAT: frozenset[str] = frozenset({"inertia", "cli", "core", "db", "hosting", "testing"})
 
 
-def _is_layout_shim(path: Path) -> bool:
-    text = path.read_text(encoding="utf-8")
-    try:
-        tree = ast.parse(text, filename=str(path))
-    except SyntaxError:
-        return False
-    has_dep = False
-    has_alias = False
-    for stmt in tree.body:
-        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-            fn = stmt.value.func
-            name = (
-                fn.id
-                if isinstance(fn, ast.Name)
-                else (fn.attr if isinstance(fn, ast.Attribute) else "")
-            )
-            if name == "deprecated_module" or (
-                name == "warn"
-                and any(
-                    isinstance(a, ast.Name) and a.id == "DeprecationWarning"
-                    for a in stmt.value.args
-                )
-            ):
-                has_dep = True
-        elif isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
-                if (
-                    isinstance(target, ast.Subscript)
-                    and isinstance(target.value, ast.Attribute)
-                    and isinstance(target.value.value, ast.Name)
-                    and target.value.value.id == "sys"
-                    and target.value.attr == "modules"
-                    and isinstance(target.slice, ast.Name)
-                    and target.slice.id == "__name__"
-                ):
-                    has_alias = True
-    return has_dep and has_alias
-
-
-def _only_bytecode(path: Path) -> bool:
-    return all(child.name == "__pycache__" for child in path.iterdir())
-
-
-def _is_shim_package(path: Path) -> bool:
-    files = [f for f in path.glob("*.py") if f.name != "__init__.py"]
-    return bool(files) and all(_is_layout_shim(f) for f in files)
-
-
-def _is_docstring_only_init(init_path: Path) -> bool:
-    tree = ast.parse(init_path.read_text(encoding="utf-8"), filename=str(init_path))
-    if not tree.body:
-        return True
-    if len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr):
-        val = tree.body[0].value
-        return isinstance(val, ast.Constant) and isinstance(val.value, str)
-    return False
-
-
 def assert_framework_layout(project: Path, project_name: str) -> None:
     """Validate one framework package's root, area initializers, and test hierarchy."""
     package = project / FRAMEWORK_PACKAGES[project_name]
@@ -145,17 +92,21 @@ def assert_framework_layout(project: Path, project_name: str) -> None:
     areas = AREAS[project_name]
     allowed = STANDARD_ROOT | extras | areas
 
+    root_py_stems = {p.stem for p in package.glob("*.py") if p.name != "__init__.py"}
+    shadowed = areas & root_py_stems
+    assert not shadowed, f"{project_name}: area directories shadow root modules {sorted(shadowed)}"
+
     root_entries: set[str] = set()
     for p in package.iterdir():
-        if p.name == "__pycache__":
+        if p.is_dir() and p.name == "__pycache__":
             continue
         if p.name in extras or p.is_symlink():
             root_entries.add(p.name)
             continue
         if p.is_dir():
-            if not _only_bytecode(p) and not _is_shim_package(p):
+            if not only_bytecode(p) and not is_shim_package(p):
                 root_entries.add(p.name)
-        elif not (p.suffix == ".py" and _is_layout_shim(p)):
+        elif not (p.is_file() and p.suffix == ".py" and is_layout_shim(p)):
             root_entries.add(p.name)
 
     unexpected = root_entries - allowed
@@ -168,7 +119,7 @@ def assert_framework_layout(project: Path, project_name: str) -> None:
         if area not in facades:
             init_file = area_dir / "__init__.py"
             assert init_file.is_file(), f"{project_name}: missing {area}/__init__.py"
-            assert _is_docstring_only_init(init_file), (
+            assert is_docstring_only_init(init_file), (
                 f"{project_name}: {area}/__init__.py must contain only a docstring"
             )
 
@@ -194,6 +145,16 @@ def test_migrated_framework_packages_follow_layout() -> None:
         assert_framework_layout(FRAMEWORK / pkg, pkg)
 
 
+def test_declared_areas_do_not_shadow_root_modules() -> None:
+    """Declared area directories never share a name with existing root modules or shims."""
+    for proj, pkg_name in sorted(FRAMEWORK_PACKAGES.items()):
+        pkg = FRAMEWORK / proj / pkg_name
+        facades = FACADE_AREAS.get(proj, frozenset())
+        root_stems = {p.stem for p in pkg.glob("*.py") if p.name != "__init__.py"}
+        collisions = (AREAS[proj] - facades) & root_stems
+        assert not collisions, f"{proj}: area names shadow root modules {sorted(collisions)}"
+
+
 def _seed_valid_inertia(base: Path) -> Path:
     proj = base / "inertia"
     pkg = proj / "simple_module_inertia"
@@ -209,32 +170,67 @@ def _seed_valid_inertia(base: Path) -> Path:
     return proj
 
 
+def _write(base: Path, rel: str, content: str) -> None:
+    target = base / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+
+
+_ALIAS = 'deprecated_module("old", remove_in="0.0.52", use="new")\nsys.modules[__name__] = obj\n'
+_KW_ALIAS = (
+    'warnings.warn("old", category=DeprecationWarning, stacklevel=2)\nsys.modules[__name__] = obj\n'
+)
+
+
 def test_assert_framework_layout_accepts_valid_package_and_alias_shim(tmp_path: Path) -> None:
     proj = _seed_valid_inertia(tmp_path)
-    (proj / "simple_module_inertia" / "response.py").write_text(
+    pkg = proj / "simple_module_inertia"
+    _write(
+        pkg,
+        "response.py",
         'warnings.warn("old", DeprecationWarning, stacklevel=2)\n'
         "sys.modules[__name__] = object()\n",
-        encoding="utf-8",
     )
+    _write(pkg, "kw_alias.py", _KW_ALIAS)
+    _write(pkg, "old_pkg/__init__.py", _ALIAS)
     assert_framework_layout(proj, "inertia")
+
+
+def _break_shim_pkg_exec_init(proj: Path) -> None:
+    pkg = proj / "simple_module_inertia" / "sneaky"
+    _write(pkg, "__init__.py", "x = 1\n")
+    _write(pkg, "old.py", _ALIAS)
+
+
+def _break_shim_pkg_nested_impl(proj: Path) -> None:
+    pkg = proj / "simple_module_inertia" / "sneaky"
+    _write(pkg, "__init__.py", '"""Shim."""\n')
+    _write(pkg, "old.py", _ALIAS)
+    _write(pkg, "sub/impl.py", "x = 1\n")
 
 
 @pytest.mark.parametrize(
     "break_fn",
     [
-        lambda p: (p / "simple_module_inertia" / "stray.py").write_text(
-            "x = 1\n", encoding="utf-8"
-        ),
-        lambda p: (p / "simple_module_inertia" / "protocol" / "__init__.py").write_text(
-            "from .config import Config\n", encoding="utf-8"
-        ),
-        lambda p: (p / "tests" / "test_root.py").write_text(
-            "def test_root(): pass\n", encoding="utf-8"
-        ),
-        lambda p: (p / "tests" / "protocol" / "__init__.py").write_text("", encoding="utf-8"),
+        lambda p: _write(p, "simple_module_inertia/stray.py", "x = 1\n"),
+        lambda p: _write(p, "simple_module_inertia/protocol/__init__.py", "from .c import C\n"),
+        lambda p: _write(p, "simple_module_inertia/protocol.py", _ALIAS),
+        _break_shim_pkg_exec_init,
+        _break_shim_pkg_nested_impl,
+        lambda p: _write(p, "tests/test_root.py", "def test_root(): pass\n"),
+        lambda p: _write(p, "tests/protocol/__init__.py", ""),
         lambda p: (p / "tests" / "unknown_area").mkdir(),
     ],
-    ids=["stray-root", "non-docstring-init", "flat-test", "test-init", "unknown-test-dir"],
+    ids=[
+        "stray-root",
+        "non-docstring-init",
+        "area-shadows-shim",
+        "shim-pkg-exec-init",
+        "shim-pkg-nested-impl",
+        "flat-test",
+        "test-init",
+        "unknown-test-dir",
+    ],
 )
 def test_assert_framework_layout_rejects_violations(tmp_path: Path, break_fn) -> None:
     proj = _seed_valid_inertia(tmp_path)

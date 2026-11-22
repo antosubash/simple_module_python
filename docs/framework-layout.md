@@ -29,13 +29,13 @@ Only entries resolved by packaging metadata, CLI entry points, resource lookups,
 
 ## Domain areas per package
 
-An area's `__init__.py` holds only a docstring, except explicit public facade packages such as `framework/core/simple_module_core/diagnostics/`. Private helpers keep a leading underscore inside the area they serve. Every source module must import cleanly in a fresh Python interpreter (`python -c "import <pkg>.<mod>"`). The 300-line file cap applies to framework sources and tests.
+An area's `__init__.py` holds only a docstring, except explicit public facade packages such as `framework/core/simple_module_core/diagnostics/`. Private helpers keep a leading underscore inside the area they serve. Declared area names must not collide with any existing root `.py` module stem (including active shims). Every source module must import cleanly in a fresh Python interpreter (`python -c "import <pkg>.<mod>"`). The 300-line file cap applies to framework sources and tests.
 
 - **`framework/inertia` (`simple_module_inertia`):** `protocol`, `rendering`, `assets`
 - **`framework/cli` (`simple_module_cli`):** `commands`, `scaffold`, `sources`, `updates`, `tooling`, `migrations`
-- **`framework/core` (`simple_module_core`):** `modules`, `access`, `events`, `settings`, `web`, `i18n`, `mail`, `runtime`, `diagnostics`, `migrations`
-- **`framework/db` (`simple_module_db`):** `engine`, `models`, `scopes`, `audit`, `migrations`, `queries`
-- **`framework/hosting` (`simple_module_hosting`):** `boot`, `settings`, `middleware`, `rate_limit`, `auth`, `errors`, `frontend`, `i18n`, `observability`, `leases`
+- **`framework/core` (`simple_module_core`):** `modules`, `access`, `eventing`, `settings`, `web`, `localization`, `mailer`, `runtime`, `diagnostics`, `migrations`
+- **`framework/db` (`simple_module_db`):** `engine`, `models`, `scoping`, `auditing`, `schema`, `queries`
+- **`framework/hosting` (`simple_module_hosting`):** `boot`, `config`, `pipeline`, `rate_limit`, `auth`, `error_handling`, `frontend`, `i18n`, `observability`, `locking`
 - **`framework/testing` (`simple_module_test`):** `app`, `db`, `web`, `fakes`
 
 ```text
@@ -51,7 +51,7 @@ Test directories contain no `__init__.py` and no flat `tests/test_*.py` files; p
 Any old framework submodule path imported outside its owning package (in `modules/`, `host/`, or downstream `smpy_modules`) keeps a `sys.modules` alias shim at the old root location with `remove_in="0.0.52"` (`docs/framework/deprecations.md`):
 
 - Packages that depend on `simple_module_core` (`core`, `db`, `hosting`, `testing`) use `simple_module_core.deprecation.deprecated_module`.
-- Leaf packages (`inertia`, `cli`) keep zero dependency on `core` by emitting stdlib `DeprecationWarning` before aliasing `sys.modules[__name__]` and registering the expiry target directly in `host/tests/test_deprecation_expiry.py`.
+- Leaf packages (`inertia`, `cli`) keep zero dependency on `core` by emitting stdlib `DeprecationWarning` before aliasing `sys.modules[__name__]` and registering the expiry target via `deprecate(...)` in `_register_all()` of `host/tests/test_deprecation_expiry.py`.
 
 `host/tests/test_framework_layout.py` enforces this contract per package once removed from `LEGACY_FLAT`. `host/tests/test_deprecation_expiry.py` auto-discovers active framework alias shims and fails once the framework reaches `remove_in`.
 

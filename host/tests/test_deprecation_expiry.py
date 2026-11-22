@@ -8,7 +8,6 @@ import), or consciously move its date.
 
 from __future__ import annotations
 
-import ast
 import importlib
 import warnings
 from importlib.metadata import version
@@ -20,6 +19,7 @@ from simple_module_core.deprecation import (
     expired_deprecations,
     registered_deprecations,
 )
+from simple_module_test.layout import is_layout_shim
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES: tuple[str, ...] = (
@@ -64,45 +64,6 @@ _NON_SOURCE_PARTS = frozenset(
 )
 
 
-def _is_alias_shim_source(text: str) -> bool:
-    """Return True when top-level statements declare a deprecation and sys.modules alias."""
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return False
-    has_dep = False
-    has_alias = False
-    for stmt in tree.body:
-        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-            fn = stmt.value.func
-            name = (
-                fn.id
-                if isinstance(fn, ast.Name)
-                else (fn.attr if isinstance(fn, ast.Attribute) else "")
-            )
-            if name == "deprecated_module" or (
-                name == "warn"
-                and any(
-                    isinstance(a, ast.Name) and a.id == "DeprecationWarning"
-                    for a in stmt.value.args
-                )
-            ):
-                has_dep = True
-        elif isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
-                if (
-                    isinstance(target, ast.Subscript)
-                    and isinstance(target.value, ast.Attribute)
-                    and isinstance(target.value.value, ast.Name)
-                    and target.value.value.id == "sys"
-                    and target.value.attr == "modules"
-                    and isinstance(target.slice, ast.Name)
-                    and target.slice.id == "__name__"
-                ):
-                    has_alias = True
-    return has_dep and has_alias
-
-
 def _layout_shims() -> list[str]:
     """Old import paths left behind by module/framework layout moves."""
     found: list[str] = []
@@ -115,8 +76,11 @@ def _layout_shims() -> list[str]:
             rel_parts = path.relative_to(base_dir).parts
             if not matches_package(rel_parts) or any(p in _NON_SOURCE_PARTS for p in rel_parts):
                 continue
-            if _is_alias_shim_source(path.read_text(encoding="utf-8")):
-                found.append(".".join(path.relative_to(base_dir).with_suffix("").parts[1:]))
+            if is_layout_shim(path):
+                mod_parts = path.relative_to(base_dir).with_suffix("").parts[1:]
+                if mod_parts and mod_parts[-1] == "__init__":
+                    mod_parts = mod_parts[:-1]
+                found.append(".".join(mod_parts))
     return found
 
 
@@ -129,13 +93,20 @@ def test_layout_shims_discovers_framework_and_ignores_tests(
     core_pkg.mkdir(parents=True)
     (core_pkg / "old_mod.py").write_text(
         'deprecated_module("simple_module_core.old_mod")\n'
-        'sys.modules[__name__] = import_module("simple_module_core.events.old_mod")\n',
+        'sys.modules[__name__] = import_module("simple_module_core.eventing.old_mod")\n',
+        encoding="utf-8",
+    )
+    pkg_shim = core_pkg / "migration_support"
+    pkg_shim.mkdir()
+    (pkg_shim / "__init__.py").write_text(
+        'deprecated_module("simple_module_core.migration_support")\n'
+        'sys.modules[__name__] = import_module("simple_module_core.migrations.support")\n',
         encoding="utf-8",
     )
     inertia_pkg = fw_dir / "inertia" / "simple_module_inertia"
     inertia_pkg.mkdir(parents=True)
     (inertia_pkg / "response.py").write_text(
-        'warnings.warn("deprecated", DeprecationWarning, stacklevel=2)\n'
+        'warnings.warn("deprecated", category=DeprecationWarning, stacklevel=2)\n'
         'sys.modules[__name__] = import_module("simple_module_inertia.protocol.response")\n',
         encoding="utf-8",
     )
@@ -148,7 +119,11 @@ def test_layout_shims_discovers_framework_and_ignores_tests(
     modules_dir.mkdir(parents=True)
     monkeypatch.setitem(globals(), "_MODULES_DIR", modules_dir)
     monkeypatch.setitem(globals(), "_FRAMEWORK_DIR", fw_dir)
-    assert _layout_shims() == ["simple_module_core.old_mod", "simple_module_inertia.response"]
+    assert _layout_shims() == [
+        "simple_module_core.migration_support",
+        "simple_module_core.old_mod",
+        "simple_module_inertia.response",
+    ]
 
 
 def _register_all() -> None:

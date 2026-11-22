@@ -41,14 +41,14 @@ main
 ## 3. Target Layout Contract
 
 1. **Package root (`framework/<proj>/simple_module_<pkg>/`):** Only `__init__.py` (preserving top-level public exports), `py.typed`, optional `__main__.py`, declared entry-point / resource / wire-name roots, named domain subpackages (`AREAS`), and active deprecated alias shims.
-2. **Area initializers:** Every area subpackage carries a docstring-only `__init__.py` (except `simple_module_core/diagnostics/__init__.py`, an explicit public facade kept intentionally). Private helpers keep a leading underscore inside the area they serve.
+2. **Area initializers:** Every area subpackage carries a docstring-only `__init__.py` (except `simple_module_core/diagnostics/__init__.py`, an explicit public facade kept intentionally). Private helpers keep a leading underscore inside the area they serve. Declared area names must not collide with any existing root `.py` module stem (including active shims).
 3. **Tests (`framework/<proj>/tests/`):** Mirror package areas (`tests/<area>/test_*.py`, or nested feature folders inside large areas). No flat `tests/test_*.py`, no `tests/**/__init__.py`. Root `conftest.py` and shared `_*_support.py` / `_*_models.py` helpers remain at `tests/` root (`pyproject.toml` `pythonpath` unchanged). `framework/hosting/tests-js/` remains unchanged.
 4. **Compatibility shims:** Old submodule paths imported outside their owning package (verified across `modules/`, `host/`, and `smpy_modules`) keep a `sys.modules` alias shim with `remove_in="0.0.52"` (two releases ahead of `0.0.50`).
 
 ## 4. Target Subpackage Maps
 
 ### PR 1 — `framework/inertia` (`simple_module_inertia`, 16 `.py`, 23 tests)
-- **Root:** `__init__.py`, `py.typed`, plus `response.py` shim (`DeprecationWarning` + `sys.modules` alias, registered in `test_deprecation_expiry.py` to keep 0 `core` dependency).
+- **Root:** `__init__.py`, `py.typed`, plus `response.py` shim (`DeprecationWarning` + `sys.modules` alias, registered via `deprecate(...)` in `_register_all()` of `host/tests/test_deprecation_expiry.py` to keep 0 `core` dependency).
 - **Areas:**
   - `protocol/`: `config`, `request`, `response`, `errors`, `validation`, `middleware`
   - `rendering/`: `inertia`, `page`, `props`, `resolve`, `_json_snapshot`, `deps`
@@ -69,11 +69,11 @@ main
 - **Areas:**
   - `modules/`: `module`, `module_meta`, `discovery`, `services`, `app_state`, `versioning`, `_auth_providers`, `_entry_point_errors`, `_module_conventions`, `_module_ordering`, `_request_hooks`
   - `access/`: `permissions`, `permission_catalogue`, `permission_denied`, `_permission_grants`, `principals`, `principal_permissions`, `resources`, `tenancy`, `file_access`, `user_directory`, `role_directory`, `activity_feed`
-  - `events/`: `events`, `durable_events`, `invalidation`, `invalidation_refresh`, `_invalidation_message`
+  - `eventing/`: `events`, `durable_events`, `invalidation`, `invalidation_refresh`, `_invalidation_message`
   - `settings/`: `settings_base`, `module_settings`, `settings_hydrate`, `stored_settings`, `secret_fields`, `dotenv`, `environments`
   - `web/`: `admin_surface`, `menu`, `public_routes`, `body_limits`, `cors`, `csp`, `rate_limit`, `path_rules`, `redirect_safety`, `design_packs`, `setup_steps`, `spa_mount`, `audit_links`, `feature_flags`, `health`
-  - `i18n/`: `i18n`, `i18n_overrides`, `_i18n_flatten`, `_i18n_translator`
-  - `mail/`: `mail`, `_mail_headers`
+  - `localization/`: `i18n`, `i18n_overrides`, `_i18n_flatten`, `_i18n_translator`
+  - `mailer/`: `mail`, `_mail_headers`
   - `runtime/`: `correlation`, `crypto`, `datetimes`, `deprecation`, `exceptions`, `leases`, `_lease_memory`, `singleflight`
   - `diagnostics/`: existing `diagnostics/_*.py` + `_data_doctor`, `_migration_doctor` (keeps `__init__.py` facade)
   - `migrations/`: `data_compatibility`, `support` (replaces `migration_support/__init__.py`, with `migration_support` shim)
@@ -83,24 +83,24 @@ main
 - **Areas:**
   - `engine/`: `session`, `transaction`, `independent`, `callbacks`, `deps`, `provider`, `engine_options`, `admission`, `writes`, `query_stats`, `leases`
   - `models/`: `base`, `mixins`, `types`, `model_registry`, `listeners`, `extensions`
-  - `scopes/`: `scopes`, `tenancy`, `tenant_cleanup` (pins `subscribe_durable(..., name="simple_module_db.tenant_cleanup.delete_tenant_settings")`), `query_filter`, `core_scope`, `scope_predicates`, `flush_guard`, `insert_guard`, `insert_scope`, `bulk_guard`, `_builtin_scopes`, `_core_joins`, `_core_walk`, `_engine_policies`, `_entity_selectables`, `_outer_joins`, `_persisted_owner`, `_scope_writes`, `_secondary_scope`
-  - `audit/`: `audit`, `audit_redaction`, `audit_sinks`, `bulk_audit`, `bulk_audit_targets`, `_bulk_audit_records`, `_bulk_pk_update`
-  - `migrations/`: `migrations`, `migration_portability`, `migration_state`, `data_compatibility`, `_migration_render`, `_sqlite_index_compare`
+  - `scoping/`: `scopes`, `tenancy`, `tenant_cleanup` (pins `subscribe_durable(..., name="simple_module_db.tenant_cleanup.delete_tenant_settings")`), `query_filter`, `core_scope`, `scope_predicates`, `flush_guard`, `insert_guard`, `insert_scope`, `bulk_guard`, `_builtin_scopes`, `_core_joins`, `_core_walk`, `_engine_policies`, `_entity_selectables`, `_outer_joins`, `_persisted_owner`, `_scope_writes`, `_secondary_scope`
+  - `auditing/`: `audit`, `audit_redaction`, `audit_sinks`, `bulk_audit`, `bulk_audit_targets`, `_bulk_audit_records`, `_bulk_pk_update`
+  - `schema/`: `migrations`, `migration_portability`, `migration_state`, `data_compatibility`, `_migration_render`, `_sqlite_index_compare`
   - `queries/`: `pagination`, `search`, `stored_settings`, `principals`, `resource_policy`, `user_directory_sql`
 
 ### PR 5 — `framework/hosting` (`simple_module_hosting`, 109 `.py`, 177 tests)
 - **Root:** `__init__.py`, `__main__.py`, `py.typed`, `host_cli.py`, `admin_overview/`, `setup_wizard/`, `locales/`, `ui_locales/`.
 - **Areas:**
   - `boot/`: `app_builder`, `host`, `_app_boot`, `_lifespan`, `_deferred_startup`, `_hydrate_step`, `_dev_boot`, `_boot_checks`, `_table_coverage`, `_phase_helpers`, `_registrations`, `_module_routes`, `_fallback_routes`, `_process_services`, `_project_root`, `data_compatibility`, `migrations`, `migrations_env`, `db_options`, `health`, `_db_health`, `_openapi`
-  - `settings/`: `settings`, `host_settings`, `bootstrap_settings`, `_host_settings_support`, `_host_services`, `_preapp_config`, `_settings_registration`, `_api_version`, `_secret_key`, `_stored_identity`, `installation`
-  - `middleware/`: `middleware`, `middleware_config`, `_middleware_pipeline`, `_security_headers`, `_csp_dynamic`, `_cors`, `_body_limit`, `_forwarded_host`, `_insecure_transport`, `_request_guard_responses`, `_request_policy`, `_server_timing`, `maintenance`, `setup_gate`, `session`, `_tenant`, `tenancy`, `path_matching`, `_route_guard`, `_route_paths`, `_route_access`, `public_access`, `public_urls`, `redirects`
+  - `config/`: `settings`, `host_settings`, `bootstrap_settings`, `_host_settings_support`, `_host_services`, `_preapp_config`, `_settings_registration`, `_api_version`, `_secret_key`, `_stored_identity`, `installation`
+  - `pipeline/`: `middleware`, `middleware_config`, `_middleware_pipeline`, `_security_headers`, `_csp_dynamic`, `_cors`, `_body_limit`, `_forwarded_host`, `_insecure_transport`, `_request_guard_responses`, `_request_policy`, `_server_timing`, `maintenance`, `setup_gate`, `session`, `_tenant`, `tenancy`, `path_matching`, `_route_guard`, `_route_paths`, `_route_access`, `public_access`, `public_urls`, `redirects`
   - `rate_limit/`: `rate_limit_deps`, `_rate_limit`, `_rate_limit_keys`, `_rate_limit_store`
   - `auth/`: `auth_policy`, `csrf`, `permissions`, `resource_deps`, `token_guard`, `_anonymous`
-  - `errors/`: `errors`, `_error_handlers`, `_error_negotiation`, `_error_page`
+  - `error_handling/`: `errors`, `_error_handlers`, `_error_negotiation`, `_error_page`
   - `frontend/`: `assets`, `_asset_sources`, `manifest`, `page_globs`, `admin_surfaces`, `frontend_extensions`, `module_tsconfig`, `_generated_files`, `static_files`, `_spa_mount`, `_favicon`, `inertia_deps`, `inertia_utils`, `shared_props`, `_inertia_setup`, `_inertia_shared`, `pagination`
   - `i18n/`: `i18n_deps`, `i18n_manifest`, `i18n_middleware`, `i18n_routes`, `_i18n_build`, `_i18n_json`, `_i18n_modules`, `_i18n_target`
   - `observability/`: `logging`, `log_sinks`, `_observability`, `sentry`, `sentry_scrub`, `sentry_scrub_text`
-  - `leases/`: `leases`, `_lease_redis`, `_lease_redis_close`, `_lease_redis_scripts`
+  - `locking/`: `leases`, `_lease_redis`, `_lease_redis_close`, `_lease_redis_scripts`
 
 ### PR 6 — `framework/testing` (`simple_module_test`, 22 `.py`, 14 tests)
 - **Root:** `__init__.py`, `py.typed`, `plugin.py` (`pytest11` entry point).
