@@ -12,7 +12,7 @@ vi.mock('@inertiajs/react', () => ({
   router: { visit, reload },
   usePage: () => ({ props: {} }),
 }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ Toaster: () => null, toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { toast } from 'sonner';
 import ForgotPassword from '../users/pages/ForgotPassword';

@@ -18,8 +18,8 @@ export function useLeaveGuard(dirty: boolean, message: string, saving: RefObject
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
-    const stopListening = router.on('before', () =>
-      saving.current ? true : window.confirm(message),
+    const stopListening = router.on('before', (event) =>
+      event.detail.visit.prefetch || saving.current ? true : window.confirm(message),
     );
     return () => {
       window.removeEventListener('beforeunload', warn);

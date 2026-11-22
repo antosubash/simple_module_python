@@ -5,17 +5,17 @@ vi.mock('@simple-module-py/i18n', () => ({
   useT: () => ({
     t: (key: string) =>
       ({
-        'host.offline.title': "You're offline",
-        'host.offline.description': 'Changes may not be saved until your connection returns.',
-        'host.offline.restored': 'Back online',
+        'ui.offline.title': "You're offline",
+        'ui.offline.description': 'Changes may not be saved until your connection returns.',
+        'ui.offline.restored': 'Back online',
       })[key] ?? key,
   }),
   keys: {
-    host: {
+    ui: {
       offline: {
-        title: 'host.offline.title',
-        description: 'host.offline.description',
-        restored: 'host.offline.restored',
+        title: 'ui.offline.title',
+        description: 'ui.offline.description',
+        restored: 'ui.offline.restored',
       },
     },
   },

@@ -18,14 +18,14 @@ it('configures a consuming app from generated manifests and hashes app-owned key
   fs.mkdirSync(path.join(pkg, 'pages'), { recursive: true });
   fs.writeFileSync(
     path.join(root, 'modules.manifest.json'),
-    JSON.stringify({ Widget: `${pkg}/pages` }),
+    JSON.stringify({ Widget: `${pkg}/pages/` }),
   );
   fs.writeFileSync(
     path.join(root, 'modules.assets.json'),
     JSON.stringify({
       Widget: {
         package_name: 'widget',
-        package: pkg,
+        package: `${pkg}/../widget/`,
         npm_name: '@example/widget',
         ui: `${pkg}/ui`,
       },

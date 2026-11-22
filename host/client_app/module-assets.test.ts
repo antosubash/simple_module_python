@@ -26,8 +26,6 @@ it.each([
 
   const assets = load(root);
   expect(assets.fsAllow).toContain(pkg);
-  expect(assets.pagesPrefixes).toContain(ui + path.sep);
-  expect(assets.pagesPrefixes).toContain(components + path.sep);
-  expect(assets.optimizeEntries).toContain(path.join(ui, '**/*.{ts,tsx}'));
-  expect(assets.optimizeEntries).toContain(path.join(components, '**/*.{ts,tsx}'));
+  expect(assets.pagesPrefixes).toContain(`${pkg.split(path.sep).join('/')}/`);
+  expect(assets.optimizeEntries).toContain(path.join(pkg, '**/*.{ts,tsx}'));
 });

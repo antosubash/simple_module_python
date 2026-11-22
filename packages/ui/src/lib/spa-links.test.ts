@@ -141,14 +141,14 @@ describe('startSpaLinkInterception', () => {
 
   it('visits an internal link instead of letting the browser navigate', () => {
     expect(click(anchor('<a href="/p/outputs">Outputs</a>')).prevented).toBe(true);
-    expect(visit).toHaveBeenCalledWith('http://localhost:3000/p/outputs');
+    expect(visit).toHaveBeenCalledWith('http://localhost:3000/p/outputs', expect.any(Object));
   });
 
   it('follows a click on an element nested inside the link', () => {
     // Authored links wrap icons and spans; the click target is not the anchor.
     document.body.innerHTML = '<a href="/p/outputs"><span id="inner">Go</span></a>';
     click(document.getElementById('inner') as Element);
-    expect(visit).toHaveBeenCalledWith('http://localhost:3000/p/outputs');
+    expect(visit).toHaveBeenCalledWith('http://localhost:3000/p/outputs', expect.any(Object));
   });
 
   it('leaves a click another handler already took', () => {

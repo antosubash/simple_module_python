@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MenuItem } from '../types';
 
@@ -211,4 +212,14 @@ describe('PublicLayout', () => {
       '/home/',
     ]);
   });
+});
+
+it('mounts one toaster for public pages', async () => {
+  render(<PublicLayout>content</PublicLayout>);
+  await act(async () => {
+    toast.success('Layout toast probe');
+  });
+  expect(await screen.findByText('Layout toast probe')).toBeInTheDocument();
+  expect(document.querySelectorAll('[data-sonner-toaster]')).toHaveLength(1);
+  toast.dismiss();
 });

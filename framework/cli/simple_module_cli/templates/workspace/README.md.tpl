@@ -26,7 +26,7 @@ make install
 
 # Apply DB migrations
 # (`smpy new` already generated the initial migration for you; if you started
-#  from a bare host without one, run `make migration msg="initial schema"` first.)
+#  from a bare host without one, run `uv run smpy migrations new initial -m "initial schema"` first.)
 make migrate
 
 # Run API + UI together
@@ -61,7 +61,7 @@ uv run smpy create-module my-feature --dest modules/my-feature
 # Wire it into the host: adds the dependency and a `{ workspace = true }`
 # source to host/pyproject.toml (the path is relative to host/)
 uv run smpy add ../modules/my-feature --path host
-make migration msg="add my-feature" && make migrate
+uv run smpy migrations new my_feature -m "add my-feature" && make migrate
 ```
 
 ## How the workspace fits together

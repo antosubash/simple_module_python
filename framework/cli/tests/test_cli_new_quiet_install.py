@@ -63,7 +63,7 @@ def test_a_failed_initial_migration_stops_and_prints_the_manual_steps(
 
     assert not any("upgrade" in c for c in calls)
     steps = result.output.split("Next steps", 1)[1]
-    assert "make migration" in steps
+    assert 'uv run smpy migrations new initial -m "initial schema"' in steps
     assert "make migrate" in steps
     assert "Setup complete" not in result.output
 

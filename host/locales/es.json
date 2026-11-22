@@ -40,10 +40,5 @@
     "terminal_helper": "No necesitas cuenta para ejecutarlo en local. El inicio de sesión es solo para la interfaz de administración alojada.",
     "cta_body": "Abre la interfaz de administración para gestionar usuarios, módulos y tareas en segundo plano.",
     "cta_sign_in": "Inicia sesión en la interfaz de administración"
-  },
-  "offline": {
-    "title": "Sin conexión",
-    "description": "Es posible que los cambios no se guarden hasta que se restablezca la conexión.",
-    "restored": "Conexión restablecida"
   }
 }

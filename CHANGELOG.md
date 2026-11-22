@@ -39,6 +39,10 @@ All notable changes to this project are documented in this file. The format is b
 - Resolve the project root when creating each app so late `SM_PROJECT_ROOT` changes apply to static assets, templates and i18n (#1081).
 - Keep Inertia version-conflict locations same-origin by escaping leading path separators, preserve all `Vary` fields and wildcard semantics, reject non-finite HTML JSON values, and allow rendering without session middleware (#1082).
 - Normalize database lease connectivity and resource-unavailability failures while preserving SQL/schema errors, keep Redis lease clients per live event loop with cross-loop cleanup, and close active and replaced lease backends and startup-installed rate-limit stores during lifespan teardown (#1083).
+- Wheel-installed module domain areas now contribute Tailwind sources and resolve host npm imports with package path boundaries (#1084).
+- The permissions wheel declares its auth and SQLAlchemy user database dependencies (#1085).
+- Shared UI owns offline translations, follows document dark mode for toasts, mounts toasts in public/auth layouts, respects SPA exclusion boundaries, clears completed navigation state, and skips leave prompts for prefetches (#1086).
+- New app scaffolds use the production asset base and labelled migrations, install the tenant provider with `--tenancy`, and honor explicit entry-point selectors during generation (#1087).
 
 ## [0.0.49] — 2026-11-20
 

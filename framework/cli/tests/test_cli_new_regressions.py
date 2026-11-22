@@ -251,7 +251,7 @@ def test_sm_new_no_install_next_steps_include_initial_migration(tmp_path: Path) 
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     assert result.exit_code == 0, result.output
-    assert 'make migration msg="initial schema"' in result.output
+    assert 'uv run smpy migrations new initial -m "initial schema"' in result.output
     assert "make migrate" in result.output
 
 

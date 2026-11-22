@@ -803,11 +803,6 @@ export const keys = {
       quickstart_heading: 'host.landing.quickstart_heading',
       terminal_helper: 'host.landing.terminal_helper',
     },
-    offline: {
-      description: 'host.offline.description',
-      restored: 'host.offline.restored',
-      title: 'host.offline.title',
-    },
   },
   hosting: {
     admin: {
@@ -1413,6 +1408,11 @@ export const keys = {
       content: 'ui.nav_groups.content',
       navigation: 'ui.nav_groups.navigation',
       system: 'ui.nav_groups.system',
+    },
+    offline: {
+      description: 'ui.offline.description',
+      restored: 'ui.offline.restored',
+      title: 'ui.offline.title',
     },
     pagination: {
       next: 'ui.pagination.next',

@@ -3511,6 +3511,8 @@ version = "0.0.49"
 source = { editable = "modules/permissions" }
 dependencies = [
     { name = "cachetools" },
+    { name = "fastapi-users-db-sqlalchemy" },
+    { name = "simple-module-auth" },
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
@@ -3519,6 +3521,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "cachetools", specifier = ">=5.3,<9" },
+    { name = "fastapi-users-db-sqlalchemy", specifier = ">=7,<8" },
+    { name = "simple-module-auth", editable = "modules/auth" },
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },

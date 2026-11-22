@@ -70,7 +70,7 @@ export default function Landing({ isAuthenticated }: LandingProps) {
           <li>
             Create its tables:{' '}
             <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[13px] text-foreground">
-              make migration msg="add orders" && make migrate
+              uv run smpy migrations new orders -m "add orders" && make migrate
             </code>
           </li>
           <li>

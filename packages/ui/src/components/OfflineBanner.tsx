@@ -48,11 +48,11 @@ export function OfflineBanner(): React.ReactElement | null {
       }`}
     >
       {online ? (
-        t(keys.host.offline.restored)
+        t(keys.ui.offline.restored)
       ) : (
         <>
-          <span className="font-semibold">{t(keys.host.offline.title)}</span>
-          <span className="ml-2 opacity-90">{t(keys.host.offline.description)}</span>
+          <span className="font-semibold">{t(keys.ui.offline.title)}</span>
+          <span className="ml-2 opacity-90">{t(keys.ui.offline.description)}</span>
         </>
       )}
     </div>

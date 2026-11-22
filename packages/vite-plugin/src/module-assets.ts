@@ -12,8 +12,6 @@ type ModuleAsset = {
   package_name: string;
   package: string;
   npm_name?: string | null;
-  components?: string | null;
-  ui?: string | null;
 };
 
 export type Alias = { find: string; replacement: string };
@@ -25,7 +23,7 @@ export type ModuleAssetIndex = {
   optimizeEntries: string[];
   /** Each module's package.json — its deps declare what its pages may import. */
   pkgJsonPaths: string[];
-  /** `<dir><sep>` prefixes for module-owned TSX (pages/, ui/ and legacy components/),
+  /** Normalized package-directory prefixes for module-owned TS/TSX,
    * for cheaply testing "is this importer module source?". */
   pagesPrefixes: string[];
   /** `#module/<pkg>` and `<npm_name>` aliases. */
@@ -60,11 +58,12 @@ export function loadModuleAssets(clientAppDir: string): ModuleAssetIndex {
     path.resolve(clientAppDir, 'modules.manifest.json'),
     {},
   );
-  for (const pagesDir of Object.values(manifest)) {
+  for (const rawPagesDir of Object.values(manifest)) {
+    const pagesDir = path.resolve(rawPagesDir);
     const pkgDir = path.dirname(pagesDir);
     fsAllow.push(pkgDir);
     optimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
-    pagesPrefixes.push(pagesDir + path.sep);
+    pagesPrefixes.push(`${pkgDir.split(path.sep).join('/')}/`);
     for (const candidate of [
       path.join(pkgDir, 'package.json'),
       path.join(path.dirname(pkgDir), 'package.json'),
@@ -102,23 +101,17 @@ export function loadModuleAssets(clientAppDir: string): ModuleAssetIndex {
     {},
   );
   for (const entry of Object.values(assets)) {
-    aliases.push({ find: `#module/${entry.package_name}`, replacement: entry.package });
+    const packageDir = path.resolve(entry.package);
+    const prefix = `${packageDir.split(path.sep).join('/')}/`;
+    if (!pagesPrefixes.includes(prefix)) pagesPrefixes.push(prefix);
+    aliases.push({ find: `#module/${entry.package_name}`, replacement: packageDir });
     if (entry.npm_name) {
-      aliases.push({ find: entry.npm_name, replacement: entry.package });
+      aliases.push({ find: entry.npm_name, replacement: packageDir });
       npmNames.add(entry.npm_name);
     }
-    if (!fsAllow.includes(entry.package)) fsAllow.push(entry.package);
-    // Wheel modules ship widgets under components/, which the pages-keyed
-    // manifest above never sees. Without these the bare-specifier fallback
-    // resolver below skips them and a widget's `@simple-module-py/ui` import
-    // dies with "Failed to resolve import" — the JS half of GH #258, whose
-    // CSS half is the @source emission in simple_module_hosting.assets.
-    for (const source of [entry.components, entry.ui]) {
-      if (!source) continue;
-      const prefix = source + path.sep;
-      if (!pagesPrefixes.includes(prefix)) pagesPrefixes.push(prefix);
-      optimizeEntries.push(path.join(source, '**/*.{ts,tsx}'));
-    }
+    if (!fsAllow.includes(packageDir)) fsAllow.push(packageDir);
+    // Optimize all package-owned source areas, including domain components.
+    optimizeEntries.push(path.join(packageDir, '**/*.{ts,tsx}'));
   }
 
   // Stable, longest-first. Vite matches a string `find` on exact equality or a

@@ -63,7 +63,7 @@ export function simpleModule({ root }: { root: string }): Plugin[] {
 // `optimizeDeps.include` walk above (module deps + peer deps), dev,
 // dep-scan, and production builds all converge on the host's hoisted copy.
 function moduleBareImportResolver(
-  modulePagesPrefixes: string[],
+  moduleSourcePrefixes: string[],
   fakeWorkspaceImporter: string,
 ): Plugin {
   return {
@@ -79,8 +79,8 @@ function moduleBareImportResolver(
       ) {
         return null;
       }
-      const importerPath = importer.split('?')[0];
-      if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
+      const importerPath = path.resolve(importer.split('?')[0]).split(path.sep).join('/');
+      if (!moduleSourcePrefixes.some((prefix) => importerPath.startsWith(prefix))) {
         return null;
       }
       const resolved = await this.resolve(source, fakeWorkspaceImporter, {

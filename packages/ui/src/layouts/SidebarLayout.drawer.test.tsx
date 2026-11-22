@@ -24,8 +24,6 @@ vi.mock('@inertiajs/react', () => ({
   ),
 }));
 
-vi.mock('next-themes', () => ({ useTheme: () => ({ theme: 'light' }) }));
-
 vi.mock('@simple-module-py/i18n', () => {
   const keys = new Proxy(
     {},

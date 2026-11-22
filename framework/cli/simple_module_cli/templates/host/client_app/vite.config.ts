@@ -12,6 +12,7 @@ const { origin: devUrl, port: devPort } = viteDevServer();
 export default defineConfig(({ command }) => ({
   plugins: [...simpleModule({ root: import.meta.dirname }), react(), tailwindcss()],
   root: import.meta.dirname,
+  base: command === 'build' ? '/static/dist/' : '/',
   // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
   envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,
   build: {

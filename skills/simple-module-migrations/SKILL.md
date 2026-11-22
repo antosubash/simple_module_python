@@ -106,7 +106,7 @@ Subsequent revisions for the same module **don't** need a `branch_labels` — on
 
 ```bash
 # Change models.py in the module (or upgrade a packaged module + uv sync)
-make migration msg="orders: add total column"
+make migration LABEL=orders msg="orders: add total column"
 make migrate
 ```
 

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import typer
 
+from simple_module_cli.case import to_snake_case
 from simple_module_cli.package_update_deps import workspace_member_dirs
 from simple_module_cli.package_update_npm import install_roots, load_manifests
 from simple_module_cli.pyproject_edit import load_pyproject
@@ -118,9 +119,10 @@ def post_install(
     for dist in models_dists:
         # The same message `smpy create-module`'s next steps suggest (GH #931).
         slug = _DIST_PREFIX.sub("", dist)
+        label = to_snake_case(slug)
         typer.echo(
             f"{dist} ships database models — generate and apply the migration:\n"
-            f'  make migration msg="add {slug}"\n  make migrate'
+            f'  uv run smpy migrations new {label} -m "add {slug}"\n  make migrate'
         )
     # Only `pyproject.toml` changed, which the dev reloader does not watch; and a
     # reload still logs the new module as not importable in that process (GH #915,

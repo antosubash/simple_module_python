@@ -50,9 +50,10 @@ export function isExcluded(url: URL, exclude: SpaLinkExclude | undefined): boole
   if (!exclude) return false;
   if (typeof exclude === 'function') return exclude(url);
   const prefixes = typeof exclude === 'string' ? [exclude] : exclude;
-  return prefixes.some(
-    (prefix) => url.pathname === prefix.replace(/\/$/, '') || url.pathname.startsWith(prefix),
-  );
+  return prefixes.some((prefix) => {
+    const base = prefix.replace(/\/+$/, '');
+    return url.pathname === base || url.pathname.startsWith(`${base}/`);
+  });
 }
 
 /** The `nativePrefixes` shared prop, tolerant of it being absent or malformed. */
@@ -135,23 +136,11 @@ function isPlainLeftClick(event: MouseEvent): boolean {
  * no reason to.
  */
 export function startSpaLinkInterception(options: { exclude?: SpaLinkExclude } = {}): () => void {
-  // Set when a click is taken over, cleared when the visit comes back as a real
-  // Inertia response. If it does not, the URL was not a page after all and the
-  // browser should have had it — hand it back rather than showing Inertia's
-  // error modal over a link that used to work.
-  let takenOver: string | null = null;
-
-  const offSuccess = router.on('success', () => {
-    takenOver = null;
-  });
-
-  const offInvalid = router.on('httpException', (event) => {
-    if (!takenOver) return;
-    const url = takenOver;
-    takenOver = null;
-    event.preventDefault();
-    window.location.href = url;
-  });
+  // Scope fallback state to each intercepted visit with a monotonic id so an
+  // interrupted earlier visit firing `cancel`/`finish` cannot wipe the new
+  // visit's hard-navigation fallback, and teardown disables in-flight callbacks.
+  let activeVisitId = 0;
+  let stopped = false;
 
   // Bubble phase on the document, so React's own handlers have already run —
   // they are attached at the root container, inside this. An Inertia `<Link>`
@@ -169,15 +158,33 @@ export function startSpaLinkInterception(options: { exclude?: SpaLinkExclude } =
 
     const url = new URL(anchor.getAttribute('href') as string, here.href).href;
     event.preventDefault();
-    takenOver = url;
-    router.visit(url);
+
+    const visitId = ++activeVisitId;
+    let fallbackUrl: string | null = url;
+    const clear = () => {
+      fallbackUrl = null;
+    };
+
+    router.visit(url, {
+      onSuccess: clear,
+      onFinish: clear,
+      onCancel: clear,
+      onError: clear,
+      onHttpException: () => {
+        if (stopped || activeVisitId !== visitId || !fallbackUrl) return;
+        const targetUrl = fallbackUrl;
+        fallbackUrl = null;
+        window.location.href = targetUrl;
+        return false;
+      },
+    });
   };
 
   document.addEventListener('click', onClick);
 
   return () => {
+    stopped = true;
+    activeVisitId += 1;
     document.removeEventListener('click', onClick);
-    offSuccess();
-    offInvalid();
   };
 }
