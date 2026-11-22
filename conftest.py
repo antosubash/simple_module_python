@@ -9,7 +9,7 @@ ships what its README advertises (GH #200), and this repo now dogfoods that
 plugin like any consumer would.
 
 Add genuinely repo-local fixtures here if the need arises; shared ones belong in
-``framework/testing/simple_module_test/fixtures.py``.
+``framework/testing/simple_module_test/app/fixtures.py``.
 """
 
 from __future__ import annotations
