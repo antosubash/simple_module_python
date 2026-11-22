@@ -88,6 +88,9 @@ def assert_framework_layout(project: Path, project_name: str) -> None:
     """Validate one framework package's root, area initializers, and test hierarchy."""
     package = project / FRAMEWORK_PACKAGES[project_name]
     assert package.is_dir(), f"Missing package directory {package}"
+    assert (package / "__init__.py").is_file(), (
+        f"{project_name}: missing {package.name}/__init__.py"
+    )
     extras = PACKAGE_ROOT_EXTRAS[project_name]
     areas = AREAS[project_name]
     allowed = STANDARD_ROOT | extras | areas
@@ -116,9 +119,9 @@ def assert_framework_layout(project: Path, project_name: str) -> None:
     for area in sorted(areas):
         area_dir = package / area
         assert area_dir.is_dir(), f"{project_name}: missing declared area '{area}'"
+        init_file = area_dir / "__init__.py"
+        assert init_file.is_file(), f"{project_name}: missing {area}/__init__.py"
         if area not in facades:
-            init_file = area_dir / "__init__.py"
-            assert init_file.is_file(), f"{project_name}: missing {area}/__init__.py"
             assert is_docstring_only_init(init_file), (
                 f"{project_name}: {area}/__init__.py must contain only a docstring"
             )
@@ -212,6 +215,7 @@ def _break_shim_pkg_nested_impl(proj: Path) -> None:
 @pytest.mark.parametrize(
     "break_fn",
     [
+        lambda p: (p / "simple_module_inertia" / "__init__.py").unlink(),
         lambda p: _write(p, "simple_module_inertia/stray.py", "x = 1\n"),
         lambda p: _write(p, "simple_module_inertia/protocol/__init__.py", "from .c import C\n"),
         lambda p: _write(p, "simple_module_inertia/protocol.py", _ALIAS),
@@ -222,6 +226,7 @@ def _break_shim_pkg_nested_impl(proj: Path) -> None:
         lambda p: (p / "tests" / "unknown_area").mkdir(),
     ],
     ids=[
+        "missing-root-init",
         "stray-root",
         "non-docstring-init",
         "area-shadows-shim",
@@ -235,5 +240,18 @@ def _break_shim_pkg_nested_impl(proj: Path) -> None:
 def test_assert_framework_layout_rejects_violations(tmp_path: Path, break_fn) -> None:
     proj = _seed_valid_inertia(tmp_path)
     break_fn(proj)
+    with pytest.raises(AssertionError):
+        assert_framework_layout(proj, "inertia")
+
+
+def test_assert_framework_layout_facade_requires_existing_init(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proj = _seed_valid_inertia(tmp_path)
+    monkeypatch.setitem(FACADE_AREAS, "inertia", frozenset({"protocol"}))
+    facade_init = proj / "simple_module_inertia" / "protocol" / "__init__.py"
+    _write(proj, "simple_module_inertia/protocol/__init__.py", "from .c import C\n")
+    assert_framework_layout(proj, "inertia")
+    facade_init.unlink()
     with pytest.raises(AssertionError):
         assert_framework_layout(proj, "inertia")

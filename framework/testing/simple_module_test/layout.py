@@ -20,6 +20,8 @@ ALLOWED_ROOT = frozenset(
         "contracts",
         "pages",
         "locales",
+        "package.json",
+        "tsconfig.json",
         "theme.css",
         "styles.css",
         "cli.py",
