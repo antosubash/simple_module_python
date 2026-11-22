@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from settings.core.service import SettingService
 from settings.module_settings.store import SettingsStore
+from sqlalchemy import text
 
 
 @pytest.mark.asyncio
@@ -86,3 +87,18 @@ async def test_package_lock_uses_stable_transaction_scoped_postgres_key():
     assert keys[0] == keys[1]
     assert keys[0] != keys[2]
     assert all(-(2**63) <= key < 2**63 for key in keys)
+
+
+@pytest.mark.postgres
+@pytest.mark.parametrize("finish", ["commit", "rollback"])
+async def test_package_lock_is_held_until_transaction_ends(db_state, finish):
+    async with db_state.session_factory() as first, db_state.session_factory() as second:
+        await SettingsStore(SettingService(first)).lock_package("site_lock")
+        probe = text("SELECT pg_try_advisory_xact_lock(:key)")
+        parameters = {"key": 0x0593E24E674D48D4}
+        assert await second.scalar(probe, parameters) is False
+        await second.rollback()
+
+        await getattr(first, finish)()
+        assert await second.scalar(probe, parameters) is True
+        await second.rollback()

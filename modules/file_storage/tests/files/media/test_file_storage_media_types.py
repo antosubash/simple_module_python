@@ -132,7 +132,10 @@ def test_control_chars_rejected_and_safe_media_type_falls_back():
 
 
 @pytest.mark.parametrize("charset", ["iso-8859-1", '"utf-8"'])
-async def test_downloads_sanitize_control_chars_and_preserve_safe_params(tmp_path, charset):
+@pytest.mark.parametrize("separator", ["; ", ";; ", "; ; "])
+async def test_downloads_sanitize_control_chars_and_preserve_safe_params(
+    tmp_path, charset, separator
+):
     from file_storage.backends.filesystem import FilesystemBackend
     from file_storage.files.downloads import presigned_download_url
     from file_storage.files.ranges import file_body_response
@@ -159,7 +162,7 @@ async def test_downloads_sanitize_control_chars_and_preserve_safe_params(tmp_pat
     iso_row = StoredFile(
         key="ab/obj",
         filename="f.txt",
-        content_type=f"Text/Plain; charset={charset}",
+        content_type=f"Text/Plain{separator}charset={charset}",
         size_bytes=6,
         backend="filesystem",
     )
@@ -196,6 +199,15 @@ def test_quoted_response_parameters_do_not_relax_inline_safety(parameter):
     assert safe_media_type(raw) == raw
     assert normalise_media_type(raw) is None
     assert is_active_content(raw) is True
+
+
+@pytest.mark.parametrize("separator", [";; ", "; ; "])
+@pytest.mark.parametrize("charset", ["iso-8859-1", '"iso-8859-1"'])
+def test_empty_parameters_preserve_charset(separator, charset):
+    from file_storage.files.media_types import safe_media_type
+
+    raw = f"text/plain{separator}charset={charset}; x=ok{separator}y=last; ; "
+    assert safe_media_type(raw) == f"text/plain; charset={charset}; x=ok; y=last"
 
 
 @pytest.mark.parametrize(

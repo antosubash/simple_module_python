@@ -24,7 +24,7 @@ _MEDIA_TYPE = re.compile(r"[a-z0-9!#$%&'*+.^_`|~-]+/[a-z0-9!#$%&'*+.^_`|~-]+")
 _TOKEN = r"[A-Za-z0-9!#$%&'*+.^_`|~-]+"
 # RFC 9110 quoted-string / quoted-pair, with control chars excluded below.
 _QUOTED = r'"(?:[\x20-\x21\x23-\x5b\x5d-\x7e\x80-\xff]|\\[\x20-\x7e\x80-\xff])*"'
-_RESPONSE_PARAM = re.compile(rf"; *({_TOKEN}=(?:{_TOKEN}|{_QUOTED})) *")
+_RESPONSE_PARAM = re.compile(rf"(?:; *)+({_TOKEN}=(?:{_TOKEN}|{_QUOTED})) *")
 
 
 def normalise_media_type(content_type: str | None) -> str | None:
