@@ -18,8 +18,8 @@ from simple_module_core.runtime.leases import (
     reset_lease_backend,
 )
 from simple_module_hosting.observability import sentry
-from simple_module_test.mail import CapturedMail
-from simple_module_test.process_state import reset_process_state
+from simple_module_test.app.process_state import reset_process_state
+from simple_module_test.fakes.mail import CapturedMail
 
 
 async def test_reset_mail_clears_sender_and_worker_resolver() -> None:
@@ -70,7 +70,7 @@ async def test_plugin_second_app_keeps_first_apps_services(settings, monkeypatch
     wipe the first app's installed mail sender."""
     from fastapi import FastAPI
     from simple_module_hosting.boot import app_builder
-    from simple_module_test import fixtures
+    from simple_module_test.app import fixtures
 
     def create_app(settings):
         app = FastAPI()

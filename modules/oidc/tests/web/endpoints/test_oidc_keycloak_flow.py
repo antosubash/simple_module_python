@@ -9,7 +9,7 @@ import pytest
 from itsdangerous import TimestampSigner
 from oidc.models import OidcUserCache
 from oidc_flow_helpers import _sign_id_token
-from simple_module_test.session_cookie import forge_session_cookie
+from simple_module_test.web.session_cookie import forge_session_cookie
 from sqlalchemy import select
 
 _ISSUER = "https://keycloak.test/realms/example"

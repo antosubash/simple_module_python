@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-from simple_module_test.setup_wizard import post_step, wizard_client, wizard_headers
+from simple_module_test.web.setup_wizard import post_step, wizard_client, wizard_headers
 from sqlalchemy import func, select
 from users.core.setup import STEP_ADMINISTRATOR
 from users.core.setup_action import create_first_administrator

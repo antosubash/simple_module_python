@@ -11,7 +11,7 @@ from simple_module_hosting.boot.app_builder import create_app
 from simple_module_hosting.boot.migrations import migration_status
 from simple_module_hosting.pipeline.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard.migrate import apply_migrations
-from simple_module_test.setup_wizard import post_step, wizard_client, wizard_headers
+from simple_module_test.web.setup_wizard import post_step, wizard_client, wizard_headers
 from sqlalchemy import select
 from users.core.setup import STEP_ADMINISTRATOR
 from users.models import User

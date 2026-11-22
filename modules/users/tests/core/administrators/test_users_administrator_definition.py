@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from simple_module_test.setup_wizard import wizard_client, wizard_headers
+from simple_module_test.web.setup_wizard import wizard_client, wizard_headers
 from sqlalchemy import select
 from users.admin.service import UserService
 from users.core.administrators import count_active_administrators

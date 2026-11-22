@@ -25,6 +25,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Deprecated
 
+- The former flat `simple_module_test._schema`, `database`, `fixtures`, `inertia`, `layout`, `mail`, `session_cookie`, `setup_wizard` and `tenant_client` paths are deprecated in favor of their `app`, `db`, `web` and `fakes` area paths. All 9 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports, including the `inertia_page` callable, are unchanged.
+
 - The former flat `simple_module_hosting.*` submodule paths are deprecated in favor of the `boot`, `config`, `pipeline`, `rate_limit`, `auth`, `error_handling`, `frontend`, `i18n`, `observability` and `locking` areas. All 50 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and lazy loading are unchanged.
 
 - The former flat `simple_module_db.*` submodule paths are deprecated in favor of the `engine`, `models`, `scoping`, `auditing`, `schema` and `queries` areas. All 32 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and the tenant cleanup durable handler wire name are unchanged.

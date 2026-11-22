@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_test import database
+from simple_module_test.db import database
 
 _PG = "postgresql+asyncpg://postgres:secret@db.local:5432/sm_test"
 

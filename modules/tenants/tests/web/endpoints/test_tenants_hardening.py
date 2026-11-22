@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from simple_module_test.fixtures import SETUP_ADMIN_EMAIL
+from simple_module_test.app.fixtures import SETUP_ADMIN_EMAIL
 from tenants.core.service import TenantService
 from tenants.resolution import resolver
 

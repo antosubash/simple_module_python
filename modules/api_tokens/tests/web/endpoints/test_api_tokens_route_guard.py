@@ -19,7 +19,7 @@ from _api_tokens_support import (
     create_pat,
     join_tenant,
 )
-from simple_module_test.tenant_client import create_user
+from simple_module_test.web.tenant_client import create_user
 
 
 async def _memberships(app: Any, user_id: str) -> list[str]:

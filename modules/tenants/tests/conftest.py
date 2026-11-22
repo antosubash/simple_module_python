@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 import pytest
-from simple_module_test.tenant_client import create_user, session_client
+from simple_module_test.web.tenant_client import create_user, session_client
 from tenants.resolution.resolver import forget
 
 

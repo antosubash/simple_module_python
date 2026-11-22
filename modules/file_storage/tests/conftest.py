@@ -64,7 +64,7 @@ async def admin_tenant_id(app) -> str:
     resolver falls back to a user's first membership, so one membership is
     enough to make every ``authenticated_client`` request act for this tenant.
     """
-    from simple_module_test.fixtures import SETUP_ADMIN_EMAIL
+    from simple_module_test.app.fixtures import SETUP_ADMIN_EMAIL
     from sqlalchemy import select
     from tenants.models import Membership, Tenant
     from tenants.resolution.resolver import forget

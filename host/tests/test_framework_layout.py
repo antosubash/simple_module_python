@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_test.layout import (
+from simple_module_test.app.layout import (
     is_docstring_only_init,
     is_layout_shim,
     is_shim_package,
@@ -80,9 +80,6 @@ FACADE_AREAS: dict[str, frozenset[str]] = {
     "core": frozenset({"diagnostics"}),
 }
 
-# Packages still awaiting their move PR; shrink per PR until removed in PR 6.
-LEGACY_FLAT: frozenset[str] = frozenset({"testing"})
-
 
 def assert_framework_layout(project: Path, project_name: str) -> None:
     """Validate one framework package's root, area initializers, and test hierarchy."""
@@ -140,11 +137,9 @@ def assert_framework_layout(project: Path, project_name: str) -> None:
     )
 
 
-def test_migrated_framework_packages_follow_layout() -> None:
-    """Every framework package removed from LEGACY_FLAT conforms to docs/framework-layout.md."""
+def test_framework_packages_follow_layout() -> None:
+    """All six framework packages conform to docs/framework-layout.md."""
     for pkg in sorted(FRAMEWORK_PACKAGES):
-        if pkg in LEGACY_FLAT:
-            continue
         assert_framework_layout(FRAMEWORK / pkg, pkg)
 
 

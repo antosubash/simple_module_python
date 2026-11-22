@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from _api_tokens_support import INERTIA_HEADERS
 from simple_module_hosting.config.settings import Settings
-from simple_module_test.tenant_client import session_client
+from simple_module_test.web.tenant_client import session_client
 from sqlalchemy import select
 
 

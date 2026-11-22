@@ -19,7 +19,7 @@ from simple_module_core.runtime.deprecation import (
     expired_deprecations,
     registered_deprecations,
 )
-from simple_module_test.layout import is_layout_shim
+from simple_module_test.app.layout import is_layout_shim
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES: tuple[str, ...] = (

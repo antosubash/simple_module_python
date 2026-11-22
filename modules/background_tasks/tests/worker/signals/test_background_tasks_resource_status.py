@@ -116,7 +116,7 @@ def test_resource_headers_are_validated(kind, key):
 
 
 async def test_resource_access_requires_an_active_tenant(app, seed_execution):
-    from simple_module_test.tenant_client import create_user, session_client
+    from simple_module_test.web.tenant_client import create_user, session_client
 
     user_id = await create_user(app, "no-tenant-resource@test")
     app.state.sm.resource_types.register(

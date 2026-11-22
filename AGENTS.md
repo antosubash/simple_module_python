@@ -177,9 +177,9 @@ basenames. JS tests stay in `tests-js/`.
 
 **Framework layout.** Packages under `framework/` follow the same area layout
 and `tests/<area>/` mirroring rules (`host/tests/test_framework_layout.py`,
-`docs/framework-layout.md`). Moves happen one package at a time (`LEGACY_FLAT`
-ratchet), preserving top-level package exports and deprecated `sys.modules`
-alias shims (`host/tests/test_deprecation_expiry.py`).
+`docs/framework-layout.md`). All six framework packages follow this layout,
+preserving top-level package exports and deprecated `sys.modules` alias shims
+(`host/tests/test_deprecation_expiry.py`).
 
 `gen-pages` writes `modules.generated.css` with an `@import` per CSS file that
 exists. A `@theme` inside a cascade layer is inert and an unlayered rule beats

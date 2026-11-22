@@ -11,7 +11,7 @@ import httpx
 import pytest
 from _api_tokens_support import CSRF, Actor, join_tenant, make_admin
 from simple_module_test import inertia_headers
-from simple_module_test.tenant_client import create_user, session_client
+from simple_module_test.web.tenant_client import create_user, session_client
 
 
 @pytest.fixture

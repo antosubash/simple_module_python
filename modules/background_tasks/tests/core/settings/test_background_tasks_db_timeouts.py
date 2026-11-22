@@ -7,7 +7,7 @@ from background_tasks.core import sync_db
 from background_tasks.core.db_settings import worker_database_options
 from background_tasks.core.settings import BackgroundTasksSettings
 from background_tasks.outbox import worker as outbox_worker
-from simple_module_test.database import database_url_for_tests
+from simple_module_test.db.database import database_url_for_tests
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 

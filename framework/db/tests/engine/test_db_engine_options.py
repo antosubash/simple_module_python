@@ -3,7 +3,7 @@
 import pytest
 from simple_module_db.engine.engine_options import connect_args
 from simple_module_db.engine.session import init_db
-from simple_module_test.database import database_url_for_tests
+from simple_module_test.db.database import database_url_for_tests
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.pool import NullPool, StaticPool

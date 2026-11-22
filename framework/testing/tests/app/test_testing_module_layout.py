@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_test.layout import is_layout_shim_source, is_shim_package
+from simple_module_test.app.layout import is_layout_shim_source, is_shim_package
 
 _VALID_ALIAS_CALLS = (
     'deprecated_module("old", remove_in="0.0.52", use="new")\nsys.modules[__name__] = target\n',

@@ -13,16 +13,14 @@ import os
 
 import pytest
 
-from simple_module_test._compile_cache import share_sqlite_compile_cache
-from simple_module_test.app_factory import build_test_app as _build_test_app
-from simple_module_test.fake_events import FakeEventBus
+from simple_module_test.app.app_factory import build_test_app as _build_test_app
 
 # Re-export the headline app/db/client fixtures the README advertises. pytest
 # collects fixture-decorated attributes of the plugin module, so importing them
 # here registers them for every test run that installs simple_module_test —
 # without a per-consumer conftest. Treat this surface like a public API: deleting
 # one breaks external modules' suites. See GH #200.
-from simple_module_test.fixtures import (  # noqa: F401
+from simple_module_test.app.fixtures import (  # noqa: F401
     app,
     authenticated_client,
     client,
@@ -34,11 +32,13 @@ from simple_module_test.fixtures import (  # noqa: F401
     settings,
     setup_pending_app,
 )
-from simple_module_test.mail import captured_mail  # noqa: F401
-from simple_module_test.oidc_issuer import oidc_test_issuer  # noqa: F401
-from simple_module_test.process_state import _reset_process_state  # noqa: F401
-from simple_module_test.redis_server import redis_server  # noqa: F401
-from simple_module_test.tenant_client import tenant_client  # noqa: F401
+from simple_module_test.app.process_state import _reset_process_state  # noqa: F401
+from simple_module_test.db._compile_cache import share_sqlite_compile_cache
+from simple_module_test.db.redis_server import redis_server  # noqa: F401
+from simple_module_test.fakes.fake_events import FakeEventBus
+from simple_module_test.fakes.mail import captured_mail  # noqa: F401
+from simple_module_test.fakes.oidc_issuer import oidc_test_issuer  # noqa: F401
+from simple_module_test.web.tenant_client import tenant_client  # noqa: F401
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -56,8 +56,8 @@ def pytest_load_initial_conftests(early_config, parser, args) -> None:
     conftest is imported (``pytest_configure`` runs after), so a conftest or
     test helper that reads the URL at import time already sees the worker's.
     """
-    from simple_module_test._dotenv import isolate_project_dotenv
-    from simple_module_test.database import isolate_worker_database
+    from simple_module_test.app._dotenv import isolate_project_dotenv
+    from simple_module_test.db.database import isolate_worker_database
 
     isolate_project_dotenv(early_config)
     if not any(arg == "--import-mode" or arg.startswith("--import-mode=") for arg in args):
@@ -68,7 +68,7 @@ def pytest_load_initial_conftests(early_config, parser, args) -> None:
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Skip ``@pytest.mark.postgres`` tests unless the test database is Postgres."""
-    from simple_module_test.database import database_is_postgres
+    from simple_module_test.db.database import database_is_postgres
 
     if database_is_postgres():
         return

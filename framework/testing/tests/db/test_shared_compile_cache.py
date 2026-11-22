@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 from simple_module_db import init_db
 from simple_module_db.engine import session
-from simple_module_test import _compile_cache
-from simple_module_test.database import SQLITE_MEMORY
+from simple_module_test.db import _compile_cache
+from simple_module_test.db.database import SQLITE_MEMORY
 from sqlalchemy import Column, Integer, MetaData, String, Table, inspect, select
 from sqlalchemy.engine import make_url
 

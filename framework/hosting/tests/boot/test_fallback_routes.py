@@ -16,10 +16,10 @@ from simple_module_db.scoping.tenancy import current_tenant_id
 from simple_module_hosting.auth.csrf import RequiresCsrf, get_csrf_token
 from simple_module_hosting.boot import app_builder
 from simple_module_test import build_test_app
-from simple_module_test._schema import _create_all_tables
-from simple_module_test.fixtures import _seed_setup_admin
-from simple_module_test.inertia import inertia_headers
-from simple_module_test.session_cookie import forge_session_cookie
+from simple_module_test.app.fixtures import _seed_setup_admin
+from simple_module_test.db._schema import _create_all_tables
+from simple_module_test.web.inertia import inertia_headers
+from simple_module_test.web.session_cookie import forge_session_cookie
 from starlette.staticfiles import StaticFiles
 
 

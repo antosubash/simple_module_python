@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from simple_module_test import database
+from simple_module_test.db import database
 from sqlalchemy import (
     Column,
     ForeignKey,

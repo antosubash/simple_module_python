@@ -13,7 +13,7 @@ from file_storage.core import constants
 from file_storage.models import StoredFile
 from simple_module_db import DEFAULT_TENANT_ID, MissingTenantError
 from simple_module_hosting.config.settings import Settings
-from simple_module_test.database import database_url_for_tests
+from simple_module_test.db.database import database_url_for_tests
 from sqlalchemy import select
 
 API = constants.ROUTE_PREFIX_API

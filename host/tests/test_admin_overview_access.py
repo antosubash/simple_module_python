@@ -18,7 +18,7 @@ import httpx
 import pytest
 from simple_module_hosting.admin_overview import PAGE_OVERVIEW
 from simple_module_test import inertia_page
-from simple_module_test.fixtures import forge_session_cookie
+from simple_module_test.app.fixtures import forge_session_cookie
 
 
 async def _client_for(app, *, email: str, roles: list[str], permissions: list[str]):

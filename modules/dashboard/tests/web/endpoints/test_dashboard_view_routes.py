@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_test.fixtures import forge_session_cookie
+from simple_module_test.app.fixtures import forge_session_cookie
 
 
 @pytest.fixture

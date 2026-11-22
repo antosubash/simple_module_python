@@ -17,7 +17,7 @@ import simple_module_hosting.boot.app_builder as app_builder
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.web.csp import CspSourceRegistry
 from simple_module_hosting.pipeline.middleware import SecurityHeadersMiddleware
-from simple_module_test.fixtures import _build_app
+from simple_module_test.app.fixtures import _build_app
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route

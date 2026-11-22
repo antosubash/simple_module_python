@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_test import _sqlite_template, database
+from simple_module_test.db import _sqlite_template, database
 from sqlalchemy import (
     Column,
     Index,
@@ -141,7 +141,7 @@ class TestTheStampTable:
         """A worker whose first build resolved no Alembic heads (a test pointing
         ``SM_PROJECT_ROOT`` elsewhere) must not copy a schema without
         ``alembic_version`` into the tests that do stamp it."""
-        from simple_module_test import _schema
+        from simple_module_test.db import _schema
 
         heads = _schema._alembic_heads()
         assert heads, "the repository has migrations, so heads must resolve here"

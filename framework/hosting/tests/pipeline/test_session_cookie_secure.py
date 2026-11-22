@@ -13,7 +13,7 @@ import pytest
 from fastapi import Request
 from simple_module_hosting.boot._phase_helpers import session_cookie_is_secure
 from simple_module_hosting.config.settings import Settings
-from simple_module_test.database import database_url_for_tests
+from simple_module_test.db.database import database_url_for_tests
 
 _PROBE = "/__session_probe"
 

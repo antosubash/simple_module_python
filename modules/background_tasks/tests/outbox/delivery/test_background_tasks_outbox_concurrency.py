@@ -26,7 +26,7 @@ from simple_module_core.eventing.events import Event, EventBus
 from simple_module_db import init_db
 from simple_module_db.models.listeners import register_listeners
 from simple_module_test import wait_for
-from simple_module_test.database import (
+from simple_module_test.db.database import (
     database_url_for_tests,
     init_db_kwargs,
     is_sqlite,
