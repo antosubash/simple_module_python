@@ -289,4 +289,5 @@ def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str
     versions_dir = host_dir / "migrations" / "versions"
     if any(p.name != "__init__.py" for p in versions_dir.glob("*.py")):
         return True
-    return _run_quietly([*alembic, "revision", "--autogenerate", "-m", "initial schema"], target)
+    rev = [*alembic, "revision", "--autogenerate", "-m", "initial schema"]
+    return _run_quietly([*rev, "--branch-label", "initial"], target)

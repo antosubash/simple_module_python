@@ -67,7 +67,7 @@ migrate:
 migration:
 	@test -n "$(strip $(LABEL))" || (echo 'Usage: make migration LABEL=orders msg="describe the change"' && exit 1)
 	@test -n "$(msg)" || (echo 'Usage: make migration LABEL=orders msg="describe the change"' && exit 1)
-	uv run alembic revision --autogenerate -m "$(msg)" --head "$(LABEL)@head"
+	uv run smpy migrations new "$(LABEL)" -m "$(msg)"
 
 kill:
 	@echo "Stop smpy dev with Ctrl-C (or send SIGTERM to its PID); it cleans up both process groups."

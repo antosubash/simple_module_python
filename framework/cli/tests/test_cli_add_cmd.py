@@ -134,7 +134,7 @@ def test_models_module_prints_migration_reminder(
     run_add(f"git+{repo.as_uri()}", pyproject=host_pyproject, exec_runner=runner)
     out = capsys.readouterr().out
     # The same message as create-module's next steps (GH #931).
-    assert 'make migration msg="add blog"' in out
+    assert 'uv run smpy migrations new blog -m "add blog"' in out
 
 
 @pytest.mark.parametrize("has_frontend", [True, False])
