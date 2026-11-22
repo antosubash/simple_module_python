@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from simple_module_inertia.config import InertiaConfig
-from simple_module_inertia.deps import inertia_dependency_factory
-from simple_module_inertia.errors import (
+from simple_module_inertia.assets.head import Head, SiteInfo
+from simple_module_inertia.assets.templating import InertiaExtension
+from simple_module_inertia.protocol.config import InertiaConfig
+from simple_module_inertia.protocol.errors import (
     InertiaVersionConflictException,
     inertia_request_validation_exception_handler,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_inertia.head import Head, SiteInfo
-from simple_module_inertia.inertia import Inertia
-from simple_module_inertia.middleware import InertiaMiddleware
-from simple_module_inertia.page import PropEncodingError
-from simple_module_inertia.props import (
+from simple_module_inertia.protocol.middleware import InertiaMiddleware
+from simple_module_inertia.protocol.request import INERTIA_HEADER, is_inertia_request
+from simple_module_inertia.protocol.response import InertiaResponse
+from simple_module_inertia.protocol.validation import errors_from_validation, scope_errors
+from simple_module_inertia.rendering.deps import inertia_dependency_factory
+from simple_module_inertia.rendering.inertia import Inertia
+from simple_module_inertia.rendering.page import PropEncodingError
+from simple_module_inertia.rendering.props import (
     always,
     deep_merge,
     defer,
@@ -23,10 +27,6 @@ from simple_module_inertia.props import (
     prepend,
     scroll,
 )
-from simple_module_inertia.request import INERTIA_HEADER, is_inertia_request
-from simple_module_inertia.response import InertiaResponse
-from simple_module_inertia.templating import InertiaExtension
-from simple_module_inertia.validation import errors_from_validation, scope_errors
 
 __all__ = [
     "INERTIA_HEADER",

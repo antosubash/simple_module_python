@@ -1,9 +1,17 @@
 """Once, merge and scroll regressions for issues #768-#771."""
 
 import pytest
-from simple_module_inertia.props import deep_merge, defer, merge, once, optional, prepend, scroll
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.rendering.props import (
+    deep_merge,
+    defer,
+    merge,
+    once,
+    optional,
+    prepend,
+    scroll,
+)
+from simple_module_inertia.rendering.resolve import resolve_props
 
 
 def request(**headers):

@@ -4,8 +4,8 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from simple_module_inertia.request import is_inertia_request
-from simple_module_inertia.response import back_url
+from simple_module_inertia.protocol.request import is_inertia_request
+from simple_module_inertia.protocol.response import back_url
 
 # Redirect headers that describe a body the 409 no longer has.
 _BODY_HEADERS = (

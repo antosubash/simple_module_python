@@ -18,7 +18,7 @@ from simple_module_inertia import (
     SiteInfo,
     inertia_dependency_factory,
 )
-from simple_module_inertia.head import head_tags
+from simple_module_inertia.assets.head import head_tags
 from starlette.middleware.sessions import SessionMiddleware
 
 TEMPLATE = (

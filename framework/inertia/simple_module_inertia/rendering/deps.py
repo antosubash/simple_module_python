@@ -7,9 +7,9 @@ from typing import Any
 
 from fastapi import Request
 
-from simple_module_inertia.config import InertiaConfig
-from simple_module_inertia.inertia import Inertia
-from simple_module_inertia.templating import InertiaExtension
+from simple_module_inertia.assets.templating import InertiaExtension
+from simple_module_inertia.protocol.config import InertiaConfig
+from simple_module_inertia.rendering.inertia import Inertia
 
 
 def inertia_dependency_factory(config: InertiaConfig) -> Callable[..., Inertia]:

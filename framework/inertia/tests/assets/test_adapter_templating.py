@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from jinja2 import Environment
-from simple_module_inertia.templating import InertiaContext, InertiaExtension
+from simple_module_inertia.assets.templating import InertiaContext, InertiaExtension
 
 PAGE_JSON = '{"component": "Home", "props": {"errors": {}}, "url": "/", "version": "v1"}'
 

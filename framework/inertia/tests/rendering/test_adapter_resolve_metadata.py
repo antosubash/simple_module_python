@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from simple_module_inertia.props import deep_merge, defer, merge, once, prepend, scroll
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.rendering.props import deep_merge, defer, merge, once, prepend, scroll
+from simple_module_inertia.rendering.resolve import resolve_props
 
 COMPONENT = "Feed/Index"
 

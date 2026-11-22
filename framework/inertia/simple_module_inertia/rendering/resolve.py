@@ -13,9 +13,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from simple_module_inertia._json_snapshot import JsonSnapshot
-from simple_module_inertia.props import Prop, as_prop, resolve_value
-from simple_module_inertia.request import InertiaRequest
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.rendering._json_snapshot import JsonSnapshot
+from simple_module_inertia.rendering.props import Prop, as_prop, resolve_value
 
 logger = logging.getLogger(__name__)
 

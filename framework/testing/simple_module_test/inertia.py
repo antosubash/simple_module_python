@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from simple_module_inertia.config import resolved_version
+from simple_module_inertia.protocol.config import resolved_version
 
 
 def inertia_headers(app: Any) -> dict[str, str]:

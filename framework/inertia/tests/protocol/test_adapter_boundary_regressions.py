@@ -15,8 +15,8 @@ from simple_module_inertia import (
     inertia_dependency_factory,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_inertia._json_snapshot import JsonSnapshot, dumps
-from simple_module_inertia.middleware import add_vary
+from simple_module_inertia.protocol.middleware import add_vary
+from simple_module_inertia.rendering._json_snapshot import JsonSnapshot, dumps
 from starlette.datastructures import URL, MutableHeaders
 from starlette.requests import Request
 
