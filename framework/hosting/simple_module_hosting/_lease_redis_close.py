@@ -39,6 +39,9 @@ def _transport_fileno(transport: Any) -> int:
 
 
 def _close_selector_socket(target: Any, transport: Any, loop: Any) -> None:
+    pending_lost = (
+        loop is not None and not loop.is_closed() and getattr(target, "_conn_lost", 0) > 0
+    )
     raw_sock = getattr(target, "_sock", None)
     if raw_sock is not None:
         if loop is not None and not loop.is_closed():
@@ -50,7 +53,8 @@ def _close_selector_socket(target: Any, transport: Any, loop: Any) -> None:
                         loop._remove_writer(fd)
         with suppress(OSError):
             raw_sock.close()
-    target._sock = None
+    if not pending_lost:
+        target._sock = None
     if hasattr(target, "_closing"):
         target._closing = True
     if target is not transport and hasattr(transport, "_closed"):

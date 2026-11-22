@@ -180,8 +180,11 @@ def test_closed_uvloop_real_redis_transport_retires_without_type_error():
         s2.close()
 
 
+@pytest.mark.parametrize("closing_first", [False, True])
 @pytest.mark.parametrize("factory_name", ["stdlib", pytest.param("uvloop", marks=_UVLOOP_ONLY)])
-def test_stopped_owner_real_redis_transport_retires_socket_and_resumes_cleanly(factory_name):
+def test_stopped_owner_real_redis_transport_retires_socket_and_resumes_cleanly(
+    factory_name, closing_first
+):
     backend, created, attach_stream, s1, s2 = _pooled_socket_backend()
     owner = (
         __import__("uvloop").new_event_loop()
@@ -193,6 +196,8 @@ def test_stopped_owner_real_redis_transport_retires_socket_and_resumes_cleanly(f
     try:
         conn = owner.run_until_complete(attach_stream())
         pool = created[0].connection_pool
+        if closing_first:
+            conn._writer.close()
         assert s1.fileno() != -1
         asyncio.run(backend.aclose())
         assert backend._records == []
