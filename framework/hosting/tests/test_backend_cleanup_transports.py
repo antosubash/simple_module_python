@@ -10,7 +10,7 @@ import pytest
 import uvloop
 
 _FORK_PROBE = """
-import asyncio, os, socket, uvloop
+import asyncio, os, socket, stat, uvloop
 from threading import Event, Thread
 import redis.asyncio as aioredis
 from simple_module_hosting._lease_redis import RedisLeaseBackend
@@ -57,10 +57,25 @@ if pid == 0:
     try:
         asyncio.run(backend.aclose())
         assert backend._records == []
+        if mode == "uvloop":
+            assert not stat.S_ISSOCK(os.fstat(raw_fd).st_mode)
+        else:
+            try:
+                os.fstat(raw_fd)
+            except OSError:
+                pass
+            else:
+                raise AssertionError("expected stdlib fork fd closed")
+        new_a, new_b = socket.socketpair()
         try:
-            os.fstat(raw_fd)
-        except OSError:
+            if mode != "running_stdlib":
+                owner.close()
+            new_a.send(b"ok")
+            assert new_b.recv(2) == b"ok"
             code = 0
+        finally:
+            new_a.close()
+            new_b.close()
     except BaseException:
         import traceback
 

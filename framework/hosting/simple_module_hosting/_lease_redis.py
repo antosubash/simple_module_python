@@ -60,6 +60,7 @@ class _ClientRecord:
     future: Future[None] | None = None
     host_ref: weakref.ReferenceType[asyncio.AbstractEventLoop] | None = None
     task: asyncio.Task[None] | None = None
+    close_pid: int | None = None
 
 
 class RedisLeaseBackend:
@@ -93,6 +94,7 @@ class RedisLeaseBackend:
 
     def _start_close(self, record: _ClientRecord, host: asyncio.AbstractEventLoop) -> None:
         """Schedule with the lock held, before any other caller can claim the record."""
+        self._discard_forked_close_locked(record)
         if record.closed or (record.future is not None and not record.future.done()):
             return
         cf: Future[None] = Future()
@@ -100,6 +102,7 @@ class RedisLeaseBackend:
         record.future = cf
         record.host_ref = weakref.ref(host)
         record.task = None
+        record.close_pid = os.getpid()
 
         def on_task_done(done: asyncio.Task[None]) -> None:
             exc = None if done.cancelled() else done.exception()
@@ -141,10 +144,16 @@ class RedisLeaseBackend:
             cf.set_exception(exc) if exc is not None else cf.set_result(None)
 
     @staticmethod
+    def _discard_forked_close_locked(record: _ClientRecord) -> None:
+        if record.close_pid is not None and record.close_pid != os.getpid():
+            record.closing = False
+            record.future = record.host_ref = record.task = record.close_pid = None
+
+    @staticmethod
     def _clear_pending_locked(record: _ClientRecord, cf: Future[None]) -> None:
         if not record.closed and record.future is cf:
             record.closing = False
-            record.future = record.host_ref = record.task = None
+            record.future = record.host_ref = record.task = record.close_pid = None
 
     async def _close_record(self, record: _ClientRecord, cf: Future[None]) -> None:
         with self._lock:
@@ -166,7 +175,7 @@ class RedisLeaseBackend:
                 record.closed = True
                 if record in self._records:
                     self._records.remove(record)
-                record.future = record.host_ref = record.task = None
+                record.future = record.host_ref = record.task = record.close_pid = None
                 self._resolve_cf(cf)
 
     def _redis(self) -> Any:
@@ -187,6 +196,7 @@ class RedisLeaseBackend:
 
     async def _await_shared_close(self, record: _ClientRecord) -> bool:
         with self._lock:
+            self._discard_forked_close_locked(record)
             cf, host_ref = record.future, record.host_ref
             if cf is None:
                 return record.closed
@@ -265,29 +275,22 @@ class RedisLeaseBackend:
             logger.warning("Redis lease release unavailable (%s)", type(exc).__name__)
             return 0
 
-    @staticmethod
-    def _lease_keys(name: str) -> list[str]:
-        return [_HOLDER_PREFIX + name, _FENCE_PREFIX + name]
-
-    @staticmethod
-    def _sem_keys(name: str) -> list[str]:
-        return [_SEM_HOLDER_PREFIX + name, _SEM_FENCE_PREFIX + name]
-
     async def acquire(self, name: str, token: str, ttl: float) -> int | None:
-        return await self._eval(_ACQUIRE, self._lease_keys(name), token, _ms(ttl)) or None
+        keys = [_HOLDER_PREFIX + name, _FENCE_PREFIX + name]
+        return await self._eval(_ACQUIRE, keys, token, _ms(ttl)) or None
 
     async def refresh(self, name: str, token: str, ttl: float) -> bool:
-        return bool(await self._eval(_REFRESH, self._lease_keys(name)[:1], token, _ms(ttl)))
+        return bool(await self._eval(_REFRESH, [_HOLDER_PREFIX + name], token, _ms(ttl)))
 
     async def release(self, name: str, token: str) -> bool:
-        return bool(await self._eval(_RELEASE, self._lease_keys(name)[:1], token))
+        return bool(await self._eval(_RELEASE, [_HOLDER_PREFIX + name], token))
 
     async def semaphore_acquire(self, name: str, token: str, slots: int, ttl: float) -> int | None:
-        keys = self._sem_keys(name)
+        keys = [_SEM_HOLDER_PREFIX + name, _SEM_FENCE_PREFIX + name]
         return await self._eval(_SEM_ACQUIRE, keys, token, slots, _ms(ttl)) or None
 
     async def semaphore_refresh(self, name: str, token: str, ttl: float) -> bool:
-        return bool(await self._eval(_SEM_REFRESH, self._sem_keys(name)[:1], token, _ms(ttl)))
+        return bool(await self._eval(_SEM_REFRESH, [_SEM_HOLDER_PREFIX + name], token, _ms(ttl)))
 
     async def semaphore_release(self, name: str, token: str) -> bool:
-        return bool(await self._eval(_SEM_RELEASE, self._sem_keys(name)[:1], token))
+        return bool(await self._eval(_SEM_RELEASE, [_SEM_HOLDER_PREFIX + name], token))

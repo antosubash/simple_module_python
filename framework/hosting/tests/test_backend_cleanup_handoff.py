@@ -2,6 +2,8 @@
 
 import asyncio
 import gc
+import subprocess
+import sys
 import warnings
 from contextlib import suppress
 from threading import Event
@@ -111,3 +113,73 @@ def test_eager_task_factory_closes_and_retires_without_deadlock():
         assert backend._records == []
 
     asyncio.run(run())
+
+
+_FORK_IN_FLIGHT_PROBE = """
+import asyncio, os, threading
+from simple_module_hosting._lease_redis import RedisLeaseBackend
+
+parent_pid = os.getpid()
+entered = threading.Event()
+closes = []
+release = None
+
+class InFlightClient:
+    async def eval(self, *_args):
+        return 1
+
+    async def aclose(self):
+        closes.append(os.getpid())
+        if os.getpid() == parent_pid:
+            entered.set()
+            await release.wait()
+
+backend = RedisLeaseBackend("redis://localhost:6379/0", factory=InFlightClient)
+loop = asyncio.new_event_loop()
+
+async def start_parent_close():
+    global release
+    release = asyncio.Event()
+    await backend.acquire("k", "owner", 10)
+    task = asyncio.create_task(backend.aclose())
+    while not entered.is_set():
+        await asyncio.sleep(0.005)
+    return task
+
+close_task = loop.run_until_complete(start_parent_close())
+pid = os.fork()
+if pid == 0:
+    code = 1
+    try:
+        closes.clear()
+
+        async def run_child():
+            await asyncio.gather(backend.aclose(), backend.aclose())
+
+        asyncio.run(asyncio.wait_for(run_child(), 2.0))
+        assert closes == [os.getpid()], closes
+        assert backend._records == [], backend._records
+        code = 0
+    except BaseException:
+        import traceback
+
+        traceback.print_exc()
+    finally:
+        os._exit(code)
+
+_, status = os.waitpid(pid, 0)
+assert os.waitstatus_to_exitcode(status) == 0
+
+async def finish_parent():
+    release.set()
+    await close_task
+
+loop.run_until_complete(asyncio.wait_for(finish_parent(), 2.0))
+assert closes == [parent_pid], closes
+assert backend._records == [], backend._records
+loop.close()
+"""
+
+
+def test_fork_with_in_flight_parent_close_runs_child_cleanup():
+    subprocess.run([sys.executable, "-c", _FORK_IN_FLIGHT_PROBE], check=True, timeout=15)
