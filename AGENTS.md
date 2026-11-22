@@ -467,7 +467,7 @@ The session cookie is `Secure` outside development and testing.
 
 There is **one scaffolder**: `make new-module name=<name>` runs
 `scripts/new_module.py`, a thin wrapper over the CLI's
-`simple_module_cli.scaffolding.create_module(..., framework_repo=True)`, the same
+`simple_module_cli.scaffold.scaffolding.create_module(..., framework_repo=True)`, the same
 templates `smpy create-module` / `smpy new` use
 (`framework/cli/simple_module_cli/templates/module/`). Change a convention there, once.
 

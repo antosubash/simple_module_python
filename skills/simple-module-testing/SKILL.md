@@ -127,7 +127,7 @@ plain helper imports and `pytest_plugins`. To enforce layout, call the public
 `simple_module_test.assert_module_layout(project_dir, package_name)` helper from a test;
 pass `domain_areas` for named domain directories.
 
-The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. Both `smpy create-module` and `make new-module name=<name>` add this entry (via `simple_module_cli.framework_repo.update_root_pyproject`); if you scaffolded a module by hand, add it.
+The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. Both `smpy create-module` and `make new-module name=<name>` add this entry (via `simple_module_cli.scaffold.framework_repo.update_root_pyproject`); if you scaffolded a module by hand, add it.
 
 ## Pitfalls
 
