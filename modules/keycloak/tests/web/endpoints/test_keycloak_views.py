@@ -14,7 +14,7 @@ from collections.abc import AsyncGenerator
 import httpx
 import pytest
 from keycloak_test_modules import keycloak_modules_enabled
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 
 _INERTIA_HEADERS = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 _SERVER_URL = "https://sso.acme.co"
@@ -30,8 +30,8 @@ async def _build_keycloak_app():
     fixture. Passing ``auth_provider`` to ``Settings`` outranks the env var.
     """
     from simple_module_db.models.base import all_module_bases
-    from simple_module_hosting.app_builder import create_app
-    from simple_module_hosting.migrations import resolve_head_revisions
+    from simple_module_hosting.boot.app_builder import create_app
+    from simple_module_hosting.boot.migrations import resolve_head_revisions
     from sqlalchemy import text
 
     settings = Settings(

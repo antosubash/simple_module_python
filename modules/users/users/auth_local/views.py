@@ -7,9 +7,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.engine.deps import get_db
-from simple_module_hosting.auth_policy import login_redirect_url
-from simple_module_hosting.csrf import get_csrf_token
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.auth.auth_policy import login_redirect_url
+from simple_module_hosting.auth.csrf import get_csrf_token
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse

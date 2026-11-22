@@ -103,7 +103,7 @@ class BrandingModule(ModuleBase):
         view_router.include_router(views)
 
     async def on_startup(self, app: FastAPI) -> None:
-        from simple_module_hosting.shared_props import register_inertia_shared_provider
+        from simple_module_hosting.frontend.shared_props import register_inertia_shared_provider
 
         from branding.web.shared_props import branding_shared_props
 

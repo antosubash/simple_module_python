@@ -17,9 +17,9 @@ from simple_module_core.access.resources import ACTION_VIEW
 from simple_module_db import RequestSession, current_tenant_id
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.resource_policy import load_authorized
-from simple_module_hosting.permissions import ensure_resolved_permissions
-from simple_module_hosting.resource_deps import resource_principal
-from simple_module_hosting.token_guard import Authenticated
+from simple_module_hosting.auth.permissions import ensure_resolved_permissions
+from simple_module_hosting.auth.resource_deps import resource_principal
+from simple_module_hosting.auth.token_guard import Authenticated
 from sqlalchemy import select
 from sqlmodel import col
 

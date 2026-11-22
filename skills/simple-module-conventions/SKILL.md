@@ -65,7 +65,7 @@ class SiteLockModule(ModuleBase):
 
 - Settings are DB-backed: subclass `simple_module_core.settings.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env. The optional host root secret is resolved before module registration; Users derives purpose-specific token keys from it, outside editable DB settings.
 - Import from the framework, not the plugin: `simple_module_core.settings.module_settings`, `simple_module_core.settings.settings_hydrate`, `simple_module_db.queries.stored_settings` (`Setting`, `hydrate_settings_sync` for workers).
-- Shared account/invitation origins use `simple_module_hosting.public_urls.public_origin`: blank module origins inherit `host.public_base_url`; never derive emailed links from request Host. All auth providers use host cookie-security and post-login policy. Body/rate/CORS host guards reload live through immutable policy snapshots; module rules still apply.
+- Shared account/invitation origins use `simple_module_hosting.pipeline.public_urls.public_origin`: blank module origins inherit `host.public_base_url`; never derive emailed links from request Host. All auth providers use host cookie-security and post-login policy. Body/rate/CORS host guards reload live through immutable policy snapshots; module rules still apply.
 - Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
 - The state attribute key is the lowercase package name or the lowercased `meta.name` — the diagnostics check accepts either. For module package `auth` with `meta.name="Auth"`, `app.state.auth` works either way.
 - If you override `register_settings` and don't add anything to `app.state.<module>`, `SM012` fires at dev boot.
@@ -100,7 +100,7 @@ export function useProductSchema() {
 Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site POST/PUT/DELETE, so forged form-submits are unauthenticated — plain Inertia forms need nothing extra. A module that wants a real token check on its JSON mutations uses the framework primitive instead of rolling its own:
 
 ```python
-from simple_module_hosting.csrf import RequiresCsrf
+from simple_module_hosting.auth.csrf import RequiresCsrf
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
 ```

@@ -46,7 +46,7 @@ async def _web_channel(database_url, monkeypatch, settings=None):
 
 
 async def test_web_uses_database_identity_and_bridges_legacy(database_url, monkeypatch):
-    from simple_module_hosting.installation import load_installation_id
+    from simple_module_hosting.config.installation import load_installation_id
 
     monkeypatch.delenv("SM_BG_TASKS_INVALIDATION_CHANNEL", raising=False)
     channel, options = (await _web_channel(database_url, monkeypatch))[0]

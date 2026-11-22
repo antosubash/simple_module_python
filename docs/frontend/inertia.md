@@ -14,7 +14,7 @@ Two moving parts:
 ```python
 # modules/orders/orders/endpoints/views.py
 from fastapi import APIRouter
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 
 from orders.contracts.schemas import OrderOut
 from orders.deps import OrderServiceDep
@@ -33,7 +33,7 @@ async def browse(inertia: InertiaDep, service: OrderServiceDep):
 
 Breakdown:
 
-- `InertiaDep` (from `simple_module_hosting.inertia_deps`) is a request-scoped dependency that resolves the `Inertia` instance from `app.state.inertia_dependency` (configured at boot) and shares the layout props (`auth`, `menus`, `i18n`, …), which it resolves lazily via `resolve_inertia_shared(request)`; do not read `request.state.inertia_shared` without awaiting that first.
+- `InertiaDep` (from `simple_module_hosting.frontend.inertia_deps`) is a request-scoped dependency that resolves the `Inertia` instance from `app.state.inertia_dependency` (configured at boot) and shares the layout props (`auth`, `menus`, `i18n`, …), which it resolves lazily via `resolve_inertia_shared(request)`; do not read `request.state.inertia_shared` without awaiting that first.
 - The first argument to `render` is the **page key** — `"Orders/Browse"` maps to `modules/orders/orders/pages/Browse.tsx`. See [Pages & discovery](/frontend/pages).
 - `props` is a plain dict serialized to JSON. Use `model_dump(mode="json")` on SQLModel DTOs to get JSON-safe types (`Decimal → str`, `datetime → iso string`).
 
@@ -257,7 +257,7 @@ The baseline is `SameSite=Lax` on the session cookie:
 - Same-site form submissions work normally.
 
 Inertia forms need nothing more. A module that wants defence in depth puts
-`RequiresCsrf` from `simple_module_hosting.csrf` on its API router; the check
+`RequiresCsrf` from `simple_module_hosting.auth.csrf` on its API router; the check
 then wants the session's token in an `X-CSRF-Token` header on
 POST/PUT/PATCH/DELETE (safe methods are never checked).
 

@@ -1,61 +1,13 @@
-"""Module-registered Inertia shared-prop providers.
+"""Deprecated alias for simple_module_hosting.frontend.shared_props."""
 
-A generic extension point so plugin modules can contribute layout-wide Inertia
-shared props (e.g. branding) on every page, without the framework importing the
-plugin. This mirrors the ``principal_serializer`` precedent: the framework reads
-a registered callable off ``app.state`` rather than reaching into module code,
-keeping the ``SM009`` framework→plugin import ban intact.
+import sys
+from importlib import import_module
 
-A provider is ``Callable[[Request], dict]`` or an ``async`` one. It must be cheap
-and total — it runs once when a page needs shared props.
-:class:`InertiaLayoutDataMiddleware` merges each provider's
-returned dict into the ``shared`` payload after the built-in ``auth``/``menus``/
-``i18n`` blocks; a provider that raises is skipped and logged, never failing the
-request.
-"""
+from simple_module_core.runtime.deprecation import deprecated_module
 
-from __future__ import annotations
-
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any
-
-from simple_module_core.modules.app_state import (
-    INERTIA_SHARED_PROVIDERS_STATE_ATTR,
-    get_inertia_shared_providers,
+deprecated_module(
+    "simple_module_hosting.shared_props",
+    remove_in="0.0.52",
+    use="simple_module_hosting.frontend.shared_props",
 )
-
-if TYPE_CHECKING:
-    from fastapi import FastAPI
-    from starlette.requests import Request
-
-SharedPropsProvider = Callable[["Request"], dict | Awaitable[dict]]
-"""A function mapping a request to a dict merged into Inertia shared props."""
-
-
-def register_inertia_shared_provider(app: FastAPI, provider: SharedPropsProvider) -> None:
-    """Register a shared-props provider on the app.
-
-    Idempotently initialises ``app.state.inertia_shared_providers`` (a list) and
-    appends ``provider``. Safe to call from a module lifecycle hook before the
-    framework has set up the list.
-    """
-    providers = get_inertia_shared_providers(app)
-    if providers is None:
-        providers = []
-        setattr(app.state, INERTIA_SHARED_PROVIDERS_STATE_ATTR, providers)
-    providers.append(provider)
-
-
-def replace_inertia_shared_prop(app: FastAPI, key: str, provider: Callable[[Request], Any]) -> None:
-    """Explicitly replace a resolved key, including framework-owned keys.
-
-    The sync/async provider returns the new value for this key. Keys are
-    request-dependent, so a missing target raises KeyError at render time.
-    Replacement failures propagate; they must not silently restore a value
-    the host deliberately replaced.
-    """
-    replacements = getattr(app.state, "inertia_shared_replacements", None)
-    if replacements is None:
-        replacements = {}
-        app.state.inertia_shared_replacements = replacements
-    replacements[key] = provider
+sys.modules[__name__] = import_module("simple_module_hosting.frontend.shared_props")

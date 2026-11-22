@@ -208,7 +208,7 @@ class OrdersModule(ModuleBase):
 ```python
 # modules/orders/orders/web/endpoints/api.py
 from fastapi import APIRouter, Depends
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 from orders.contracts.schemas import OrderCreate, OrderOut
 from orders.web.deps import OrderServiceDep

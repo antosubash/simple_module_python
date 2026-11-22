@@ -23,7 +23,7 @@ class TestNpmNameDiscovery:
         `<pkg>/package.json`, so that is where an installed module carries its
         npm identity.
         """
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("wheelish_mod", "Wheelish")
         (pkg / "pages").mkdir()
@@ -35,7 +35,7 @@ class TestNpmNameDiscovery:
 
     async def test_read_from_workspace_layout(self, make_importable_module):
         """An editable install leaves package.json at the source-tree module root."""
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("srcish_mod", "Srcish")
         (pkg / "pages").mkdir()
@@ -53,7 +53,7 @@ class TestNpmNameDiscovery:
         `package.json` happened to sit in `site-packages/` and alias itself
         onto a stranger's name.
         """
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("stray_mod", "Stray")
         (pkg / "pages").mkdir()
@@ -65,7 +65,7 @@ class TestNpmNameDiscovery:
 
     async def test_module_without_package_json(self, make_importable_module):
         """A module without JS config derives its alias from its Python package."""
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("nojs_mod", "NoJs")
         (pkg / "styles.css").write_text(".z { color: red; }\n", encoding="utf-8")
@@ -74,7 +74,7 @@ class TestNpmNameDiscovery:
 
     async def test_malformed_package_json_is_ignored(self, make_importable_module):
         """A broken package.json falls back to the Python package identity."""
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("broken_mod", "Broken")
         (pkg / "pages").mkdir()
@@ -96,7 +96,7 @@ class TestNpmAliasContract:
         `<package>/pages/Home`, which exists in a wheel and in a checkout.
         """
         from simple_module_core import discover_modules
-        from simple_module_hosting.manifest import write_module_pages_manifest
+        from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 
         write_module_pages_manifest(discover_modules(), tmp_path)
         data = json.loads((tmp_path / "modules.assets.json").read_text(encoding="utf-8"))
@@ -119,7 +119,7 @@ class TestNpmAliasContract:
     async def test_npm_names_are_unique(self, tmp_path):
         """Two modules claiming one npm name would make the alias order-dependent."""
         from simple_module_core import discover_modules
-        from simple_module_hosting.manifest import write_module_pages_manifest
+        from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 
         write_module_pages_manifest(discover_modules(), tmp_path)
         data = json.loads((tmp_path / "modules.assets.json").read_text(encoding="utf-8"))

@@ -17,7 +17,7 @@ from simple_module_core.runtime.leases import (
     get_leases,
     reset_lease_backend,
 )
-from simple_module_hosting import sentry
+from simple_module_hosting.observability import sentry
 from simple_module_test.mail import CapturedMail
 from simple_module_test.process_state import reset_process_state
 
@@ -69,7 +69,7 @@ async def test_plugin_second_app_keeps_first_apps_services(settings, monkeypatch
     """Resets are per test (autouse fixture), so a second app in one test must not
     wipe the first app's installed mail sender."""
     from fastapi import FastAPI
-    from simple_module_hosting import app_builder
+    from simple_module_hosting.boot import app_builder
     from simple_module_test import fixtures
 
     def create_app(settings):

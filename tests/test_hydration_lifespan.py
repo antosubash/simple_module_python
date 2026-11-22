@@ -12,7 +12,7 @@ async def test_lifespan_hydrates_host_settings_from_db(app, db_session):
     store = SettingsStore(SettingService(db_session))
     await store.set_override("host", "multi_tenant", "true", "bool")
 
-    from simple_module_hosting._hydrate_step import hydrate_all
+    from simple_module_hosting.boot._hydrate_step import hydrate_all
 
     await hydrate_all(app, store)
 

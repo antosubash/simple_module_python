@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
-from simple_module_hosting import sentry as sm_sentry
+from simple_module_hosting.observability import sentry as sm_sentry
 
 
 @pytest.fixture(autouse=True)

@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 from users.core.constants import USER_ROLE_NAME

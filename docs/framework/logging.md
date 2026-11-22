@@ -1,6 +1,6 @@
 # Retained logging
 
-`simple_module_hosting.log_sinks` lets a module keep log lines somewhere durable
+`simple_module_hosting.observability.log_sinks` lets a module keep log lines somewhere durable
 without putting that work on the logging call. The `background_tasks` module
 ships the database sink; any module can add another.
 
@@ -19,7 +19,7 @@ records are lost.
 ## Installing one
 
 ```python
-from simple_module_hosting.log_sinks import install_sink, uninstall_sink
+from simple_module_hosting.observability.log_sinks import install_sink, uninstall_sink
 
 handler = install_sink(MySink(), level=logging.INFO)  # attaches to the root logger
 ...
@@ -33,7 +33,7 @@ uninstall_sink(handler)  # detaches and flushes
 | Batching | up to 200 records, or whatever arrived within 1 second |
 | Bounded | 10,000 queued records; when full a record is dropped and counted in `handler.dropped`. Logging never blocks and cannot deadlock on a slow sink |
 | Level | `level` is a threshold on the handler; the logger it is attached to must also pass the record (a root logger at `WARNING` never offers `INFO` lines) |
-| Self-exclusion | records from `simple_module_hosting.log_sinks` and `sqlalchemy.*` are skipped, so a database sink cannot log about itself |
+| Self-exclusion | records from `simple_module_hosting.observability.log_sinks` and `sqlalchemy.*` are skipped, so a database sink cannot log about itself |
 | Correlation | `record.correlation_id` is filled from the request context when unset |
 
 Handler filters run on the emitting thread, where the request or task context

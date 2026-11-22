@@ -2,7 +2,7 @@
 
 Routes that need nothing but a signed-in principal — create or leave an
 organisation, the profile page, the dashboard — used to accept any token,
-whatever it was scoped to. ``simple_module_hosting.token_guard`` now refuses a
+whatever it was scoped to. ``simple_module_hosting.auth.token_guard`` now refuses a
 token on every route without a permission gate, and on every page.
 """
 

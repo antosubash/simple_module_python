@@ -10,9 +10,9 @@ from oidc.core.settings import OidcSettings
 from oidc_flow_helpers import _AUDIENCE, _KID, _PRIVATE_KEY
 from simple_module_core.modules.discovery import discover_modules
 from simple_module_db.models.base import all_module_bases
-from simple_module_hosting.app_builder import create_app
-from simple_module_hosting.migrations import resolve_head_revisions
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.boot.app_builder import create_app
+from simple_module_hosting.boot.migrations import resolve_head_revisions
+from simple_module_hosting.config.settings import Settings
 from sqlalchemy import text
 
 

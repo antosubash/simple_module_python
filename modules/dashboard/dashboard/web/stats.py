@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from simple_module_core.access.user_directory import get_user_directory
 from simple_module_core.modules.discovery import get_module_package_name
 from simple_module_core.web.health import HealthCheck, HealthStatus
-from simple_module_hosting.health import run_health_check
+from simple_module_hosting.boot.health import run_health_check
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _CACHE_TTL_SECONDS = 30

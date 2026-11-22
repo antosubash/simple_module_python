@@ -14,7 +14,7 @@ enforce the same rule and give the same 404/403 answers (GH #526).
 | `ResourcePrincipal` | `simple_module_core.access.resources` | `user_id`, resolved permissions, live roles/tenant and trusted module context |
 | `ResourceType`, `ResourceTypeRegistry` | `simple_module_core.access.resources` | What `register_resource_types` declares; read at `app.state.sm.resource_types` |
 | `OwnedResourcePolicy`, `select_by_id`, `load_authorized` | `simple_module_db.queries.resource_policy` | The stock owner / public / shared policy |
-| `RequiresResource`, `resource_principal` | `simple_module_hosting.resource_deps` | FastAPI dependencies |
+| `RequiresResource`, `resource_principal` | `simple_module_hosting.auth.resource_deps` | FastAPI dependencies |
 | `sharing` module (optional) | `modules/sharing` | A generic `sharing_resource_share` table, grant/revoke API, admin page |
 
 Actions are plain strings; `ACTION_VIEW`, `ACTION_EDIT`, `ACTION_DELETE` and

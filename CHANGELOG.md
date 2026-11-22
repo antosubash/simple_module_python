@@ -25,6 +25,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Deprecated
 
+- The former flat `simple_module_hosting.*` submodule paths are deprecated in favor of the `boot`, `config`, `pipeline`, `rate_limit`, `auth`, `error_handling`, `frontend`, `i18n`, `observability` and `locking` areas. All 50 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and lazy loading are unchanged.
+
 - The former flat `simple_module_db.*` submodule paths are deprecated in favor of the `engine`, `models`, `scoping`, `auditing`, `schema` and `queries` areas. All 32 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and the tenant cleanup durable handler wire name are unchanged.
 
 - The former flat `simple_module_core.*` submodule paths (including `migration_support`) are deprecated in favor of the `modules`, `access`, `eventing`, `settings`, `web`, `localization`, `mailer`, `runtime` and `migrations` area paths. All 51 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and durable event wire names are unchanged.

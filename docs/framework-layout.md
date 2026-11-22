@@ -63,5 +63,5 @@ Any old framework submodule path imported outside its owning package (in `module
 | `cli` | `simple_module_cli` | 2 | 0 | follows this layout |
 | `core` | `simple_module_core` | 4 | 0 | follows this layout |
 | `db` | `simple_module_db` | 1 | 0 | follows this layout |
-| `hosting` | `simple_module_hosting` | 109 | 177 | legacy flat (`LEGACY_FLAT`) |
+| `hosting` | `simple_module_hosting` | 3 | 0 | follows this layout |
 | `testing` | `simple_module_test` | 22 | 14 | legacy flat (`LEGACY_FLAT`) |

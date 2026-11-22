@@ -73,7 +73,7 @@ rather than `is_admin(user.roles)`.
 
 The cap works on **permissions**, so on its own it could not constrain a route
 that asks only for a signed-in principal. The framework closes that gap with a
-fail-closed rule, enforced by `simple_module_hosting.token_guard` as an
+fail-closed rule, enforced by `simple_module_hosting.auth.token_guard` as an
 app-wide dependency on every `APIRoute` (module, host and framework routes):
 
 | Route | A token (`scopes` set) gets |

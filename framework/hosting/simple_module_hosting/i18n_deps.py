@@ -1,25 +1,13 @@
-"""FastAPI dependency for request-scoped Translator resolution."""
+"""Deprecated alias for simple_module_hosting.i18n.i18n_deps."""
 
-from __future__ import annotations
+import sys
+from importlib import import_module
 
-from typing import Annotated
+from simple_module_core.runtime.deprecation import deprecated_module
 
-from fastapi import Depends, Request
-from simple_module_core.localization.i18n import Translator
-
-
-async def get_translator(request: Request) -> Translator:
-    """Resolve a Translator bound to ``request.state.locale``.
-
-    Reads the registry from ``request.app.state.sm.i18n_registry`` and the
-    default locale from ``request.app.state.sm.settings.i18n_default_locale``.
-
-    ``request.state.locale`` is populated by LocaleMiddleware.
-    """
-    sm = request.app.state.sm
-    default_locale = sm.settings.i18n_default_locale
-    locale = getattr(request.state, "locale", default_locale)
-    return Translator(sm.i18n_registry, locale=locale, default_locale=default_locale)
-
-
-TranslatorDep = Annotated[Translator, Depends(get_translator)]
+deprecated_module(
+    "simple_module_hosting.i18n_deps",
+    remove_in="0.0.52",
+    use="simple_module_hosting.i18n.i18n_deps",
+)
+sys.modules[__name__] = import_module("simple_module_hosting.i18n.i18n_deps")

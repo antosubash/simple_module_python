@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from simple_module_hosting.assets import ModuleAssets, render_modules_css
+from simple_module_hosting.frontend.assets import ModuleAssets, render_modules_css
 
 
 def _wheel(tmp_path, **overrides):

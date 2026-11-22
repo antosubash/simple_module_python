@@ -7,7 +7,7 @@ from typing import Any
 from auth.core.constants import SESSION_ID_KEY
 from fastapi import Request
 from simple_module_db.engine.callbacks import register_on_commit
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, SESSION_SIGNATURE_MAX_AGE
+from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY, SESSION_SIGNATURE_MAX_AGE
 from sqlalchemy import delete
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncSession

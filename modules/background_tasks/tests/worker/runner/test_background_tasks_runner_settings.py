@@ -113,7 +113,7 @@ def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypa
     from background_tasks.worker.runner import build_runner_celery
     from simple_module_core.runtime import leases
     from simple_module_db.engine.leases import DbLeaseBackend
-    from simple_module_hosting.installation import load_installation_id
+    from simple_module_hosting.config.installation import load_installation_id
 
     configs = []
     real_build = celery_app.build_celery
@@ -161,7 +161,7 @@ def test_fallback_env_file_is_adopted_as_the_project_root(tmp_path, monkeypatch)
     missing ``.env``; the script-relative file must still win, and the sqlite
     anchor must follow it rather than the cwd (GH #490 review)."""
     from background_tasks.worker.runner import _load_env
-    from simple_module_hosting.bootstrap_settings import BootstrapSettings
+    from simple_module_hosting.config.bootstrap_settings import BootstrapSettings
 
     app = tmp_path / "app"
     app.mkdir()

@@ -15,7 +15,7 @@ from settings.contracts.invalidation import invalidation_key
 from settings.contracts.schemas import SettingScope, SettingUpsert
 from settings.core.constants import INVALIDATION_CHANNEL
 from settings.core.service import SettingService
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from simple_module_test.database import database_url_for_tests
 
 INERTIA = {"X-Inertia": "true", "Accept": "application/json"}

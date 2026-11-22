@@ -13,7 +13,7 @@ import httpx
 import pytest
 from _file_storage_uploads_support import API, INERTIA, upload_text
 from file_storage.core import constants
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from simple_module_test.tenant_client import create_user, session_client
 
 VIEW = f"{constants.ROUTE_PREFIX_VIEW}/"

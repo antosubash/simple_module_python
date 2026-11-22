@@ -12,10 +12,10 @@ if TYPE_CHECKING:
     from asyncio import Lock
     from collections.abc import Callable
 
-    from simple_module_hosting._host_services import _HostServices
-    from simple_module_hosting._tenant import TenantResolver
-    from simple_module_hosting.middleware import PrincipalSerializer
-    from simple_module_hosting.shared_props import SharedPropsProvider
+    from simple_module_hosting.config._host_services import _HostServices
+    from simple_module_hosting.frontend.shared_props import SharedPropsProvider
+    from simple_module_hosting.pipeline._tenant import TenantResolver
+    from simple_module_hosting.pipeline.middleware import PrincipalSerializer
     from simple_module_inertia import Inertia
     from starlette.requests import Request
 

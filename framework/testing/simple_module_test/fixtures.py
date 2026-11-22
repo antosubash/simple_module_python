@@ -27,7 +27,7 @@ import httpx
 import pytest
 from simple_module_core.modules.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_db.engine.session import DatabaseState, init_db
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from simple_module_test._schema import _create_all_tables
@@ -157,7 +157,7 @@ async def _seed_setup_admin(application) -> None:
 
 
 async def _build_app(settings: Settings, *, seed_admin: bool):
-    from simple_module_hosting.app_builder import create_app
+    from simple_module_hosting.boot.app_builder import create_app
 
     # Process-wide state is reset per test by the autouse fixture in
     # ``process_state``, not here: a second app built inside one test must not

@@ -16,7 +16,7 @@ from api_tokens.credentials.format import (
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import is_api_token
 from simple_module_core.access.permissions import is_admin_principal
-from simple_module_hosting.permissions import apply_scope_cap
+from simple_module_hosting.auth.permissions import apply_scope_cap
 
 
 class TestTokenFormat:

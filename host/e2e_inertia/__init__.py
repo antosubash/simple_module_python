@@ -10,7 +10,7 @@ browser. The host mounts them only when ``settings.is_development`` is true.
 from typing import Protocol
 
 from fastapi import APIRouter, Depends, FastAPI
-from simple_module_hosting.token_guard import Authenticated
+from simple_module_hosting.auth.token_guard import Authenticated
 
 from host.e2e_inertia import features, forms, navigation
 from host.e2e_inertia.constants import ROUTE_PREFIX

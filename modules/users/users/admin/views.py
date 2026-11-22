@@ -7,10 +7,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.pagination import PageParams, clamp_page
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.pagination import lenient_page_params
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.pagination import lenient_page_params
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse

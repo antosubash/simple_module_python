@@ -9,7 +9,7 @@ from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
 from auth.oidc_common.claims import extract_nested as _extract_nested
 from auth.oidc_common.tenant import trusted_tenant, without_tenant_roles
-from simple_module_hosting.session import session_has_expired
+from simple_module_hosting.pipeline.session import session_has_expired
 from starlette.requests import Request
 
 from keycloak.core.constants import SESSION_USER_KEY as _SESSION_USER_CTX_KEY

@@ -13,8 +13,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import ValidationError
 from simple_module_core.settings.module_settings import module_settings_registry
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 
 from settings.core.constants import Permissions
 from settings.core.service import SettingService

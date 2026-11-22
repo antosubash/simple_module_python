@@ -3,7 +3,7 @@
 The reproduction from the issue: a user with no roles is granted a module's
 ``view`` permission on the permissions screen. Before the fix the grant was
 stored and returned 200, and the user still got 403 on every route of a module
-that imported ``simple_module_hosting.permissions.RequiresPermission``.
+that imported ``simple_module_hosting.auth.permissions.RequiresPermission``.
 """
 
 from __future__ import annotations

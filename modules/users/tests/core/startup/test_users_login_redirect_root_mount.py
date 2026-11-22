@@ -7,7 +7,7 @@ import pytest
 
 def _fallback_url(app, prefixes: dict[str, str]) -> str:
     """Run the login fallback against a Dashboard-less module set (#435)."""
-    from simple_module_hosting.auth_policy import login_redirect_url
+    from simple_module_hosting.auth.auth_policy import login_redirect_url
 
     sm = app.state.sm
     saved_mods, saved_prefixes = sm.modules, dict(sm.view_prefixes)

@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 
 from simple_module_core.modules.discovery import discover_modules
-from simple_module_hosting.i18n_manifest import (
+from simple_module_hosting.config.settings import Settings
+from simple_module_hosting.i18n.i18n_manifest import (
     NamespaceRemovalError,
     emit_frontend_types_for_modules,
 )
-from simple_module_hosting.settings import Settings
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # WARNING so discovery's per-module chatter doesn't bury the two lines that
     # answer the question this command was run to ask.
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
-    logging.getLogger("simple_module_hosting.i18n_manifest").setLevel(logging.INFO)
+    logging.getLogger("simple_module_hosting.i18n.i18n_manifest").setLevel(logging.INFO)
     # Env-only Settings() — no merge_host_settings, so a DB-stored
     # i18n_default_locale override is invisible here. Accepted trade-off for a
     # tool that must not boot the app (and thus must not touch the DB).

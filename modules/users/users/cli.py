@@ -14,7 +14,7 @@ import logging
 import sys
 
 import typer
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from users.core.bootstrap import create_admin

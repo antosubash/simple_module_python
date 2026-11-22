@@ -6,8 +6,8 @@ import pytest
 from simple_module_core.mailer.mail import reset_mail_sender
 from simple_module_core.runtime.leases import reset_lease_backend
 from simple_module_core.settings.settings_hydrate import env_supplied_fields
-from simple_module_hosting._api_version import default_api_version
-from simple_module_hosting.sentry import reset_sentry
+from simple_module_hosting.config._api_version import default_api_version
+from simple_module_hosting.observability.sentry import reset_sentry
 
 
 def reset_process_state() -> None:

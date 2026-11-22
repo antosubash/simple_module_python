@@ -12,9 +12,9 @@ from oidc.core.settings import OidcSettings
 from oidc.identity.provider import OidcAuthProvider
 from oidc.identity.tokens import open_refresh_token
 from oidc.web.endpoints import api
-from simple_module_hosting.csrf import get_csrf_token
-from simple_module_hosting.host_settings import HostSettings
-from simple_module_hosting.session import SessionMiddleware, preserve_across_sign_in
+from simple_module_hosting.auth.csrf import get_csrf_token
+from simple_module_hosting.config.host_settings import HostSettings
+from simple_module_hosting.pipeline.session import SessionMiddleware, preserve_across_sign_in
 from starlette.requests import Request
 from starlette.responses import Response
 

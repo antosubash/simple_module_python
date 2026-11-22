@@ -51,7 +51,7 @@ def _schema_behind(app, monkeypatch) -> None:
         return dict(_BEHIND)
 
     monkeypatch.setattr(
-        "simple_module_hosting.migrations.migration_status", _still_behind, raising=True
+        "simple_module_hosting.boot.migrations.migration_status", _still_behind, raising=True
     )
 
 

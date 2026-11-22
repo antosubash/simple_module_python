@@ -6,7 +6,7 @@ from auth.contracts.schemas import UserContext
 from fastapi import FastAPI, Request
 from simple_module_core.access.permissions import DEFAULT_ROLE_PERMISSIONS, grants
 from simple_module_core.modules.app_state import get_services
-from simple_module_hosting.permissions import (
+from simple_module_hosting.auth.permissions import (
     apply_scope_cap,
     ensure_resolved_permissions,
     resolve_permissions,

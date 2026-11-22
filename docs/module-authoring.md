@@ -797,7 +797,7 @@ other steps keep the wizard open. The host migration action rechecks the
 database under its migration lock and requires a verified first run. A
 configured install behind head must be migrated by its operator before boot.
 Every `/setup` mutation also carries the session's CSRF token
-(`simple_module_hosting.csrf`); the wizard page sends it for you.
+(`simple_module_hosting.auth.csrf`); the wizard page sends it for you.
 
 **A first-run form can combine migrations with the next required step.** Set
 `SetupAction.validate_before_migrations` to an async `(request, data)` validator
@@ -849,7 +849,7 @@ module's JSON mutation surface, opt into the framework's session-bound token
 check instead of rolling your own:
 
 ```python
-from simple_module_hosting.csrf import RequiresCsrf
+from simple_module_hosting.auth.csrf import RequiresCsrf
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
 ```

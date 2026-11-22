@@ -19,9 +19,9 @@ from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY
 from simple_module_db.engine.deps import get_db
 from simple_module_db.engine.transaction import rollback_session
-from simple_module_hosting.auth_policy import session_cookie_is_secure
-from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
-from simple_module_hosting.token_guard import Authenticated
+from simple_module_hosting.auth.auth_policy import session_cookie_is_secure
+from simple_module_hosting.auth.token_guard import Authenticated
+from simple_module_hosting.pipeline.session import SESSION_REMEMBER_KEY, stamp_session_expiry
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.accounts.backend import cookie_login_response

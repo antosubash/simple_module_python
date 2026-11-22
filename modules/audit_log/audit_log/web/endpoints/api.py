@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from simple_module_core.access.user_directory import get_user_directory
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.pagination import MAX_PAGE, MAX_PER_PAGE
-from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.auth.permissions import RequiresPermission, resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.contracts.schemas import AuditEntryList

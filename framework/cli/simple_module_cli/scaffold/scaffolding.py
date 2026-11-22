@@ -9,7 +9,7 @@
   ``simple_module_cli/templates/module/``.
 
 The frontend pages manifest + per-module JS dep discovery live in
-:mod:`simple_module_hosting.manifest` (those need module-discovery and
+:mod:`simple_module_hosting.frontend.manifest` (those need module-discovery and
 stay in hosting).
 """
 

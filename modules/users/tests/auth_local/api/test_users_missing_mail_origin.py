@@ -7,7 +7,7 @@ import httpx
 import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi_users.db import BaseUserDatabase
-from simple_module_hosting.host_settings import HostSettings
+from simple_module_hosting.config.host_settings import HostSettings
 from users.accounts.db_adapter import get_user_db
 from users.auth_local.rate_limit import ThroughputLimiter
 from users.core.settings import UsersSettings

@@ -8,8 +8,8 @@ from simple_module_core.access.permissions import grants
 from simple_module_core.eventing.events import EventBus
 from simple_module_db.engine.deps import get_db
 from simple_module_db.models.listeners import current_user_id
-from simple_module_hosting.permissions import ensure_resolved_permissions
-from simple_module_hosting.resource_deps import resource_principal
+from simple_module_hosting.auth.permissions import ensure_resolved_permissions
+from simple_module_hosting.auth.resource_deps import resource_principal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from file_storage.core import constants

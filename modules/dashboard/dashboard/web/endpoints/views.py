@@ -11,9 +11,9 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.access.permissions import grants, is_admin_principal
 from simple_module_db.engine.deps import get_db
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.permissions import resolved_permissions_for
+from simple_module_hosting.auth.permissions import resolved_permissions_for
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse

@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 from auth.contracts.schemas import UserContext
 from auth.oidc_common.session import sign_in
-from simple_module_hosting.csrf import get_csrf_token
-from simple_module_hosting.session import preserve_across_sign_in
+from simple_module_hosting.auth.csrf import get_csrf_token
+from simple_module_hosting.pipeline.session import preserve_across_sign_in
 from starlette.requests import Request
 
 

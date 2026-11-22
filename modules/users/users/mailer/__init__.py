@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from simple_module_hosting.public_urls import public_origin
+from simple_module_hosting.pipeline.public_urls import public_origin
 
 from users.core.settings import UsersSettings
 

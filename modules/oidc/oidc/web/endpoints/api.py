@@ -8,7 +8,7 @@ import time
 
 from auth.oidc_common.session import sign_in, stale_callback
 from fastapi import APIRouter, HTTPException, Request
-from simple_module_hosting.auth_policy import login_redirect_url
+from simple_module_hosting.auth.auth_policy import login_redirect_url
 from starlette.responses import RedirectResponse
 
 from oidc.core.constants import (

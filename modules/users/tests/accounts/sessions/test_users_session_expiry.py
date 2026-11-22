@@ -18,7 +18,7 @@ from base64 import b64decode
 import httpx
 import pytest
 from fastapi_users.password import PasswordHelper
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
+from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY
 from simple_module_test import forge_session_cookie
 from users.models import User
 

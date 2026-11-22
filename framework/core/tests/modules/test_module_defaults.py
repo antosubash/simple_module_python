@@ -10,7 +10,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_hosting._module_routes import wire_module_routes
+from simple_module_hosting.boot._module_routes import wire_module_routes
 
 
 @pytest.fixture

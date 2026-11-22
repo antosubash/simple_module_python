@@ -51,7 +51,7 @@ Inside a simple_module app, reach the per-request `Inertia` instance through
 `InertiaDep` and import the response type and prop factories from here:
 
 ```python
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse, defer, merge, optional
 
 

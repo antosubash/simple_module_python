@@ -21,7 +21,7 @@ from fastapi import FastAPI, Request
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, collect_tsx_pages
 from simple_module_core.modules.app_state import get_migration_status
 from simple_module_core.modules.discovery import get_module_package_name
-from simple_module_hosting.migrations import list_migrations
+from simple_module_hosting.boot.migrations import list_migrations
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ import importlib
 
 import pytest
 from simple_module_core.access.permissions import PermissionCatalogue, PermissionRegistry
-from simple_module_hosting.app_builder import create_app
+from simple_module_hosting.boot.app_builder import create_app
 
 # Keys and registration snapshots captured before migration from origin/main
 # 7af3935aa79211a5ffe3817ce9de7fe5b192bd61, using git show on each module's

@@ -68,7 +68,7 @@ GrantSource = Callable[[Any, Any], Awaitable[Collection[str]]]
 How a module that stores grants of its own (``permissions``' per-user grants)
 gets them into the one set every check reads, without the framework importing
 it (SM009). Called once per authenticated request by
-``simple_module_hosting.permissions.resolve_principal_permissions``, so a
+``simple_module_hosting.auth.permissions.resolve_principal_permissions``, so a
 source that reads the database must cache: it sits on the hot path of every
 page load.
 """

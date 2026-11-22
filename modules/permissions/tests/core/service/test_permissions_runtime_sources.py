@@ -44,7 +44,7 @@ async def test_source_permission_listed_grantable_and_invalidated(
 
 
 async def test_source_permission_enforced_by_requires_permission(app: FastAPI):
-    from simple_module_hosting.permissions import resolved_permissions_for
+    from simple_module_hosting.auth.permissions import resolved_permissions_for
     from starlette.requests import Request
 
     registry = app.state.sm.permissions

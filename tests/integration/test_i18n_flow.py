@@ -13,7 +13,7 @@ from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 
 
 @pytest.fixture

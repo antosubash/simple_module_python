@@ -10,7 +10,7 @@ There are **three** separate settings surfaces in a running app. They serve diff
 
 ## Framework settings
 
-`Settings` (in `simple_module_hosting.settings`) combines `BootstrapSettings` (env-only, read before the DB is open) and `HostSettings`. The pre-DB knobs are a pydantic `BaseSettings` subclass:
+`Settings` (in `simple_module_hosting.config.settings`) combines `BootstrapSettings` (env-only, read before the DB is open) and `HostSettings`. The pre-DB knobs are a pydantic `BaseSettings` subclass:
 
 ```python
 class BootstrapSettings(BaseSettings):
@@ -42,7 +42,7 @@ explicit `_env_file` path or `_env_file=None` to disable dotenv loading.
 A host entry point can delegate the complete boot sequence:
 
 ```python
-from simple_module_hosting.host import build_host_app
+from simple_module_hosting.boot.host import build_host_app
 
 app = build_host_app(__file__, routers=("routes:router",))
 ```
@@ -84,7 +84,7 @@ save and by the existing cross-process settings invalidation/reload.
 Set `host.public_base_url` once for canonical URLs, account emails, copied
 account links and tenant invitations. Blank `users.base_url` (the new default)
 and blank `tenants.public_base_url` inherit it; explicit module origins still
-win. The shared `simple_module_hosting.public_urls.public_origin` helper never
+win. The shared `simple_module_hosting.pipeline.public_urls.public_origin` helper never
 uses the inbound Host header. With both values blank, copied and invitation links stay relative for
 fresh development installs. Account emails (password reset, verification,
 invitations) are skipped with an ERROR log naming `host.public_base_url` until an

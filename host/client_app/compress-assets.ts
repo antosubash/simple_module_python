@@ -19,7 +19,7 @@ import type { Plugin } from 'vite';
  * Uses Node's built-in zlib, so this adds no dependency.
  */
 
-// Matches COMPRESSION_MIN_BYTES in simple_module_hosting/_phase_helpers.py.
+// Matches COMPRESSION_MIN_BYTES in simple_module_hosting/boot/_phase_helpers.py.
 // Below this, the compressed framing costs more than it saves.
 const MIN_BYTES = 500;
 const COMPRESSIBLE = /\.(js|css|svg|json|map)$/;

@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
-from simple_module_hosting.i18n_deps import get_translator
+from simple_module_hosting.i18n.i18n_deps import get_translator
 
 from file_storage.backends.guard import BackendUnavailableError
 from file_storage.core import constants

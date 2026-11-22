@@ -13,7 +13,7 @@ import json
 import re
 
 import pytest
-from simple_module_hosting.manifest import write_module_pages_manifest
+from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 from simple_module_hosting.setup_wizard import PAGES_NAME, pages_dir
 
 pytestmark = pytest.mark.anyio

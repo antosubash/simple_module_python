@@ -9,7 +9,7 @@ class TestModulePagesManifest:
     async def test_compute_returns_existing_page_dirs(self):
         """Returns {ModuleName: Path} for installed modules that ship a pages/ dir."""
         from simple_module_core import discover_modules
-        from simple_module_hosting.manifest import compute_module_pages
+        from simple_module_hosting.frontend.manifest import compute_module_pages
 
         modules = discover_modules()
         result = compute_module_pages(modules)
@@ -24,7 +24,7 @@ class TestModulePagesManifest:
     async def test_compute_skips_modules_without_pages_dir(self, tmp_path, monkeypatch):
         """A module whose package has no pages/ dir is omitted (not an error)."""
         from simple_module_core import ModuleBase, ModuleMeta
-        from simple_module_hosting.manifest import compute_module_pages
+        from simple_module_hosting.frontend.manifest import compute_module_pages
 
         class HeadlessMod(ModuleBase):
             meta = ModuleMeta(name="Headless")
@@ -37,7 +37,7 @@ class TestModulePagesManifest:
         import json
 
         from simple_module_core import discover_modules
-        from simple_module_hosting.manifest import write_module_pages_manifest
+        from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 
         modules = discover_modules()
         written = write_module_pages_manifest(modules, tmp_path)

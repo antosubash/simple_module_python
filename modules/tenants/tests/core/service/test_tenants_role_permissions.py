@@ -16,7 +16,7 @@ from simple_module_core.access.tenancy import (
     is_tenant_role,
     tenant_role,
 )
-from simple_module_hosting.permissions import resolved_permissions_for
+from simple_module_hosting.auth.permissions import resolved_permissions_for
 from tenants.core.constants import ROLE_PERMISSIONS
 from users.models import Role
 

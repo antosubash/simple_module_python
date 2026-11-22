@@ -20,7 +20,7 @@ The module doesn't observe changes itself — the DB layer does. On `on_startup`
 
 The two-phase split is why integer-PK entities record the real id instead of an empty string. `AuditEntry` itself sets `__audit_exclude__ = True`, so writing audit rows doesn't recursively produce more audit rows.
 
-The `user_id` comes from the `current_user_id` ContextVar that `AuthMiddleware` sets per request; the `correlation_id` comes from `simple_module_core.runtime.correlation.correlation_id` (re-exported as `simple_module_hosting.logging.correlation_id`), which the request-logging middleware sets (both are `None` outside a request unless the caller sets them).
+The `user_id` comes from the `current_user_id` ContextVar that `AuthMiddleware` sets per request; the `correlation_id` comes from `simple_module_core.runtime.correlation.correlation_id` (re-exported as `simple_module_hosting.observability.logging.correlation_id`), which the request-logging middleware sets (both are `None` outside a request unless the caller sets them).
 
 ### Writes made by Celery tasks
 

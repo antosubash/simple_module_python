@@ -14,10 +14,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request, Response
 from simple_module_core.access.permissions import grants
 from simple_module_core.access.user_directory import get_user_directory
-from simple_module_hosting.pagination import PageParamsDep
-from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
-from simple_module_hosting.public_urls import public_origin
-from simple_module_hosting.token_guard import Authenticated
+from simple_module_hosting.auth.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.auth.token_guard import Authenticated
+from simple_module_hosting.frontend.pagination import PageParamsDep
+from simple_module_hosting.pipeline.public_urls import public_origin
 
 from tenants.contracts.schemas import (
     InvitationCreate,

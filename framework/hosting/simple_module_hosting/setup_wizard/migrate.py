@@ -14,10 +14,10 @@ from collections.abc import Generator
 
 from fastapi import HTTPException, Request
 
-from simple_module_hosting._deferred_startup import run_deferred_startup
-from simple_module_hosting._secret_key import SecretKeyUnavailableError
-from simple_module_hosting.data_compatibility import DataCompatibilityError
-from simple_module_hosting.setup_gate import is_first_run
+from simple_module_hosting.boot._deferred_startup import run_deferred_startup
+from simple_module_hosting.boot.data_compatibility import DataCompatibilityError
+from simple_module_hosting.config._secret_key import SecretKeyUnavailableError
+from simple_module_hosting.pipeline.setup_gate import is_first_run
 from simple_module_hosting.setup_wizard._migration_lock import migration_lock
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     from alembic.config import Config as AlembicConfig
     from simple_module_core.migrations.support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
 
-    from simple_module_hosting.migrations import (
+    from simple_module_hosting.boot.migrations import (
         ALEMBIC_DATABASE_URL_ATTRIBUTE,
         migration_status,
     )

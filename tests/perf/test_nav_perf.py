@@ -25,7 +25,7 @@ pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 
 # (label, href) — href must match the sidebar link's href exactly, and that
 # href must be the canonical path. Linking to a redirecting path would add a
-# round trip to every sample; framework/hosting/tests/test_menu_urls_are_canonical.py
+# round trip to every sample; framework/hosting/tests/pipeline/test_menu_urls_are_canonical.py
 # enforces that no menu URL redirects.
 ROUTES = (
     ("dashboard", "/dashboard/"),

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from itsdangerous import TimestampSigner
-from simple_module_hosting import _preapp_config
+from simple_module_hosting.config import _preapp_config
 
 from scripts import loadtest_seed
 

@@ -92,10 +92,10 @@ export function useOrderSchema() {
 
 ## Backend usage
 
-Inject `TranslatorDep` (from `simple_module_hosting.i18n_deps`) into an endpoint to get a `Translator` bound to `request.state.locale` (set by `LocaleMiddleware`). Call `t.t(key, **params)` — same `{name}` placeholders, and pass `count=` for CLDR pluralization:
+Inject `TranslatorDep` (from `simple_module_hosting.i18n.i18n_deps`) into an endpoint to get a `Translator` bound to `request.state.locale` (set by `LocaleMiddleware`). Call `t.t(key, **params)` — same `{name}` placeholders, and pass `count=` for CLDR pluralization:
 
 ```python
-from simple_module_hosting.i18n_deps import TranslatorDep
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 
 
 async def create(t: TranslatorDep):

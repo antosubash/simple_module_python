@@ -157,7 +157,7 @@ async def test_host_templates_render_sandboxed(tmp_path, captured_mail):
 
 
 async def test_startup_mailer_follows_live_host_origin(captured_mail):
-    from simple_module_hosting.host_settings import HostSettings
+    from simple_module_hosting.config.host_settings import HostSettings
 
     app = FastAPI()
     app.state.host = SimpleNamespace(settings=HostSettings(public_base_url="https://host.example"))

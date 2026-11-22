@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
 from simple_module_db import TenantIsolationError
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from simple_module_inertia import InertiaResponse
 
 from api_tokens.core.constants import (

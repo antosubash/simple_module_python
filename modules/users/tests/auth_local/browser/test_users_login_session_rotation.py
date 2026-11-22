@@ -3,7 +3,7 @@
 import pytest
 from _users_oauth_support import install_fake_provider, oauth_callback, seed_password_user
 from fastapi import Depends, Request
-from simple_module_hosting.csrf import CSRF_HEADER, RequiresCsrf, get_csrf_token
+from simple_module_hosting.auth.csrf import CSRF_HEADER, RequiresCsrf, get_csrf_token
 
 _INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 _PROBE = "/api/users/auth/rotation-probe"
@@ -116,7 +116,7 @@ async def test_demo_sign_in_rotates_token_and_restamps_marker(demo_app, demo_cli
 
 
 async def test_registered_gate_keys_survive_sign_in(users_app, anon_client):
-    from simple_module_hosting.session import preserve_across_sign_in
+    from simple_module_hosting.pipeline.session import preserve_across_sign_in
 
     preserve_across_sign_in(users_app, "gate_marker")
 

@@ -51,8 +51,8 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Imported after ``.env`` is in the environment, so nothing below can
     # resolve a setting before it is.
     from simple_module_hosting import merge_host_settings
-    from simple_module_hosting.installation import load_installation_id
-    from simple_module_hosting.leases import configure_process_leases
+    from simple_module_hosting.config.installation import load_installation_id
+    from simple_module_hosting.locking.leases import configure_process_leases
 
     from background_tasks.core.db_settings import worker_database_options
     from background_tasks.core.invalidation_channel import installation_channel

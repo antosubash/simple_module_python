@@ -19,14 +19,14 @@ def test_disabled_broadcasting_never_looks_up_identity(monkeypatch, channel):
         "background_tasks.core.sync_db.set_database_url",
         "background_tasks.core.sync_db.configure_database",
         "background_tasks.executions.tenant_context.set_default_tenant",
-        "simple_module_hosting.leases.configure_process_leases",
+        "simple_module_hosting.locking.leases.configure_process_leases",
         "background_tasks.logs.sink.install_log_sink",
     ):
         monkeypatch.setattr(target, lambda *a, **kw: None)
     monkeypatch.setattr("background_tasks.core.db_settings.worker_database_options", lambda *a: {})
     monkeypatch.setattr("background_tasks.worker.settings.load_runner_settings", lambda: settings)
     lookup = Mock(side_effect=RuntimeError("identity DB unavailable"))
-    monkeypatch.setattr("simple_module_hosting.installation.load_installation_id", lookup)
+    monkeypatch.setattr("simple_module_hosting.config.installation.load_installation_id", lookup)
     celery = SimpleNamespace(conf=SimpleNamespace())
     monkeypatch.setattr("background_tasks.worker.celery_app.build_celery", lambda cfg: celery)
     host.redis_url = None

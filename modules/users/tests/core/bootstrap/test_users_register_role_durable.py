@@ -11,7 +11,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from sqlalchemy import select
 
 EMAIL = "mailfail@example.com"

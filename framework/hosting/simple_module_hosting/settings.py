@@ -1,30 +1,13 @@
-"""The combined host settings object: ``HostSettings`` (DB-backed) + ``BootstrapSettings`` (env).
+"""Deprecated alias for simple_module_hosting.config.settings."""
 
-``Settings`` is the type most of the host and its tests use. Code that needs only
-the process-wiring half or only the DB-backed half may depend on
-``BootstrapSettings`` / ``HostSettings`` directly; this is not a deprecated shim.
-"""
+import sys
+from importlib import import_module
 
-from __future__ import annotations
+from simple_module_core.runtime.deprecation import deprecated_module
 
-import secrets
-
-from pydantic import PrivateAttr, model_validator
-from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
-
-from simple_module_hosting.bootstrap_settings import BootstrapSettings
-from simple_module_hosting.host_settings import HostSettings
-
-
-class Settings(HostSettings, BootstrapSettings):
-    """Combined bootstrap + host settings."""
-
-    _secret_key_ephemeral: bool = PrivateAttr(default=False)
-
-    @model_validator(mode="after")
-    def _require_resolved_root(self) -> Settings:
-        if not self.secret_key.strip():
-            if self.environment not in NON_PROD_ENVIRONMENTS:
-                raise ValueError("SM_SECRET_KEY resolved to an empty or whitespace-only root")
-            self.secret_key = secrets.token_urlsafe(48)
-        return self
+deprecated_module(
+    "simple_module_hosting.settings",
+    remove_in="0.0.52",
+    use="simple_module_hosting.config.settings",
+)
+sys.modules[__name__] = import_module("simple_module_hosting.config.settings")

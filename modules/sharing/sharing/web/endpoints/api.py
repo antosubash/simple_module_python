@@ -11,9 +11,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Request
 from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_core.access.user_directory import get_user_directory
-from simple_module_hosting.permissions import RequiresPermission
-from simple_module_hosting.rate_limit_deps import RateLimit
-from simple_module_hosting.resource_deps import resource_principal
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.auth.resource_deps import resource_principal
+from simple_module_hosting.rate_limit.rate_limit_deps import RateLimit
 
 from sharing.contracts.schemas import ShareCandidate, ShareGrant, ShareOut, ShareSubjectType
 from sharing.core.constants import CANDIDATES_DAILY_RATE, SUBJECT_USER, Permissions

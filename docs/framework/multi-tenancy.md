@@ -336,7 +336,7 @@ resolver fails every tenant-scoped query closed; the boot reports that as
 
 ## For module authors
 
-`simple_module_hosting.tenancy` answers the questions a module used to answer by
+`simple_module_hosting.pipeline.tenancy` answers the questions a module used to answer by
 reading the middleware stack or hardcoding `"default"` (#418):
 
 | Name | What it gives you |
@@ -354,7 +354,7 @@ binds what the middleware resolved and refuses the request when nothing was:
 
 ```python
 from fastapi import APIRouter, Depends, HTTPException
-from simple_module_hosting.tenancy import require_tenant
+from simple_module_hosting.pipeline.tenancy import require_tenant
 
 # Admin surface: no tenant is a 403 {"detail": "tenant_required"}.
 admin = APIRouter(dependencies=[Depends(require_tenant())])
@@ -514,7 +514,7 @@ ambient session default.
 
 A resolver may return `str | None` (source `resolver`), a
 `(tenant_id, source)` pair, or `TenantResolution(tenant_id, source, vary)` from
-`simple_module_hosting.middleware`. `vary` lists the request headers the answer
+`simple_module_hosting.pipeline.middleware`. `vary` lists the request headers the answer
 depended on; the middleware merges them into the response `Vary` (existing
 entries are kept, duplicates are dropped case-insensitively, `Vary: *` is left
 alone). The `tenants` resolver reports `Host` when subdomains are enabled and

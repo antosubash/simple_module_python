@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from simple_module_db.scoping.query_filter import strict_configured
-from simple_module_hosting.i18n_deps import TranslatorDep
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 
 from file_storage.core import constants
 from file_storage.core.scope import PLATFORM_TENANT_ID

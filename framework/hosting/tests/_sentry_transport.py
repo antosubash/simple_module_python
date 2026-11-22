@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from sentry_sdk.transport import Transport
-from simple_module_hosting import sentry as sm_sentry
+from simple_module_hosting.observability import sentry as sm_sentry
 
 DSN_KEY = "dsnpublickey0123"
 DSN = f"https://{DSN_KEY}@o0.ingest.sentry.io/1"

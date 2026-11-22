@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from simple_module_db.engine.session import DatabaseState
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.config.settings import Settings
     from simple_module_inertia import InertiaConfig
 
     from simple_module_core.access.permissions import PermissionRegistry

@@ -81,7 +81,7 @@ def test_scaffolded_keys_typecheck(tmp_path, require_cli_asset, app_catalog):
     (dest / "node_modules").symlink_to(root / "node_modules", target_is_directory=True)
     if app_catalog:
         from simple_module_core.localization.i18n import I18nRegistry
-        from simple_module_hosting.i18n_manifest import write_generated_resources
+        from simple_module_hosting.i18n.i18n_manifest import write_generated_resources
 
         registry = I18nRegistry(default_locale="en", supported_locales=["en"])
         registry.add_source("orders", dest / "orders/locales")

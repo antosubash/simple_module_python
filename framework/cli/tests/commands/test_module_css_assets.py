@@ -8,7 +8,7 @@ from pathlib import Path
 class TestComputeModuleAssets:
     async def test_detects_theme_and_styles(self, make_importable_module):
         """A module shipping theme.css/styles.css has both detected."""
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("styled_mod", "Styled")
         (pkg / "pages").mkdir()
@@ -26,7 +26,7 @@ class TestComputeModuleAssets:
 
     async def test_detects_components_dir(self, make_importable_module):
         """components/ is discovered so its widget classes reach Tailwind."""
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("widget_mod", "Widget")
         (pkg / "components").mkdir()
@@ -40,7 +40,7 @@ class TestComputeModuleAssets:
 
     async def test_css_only_module_is_included(self, make_importable_module):
         """A module with CSS but no pages/ still appears — the manifest.json gap."""
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, pkg = make_importable_module("cssonly_mod", "CssOnly")
         (pkg / "styles.css").write_text(".y { color: blue; }\n", encoding="utf-8")
@@ -54,7 +54,7 @@ class TestComputeModuleAssets:
 
     async def test_module_with_no_assets_is_omitted(self, make_importable_module):
         """A module contributing nothing frontend-ish is skipped, not an error."""
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         mod, _pkg = make_importable_module("headless_mod", "Headless")
 
@@ -63,7 +63,7 @@ class TestComputeModuleAssets:
     async def test_preserves_discovery_order(self):
         """Order follows discover_modules() (topological), not alphabetical."""
         from simple_module_core import discover_modules
-        from simple_module_hosting.assets import compute_module_assets
+        from simple_module_hosting.frontend.assets import compute_module_assets
 
         modules = discover_modules()
         result = compute_module_assets(modules)
@@ -75,7 +75,7 @@ class TestComputeModuleAssets:
 
 def _assets(tmp_path: Path, **overrides):
     """Build a single ModuleAssets entry with sensible defaults."""
-    from simple_module_hosting.assets import ModuleAssets
+    from simple_module_hosting.frontend.assets import ModuleAssets
 
     defaults = {
         "name": "Gis",
@@ -91,7 +91,7 @@ def _assets(tmp_path: Path, **overrides):
 class TestCssEmission:
     async def test_styles_layered_theme_unlayered(self, tmp_path):
         """theme.css imports unlayered; styles.css imports into layer(components)."""
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         theme = tmp_path / "gis" / "theme.css"
         styles = tmp_path / "gis" / "styles.css"
@@ -105,7 +105,7 @@ class TestCssEmission:
 
     async def test_source_skips_in_repo_but_import_does_not(self, tmp_path):
         """@source is wheel-only; @import is emitted for every module."""
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         styles = tmp_path / "local" / "styles.css"
         entry = _assets(
@@ -122,7 +122,7 @@ class TestCssEmission:
 
     async def test_source_emitted_for_wheel_modules(self, tmp_path):
         """A wheel-installed module gets an absolute @source glob."""
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         pages = tmp_path / "gis" / "pages"
         css = render_modules_css([_assets(tmp_path, pages_dir=pages)], in_repo=lambda _p: False)
@@ -138,7 +138,7 @@ class TestCssEmission:
         `lib/python3.x/site-packages` — and Tailwind drops a non-matching glob
         silently, so every widget class vanished from the build on Windows.
         """
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         pages = tmp_path / "gis" / "pages"
         components = tmp_path / "gis" / "components"
@@ -150,7 +150,7 @@ class TestCssEmission:
 
     async def test_components_only_module_still_emits_source(self, tmp_path):
         """A module shipping widgets but no pages/ or CSS is not skipped."""
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         components = tmp_path / "gis" / "components"
         css = render_modules_css(
@@ -161,14 +161,14 @@ class TestCssEmission:
 
     async def test_in_repo_components_are_not_sourced(self, tmp_path):
         """In-repo components are already covered by the host's static glob."""
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         entry = _assets(tmp_path, components_dir=tmp_path / "local" / "components")
         assert "@source" not in render_modules_css([entry], in_repo=lambda _p: True)
 
     async def test_module_without_css_emits_no_import(self, tmp_path):
         """Pages-only modules contribute @source but no @import."""
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         entry = _assets(tmp_path, pages_dir=tmp_path / "gis" / "pages")
         css = render_modules_css([entry], in_repo=lambda _p: False)
@@ -184,7 +184,7 @@ class TestCssEmission:
         happens to live). Nothing enforces tidiness here but this test, and a
         file humans read when debugging a missing style should stay readable.
         """
-        from simple_module_hosting.assets import render_modules_css
+        from simple_module_hosting.frontend.assets import render_modules_css
 
         for entry in (
             _assets(tmp_path, styles_css=tmp_path / "gis" / "styles.css"),
@@ -210,7 +210,7 @@ class TestCssEmission:
         independently versionable.
         """
         from simple_module_core import discover_modules
-        from simple_module_hosting.manifest import write_module_pages_manifest
+        from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 
         written = write_module_pages_manifest(discover_modules(), tmp_path)
         css = written["css"].read_text(encoding="utf-8")
@@ -233,7 +233,7 @@ class TestAssetsManifest:
         import json
 
         from simple_module_core import discover_modules
-        from simple_module_hosting.manifest import write_module_pages_manifest
+        from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 
         written = write_module_pages_manifest(discover_modules(), tmp_path)
 
@@ -266,7 +266,7 @@ class TestAssetsManifest:
         import json
 
         from simple_module_core import discover_modules
-        from simple_module_hosting.manifest import write_module_pages_manifest
+        from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 
         write_module_pages_manifest(discover_modules(), tmp_path)
 

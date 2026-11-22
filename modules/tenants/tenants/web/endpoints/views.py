@@ -9,9 +9,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from simple_module_core.access.permissions import grants
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.pagination import LenientPageParamsDep
-from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.auth.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.pagination import LenientPageParamsDep
 from simple_module_inertia import InertiaResponse
 
 from tenants.core.constants import (

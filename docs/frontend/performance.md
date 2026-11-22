@@ -134,7 +134,7 @@ diffs) for the detail page.
 A list that grows with the data is paginated on the server, 20–50 rows a
 page. `paginate()` (`simple_module_db.queries.pagination`) runs the count and the
 page, and clamps a page past the end; `lenient_page_params()`
-(`simple_module_hosting.pagination`) turns a hand-edited `?page=` into a
+(`simple_module_hosting.frontend.pagination`) turns a hand-edited `?page=` into a
 default instead of a 422; `PaginationBar` renders the control. For a feed the
 user scrolls, use `scroll()` with Inertia's infinite scroll instead of pages.
 

@@ -116,7 +116,7 @@ If you need a specific relative order, express it with `ModuleMeta.depends_on`. 
 
 ## Settings
 
-Framework settings live on `Settings` (`simple_module_hosting.settings`), which
+Framework settings live on `Settings` (`simple_module_hosting.config.settings`), which
 is `HostSettings` + `BootstrapSettings`. Both read the `SM_` prefix, but they
 differ in where the *value* comes from.
 
@@ -369,7 +369,7 @@ way.
 
 ### Shared props
 
-`InertiaLayoutDataMiddleware` prepares these lazily; page and error rendering resolve them once (`await resolve_inertia_shared(request)`, from `simple_module_hosting.inertia_deps`) into `request.state.inertia_shared`:
+`InertiaLayoutDataMiddleware` prepares these lazily; page and error rendering resolve them once (`await resolve_inertia_shared(request)`, from `simple_module_hosting.frontend.inertia_deps`) into `request.state.inertia_shared`:
 
 - `auth.user`, `auth.isAuthenticated`, `auth.permissions` (expanded from roles).
 - `menus` — grouped by `MenuSection` (sidebar, adminSidebar, navbar, userDropdown), role-filtered.
@@ -407,7 +407,7 @@ way.
 
 The framework does not know the shape of `auth.user`. The `auth` module registers a `principal_serializer: Callable[[UserContext], dict]` on `app.state.principal_serializer` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
 
-Use `InertiaDep` from `simple_module_hosting.inertia_deps` — it attaches the shared data automatically.
+Use `InertiaDep` from `simple_module_hosting.frontend.inertia_deps` — it attaches the shared data automatically.
 
 ## Permissions
 
@@ -432,7 +432,7 @@ Enforce with the `RequiresPermission` dependency:
 async def create_order(...): ...
 ```
 
-`DEFAULT_ROLE_PERMISSIONS` in `simple_module_hosting.permissions` ships only `admin: ["*"]`. Host apps configure their own role → permission map; the framework does not know about plugin permission strings.
+`DEFAULT_ROLE_PERMISSIONS` in `simple_module_hosting.auth.permissions` ships only `admin: ["*"]`. Host apps configure their own role → permission map; the framework does not know about plugin permission strings.
 
 ## Authentication extension points
 
@@ -452,7 +452,7 @@ or `simple-module-keycloak` (Keycloak OIDC). Both implement the `AuthProvider`
 protocol from `auth.contracts.provider`.
 
 **Module authors never import from `users` or `keycloak` directly.** Use only:
-- `from auth.web.deps import CurrentUser` and `from simple_module_hosting.permissions import RequiresPermission`
+- `from auth.web.deps import CurrentUser` and `from simple_module_hosting.auth.permissions import RequiresPermission`
 - `from auth.contracts.schemas import UserContext`
 
 The `AuthMiddleware` (in `auth/web/middleware.py`) delegates to the active provider's
@@ -520,7 +520,7 @@ The framework baseline is `SameSite=Lax` on the session cookie. Modules that
 want defence in depth opt into a session-bound token check per router:
 
 ```python
-from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+from simple_module_hosting.auth.csrf import RequiresCsrf, get_csrf_token
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
 # expose the token to the frontend as a view prop:
@@ -534,7 +534,7 @@ test apps) are exempt.
 Signing in through users (password, OAuth, invite acceptance or demo) clears
 and rebuilds the signed-cookie session, preserving only the pending login
 redirect and any key a module registered with
-`simple_module_hosting.session.preserve_across_sign_in(app, key)` (browser-bound
+`simple_module_hosting.pipeline.session.preserve_across_sign_in(app, key)` (browser-bound
 gate state such as the site-lock unlock marker). Locale lives in a separate cookie. This discards the pre-login CSRF
 token and cached principal; the next Inertia render supplies a fresh
 `csrfToken` shared prop. Clients must read that prop again after sign-in.

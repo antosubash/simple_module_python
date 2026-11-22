@@ -4,8 +4,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Request
 from pydantic import ValidationError, field_validator
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_utils import (
+    redirect_back_with_errors,
+    validation_errors_to_dict,
+)
 from sqlmodel import Field, SQLModel
 from starlette.responses import RedirectResponse
 

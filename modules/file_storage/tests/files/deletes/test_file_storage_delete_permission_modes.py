@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from file_storage.core.constants import Permission
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 
 
 def test_user_lacks_delete_when_multi_tenant(app):

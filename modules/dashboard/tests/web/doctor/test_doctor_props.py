@@ -161,7 +161,7 @@ class TestChecks:
 
 class TestMigrations:
     async def test_rows_come_from_the_alembic_script_directory(self, authenticated_client) -> None:
-        from simple_module_hosting.migrations import list_migrations
+        from simple_module_hosting.boot.migrations import list_migrations
 
         props = await _props(authenticated_client)
 

@@ -36,7 +36,7 @@ checkers, not a framework runtime lookup.
 
 | Root entry | Consumer (file:line) and reason |
 | --- | --- |
-| `__init__.py` | Python package import; `framework/hosting/simple_module_hosting/assets.py:117` uses `importlib.resources.files(pkg_name)` to find it. |
+| `__init__.py` | Python package import; `framework/hosting/simple_module_hosting/frontend/assets.py:117` uses `importlib.resources.files(pkg_name)` to find it. |
 | `__main__.py` | Optional Python module entry point for `python -m <package>` administration commands. |
 | `py.typed` | PEP 561 consumers; `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:33` selects the whole package for the wheel, including this marker. |
 | `module.py` | `framework/core/simple_module_core/modules/discovery.py:80` loads the `simple_module` entry point; the scaffold declares its target in `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:15`. |
@@ -44,10 +44,10 @@ checkers, not a framework runtime lookup.
 | `tasks.py` | `modules/background_tasks/background_tasks/worker/celery_app.py:215` autodiscovers with `related_name="tasks"`; `framework/core/simple_module_core/diagnostics/_heavy_task_imports.py:65` checks this root file (SM028). |
 | `task_config.py` | `modules/background_tasks/background_tasks/worker/task_routing.py:46` imports `<package>.task_config` for a module's Celery routes and beat schedule. |
 | `contracts/` | Public imports for sibling modules; the scaffold consumer is `framework/cli/simple_module_cli/templates/module/__PACKAGE__/web/service.py.tpl:15`. Keep public SQLModel DTOs, events and real extension contracts here. |
-| `pages/` | `framework/hosting/simple_module_hosting/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
+| `pages/` | `framework/hosting/simple_module_hosting/frontend/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/frontend/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
 | `pages/api.generated.ts` | `framework/cli/simple_module_cli/tooling/openapi_types.py` selects the root pages directory and generates API types plus the `api` client. Optional `pages/api.ts` holds custom client logic only. |
 | `locales/` | The default `ModuleBase.locale_dirs()` in `framework/core/simple_module_core/modules/module.py` discovers the root directory automatically; scaffolds emit locale JSON without a hook override. |
-| `theme.css`, `styles.css` | `framework/hosting/simple_module_hosting/assets.py:126` discovers both; `framework/core/simple_module_core/diagnostics/_css.py:171` and `framework/core/simple_module_core/diagnostics/_css.py:193` check their different cascade rules (SM022/SM023). |
+| `theme.css`, `styles.css` | `framework/hosting/simple_module_hosting/frontend/assets.py:126` discovers both; `framework/core/simple_module_core/diagnostics/_css.py:171` and `framework/core/simple_module_core/diagnostics/_css.py:193` check their different cascade rules (SM022/SM023). |
 | `cli.py` | Only when a declared entry point targets it: `framework/cli/simple_module_cli/commands/plugins.py:41` loads CLI plugins. |
 
 Other root files and folders are legacy exceptions, tracked explicitly by

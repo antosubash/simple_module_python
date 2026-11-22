@@ -46,7 +46,7 @@ def test_scripts_entrypoint_preserves_stored_root_on_restarts(tmp_path: Path):
     command = [
         "python",
         "-c",
-        "from simple_module_hosting._secret_key import ensure_secret_key; "
+        "from simple_module_hosting.config._secret_key import ensure_secret_key; "
         "print(ensure_secret_key('unused', stored='stored-root-key', strict=True))",
     ]
     for _ in range(2):

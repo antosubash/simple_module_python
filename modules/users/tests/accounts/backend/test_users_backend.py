@@ -76,8 +76,8 @@ def test_build_auth_backend_strategy_is_database_strategy():
     ],
 )
 async def test_auth_cookie_uses_the_host_session_policy(explicit, environment, expected):
-    from simple_module_hosting.auth_policy import session_cookie_is_secure
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.auth.auth_policy import session_cookie_is_secure
+    from simple_module_hosting.config.settings import Settings
     from users.accounts.backend import (
         build_auth_backend,
         build_cookie_transport,

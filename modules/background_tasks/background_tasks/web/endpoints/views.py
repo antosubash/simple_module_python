@@ -6,9 +6,9 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_db.queries.pagination import PageParams
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.pagination import lenient_page_params
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.pagination import lenient_page_params
 from simple_module_inertia import InertiaResponse, defer
 
 from background_tasks.core.constants import PLATFORM_TENANT_FILTER, Permissions, TaskStatus

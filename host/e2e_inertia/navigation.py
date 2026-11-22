@@ -3,7 +3,7 @@
 from html import escape
 
 from fastapi import APIRouter, Request
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from host.e2e_inertia.constants import PAGE_REDIRECTS, ROUTE_PREFIX

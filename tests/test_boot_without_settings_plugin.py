@@ -15,7 +15,7 @@ _EXCLUDED = {"Settings", "Branding", "Mail"}
 
 
 async def test_boot_without_settings_plugin_hydrates_from_db(settings) -> None:
-    from simple_module_hosting.app_builder import create_app
+    from simple_module_hosting.boot.app_builder import create_app
     from simple_module_test._schema import _create_all_tables
 
     enabled = [m.meta.name for m in discover_modules() if m.meta.name not in _EXCLUDED]

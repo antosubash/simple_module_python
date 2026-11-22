@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_hosting.inertia_deps import INERTIA_HEADER
+from simple_module_hosting.frontend.inertia_deps import INERTIA_HEADER
 
 from branding.core.constants import (
     ASSET_VERSION_QUERY_KEY,
