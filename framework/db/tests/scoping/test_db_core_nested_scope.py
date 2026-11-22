@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from _core_scope_models import _rows, link, make_strict, plain, seeded, soft, tag
 from simple_module_db.scoping.tenancy import TenantIsolationError
-from simple_module_test.database import database_is_postgres
+from simple_module_test.db.database import database_is_postgres
 from sqlalchemy import (
     and_,
     delete,

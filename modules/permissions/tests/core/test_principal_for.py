@@ -10,7 +10,7 @@ from permissions.models import RolePermission, UserPermission
 from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_core.access.tenancy import TenantRole, tenant_role
 from simple_module_hosting.auth.resource_deps import resource_principal
-from simple_module_test.tenant_client import create_user, session_client
+from simple_module_test.web.tenant_client import create_user, session_client
 from sqlalchemy import delete
 from tenants.models import Membership, Tenant
 from tenants.resolution.resolver import forget
@@ -75,7 +75,7 @@ async def test_request_parity(app, tenant_client, case):
 
 @pytest.fixture
 async def single_app(settings):
-    from simple_module_test.fixtures import _build_app
+    from simple_module_test.app.fixtures import _build_app
 
     settings.multi_tenant = False
     settings.default_tenant = "single"

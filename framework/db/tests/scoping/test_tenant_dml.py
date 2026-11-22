@@ -13,7 +13,7 @@ from _models import _TenantBase, _TenantItem
 from simple_module_db import TenantIsolationError, all_tenants, tenant_context
 from simple_module_db.engine.session import init_db
 from simple_module_db.models.listeners import register_listeners
-from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
+from simple_module_test.db.database import database_url_for_tests, init_db_kwargs, reset_schema
 from sqlalchemy import exists, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased

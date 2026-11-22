@@ -121,7 +121,7 @@ class TestCreateApp:
         """
         from simple_module_core import ModuleBase, ModuleMeta
         from simple_module_hosting.boot import app_builder
-        from simple_module_test.fixtures import _create_all_tables, _seed_setup_admin
+        from simple_module_test.app.fixtures import _create_all_tables, _seed_setup_admin
 
         class FakeGisMod(ModuleBase):
             meta = ModuleMeta(name="FakeGis", route_prefix="/api/fakegis")

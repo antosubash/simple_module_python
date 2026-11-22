@@ -26,7 +26,7 @@ from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.util import LRUCache
 
-from simple_module_test._sqlite_template import is_memory_sqlite
+from simple_module_test.db._sqlite_template import is_memory_sqlite
 
 # Engine options that change only how a connection is opened or logged, not the
 # dialect, so engines differing in them can share one.

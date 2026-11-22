@@ -8,7 +8,7 @@ import pytest
 from simple_module_db import SoftDeleteMixin, create_module_base
 from simple_module_db.engine.session import init_db
 from simple_module_db.models.listeners import register_listeners
-from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
+from simple_module_test.db.database import database_url_for_tests, init_db_kwargs, reset_schema
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field

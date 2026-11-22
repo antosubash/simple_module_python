@@ -12,7 +12,7 @@ from simple_module_core.access.resources import ACTION_SHARE, ACTION_VIEW, Resou
 from simple_module_core.access.tenancy import TenantRole
 from simple_module_core.access.user_directory import DirectoryUser, set_user_directory
 from simple_module_db.queries.resource_policy import OwnedResourcePolicy, select_by_id
-from simple_module_test.tenant_client import session_client
+from simple_module_test.web.tenant_client import session_client
 
 SHARES = "/api/sharing/shares"
 INERTIA = {"X-Inertia": "true", "Accept": "application/json"}

@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from itsdangerous import TimestampSigner
-from simple_module_test.session_cookie import forge_session_cookie
+from simple_module_test.web.session_cookie import forge_session_cookie
 
 _INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 

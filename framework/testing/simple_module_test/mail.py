@@ -1,39 +1,13 @@
-"""Mail fixtures: capture what the app sends, and never leak a sender between tests.
+"""Deprecated alias for simple_module_test.fakes.mail."""
 
-The process mail sender (``simple_module_core.mailer.mail``) is module-level state that
-an app's ``mail`` module installs on startup, so a test that boots an app would
-otherwise hand its SMTP sender to the next test in the same worker.
-"""
+import sys
+from importlib import import_module
 
-from __future__ import annotations
+from simple_module_core.runtime.deprecation import deprecated_module
 
-from collections.abc import Iterator
-
-import pytest
-from simple_module_core.mailer.mail import MailMessage, install_mail_sender
-
-
-class CapturedMail:
-    """A sender that records every message instead of sending it."""
-
-    def __init__(self, *, delivers_email: bool = True) -> None:
-        self.delivers_email = delivers_email
-        self.messages: list[MailMessage] = []
-
-    async def send(self, message: MailMessage) -> None:
-        self.messages.append(message)
-
-    def to(self, address: str) -> list[MailMessage]:
-        return [m for m in self.messages if m.to == address]
-
-
-@pytest.fixture
-def captured_mail() -> Iterator[CapturedMail]:
-    """Install a recording sender that claims to deliver; yields it.
-
-    Installed after any app fixture requested before it has started, so it wins
-    over the ``mail`` module's sender, including after settings reloads.
-    """
-    captured = CapturedMail()
-    install_mail_sender(captured)
-    yield captured
+deprecated_module(
+    "simple_module_test.mail",
+    remove_in="0.0.52",
+    use="simple_module_test.fakes.mail",
+)
+sys.modules[__name__] = import_module("simple_module_test.fakes.mail")

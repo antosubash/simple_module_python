@@ -15,7 +15,7 @@ from settings.core.service import SettingService
 from simple_module_db.engine.session import init_db
 from simple_module_db.models.listeners import register_listeners
 from simple_module_db.queries.stored_settings import Base, Setting
-from simple_module_test.database import (
+from simple_module_test.db.database import (
     database_url_for_tests,
     init_db_kwargs,
     is_sqlite,

@@ -16,7 +16,7 @@ import pytest
 from simple_module_core.web.setup_steps import SetupAction, SetupRegistry, SetupStep
 from simple_module_hosting.pipeline.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard import report_unactionable_steps
-from simple_module_test.setup_wizard import post_step, wizard_client, wizard_headers
+from simple_module_test.web.setup_wizard import post_step, wizard_client, wizard_headers
 
 pytestmark = pytest.mark.anyio
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_test import assert_module_layout
+from simple_module_test.app.layout import assert_module_layout
 
 MODULES = Path(__file__).resolve().parents[2] / "modules"
 # Add named domain areas here only when they contain several related features.

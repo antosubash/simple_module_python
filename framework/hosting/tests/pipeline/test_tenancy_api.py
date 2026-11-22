@@ -16,7 +16,7 @@ from simple_module_hosting.pipeline.tenancy import (
     tenancy_mode,
     tenant_vary,
 )
-from simple_module_test.fixtures import _build_app
+from simple_module_test.app.fixtures import _build_app
 from sqlmodel import Field, select
 
 _Base = create_module_base("tenancy_api_test")

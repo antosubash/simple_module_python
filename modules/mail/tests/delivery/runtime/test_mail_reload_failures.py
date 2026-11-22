@@ -16,7 +16,7 @@ from simple_module_core.mailer import mail as core_mail
 from simple_module_core.settings.module_settings import register_module_settings
 from simple_module_core.settings.settings_base import DbBackedSettings
 from simple_module_core.web.health import HealthStatus
-from simple_module_test.mail import CapturedMail
+from simple_module_test.fakes.mail import CapturedMail
 
 
 class ProviderSettings(DbBackedSettings):

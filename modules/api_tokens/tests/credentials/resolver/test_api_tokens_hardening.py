@@ -25,7 +25,7 @@ from _api_tokens_support import (
     join_tenant,
     make_admin,
 )
-from simple_module_test.tenant_client import create_user
+from simple_module_test.web.tenant_client import create_user
 
 MEMBERS_URL = "/api/tenants/current/members"
 

@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from simple_module_test import inertia_headers
-from simple_module_test.setup_wizard import wizard_client
-from simple_module_test.tenant_client import session_client
+from simple_module_test.web.setup_wizard import wizard_client
+from simple_module_test.web.tenant_client import session_client
 
 
 @pytest.mark.parametrize("version", ["build", lambda: "computed"])

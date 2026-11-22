@@ -8,8 +8,8 @@ from simple_module_hosting import replace_middleware
 from simple_module_hosting.auth.csrf import CSRF_HEADER, RequiresCsrf, get_csrf_token
 from simple_module_hosting.boot.app_builder import create_app
 from simple_module_hosting.pipeline.session import SessionMiddleware
-from simple_module_test._schema import _create_all_tables
-from simple_module_test.fixtures import _seed_setup_admin
+from simple_module_test.app.fixtures import _seed_setup_admin
+from simple_module_test.db._schema import _create_all_tables
 from starlette.datastructures import MutableHeaders
 from starlette.middleware import Middleware
 from starlette.requests import HTTPConnection
