@@ -151,9 +151,12 @@ class RedisLeaseBackend:
             if record.closed or record.future is not cf:
                 return
             owner = record.loop_ref()
-            foreign_owner = record.pid != os.getpid() or owner is not asyncio.get_running_loop()
+            forked = record.pid != os.getpid()
+            foreign_owner = forked or owner is not asyncio.get_running_loop()
         try:
-            await close_redis_client(record.client, foreign_owner=foreign_owner)
+            await close_redis_client(
+                record.client, owner_loop=owner, foreign_owner=foreign_owner, forked=forked
+            )
         except BaseException as exc:
             with self._lock:
                 self._clear_pending_locked(record, cf)
