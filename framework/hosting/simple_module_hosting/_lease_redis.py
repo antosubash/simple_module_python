@@ -24,6 +24,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import Any
 
+from simple_module_hosting._lease_redis_close import close_redis_client
 from simple_module_hosting._lease_redis_scripts import (
     _ACQUIRE,
     _REFRESH,
@@ -47,15 +48,6 @@ _SEM_FENCE_PREFIX = "sm:sem:f:"
 
 def _ms(ttl: float) -> int:
     return max(1, int(ttl * 1000))
-
-
-async def _close_client(client: Any) -> None:
-    try:
-        close = getattr(client, "aclose", None) or client.close
-        await close()
-    except Exception as exc:
-        logger.warning("Redis lease client close failed (%s)", type(exc).__name__)
-        raise
 
 
 @dataclass(eq=False)
@@ -158,8 +150,10 @@ class RedisLeaseBackend:
         with self._lock:
             if record.closed or record.future is not cf:
                 return
+            owner = record.loop_ref()
+            dead_owner = record.pid != os.getpid() or owner is None or owner.is_closed()
         try:
-            await _close_client(record.client)
+            await close_redis_client(record.client, dead_owner=dead_owner)
         except BaseException as exc:
             with self._lock:
                 self._clear_pending_locked(record, cf)

@@ -111,3 +111,48 @@ def test_eager_task_factory_closes_and_retires_without_deadlock():
         assert backend._records == []
 
     asyncio.run(run())
+
+
+def test_closed_owner_real_redis_transport_releases_socket_without_errors():
+    import socket
+
+    import redis.asyncio as aioredis
+    from simple_module_hosting._lease_redis import RedisLeaseBackend
+
+    s1, s2 = socket.socketpair()
+    created = []
+
+    def factory():
+        client = aioredis.from_url("redis://localhost:6379/0")
+        created.append(client)
+        return client
+
+    backend = RedisLeaseBackend("redis://localhost:6379/0", factory=factory)
+
+    async def open_on_first_loop():
+        client = backend._redis()
+        conn = client.connection_pool.make_connection()
+        reader, writer = await asyncio.open_connection(sock=s1)
+        conn._reader = reader
+        conn._writer = writer
+        conn._parser._stream = reader
+        client.connection_pool._available_connections.append(conn)
+        return conn
+
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ResourceWarning)
+            conn = asyncio.run(open_on_first_loop())
+            pool = created[0].connection_pool
+            assert s1.fileno() != -1
+            asyncio.run(backend.aclose())
+            assert conn._parser._stream is None
+            assert pool._available_connections == []
+            assert pool._in_use_connections == set()
+            del conn, pool, created[:]
+            gc.collect()
+        assert backend._records == []
+        assert s1.fileno() == -1
+        assert not [w for w in caught if issubclass(w.category, ResourceWarning)]
+    finally:
+        s2.close()
