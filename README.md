@@ -134,8 +134,11 @@ bundle rather than a Vite dev server. Useful overrides:
 it wants a broker: a queue means a second process and a Redis, which is the
 opposite of a standalone image. `docker-compose.yml`'s `worker` / `beat`
 services cover that path: they build `docker/worker.Dockerfile` against the
-shared `../dev-services` Postgres + Redis on the external `devnet` network. To
-run tasks from the web process instead, drop the `--no-install-package` flag
+shared `../dev-services` Postgres + Redis on the external `devnet` network.
+Both services pin `SM_REDIS_URL`, `SM_BG_TASKS_BROKER_URL` and
+`SM_BG_TASKS_RESULT_BACKEND` to `redis://redis:6379/4`, overriding legacy
+localhost values in the host `.env`.
+To run tasks from the web process instead, drop the `--no-install-package` flag
 from the Dockerfile and set `SM_REDIS_URL`.
 
 ## Create a new module
