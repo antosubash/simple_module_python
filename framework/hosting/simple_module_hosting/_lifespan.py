@@ -83,10 +83,14 @@ class _LeaseTracker:
 def _reset_forked_trackers() -> None:
     global _LEASE_OWNERS_LOCK
     _LEASE_OWNERS_LOCK = threading.Lock()
+    # A vanished thread may have appended a backend before incrementing its count.
+    _LEASE_OWNERS.clear()
     for ref in tuple(_TRACKERS):
         tracker = ref()
         if tracker is not None:
             tracker.reset_after_fork()
+            for backend in tracker.tracked:
+                _LEASE_OWNERS[id(backend)] = _LEASE_OWNERS.get(id(backend), 0) + 1
 
 
 if hasattr(os, "register_at_fork"):
@@ -112,6 +116,15 @@ async def _close_resource(resource: object) -> None:
             logger.warning("Could not close %s (%s)", type(resource).__name__, type(exc).__name__)
 
 
+async def _close_unless_reowned(backend: object) -> None:
+    # Closing is async, so another lifespan may have started on this backend
+    # after release(); it is then that lifespan's to close.
+    with _LEASE_OWNERS_LOCK:
+        if id(backend) in _LEASE_OWNERS:
+            return
+    await _close_resource(backend)
+
+
 def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
@@ -128,7 +141,7 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
                 track(get_leases())
                 async with AsyncExitStack() as resource_cleanup:
                     for backend in tracker.release():
-                        resource_cleanup.push_async_callback(_close_resource, backend)
+                        resource_cleanup.push_async_callback(_close_unless_reowned, backend)
                     resource_cleanup.push_async_callback(
                         _close_resource, getattr(app.state.sm, "rate_limit_store", None)
                     )

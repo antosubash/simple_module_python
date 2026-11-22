@@ -1,5 +1,9 @@
 """Overlapping apps share ownership of process-global lease backends (#1102)."""
 
+import asyncio
+import os
+import subprocess
+import sys
 from contextlib import AsyncExitStack
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -78,3 +82,102 @@ async def test_prebuilt_apps_keep_ownership_of_the_backends_they_installed(monke
             pass
 
     assert first.close_count == second.close_count == 1
+
+
+async def test_lifespan_started_during_another_shutdown_keeps_the_backend(monkeypatch):
+    monkeypatch.setattr(_lifespan, "migration_status", AsyncMock(return_value={"is_current": True}))
+    monkeypatch.setattr(_lifespan, "hydrate_settings_from_db", AsyncMock())
+    backend = Backend()
+    configure_leases(backend)
+    closing, resume = asyncio.Event(), asyncio.Event()
+
+    class PausingStore:
+        async def aclose(self):
+            closing.set()
+            await resume.wait()
+
+    first, second = FastAPI(), FastAPI()
+    first.state.sm = SimpleNamespace(
+        db=SimpleNamespace(engine=object()), rate_limit_store=PausingStore()
+    )
+    second.state.sm = SimpleNamespace(db=SimpleNamespace(engine=object()))
+    first_cm = _lifespan.build_lifespan([], dispose_database=False)(first)
+    await first_cm.__aenter__()
+    shutdown = asyncio.create_task(first_cm.__aexit__(None, None, None))
+    await closing.wait()
+
+    async with _lifespan.build_lifespan([], dispose_database=False)(second):
+        resume.set()
+        await shutdown
+        assert backend.close_count == 0
+        async with lease("second-app", ttl=10, blocking=False):
+            pass
+
+    assert backend.close_count == 1
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="requires os.fork")
+def test_fork_during_owner_registration_still_closes_all_backends():
+    probe = """
+import asyncio, os, signal, threading
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from fastapi import FastAPI
+from simple_module_core.leases import configure_leases
+from simple_module_hosting import _lifespan
+
+closed = []
+appended = threading.Event()
+
+class Backend:
+    def __init__(self, name):
+        self.name = name
+
+    async def aclose(self):
+        closed.append(self.name)
+
+class ObservedList(list):
+    def append(self, backend):
+        super().append(backend)
+        appended.set()
+
+_lifespan.migration_status = AsyncMock(return_value={"is_current": True})
+_lifespan.hydrate_settings_from_db = AsyncMock()
+configure_leases(Backend("initial"))
+app = FastAPI()
+app.state.sm = SimpleNamespace(db=SimpleNamespace(engine=object()))
+
+async def main():
+    cm = _lifespan.build_lifespan([], dispose_database=False)(app)
+    await cm.__aenter__()
+    tracker = next(ref() for ref in _lifespan._TRACKERS if ref() is not None)
+    tracker.tracked = ObservedList(tracker.tracked)
+    owners_lock = _lifespan._LEASE_OWNERS_LOCK
+    owners_lock.acquire()
+    thread = threading.Thread(target=configure_leases, args=(Backend("replacement"),))
+    thread.start()
+    try:
+        assert appended.wait(2)
+        pid = os.fork()
+        if pid == 0:
+            signal.alarm(3)
+            code = 1
+            try:
+                await cm.__aexit__(None, None, None)
+                assert closed == ["replacement", "initial"], closed
+                code = 0
+            except BaseException:
+                import traceback
+                traceback.print_exc()
+            finally:
+                os._exit(code)
+    finally:
+        owners_lock.release()
+        thread.join(timeout=2)
+        await cm.__aexit__(None, None, None)
+    _, status = os.waitpid(pid, 0)
+    assert os.waitstatus_to_exitcode(status) == 0
+
+asyncio.run(main())
+"""
+    subprocess.run([sys.executable, "-c", probe], check=True, timeout=10)
