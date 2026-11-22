@@ -33,8 +33,9 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from typing import Protocol, Self
+
+from simple_module_core._lease_memory import InProcessLeaseBackend as InProcessLeaseBackend
 
 __all__ = [
     "InProcessLeaseBackend",
@@ -86,78 +87,29 @@ class LeaseBackend(Protocol):
     async def semaphore_release(self, name: str, token: str) -> bool: ...
 
 
-@dataclass
-class _NameState:
-    fence: int = 0
-    holders: dict[str, float] = field(default_factory=dict)  # token -> expiry
-
-
-class InProcessLeaseBackend:
-    """Leases held in this process only: correct within one worker, nothing more.
-
-    The default when neither Redis nor a database is configured, and what tests
-    and eager-mode Celery use. Thread-safe, so sync code in worker threads and
-    the event loop see the same state.
-    """
-
-    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
-        self._clock = clock
-        self._lock = threading.Lock()
-        self._names: dict[str, _NameState] = {}
-
-    def _live(self, name: str) -> _NameState:
-        state = self._names.setdefault(name, _NameState())
-        now = self._clock()
-        state.holders = {t: exp for t, exp in state.holders.items() if exp > now}
-        return state
-
-    def _take(self, name: str, token: str, ttl: float, slots: int) -> int | None:
-        with self._lock:
-            state = self._live(name)
-            if token not in state.holders and len(state.holders) >= slots:
-                return None
-            state.holders[token] = self._clock() + ttl
-            state.fence += 1
-            return state.fence
-
-    def _extend(self, name: str, token: str, ttl: float) -> bool:
-        with self._lock:
-            state = self._live(name)
-            if token not in state.holders:
-                return False
-            state.holders[token] = self._clock() + ttl
-            return True
-
-    def _drop(self, name: str, token: str) -> bool:
-        with self._lock:
-            return self._live(name).holders.pop(token, None) is not None
-
-    async def acquire(self, name: str, token: str, ttl: float) -> int | None:
-        return self._take(name, token, ttl, 1)
-
-    async def refresh(self, name: str, token: str, ttl: float) -> bool:
-        return self._extend(name, token, ttl)
-
-    async def release(self, name: str, token: str) -> bool:
-        return self._drop(name, token)
-
-    async def semaphore_acquire(self, name: str, token: str, slots: int, ttl: float) -> int | None:
-        return self._take(name, token, ttl, slots)
-
-    async def semaphore_refresh(self, name: str, token: str, ttl: float) -> bool:
-        return self._extend(name, token, ttl)
-
-    async def semaphore_release(self, name: str, token: str) -> bool:
-        return self._drop(name, token)
-
-
 _backend: LeaseBackend = InProcessLeaseBackend()
+_lock = threading.Lock()
+_listeners: set[Callable[[LeaseBackend], None]] = set()
+
+
+def _add_lease_listener(cb: Callable[[LeaseBackend], None]) -> None:
+    with _lock:
+        _listeners.add(cb)
+
+
+def _remove_lease_listener(cb: Callable[[LeaseBackend], None]) -> None:
+    with _lock:
+        _listeners.discard(cb)
 
 
 def configure_leases(backend: LeaseBackend | None) -> None:
     """Install the process-wide backend; ``None`` restores a fresh in-process one."""
     global _backend
-    _backend = backend if backend is not None else InProcessLeaseBackend()
+    with _lock:
+        _backend = backend if backend is not None else InProcessLeaseBackend()
+        installed, listeners = _backend, tuple(_listeners)
+    for cb in listeners:
+        cb(installed)
 
 
 def reset_lease_backend() -> None:

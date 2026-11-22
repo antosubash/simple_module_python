@@ -171,6 +171,8 @@ async def test_missing_lease_table_is_a_schema_error():
         ("57P01", True),
         ("57P02", True),
         ("57P03", True),
+        ("53100", True),
+        ("53200", True),
         ("53300", True),
         ("42601", False),
         ("23505", False),
@@ -191,7 +193,18 @@ def test_postgres_unavailability_classification(sqlstate, unavailable, wrapped):
 @pytest.mark.parametrize("extended", [False, True])
 @pytest.mark.parametrize(
     "code, unavailable",
-    [(5, True), (6, True), (14, True), (10, True), (22, True), (15, True), (1, False), (19, False)],
+    [
+        (5, True),
+        (6, True),
+        (14, True),
+        (10, True),
+        (22, True),
+        (15, True),
+        (13, True),
+        (7, True),
+        (1, False),
+        (19, False),
+    ],
 )
 def test_sqlite_unavailability_classification(code, unavailable, extended):
     import sqlite3
@@ -217,3 +230,59 @@ def test_unavailability_classification_for_timeouts_and_invalidated_connections(
     for error_type in (ProgrammingError, IntegrityError, DataError):
         error = error_type("query", {}, OSError(), connection_invalidated=True)
         assert not _is_unavailable_error(error)
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("error_name", ["DiskFullError", "OutOfMemoryError"])
+async def test_postgres_resource_exhaustion_fails_nonblocking_acquire(
+    monkeypatch, wrapped, error_name
+):
+    import asyncpg
+    from simple_module_core.leases import Lease
+    from sqlalchemy.exc import DBAPIError
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    driver_error = getattr(asyncpg, error_name)("resource exhausted")
+    error = DBAPIError("query", {}, driver_error) if wrapped else driver_error
+
+    async def unavailable(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(asyncpg, "connect", unavailable)
+    engine = create_async_engine("postgresql+asyncpg://unused@localhost/unused")
+    backend = DbLeaseBackend(engine)
+    try:
+        with pytest.raises(ConnectionError) as caught:
+            await backend.acquire("resource", "owner", 10)
+        assert caught.value.__cause__ is error
+        assert await Lease("resource", 10, backend=backend, blocking=False).acquire() is False
+    finally:
+        await engine.dispose()
+
+
+async def test_real_sqlite_full_fails_nonblocking_acquire():
+    import sqlite3
+
+    from simple_module_core.leases import Lease
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    backend = DbLeaseBackend(engine)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(LeaseRow.metadata.create_all)
+            await conn.execute(text("PRAGMA max_page_count = 1"))
+        # Fill the existing pages using legal lease names; no new page can be allocated.
+        for index in range(100):
+            name = f"{index}:" + "x" * 240
+            try:
+                await backend.acquire(name, "owner", 10)
+            except ConnectionError as error:
+                assert error.__cause__.orig.sqlite_errorcode == sqlite3.SQLITE_FULL
+                assert await Lease(name, 10, backend=backend, blocking=False).acquire() is False
+                break
+        else:
+            pytest.fail("SQLite did not exhaust its page limit")
+    finally:
+        await engine.dispose()

@@ -8,12 +8,6 @@ from simple_module_core.leases import configure_leases
 from simple_module_hosting import _lifespan
 
 
-@pytest.fixture(autouse=True)
-def reset_leases():
-    yield
-    configure_leases(None)
-
-
 @pytest.mark.parametrize("failure", [None, "startup", "migration", "body", "shutdown"])
 @pytest.mark.parametrize("close_fails", [False, True])
 async def test_lifespan_closes_backends_even_after_errors(
@@ -75,3 +69,44 @@ async def test_lifespan_closes_backends_even_after_errors(
     if close_fails:
         assert "RuntimeError" in caplog.text
         assert "private connection details" not in caplog.text
+
+
+@pytest.mark.parametrize("startup_fails", [False, True])
+async def test_lifespan_closes_every_replacement_once_in_reverse_order(monkeypatch, startup_fails):
+    from contextlib import nullcontext
+    from unittest.mock import AsyncMock
+
+    events = []
+
+    class Backend:
+        def __init__(self, name):
+            self.name = name
+
+        async def aclose(self):
+            events.append(self.name)
+
+    initial, middle, final = [Backend(name) for name in ("initial", "middle", "final")]
+    configure_leases(initial)
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        db=SimpleNamespace(engine=object()), rate_limit_store=Backend("rate")
+    )
+
+    async def start(app):
+        configure_leases(middle)
+        configure_leases(final)
+        configure_leases(middle)  # Reinstalling a backend must not close it twice.
+        configure_leases(final)
+        if startup_fails:
+            raise ValueError("startup")
+
+    monkeypatch.setattr(_lifespan, "migration_status", AsyncMock(return_value={"is_current": True}))
+    monkeypatch.setattr(_lifespan, "hydrate_settings_from_db", AsyncMock())
+    module = SimpleNamespace(on_startup=start, on_shutdown=AsyncMock())
+    expected = pytest.raises(ValueError, match="startup") if startup_fails else nullcontext()
+    with expected:
+        async with _lifespan.build_lifespan([module], dispose_database=False)(app):
+            assert events == []
+    assert events == ["rate", "final", "middle", "initial"]
+    configure_leases(Backend("after_lifespan"))
+    assert events == ["rate", "final", "middle", "initial"]

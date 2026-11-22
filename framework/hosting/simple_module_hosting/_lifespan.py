@@ -14,12 +14,13 @@ can still reach the database.
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
-from simple_module_core.leases import get_leases
+from simple_module_core.leases import _add_lease_listener, _remove_lease_listener, get_leases
 from simple_module_core.module import ModuleBase
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
@@ -38,9 +39,7 @@ async def _shutdown_modules(
     app: FastAPI, modules: Sequence[ModuleBase], started: list[ModuleBase]
 ) -> None:
     started_ids = {id(mod) for mod in started}
-    module_ids = {id(mod) for mod in modules}
     ordered = [mod for mod in modules if id(mod) in started_ids]
-    ordered.extend(mod for mod in started if id(mod) not in module_ids)
     async with AsyncExitStack() as cleanup:
         for mod in ordered:
             cleanup.push_async_callback(mod.on_shutdown, app)
@@ -55,14 +54,6 @@ async def _close_resource(resource: object) -> None:
             logger.warning("Could not close %s (%s)", type(resource).__name__, type(exc).__name__)
 
 
-async def _close_backends(app: FastAPI, initial_leases: object) -> None:
-    await _close_resource(getattr(getattr(app.state, "sm", None), "rate_limit_store", None))
-    active_leases = get_leases()
-    await _close_resource(active_leases)
-    if initial_leases is not active_leases:
-        await _close_resource(initial_leases)
-
-
 def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
@@ -71,8 +62,28 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
         async with AsyncExitStack() as cleanup:
             if dispose_database:
                 cleanup.push_async_callback(app.state.sm.db.engine.dispose)
-            initial_leases = get_leases()
-            cleanup.push_async_callback(_close_backends, app, initial_leases)
+            tracked: list[object] = [get_leases()]
+            seen = {id(tracked[0])}
+            tracking_lock = threading.Lock()
+
+            def track(backend: object) -> None:
+                with tracking_lock:
+                    if id(backend) not in seen:
+                        tracked.append(backend)
+                        seen.add(id(backend))
+
+            async def close_backends() -> None:
+                _remove_lease_listener(track)
+                track(get_leases())
+                await _close_resource(getattr(app.state.sm, "rate_limit_store", None))
+                with tracking_lock:
+                    backends = list(reversed(tracked))
+                for backend in backends:
+                    await _close_resource(backend)
+
+            _add_lease_listener(track)
+            track(get_leases())
+            cleanup.push_async_callback(close_backends)
             started: list[ModuleBase] = []
             app.state.started_modules = started
             cleanup.push_async_callback(_shutdown_modules, app, modules, started)

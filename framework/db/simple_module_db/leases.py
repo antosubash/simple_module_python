@@ -103,7 +103,7 @@ def _is_unavailable_error(exc: BaseException) -> bool:
             return True
     sqlstate = getattr(exc, "sqlstate", None)
     if isinstance(sqlstate, str) and (
-        sqlstate.startswith("08") or sqlstate in {"57P01", "57P02", "57P03", "53300"}
+        sqlstate.startswith(("08", "53")) or sqlstate in {"57P01", "57P02", "57P03"}
     ):
         return True
     code = getattr(exc, "sqlite_errorcode", None)
@@ -118,6 +118,8 @@ def _is_unavailable_error(exc: BaseException) -> bool:
             sqlite3.SQLITE_IOERR,
             sqlite3.SQLITE_NOLFS,
             sqlite3.SQLITE_PROTOCOL,
+            sqlite3.SQLITE_FULL,
+            sqlite3.SQLITE_NOMEM,
         }
     )
 

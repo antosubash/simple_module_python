@@ -6,32 +6,12 @@ import weakref
 from types import SimpleNamespace
 
 import pytest
+from backend_cleanup_helpers import Client, running_loop
 from fastapi import FastAPI
 from simple_module_core.leases import configure_leases
 from simple_module_hosting import _lifespan
 from simple_module_hosting._lease_redis import RedisLeaseBackend
 from simple_module_hosting._rate_limit_store import RedisWindowStore
-
-
-@pytest.fixture(autouse=True)
-def reset_leases():
-    yield
-    configure_leases(None)
-
-
-class Client:
-    def __init__(self):
-        self.closed = False
-        self.close_count = 0
-
-    async def aclose(self):
-        self.close_count += 1
-        self.closed = True
-        self.closed_loop = asyncio.get_running_loop()
-
-    async def eval(self, *args):
-        assert not self.closed
-        return 1
 
 
 async def test_window_store_closes_client():
@@ -69,10 +49,7 @@ def test_lease_backend_replaces_closed_loop_client_and_closes_each():
 
 
 async def test_lease_backend_closes_superseded_client_on_running_owner_loop():
-    import concurrent.futures
-
     clients = []
-    ready = concurrent.futures.Future()
 
     def factory():
         client = Client()
@@ -80,19 +57,7 @@ async def test_lease_backend_closes_superseded_client_on_running_owner_loop():
         return client
 
     backend = RedisLeaseBackend("redis://unused", factory=factory)
-    owner = asyncio.new_event_loop()
-
-    def serve():
-        asyncio.set_event_loop(owner)
-        owner.call_soon(ready.set_result, None)
-        owner.run_forever()
-
-    from threading import Thread
-
-    thread = Thread(target=serve, daemon=True)
-    thread.start()
-    try:
-        await asyncio.wait_for(asyncio.wrap_future(ready), 2)
+    with running_loop() as owner:
         await asyncio.wait_for(
             asyncio.wrap_future(
                 asyncio.run_coroutine_threadsafe(backend.acquire("key", "one", 10), owner)
@@ -104,11 +69,6 @@ async def test_lease_backend_closes_superseded_client_on_running_owner_loop():
         assert len(clients) == 2
         assert all(client.closed and client.close_count == 1 for client in clients)
         assert clients[0].closed_loop is owner
-    finally:
-        owner.call_soon_threadsafe(owner.stop)
-        thread.join(timeout=5)
-        if not thread.is_alive():
-            owner.close()
 
 
 @pytest.mark.parametrize("replace_leases", [False, True])
@@ -142,8 +102,6 @@ async def test_lifespan_closes_resources_installed_during_startup(monkeypatch, r
 async def test_overlapping_loops_keep_each_client_open_until_eval_finishes():
     from concurrent.futures import Future
     from threading import Event
-
-    from backend_cleanup_helpers import running_loop
 
     entered, resume = Event(), Future()
     clients = []
@@ -191,7 +149,6 @@ async def test_third_loop_can_await_pending_client_retirement():
     from concurrent.futures import Future
     from threading import Event
 
-    from backend_cleanup_helpers import running_loop
     from simple_module_test import wait_for
 
     entered, resume = Event(), Future()
