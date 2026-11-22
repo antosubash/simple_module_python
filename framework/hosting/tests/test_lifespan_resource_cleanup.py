@@ -110,3 +110,43 @@ async def test_lifespan_closes_every_replacement_once_in_reverse_order(monkeypat
     assert events == ["rate", "final", "middle", "initial"]
     configure_leases(Backend("after_lifespan"))
     assert events == ["rate", "final", "middle", "initial"]
+
+
+async def test_lifespan_cancellation_still_closes_remaining_backends_and_engine(monkeypatch):
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    events = []
+
+    class CancellingRateStore:
+        async def aclose(self):
+            events.append("rate_cancel")
+            raise asyncio.CancelledError
+
+    class Backend:
+        def __init__(self, name):
+            self.name = name
+
+        async def aclose(self):
+            events.append(self.name)
+
+    async def dispose():
+        events.append("dispose")
+
+    configure_leases(Backend("initial"))
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        db=SimpleNamespace(engine=SimpleNamespace(dispose=dispose)),
+        rate_limit_store=CancellingRateStore(),
+    )
+
+    async def start(app):
+        configure_leases(Backend("final"))
+
+    monkeypatch.setattr(_lifespan, "migration_status", AsyncMock(return_value={"is_current": True}))
+    monkeypatch.setattr(_lifespan, "hydrate_settings_from_db", AsyncMock())
+    module = SimpleNamespace(on_startup=start, on_shutdown=AsyncMock())
+    with pytest.raises(asyncio.CancelledError):
+        async with _lifespan.build_lifespan([module])(app):
+            pass
+    assert events == ["rate_cancel", "final", "initial", "dispose"]

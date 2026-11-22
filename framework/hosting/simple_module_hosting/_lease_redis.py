@@ -116,26 +116,26 @@ class RedisLeaseBackend:
                 self._clear_pending_locked(record, cf)
                 self._resolve_cf(cf, exc)
 
-        def launch_locked() -> None:
-            if not cf.set_running_or_notify_cancel():
-                return
-            if record.closed or record.future is not cf:
-                self._resolve_cf(cf)
-                return
-            task = host.create_task(self._close_record(record, cf))
-            task.add_done_callback(on_task_done)
-            record.task = task
-
         def spawn() -> None:
             with self._lock:
-                launch_locked()
-
-        try:
-            if host is asyncio.get_running_loop():
-                launch_locked()
+                if not cf.set_running_or_notify_cancel():
+                    return
+                if record.closed or record.future is not cf:
+                    self._resolve_cf(cf)
+                    return
+            try:
+                # Never create tasks under self._lock: eager task factories run inline.
+                task = host.create_task(self._close_record(record, cf))
+            except BaseException as exc:
+                with self._lock:
+                    self._clear_pending_locked(record, cf)
+                    self._resolve_cf(cf, exc)
                 return
-        except RuntimeError:
-            pass
+            with self._lock:
+                if record.future is cf and not record.closed:
+                    record.task = task
+            task.add_done_callback(on_task_done)
+
         try:
             # Allocate the coroutine only after the host actually accepts the handoff.
             host.call_soon_threadsafe(spawn)

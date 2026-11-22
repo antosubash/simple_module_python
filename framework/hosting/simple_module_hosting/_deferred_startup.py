@@ -6,7 +6,7 @@ import asyncio
 import logging
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_deferred_startup
+from simple_module_core.app_state import get_deferred_startup, get_deferred_startup_lock
 from simple_module_core.module_settings import get_module_settings_registry
 from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
 
@@ -51,7 +51,7 @@ async def run_deferred_startup(app: FastAPI) -> None:
     committed. Compatibility checks run first and still raise: an incompatible
     security state must keep the setup gate closed.
     """
-    lock = getattr(app.state, "deferred_startup_lock", None)
+    lock = get_deferred_startup_lock(app)
     if lock is None:  # no await between check and set, so this cannot race
         lock = app.state.deferred_startup_lock = asyncio.Lock()
     async with lock:

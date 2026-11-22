@@ -70,7 +70,7 @@ def test_owner_discards_queued_close_without_unawaited_coroutine_warning():
     assert not [warning for warning in caught if issubclass(warning.category, RuntimeWarning)]
 
 
-async def test_pre_step_cancelled_close_task_recovers_and_closes_once():
+async def test_pre_step_cancelled_close_task_recovers_and_closes_once(monkeypatch):
     import concurrent.futures
 
     backend, clients = make_backend()
@@ -82,17 +82,32 @@ async def test_pre_step_cancelled_close_task_recovers_and_closes_once():
             ),
             2,
         )
+        original_create_task = owner.create_task
 
-        def cancel_before_first_step():
+        def create_and_cancel(coro, *args, **kwargs):
+            task = original_create_task(coro, *args, **kwargs)
+            task.cancel()
+            cancelled.set_result(None)
+            return task
+
+        with monkeypatch.context() as patch:
+            patch.setattr(owner, "create_task", create_and_cancel)
             with backend._lock:
                 backend._start_close(backend._records[0], owner)
-                task = backend._records[0].task
-                assert task is not None
-                task.cancel()
-            cancelled.set_result(None)
-
-        owner.call_soon_threadsafe(cancel_before_first_step)
-        await asyncio.wait_for(asyncio.wrap_future(cancelled), 2)
+            await asyncio.wait_for(asyncio.wrap_future(cancelled), 2)
         await asyncio.wait_for(backend.aclose(), 2)
     assert clients[0].close_count == 1
     assert backend._records == []
+
+
+def test_eager_task_factory_closes_and_retires_without_deadlock():
+    async def run():
+        asyncio.get_running_loop().set_task_factory(asyncio.eager_task_factory)
+        backend, clients = make_backend()
+        await asyncio.to_thread(asyncio.run, backend.acquire("one", "owner", 10))
+        await asyncio.wait_for(backend.acquire("two", "owner", 10), 1)
+        await asyncio.wait_for(backend.aclose(), 1)
+        assert [client.close_count for client in clients] == [1, 1]
+        assert backend._records == []
+
+    asyncio.run(run())

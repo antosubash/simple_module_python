@@ -75,11 +75,14 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
             async def close_backends() -> None:
                 _remove_lease_listener(track)
                 track(get_leases())
-                await _close_resource(getattr(app.state.sm, "rate_limit_store", None))
                 with tracking_lock:
-                    backends = list(reversed(tracked))
-                for backend in backends:
-                    await _close_resource(backend)
+                    backends = list(tracked)
+                async with AsyncExitStack() as resource_cleanup:
+                    for backend in backends:
+                        resource_cleanup.push_async_callback(_close_resource, backend)
+                    resource_cleanup.push_async_callback(
+                        _close_resource, getattr(app.state.sm, "rate_limit_store", None)
+                    )
 
             _add_lease_listener(track)
             track(get_leases())
