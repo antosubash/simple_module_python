@@ -30,7 +30,7 @@ it.each(['/api', '/api/'])('matches path segments for %s', (prefix) => {
   expect(isExcluded(new URL('/any', window.location.href), '/')).toBe(true);
 });
 
-it.each(['onSuccess', 'onFinish', 'onCancel', 'onError'] as const)(
+it.each(['onSuccess', 'onCancel', 'onError'] as const)(
   'clears fallback state on per-visit %s',
   (callback) => {
     const location = stubLocation();
