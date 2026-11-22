@@ -96,3 +96,124 @@ async def test_database_outages_use_backend_unavailable_contract(
             assert caught.value.__cause__ is error
     finally:
         await engine.dispose()
+
+
+@pytest.mark.parametrize("error_type", ["dns", "refused"])
+async def test_raw_asyncpg_connect_outage_is_normalized(monkeypatch, error_type):
+    import socket
+
+    import asyncpg
+    from simple_module_core.leases import Lease
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    error = socket.gaierror("DNS unavailable") if error_type == "dns" else ConnectionRefusedError()
+
+    async def unavailable(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(asyncpg, "connect", unavailable)
+    engine = create_async_engine("postgresql+asyncpg://unused@localhost/unused")
+    backend = DbLeaseBackend(engine)
+    try:
+        with pytest.raises(ConnectionError, match="Database lease backend unavailable") as caught:
+            await backend.acquire("outage", "owner", 10)
+        assert caught.value.__cause__ is error
+        assert await Lease("outage", 10, backend=backend, blocking=False).acquire() is False
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.parametrize("error_name", ["ProgrammingError", "IntegrityError", "DataError"])
+async def test_database_bugs_propagate_unchanged(monkeypatch, error_name):
+    import sqlalchemy.exc
+    from simple_module_core.leases import Lease
+    from sqlalchemy import event
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    error = getattr(sqlalchemy.exc, error_name)("query", {}, OSError("not an outage"))
+
+    def fail(*args):
+        raise error
+
+    event.listen(engine.sync_engine, "before_cursor_execute", fail)
+    try:
+        with pytest.raises(type(error)) as caught:
+            await Lease("broken", 10, backend=DbLeaseBackend(engine), blocking=False).acquire()
+        assert caught.value is error
+    finally:
+        await engine.dispose()
+
+
+async def test_missing_lease_table_is_a_schema_error():
+    import sqlite3
+
+    from simple_module_core.leases import Lease
+    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        with pytest.raises(OperationalError, match="no such table: sm_lease") as caught:
+            await Lease("missing", 10, backend=DbLeaseBackend(engine), blocking=False).acquire()
+        assert caught.value.orig.sqlite_errorcode == sqlite3.SQLITE_ERROR
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize(
+    "sqlstate, unavailable",
+    [
+        ("08000", True),
+        ("08006", True),
+        ("08P01", True),
+        ("57P01", True),
+        ("57P02", True),
+        ("57P03", True),
+        ("53300", True),
+        ("42601", False),
+        ("23505", False),
+        (None, False),
+    ],
+)
+def test_postgres_unavailability_classification(sqlstate, unavailable, wrapped):
+    from simple_module_db.leases import _is_unavailable_error
+    from sqlalchemy.exc import DBAPIError
+
+    error = Exception("driver failure")
+    error.sqlstate = sqlstate
+    if wrapped:
+        error = DBAPIError("query", {}, error)
+    assert _is_unavailable_error(error) is unavailable
+
+
+@pytest.mark.parametrize("extended", [False, True])
+@pytest.mark.parametrize(
+    "code, unavailable",
+    [(5, True), (6, True), (14, True), (10, True), (22, True), (15, True), (1, False), (19, False)],
+)
+def test_sqlite_unavailability_classification(code, unavailable, extended):
+    import sqlite3
+
+    from simple_module_db.leases import _is_unavailable_error
+    from sqlalchemy.exc import OperationalError
+
+    error = sqlite3.OperationalError("driver failure")
+    error.sqlite_errorcode = code | (256 if extended else 0)
+    assert _is_unavailable_error(OperationalError("query", {}, error)) is unavailable
+
+
+def test_unavailability_classification_for_timeouts_and_invalidated_connections():
+    from simple_module_db.leases import _is_unavailable_error
+    from sqlalchemy.exc import DataError, DBAPIError, IntegrityError, ProgrammingError
+    from sqlalchemy.exc import TimeoutError as SqlAlchemyTimeoutError
+
+    for error in (TimeoutError(), OSError(), ConnectionError(), SqlAlchemyTimeoutError()):
+        assert _is_unavailable_error(error)
+    assert _is_unavailable_error(DBAPIError("query", {}, Exception(), connection_invalidated=True))
+    assert not _is_unavailable_error(DBAPIError("query", {}, Exception()))
+    assert not _is_unavailable_error(DBAPIError("query", {}, None))
+    for error_type in (ProgrammingError, IntegrityError, DataError):
+        error = error_type("query", {}, OSError(), connection_invalidated=True)
+        assert not _is_unavailable_error(error)

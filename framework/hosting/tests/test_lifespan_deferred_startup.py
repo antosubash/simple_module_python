@@ -140,3 +140,37 @@ async def test_only_successful_hooks_are_shutdown(monkeypatch, replay):
         if replay
         else ["start:ready", "stop:ready"]
     )
+
+
+async def test_replayed_dependency_shuts_down_after_its_dependent(monkeypatch):
+    app = _app()
+    dependency = _module("dependency", fail_first=True)
+    dependent = _module("dependent", fail_first=False)
+    events = []
+
+    async def stop_dependency(app):
+        events.append("dependency")
+
+    async def stop_dependent(app):
+        events.append("dependent")
+
+    dependency.on_shutdown = stop_dependency
+    dependent.on_shutdown = stop_dependent
+    monkeypatch.setattr(
+        "simple_module_hosting._lifespan.migration_status",
+        AsyncMock(return_value={"is_current": False}),
+    )
+    monkeypatch.setattr(
+        "simple_module_hosting._lifespan.is_first_run", AsyncMock(return_value=True)
+    )
+    for target in (
+        "simple_module_hosting._lifespan.hydrate_settings_from_db",
+        "simple_module_hosting._deferred_startup.hydrate_settings_from_db",
+        "simple_module_hosting._deferred_startup.check_data_compatibility",
+    ):
+        monkeypatch.setattr(target, AsyncMock())
+    async with build_lifespan([dependency, dependent])(app):
+        await run_deferred_startup(app)
+        assert dependency.calls["n"] == 2
+        assert dependent.calls["n"] == 1
+    assert events == ["dependent", "dependency"]

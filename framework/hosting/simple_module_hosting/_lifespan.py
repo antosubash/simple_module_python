@@ -34,9 +34,15 @@ from simple_module_hosting.setup_gate import is_first_run
 logger = logging.getLogger(__name__)
 
 
-async def _shutdown_modules(app: FastAPI, started: list[ModuleBase]) -> None:
+async def _shutdown_modules(
+    app: FastAPI, modules: Sequence[ModuleBase], started: list[ModuleBase]
+) -> None:
+    started_ids = {id(mod) for mod in started}
+    module_ids = {id(mod) for mod in modules}
+    ordered = [mod for mod in modules if id(mod) in started_ids]
+    ordered.extend(mod for mod in started if id(mod) not in module_ids)
     async with AsyncExitStack() as cleanup:
-        for mod in started:
+        for mod in ordered:
             cleanup.push_async_callback(mod.on_shutdown, app)
 
 
@@ -49,6 +55,14 @@ async def _close_resource(resource: object) -> None:
             logger.warning("Could not close %s (%s)", type(resource).__name__, type(exc).__name__)
 
 
+async def _close_backends(app: FastAPI, initial_leases: object) -> None:
+    await _close_resource(getattr(getattr(app.state, "sm", None), "rate_limit_store", None))
+    active_leases = get_leases()
+    await _close_resource(active_leases)
+    if initial_leases is not active_leases:
+        await _close_resource(initial_leases)
+
+
 def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
@@ -57,13 +71,11 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
         async with AsyncExitStack() as cleanup:
             if dispose_database:
                 cleanup.push_async_callback(app.state.sm.db.engine.dispose)
-            cleanup.push_async_callback(_close_resource, get_leases())
-            cleanup.push_async_callback(
-                _close_resource, getattr(app.state.sm, "rate_limit_store", None)
-            )
+            initial_leases = get_leases()
+            cleanup.push_async_callback(_close_backends, app, initial_leases)
             started: list[ModuleBase] = []
             app.state.started_modules = started
-            cleanup.push_async_callback(_shutdown_modules, app, started)
+            cleanup.push_async_callback(_shutdown_modules, app, modules, started)
             # Report first, decide second. On a genuinely fresh install a
             # behind-head database must still boot far enough to serve the wizard —
             # running the migrations is one of the things that wizard does, and

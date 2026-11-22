@@ -18,7 +18,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 import weakref
+from concurrent.futures import Future
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -106,6 +109,13 @@ async def _close_client(client: Any) -> None:
         logger.warning("Redis lease client close failed (%s)", type(exc).__name__)
 
 
+@dataclass
+class _ClientEntry:
+    pid: int
+    loop_ref: weakref.ReferenceType[asyncio.AbstractEventLoop]
+    client: Any
+
+
 class RedisLeaseBackend:
     """Leases shared by every process on one Redis.
 
@@ -117,64 +127,79 @@ class RedisLeaseBackend:
     def __init__(self, url: str, *, factory: Any = None) -> None:
         self._url = url
         self._factory = factory
-        self._client: Any = None
-        self._pid: int | None = None
-        self._loop: weakref.ReferenceType[asyncio.AbstractEventLoop] | None = None
-        self._closing: set[asyncio.Future] = set()
+        self._lock = threading.Lock()
+        self._entries: list[_ClientEntry] = []
+        self._retiring: list[
+            tuple[Future[None], weakref.ReferenceType[asyncio.AbstractEventLoop], Any]
+        ] = []
 
-    def _retire_client(self) -> None:
-        if self._client is None:
-            return
-        loop = self._loop() if self._loop else None
-        close = _close_client(self._client)
-        current = asyncio.get_running_loop()
-        if (
-            self._pid == os.getpid()
-            and loop is not None
-            and loop is not current
-            and loop.is_running()
-        ):
-            pending = asyncio.wrap_future(asyncio.run_coroutine_threadsafe(close, loop))
-        else:
-            pending = current.create_task(close)
-        self._closing.add(pending)
-        pending.add_done_callback(self._closing.discard)
-        self._client = None
-        self._loop = None
+    def _new_client(self) -> Any:
+        if self._factory is not None:
+            return self._factory()
+        import redis.asyncio as aioredis
+        from redis.asyncio.retry import Retry
+        from redis.backoff import NoBackoff
+
+        return aioredis.from_url(
+            self._url,
+            socket_timeout=_SOCKET_TIMEOUT,
+            socket_connect_timeout=_SOCKET_TIMEOUT,
+            # One reconnect, no backoff; finite socket timeouts bound failures.
+            retry=Retry(NoBackoff(), 1),
+        )
 
     def _redis(self) -> Any:
-        loop = asyncio.get_running_loop()
-        owner_loop = self._loop() if self._loop else None
-        if (
-            self._client is None
-            or self._pid != os.getpid()
-            or owner_loop is not loop
-            or owner_loop.is_closed()
-        ):
-            self._retire_client()
-            if self._factory is not None:
-                self._client = self._factory()
-            else:
-                import redis.asyncio as aioredis
-                from redis.asyncio.retry import Retry
-                from redis.backoff import NoBackoff
-
-                self._client = aioredis.from_url(
-                    self._url,
-                    socket_timeout=_SOCKET_TIMEOUT,
-                    socket_connect_timeout=_SOCKET_TIMEOUT,
-                    # One reconnect, no backoff: a stale pooled connection gets a fresh
-                    # socket, while the 2 s timeouts keep the worst case bounded.
-                    retry=Retry(NoBackoff(), 1),
-                )
-            self._pid = os.getpid()
-            self._loop = weakref.ref(loop)
-        return self._client
+        current, pid = asyncio.get_running_loop(), os.getpid()
+        with self._lock:
+            live = []
+            # A cancelled close still needs retrying after its host loop exits.
+            self._retiring = [
+                item for item in self._retiring if not item[0].done() or item[0].cancelled()
+            ]
+            for entry in self._entries:
+                owner = entry.loop_ref()
+                if entry.pid != pid or owner is None or owner.is_closed():
+                    done = asyncio.run_coroutine_threadsafe(_close_client(entry.client), current)
+                    self._retiring.append((done, weakref.ref(current), entry.client))
+                else:
+                    live.append(entry)
+            self._entries = live
+            for entry in live:
+                if entry.pid == pid and entry.loop_ref() is current:
+                    return entry.client
+            client = self._new_client()
+            self._entries.append(_ClientEntry(pid, weakref.ref(current), client))
+            return client
 
     async def aclose(self) -> None:
-        self._retire_client()
-        if self._closing:
-            await asyncio.gather(*self._closing)
+        current, pid = asyncio.get_running_loop(), os.getpid()
+        with self._lock:
+            entries, self._entries = self._entries, []
+            retiring, self._retiring = self._retiring, []
+        for entry in entries:
+            owner = entry.loop_ref()
+            if (
+                entry.pid == pid
+                and owner is not None
+                and owner is not current
+                and not owner.is_closed()
+                and owner.is_running()
+            ):
+                close = _close_client(entry.client)
+                try:
+                    await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(close, owner))
+                    continue
+                except RuntimeError:
+                    close.close()
+            await _close_client(entry.client)
+        for done, host_ref, client in retiring:
+            if done.done() and not done.cancelled():
+                continue
+            host = host_ref()
+            if not done.cancelled() and host is not None and host.is_running():
+                await asyncio.wrap_future(done)
+            else:
+                await _close_client(client)
 
     async def _eval(self, script: str, keys: list[str], *args: Any) -> int:
         from redis.exceptions import ConnectionError as RedisConnectionError

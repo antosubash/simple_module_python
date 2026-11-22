@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any, cast
-from urllib.parse import urlsplit
 
 from fastapi import Request
 from jinja2.utils import htmlsafe_json_dumps
@@ -15,7 +14,7 @@ from simple_module_inertia.config import InertiaConfig, resolved_version
 from simple_module_inertia.errors import InertiaVersionConflictException
 from simple_module_inertia.head import HEAD_PROP, Head, SiteInfo, head_tags
 from simple_module_inertia.manifest import entry_assets
-from simple_module_inertia.page import build_page, encode_page
+from simple_module_inertia.page import build_page, encode_page, to_relative_url
 from simple_module_inertia.request import InertiaRequest
 from simple_module_inertia.resolve import resolve_props
 from simple_module_inertia.response import (
@@ -41,9 +40,7 @@ class Inertia:
         self._clear_history = False
         self._preserve_fragment = False
         if self._is_stale():
-            url = urlsplit(str(request.url))
-            path = url.path or "/"
-            target = f"{path}?{url.query}" if url.query else path
+            target = to_relative_url(str(request.url))
             raise InertiaVersionConflictException(url=target, version=self._version)
 
     # -- request state ----------------------------------------------------

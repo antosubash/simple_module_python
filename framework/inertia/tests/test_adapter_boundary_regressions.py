@@ -2,10 +2,19 @@
 
 import json
 from types import SimpleNamespace
+from urllib.parse import urljoin, urlsplit
 
 import pytest
+from fastapi import Depends, FastAPI
 from fastapi.templating import Jinja2Templates
-from simple_module_inertia import Inertia, InertiaConfig, InertiaVersionConflictException
+from httpx import ASGITransport, AsyncClient
+from simple_module_inertia import (
+    Inertia,
+    InertiaConfig,
+    InertiaVersionConflictException,
+    inertia_dependency_factory,
+    inertia_version_conflict_exception_handler,
+)
 from simple_module_inertia._json_snapshot import JsonSnapshot, dumps
 from simple_module_inertia.middleware import add_vary
 from starlette.datastructures import URL, MutableHeaders
@@ -62,3 +71,38 @@ async def test_flash_defaults_without_session_middleware(tmp_path):
     )
     response = await Inertia(request, config).render("Page")
     assert json.loads(response.body)["props"] == {"errors": {}, "messages": []}
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("//evil.example/path", "/%2Fevil.example/path?q=1"),
+        ("///evil.example/path", "/%2F/evil.example/path?q=1"),
+        ("/%2Fevil.example/path", "/%2Fevil.example/path?q=1"),
+        (r"/\evil.example/path", "/%5Cevil.example/path?q=1"),
+    ],
+)
+async def test_stale_catch_all_location_cannot_escape_origin(tmp_path, path, expected):
+    config = InertiaConfig(templates=Jinja2Templates(directory=tmp_path), version="new")
+    app = FastAPI()
+    app.add_exception_handler(
+        InertiaVersionConflictException, inertia_version_conflict_exception_handler
+    )
+
+    @app.get("/{path:path}")
+    async def page(inertia: Inertia = Depends(inertia_dependency_factory(config))):
+        return await inertia.render("Page")
+
+    async with AsyncClient(transport=ASGITransport(app=app)) as client:
+        # An absolute URL preserves the path's leading slashes through httpx.
+        response = await client.get(
+            "https://good.example" + path + "?q=1",
+            headers={"X-Inertia": "true", "X-Inertia-Version": "old"},
+        )
+    assert response.status_code == 409
+    target = response.headers["X-Inertia-Location"]
+    assert target == expected
+    assert not target.startswith(("//", "/\\", "\\"))
+    assert urlsplit(urljoin("https://good.example/", target.replace("\\", "/"))).netloc == (
+        "good.example"
+    )

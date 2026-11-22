@@ -14,21 +14,21 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
-### Fixed
-
-- Clear `_AUDIT_PENDING_KEY` before flush and on `after_soft_rollback` so rolled-back savepoints never leak phantom audit records to a subsequent flush (#1066).
-- Forward all active custom `ScopeFilter.bypass_option` flags during `bulk_audit._prefetch_ids` (#1067).
-- Honor `__audit_exclude__` when logging hard-delete events (`db.entity.deleted`) (#1068).
-- Serialize deferred startup, including settings hydration and secret persistence, and shut down only modules whose startup completed successfully (#1080).
-- Resolve the project root when creating each app so late `SM_PROJECT_ROOT` changes apply to static assets, templates and i18n (#1081).
-- Keep Inertia version-conflict locations relative, preserve all `Vary` fields and wildcard semantics, reject non-finite HTML JSON values, and allow rendering without session middleware (#1082).
-- Normalize database lease connection failures to the backend-unavailable contract, retire Redis lease clients when event loops change, and close lease and rate-limit clients during lifespan teardown (#1083).
-
 ### Security
 
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
 - Validate incoming `X-Correlation-ID` headers in `CorrelationIdMiddleware` for bounded length and safe token characters (#1065).
 - Reject ASCII control characters in `file_storage` media types and `branding` image normalization, preserve validated MIME parameters while falling back safely on downloads, sanitize generated storage key suffixes, and enforce canonical `is_relative_to` confinement in `FilesystemBackend._resolve` (#1069).
+
+### Fixed
+
+- Clear `_AUDIT_PENDING_KEY` before flush and on `after_soft_rollback` so rolled-back savepoints never leak phantom audit records to a subsequent flush (#1066).
+- Forward all active custom `ScopeFilter.bypass_option` flags during `bulk_audit._prefetch_ids` (#1067).
+- Honor `__audit_exclude__` when logging hard-delete events (`db.entity.deleted`) (#1068).
+- Serialize deferred startup, including settings hydration and secret persistence, and shut down successfully started modules in reverse dependency order even after deferred replay (#1080).
+- Resolve the project root when creating each app so late `SM_PROJECT_ROOT` changes apply to static assets, templates and i18n (#1081).
+- Keep Inertia version-conflict locations same-origin by escaping leading path separators, preserve all `Vary` fields and wildcard semantics, reject non-finite HTML JSON values, and allow rendering without session middleware (#1082).
+- Normalize database lease connectivity and resource-unavailability failures while preserving SQL/schema errors, keep Redis lease clients per live event loop with cross-loop cleanup, and close active and replaced lease backends and startup-installed rate-limit stores during lifespan teardown (#1083).
 
 ## [0.0.49] — 2026-11-20
 

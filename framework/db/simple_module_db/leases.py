@@ -17,13 +17,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import sqlite3
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar, Final
 
 from sqlalchemy import and_, func, select, text, update
 from sqlalchemy.dialects import postgresql, sqlite
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DataError, DBAPIError, IntegrityError, ProgrammingError
+from sqlalchemy.exc import TimeoutError as SqlAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from sqlmodel import Field
 
@@ -83,6 +85,43 @@ def _row(name: str, slot: int) -> Any:
     return and_(_T.c.name == name, _T.c.slot == slot)
 
 
+def _is_unavailable_error(exc: BaseException) -> bool:
+    """Recognize transport/resource failures without hiding SQL or schema bugs."""
+    if isinstance(exc, (ConnectionError, TimeoutError, OSError, SqlAlchemyTimeoutError)):
+        return True
+    wrapped = isinstance(exc, DBAPIError)
+    if wrapped:
+        if isinstance(exc, (ProgrammingError, IntegrityError, DataError)):
+            return False
+        if exc.connection_invalidated:
+            return True
+        orig = getattr(exc, "orig", None)
+        if orig is None:
+            return False
+        exc = orig
+        if isinstance(exc, (ConnectionError, TimeoutError, OSError)):
+            return True
+    sqlstate = getattr(exc, "sqlstate", None)
+    if isinstance(sqlstate, str) and (
+        sqlstate.startswith("08") or sqlstate in {"57P01", "57P02", "57P03", "53300"}
+    ):
+        return True
+    code = getattr(exc, "sqlite_errorcode", None)
+    return (
+        wrapped
+        and code is not None
+        and (code & 0xFF)
+        in {
+            sqlite3.SQLITE_BUSY,
+            sqlite3.SQLITE_LOCKED,
+            sqlite3.SQLITE_CANTOPEN,
+            sqlite3.SQLITE_IOERR,
+            sqlite3.SQLITE_NOLFS,
+            sqlite3.SQLITE_PROTOCOL,
+        }
+    )
+
+
 class DbLeaseBackend:
     """Leases in the ``sm_lease`` table, shared by every process on the database."""
 
@@ -109,8 +148,10 @@ class DbLeaseBackend:
                 if self._sqlite:
                     await conn.execute(_SQLITE_WRITE_LOCK)
                 yield conn, await _db_now(conn)
-        except DBAPIError as exc:
-            raise ConnectionError("Database lease backend unavailable") from exc
+        except Exception as exc:
+            if _is_unavailable_error(exc):
+                raise ConnectionError("Database lease backend unavailable") from exc
+            raise
 
     async def _locked_now(self, conn: AsyncConnection, *where: Any) -> datetime:
         """Lock the matching rows on Postgres, then read the clock (#698).
