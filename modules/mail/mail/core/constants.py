@@ -16,6 +16,9 @@ CHECK_MAILER = "mail.mailer"
 
 DEFAULT_FROM = "no-reply@localhost"
 DEFAULT_SMTP_PORT = 587
+SMTP_TLS_PORT = 465
+SMTP_TLS_AUTO = "auto"
+SMTP_TLS_IMPLICIT = "implicit"
 MIN_PORT = 1
 MAX_PORT = 65535
 

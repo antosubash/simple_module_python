@@ -26,7 +26,9 @@ uv sync --all-packages
 
 1. Sign in as an admin and open **Settings -> Modules -> Mail**.
 2. Set `backend` to `smtp` and fill `smtp_host`, `smtp_port`, `smtp_username`,
-   `smtp_password` (masked in the UI), `smtp_from` and `smtp_tls`. Saving
+   `smtp_password` (masked in the UI), `smtp_from`, `smtp_tls` and
+   `smtp_tls_mode` (`auto`, `starttls` or `implicit`). Use `implicit` for
+   implicit TLS on custom ports; `smtp_tls=false` disables TLS in every mode. Saving
    rebuilds the sender live, no restart needed.
 3. Use **Test connection** to run the `mail.mailer` health check. It logs in to
    the server and hangs up without sending anything.

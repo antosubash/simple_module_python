@@ -104,6 +104,7 @@ async def apply_changes_and_reload(
     if unknown:
         raise KeyError(f"Unknown field(s) for {package!r}: {sorted(unknown)}")
 
+    await store.lock_package(package)
     # Include prior writes in this transaction without exposing them to other requests.
     current = await hydrate_settings(cls, store, package, lenient=True)
     # Compare against the *dumped* current value, not the attribute: a field
@@ -187,6 +188,7 @@ async def clear_override_and_reload(
         raise KeyError(f"Unknown settings package: {package!r}")
     if field in env_supplied_fields(cls):
         raise EnvPinnedError([field])
+    await store.lock_package(package)
     overrides = await store.get_overrides(package)
     overrides.pop(field, None)
     from_env = env_supplied_fields(cls)

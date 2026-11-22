@@ -167,15 +167,19 @@ def test_smtp_port_outside_the_tcp_range_is_rejected(port) -> None:
 
 
 @pytest.mark.parametrize(
-    "port,tls,expected",
+    "port,tls,mode,expected",
     [
-        (587, True, (False, True)),
-        (465, True, (True, False)),
-        (587, False, (False, False)),
-        (465, False, (False, False)),
+        (587, True, "auto", (False, True)),
+        (465, True, "auto", (True, False)),
+        (1465, True, "implicit", (True, False)),
+        (465, True, "starttls", (False, True)),
+        (587, False, "auto", (False, False)),
+        (465, False, "auto", (False, False)),
+        (1465, False, "implicit", (False, False)),
+        (465, False, "starttls", (False, False)),
     ],
 )
-async def test_tls_mode_for_send_and_connection(monkeypatch, port, tls, expected):
+async def test_tls_mode_for_send_and_connection(monkeypatch, port, tls, mode, expected):
     from unittest.mock import MagicMock
 
     send = AsyncMock()
@@ -183,9 +187,20 @@ async def test_tls_mode_for_send_and_connection(monkeypatch, port, tls, expected
     smtp = MagicMock(return_value=client)
     monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
     monkeypatch.setattr("mail.delivery.sender.aiosmtplib.SMTP", smtp)
-    sender = SmtpMailSender("smtp.test", port, "", "", "from@test", tls)
+    sender = build_sender(
+        MailSettings(
+            backend="smtp", smtp_host="smtp.test", smtp_port=port, smtp_tls=tls, smtp_tls_mode=mode
+        )
+    )
     await sender.send(MailMessage("to@test", "Hi", "Body"))
     await sender.verify_connection()
     for kwargs in [send.call_args.kwargs, smtp.call_args.kwargs]:
         assert (kwargs["use_tls"], kwargs.get("start_tls")) == expected
     client.connect.assert_awaited_once()
+
+
+def test_unknown_tls_mode_is_rejected():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        MailSettings(smtp_tls_mode="typo")

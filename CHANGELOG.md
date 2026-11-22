@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Behaviour change:** mail exposes DB-backed `smtp_tls_mode` (`auto`, `starttls`, `implicit`); `auto` retains implicit TLS on 465 and STARTTLS elsewhere. Deployments that previously used implicit TLS on custom ports must select `implicit`; `smtp_tls=false` disables TLS in every mode (#1099).
 - **Behaviour change:** worker images use a separate non-root runtime without build tools or uv; web and worker images copy only their runtime artifacts (#1088).
 
 ### Deprecated
@@ -34,6 +35,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
+- Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).
 - Repo Compose worker and beat explicitly pin the legacy broker and result-backend variables alongside `SM_REDIS_URL` to `redis://redis:6379/4`, overriding host `.env` localhost values and restoring upgrade compatibility after #1095 (#1097).
 - Malformed Referer URLs fall back to `/`, including demo-guard Inertia refusals, instead of raising a server error (#1098).
 - Overlapping app lifespans share ownership of process-global lease backends, closing each backend only after its last active owner exits while preserving replacement cleanup and engine disposal (#1102).
