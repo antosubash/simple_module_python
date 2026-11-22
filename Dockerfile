@@ -52,7 +52,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 # --no-install-package drops the Celery module from this image: with no entry
 # point installed, discovery never sees it, so nothing here needs a broker and
 # the bundle carries none of its pages. Drop the flag (and point
-# SM_BG_TASKS_BROKER_URL at a real Redis) to run tasks from the web process.
+# SM_REDIS_URL at a real Redis) to run tasks from the web process.
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --all-packages --no-dev --no-install-package simple-module-background-tasks
@@ -66,8 +66,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN /app/.venv/bin/smpy host gen-pages --host-dir=host/client_app
 RUN npm run build
 
-# node_modules is a build-time artifact only; the runtime serves static files.
-RUN rm -rf node_modules host/client_app/node_modules
+# host/client_app/node_modules is a build-time artifact; the runtime COPY list drops root node_modules too.
+RUN rm -rf host/client_app/node_modules
 
 FROM python:3.12-slim-bookworm AS runtime
 
@@ -88,7 +88,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app /app
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/pyproject.toml /app/pyproject.toml
+COPY --from=builder /app/docker /app/docker
+COPY --from=builder /app/framework /app/framework
+COPY --from=builder /app/modules /app/modules
+COPY --from=builder /app/host /app/host
+COPY --from=builder /app/skills /app/skills
 
 # Keep the filesystem backend's default ./uploads on the data volume too.
 RUN mkdir -p /app/data/uploads \

@@ -115,15 +115,16 @@ dev-services stack that `worker`/`beat` use.
 
 Before uvicorn binds, the entrypoint applies `alembic upgrade heads` (a fresh
 volume has no tables, and production fails boot on `SM010` when the DB is behind
-head) and generates an ephemeral `SM_SECRET_KEY` when none is set: enough to boot
-and log in, but sessions die on restart, so set one for anything real.
+head). With `SM_SECRET_KEY` unset, the host then generates a key once and persists
+it in the DB, so sessions survive restarts. Only an unset pre-migration boot uses
+an ephemeral key until migrations make persistence possible.
 
 The image runs with `SM_ENVIRONMENT=production` because it serves the built
 bundle rather than a Vite dev server. Useful overrides:
 
 | Variable | Image default | Why you'd change it |
 |---|---|---|
-| `SM_SECRET_KEY` | generated per start | Persist sessions across restarts |
+| `SM_SECRET_KEY` | generated once and persisted in the DB | Pin the key yourself |
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:////app/data/app.db` | Point at Postgres |
 | `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | `admin@example.com` / generated and logged | Seed a first admin with a password you chose |
 | `SM_TRUSTED_PROXY` | unset | Set to `*` behind a reverse proxy, so logs record the visitor's IP and not the proxy's |
@@ -284,9 +285,9 @@ provider's pages (`make dev` does this for you), and configure the provider unde
 
 With Keycloak or OIDC active:
 
-- `permissions` declares a dependency on the `Users` module and imports its role
-  contracts, so `simple_module_users` still has to be installed even though it is
-  inactive. A host that wants no local-account machinery leaves `permissions` out.
+- `permissions` works with Users, OIDC and Keycloak through the neutral role
+  directory. Users is only an optional ordering dependency of Permissions, so
+  local-account machinery is not required for role mappings or direct grants.
 - The local-account flows (`/users/login`, invites, signup, the sections below)
   belong to the `users` module and are gone; the identity provider owns login,
   logout and user administration instead.

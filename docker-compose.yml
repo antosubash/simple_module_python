@@ -9,8 +9,8 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      # Left unset the entrypoint generates an ephemeral key (fine for a demo,
-      # logs a warning, invalidates sessions on restart).
+      # Left unset, the host generates a key once and persists it in the DB
+      # after the entrypoint applies migrations, preserving sessions on restart.
       - SM_SECRET_KEY
       # First-boot admin seed, applied only while the users table is empty.
       # Unset, the entrypoint seeds admin@example.com with a generated
@@ -38,7 +38,7 @@ services:
   # (one PostGIS + one Redis on the external `devnet` network). Start it first
   # with `make up` in ~/Repos/dev-services. This project uses:
   #   database:  simple_module_python  (on shared postgres:5432, postgres/postgres)
-  #   redis:     DB 4 (broker) / DB 5 (result backend)
+  #   redis:     SM_REDIS_URL, DB 4 for both broker and result backend
 
   worker:
     build:
@@ -48,15 +48,14 @@ services:
       - path: .env
         required: false
     environment:
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/5
+      # Override host .env (localhost) so containers reach shared Compose Redis;
+      # leave legacy SM_BG_TASKS_BROKER_URL/_RESULT_BACKEND unset in .env.
+      SM_REDIS_URL: redis://redis:6379/4
       SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/simple_module_python}
     networks: [devnet]
     volumes:
       - appdata:/app/data
     command:
-      - "uv"
-      - "run"
       - "celery"
       - "-A"
       - "scripts.run_worker:celery"
@@ -73,8 +72,9 @@ services:
       - path: .env
         required: false
     environment:
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/5
+      # Override host .env (localhost) so containers reach shared Compose Redis;
+      # leave legacy SM_BG_TASKS_BROKER_URL/_RESULT_BACKEND unset in .env.
+      SM_REDIS_URL: redis://redis:6379/4
       SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/simple_module_python}
     depends_on:
       worker:
@@ -83,8 +83,6 @@ services:
     volumes:
       - appdata:/app/data
     command:
-      - "uv"
-      - "run"
       - "celery"
       - "-A"
       - "scripts.run_worker:celery"
