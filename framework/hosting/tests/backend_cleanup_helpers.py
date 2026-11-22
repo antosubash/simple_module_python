@@ -1,6 +1,9 @@
 """A bounded event-loop thread for cross-loop backend cleanup tests."""
 
 import asyncio
+import os
+import subprocess
+import sys
 from contextlib import contextmanager
 from threading import Event, Thread
 
@@ -66,3 +69,18 @@ def make_backend(first_type=Client):
         return client
 
     return RedisLeaseBackend("redis://unused", factory=factory), clients
+
+
+def run_fork_probe(script: str, *args: str, timeout: int = 10) -> None:
+    if not hasattr(os, "fork"):
+        import pytest
+
+        pytest.skip("requires os.fork")
+    result = subprocess.run(
+        [sys.executable, "-c", script, *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    assert result.returncode == 0, f"stderr:\n{result.stderr}\nstdout:\n{result.stdout}"

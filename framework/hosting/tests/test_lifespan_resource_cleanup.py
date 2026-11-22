@@ -1,5 +1,6 @@
 """Lifespan cleanup still runs when startup, serving, or shutdown fails."""
 
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -152,12 +153,14 @@ async def test_lifespan_cancellation_still_closes_remaining_backends_and_engine(
     assert events == ["rate_cancel", "final", "initial", "dispose"]
 
 
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="requires os.fork")
 def test_lifespan_fork_while_tracker_holds_lock_keeps_listener_unblocked():
     import subprocess
     import sys
 
     probe = """
 import asyncio, os, signal, threading
+import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from fastapi import FastAPI

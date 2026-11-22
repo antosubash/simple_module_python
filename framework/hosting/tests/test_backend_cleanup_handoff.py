@@ -2,13 +2,11 @@
 
 import asyncio
 import gc
-import subprocess
-import sys
 import warnings
 from contextlib import suppress
 from threading import Event
 
-from backend_cleanup_helpers import Client, make_backend, running_loop
+from backend_cleanup_helpers import Client, make_backend, run_fork_probe, running_loop
 from simple_module_test import wait_for
 
 
@@ -182,7 +180,7 @@ loop.close()
 
 
 def test_fork_with_in_flight_parent_close_runs_child_cleanup():
-    subprocess.run([sys.executable, "-c", _FORK_IN_FLIGHT_PROBE], check=True, timeout=15)
+    run_fork_probe(_FORK_IN_FLIGHT_PROBE, timeout=15)
 
 
 _FORK_HELD_LOCK_PROBE = """
@@ -235,4 +233,4 @@ assert os.waitstatus_to_exitcode(status) == 0
 
 
 def test_fork_while_another_thread_holds_backend_lock_runs_child_cleanup():
-    subprocess.run([sys.executable, "-c", _FORK_HELD_LOCK_PROBE], check=True, timeout=10)
+    run_fork_probe(_FORK_HELD_LOCK_PROBE, timeout=10)

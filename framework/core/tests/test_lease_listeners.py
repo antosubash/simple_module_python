@@ -1,9 +1,11 @@
 """Lifespan observers see backend replacements without changing public exports."""
 
+import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
 from simple_module_core.leases import (
     InProcessLeaseBackend,
     _add_lease_listener,
@@ -80,6 +82,7 @@ def test_listener_can_read_and_replace_backend_during_notification():
         _remove_lease_listener(listener)
 
 
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="requires os.fork")
 def test_fork_while_listener_holds_lock_resets_child_lock():
     probe = """
 import os, signal, threading
