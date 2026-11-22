@@ -83,11 +83,12 @@ class KeycloakModule(ModuleBase):
 
         state = app.state.keycloak
         s = state.settings
-        if s.server_url and s.realm:
+        server_url = s.server_url.rstrip("/")
+        if server_url and s.realm:
             state.jwks_cache = JWKSCache(
-                jwks_url=(f"{s.server_url}/realms/{s.realm}/protocol/openid-connect/certs"),
+                jwks_url=(f"{server_url}/realms/{s.realm}/protocol/openid-connect/certs"),
                 ttl_seconds=s.jwks_cache_ttl_seconds,
-                issuer=f"{s.server_url}/realms/{s.realm}",
+                issuer=f"{server_url}/realms/{s.realm}",
                 audience=s.client_id,
                 exclusive_audience=False,
             )

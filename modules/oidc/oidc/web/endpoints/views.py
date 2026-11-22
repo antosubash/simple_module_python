@@ -3,8 +3,9 @@
 import logging
 
 from auth.oidc_common.renewal_outcomes import forget_outcomes
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth_policy import login_redirect_url
+from simple_module_hosting.csrf import require_browser_origin
 from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse
@@ -37,7 +38,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
     return await inertia.render(_PAGE_LOGGED_OUT)
 
 
-@router.post("/logout")
+@router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
     client = request.app.state.oidc.client
     if client is not None:

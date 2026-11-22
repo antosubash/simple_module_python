@@ -32,6 +32,11 @@ class _SmtpPolicy(policy.EmailPolicy):
         return folded
 
 
+def _tls_kwargs(port: int, use_tls: bool) -> dict[str, bool]:
+    """Use implicit TLS on 465 and STARTTLS on submission ports."""
+    return {"use_tls": use_tls and port == 465, "start_tls": use_tls and port != 465}
+
+
 class SmtpMailSender:
     """Delivers through an SMTP server with aiosmtplib."""
 
@@ -91,6 +96,7 @@ class SmtpMailSender:
         )
         # Avoid encoded words in long RFC 2369 URLs; bytes bypass aiosmtplib's refolding.
         wire = email.as_bytes(policy=wire_policy.clone(max_line_length=998, cte_type="7bit"))
+        tls = _tls_kwargs(self._port, self._use_tls)
         await aiosmtplib.send(
             wire,
             sender=sender,
@@ -100,7 +106,8 @@ class SmtpMailSender:
             port=self._port,
             username=self._username or None,
             password=self._password or None,
-            use_tls=self._use_tls,
+            use_tls=tls["use_tls"],
+            start_tls=tls["start_tls"],
             timeout=c.SMTP_TIMEOUT_SECONDS,
         )
 
@@ -111,10 +118,12 @@ class SmtpMailSender:
         config should not put a stray message in someone's inbox. Raises
         whatever aiosmtplib raises so the caller can show the real reason.
         """
+        tls = _tls_kwargs(self._port, self._use_tls)
         client = aiosmtplib.SMTP(
             hostname=self._host,
             port=self._port,
-            use_tls=self._use_tls,
+            use_tls=tls["use_tls"],
+            start_tls=tls["start_tls"],
             timeout=c.SMTP_TIMEOUT_SECONDS,
         )
         await client.connect()

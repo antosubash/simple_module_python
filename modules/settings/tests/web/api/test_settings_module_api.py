@@ -120,3 +120,50 @@ async def test_invalid_guard_save_keeps_the_previous_snapshot(authenticated_clie
     )
     assert response.status_code == 422
     assert app.state.host.request_guards is previous
+
+
+async def test_clear_required_site_lock_password_preserves_valid_overrides(
+    authenticated_client, app
+):
+    from settings.core.service import SettingService
+    from settings.module_settings.store import SettingsStore
+
+    response = await authenticated_client.put(
+        "/api/settings/modules/site_lock", json={"password": "gate-password", "enabled": True}
+    )
+    assert response.status_code == 200, response.text
+    response = await authenticated_client.delete("/api/settings/modules/site_lock/password")
+    assert response.status_code == 422, response.text
+    assert "gate-password" not in response.text
+    async with app.state.sm.db.session_factory() as db:
+        stored = await SettingsStore(SettingService(db)).get_overrides("site_lock")
+    assert stored["password"][0] == "gate-password"
+    assert stored["enabled"][0] == "True"
+    assert app.state.site_lock.settings.password == "gate-password"
+
+
+async def test_clear_field_returns_422_when_remaining_override_is_unparseable(
+    authenticated_client, app
+):
+    from settings.core.service import SettingService
+    from settings.module_settings.store import SYSTEM_SCOPE_ID, SettingsStore
+    from simple_module_db.stored_settings import Setting
+
+    async with app.state.sm.db.session_factory() as db:
+        store = SettingsStore(SettingService(db))
+        await store.set_override("site_lock", "password", "gate-password", "string")
+        db.add(
+            Setting(
+                key="site_lock.enabled",
+                value="not-a-bool",
+                value_type="bool",
+                scope="system",
+                scope_id=SYSTEM_SCOPE_ID,
+            )
+        )
+        await db.commit()
+
+    response = await authenticated_client.delete("/api/settings/modules/site_lock/password")
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"][0]["loc"] == ["enabled"]
+    assert "not-a-bool" not in response.text

@@ -25,6 +25,16 @@ All notable changes to this project are documented in this file. The format is b
 - Clear `_AUDIT_PENDING_KEY` before flush and on `after_soft_rollback` so rolled-back savepoints never leak phantom audit records to a subsequent flush (#1066).
 - Forward all active custom `ScopeFilter.bypass_option` flags during `bulk_audit._prefetch_ids` (#1067).
 - Honor `__audit_exclude__` when logging hard-delete events (`db.entity.deleted`) (#1068).
+- Service API tokens lose their principal and permissions when their pinned tenant is missing or inactive (#1070).
+- Invite acceptance rejects disabled and external accounts before changing passwords or verification; previews require matching account identity and an eligible, unverified account (#1071).
+- Demo refusals validate return URLs, and OIDC/Keycloak logout refuses browser requests marked cross-site through the shared hosting origin guard (#1072).
+- SMTP uses STARTTLS on port 587, implicit TLS on port 465, and explicitly disables both when TLS is switched off (#1073).
+- Site-lock session fingerprints use the application secret, and unlock attempt buckets have a bounded capacity with expired-first eviction (#1074).
+- Clearing a module setting validates the resulting configuration before deleting its override; invalid and environment-pinned resets return field-level 422 errors (#1075).
+- Keycloak startup normalizes trailing server URL slashes, and connection settings declare their restart requirement (#1076).
+- Concurrent feature-flag override creation recovers from unique-key conflicts inside a savepoint without losing other transaction writes (#1077).
+- Tenant search treats percent signs, underscores, and backslashes as literal characters (#1078).
+- File upload and deletion events publish after successful database commit, allowing handlers to observe durable state (#1079).
 - Serialize deferred startup, including settings hydration and secret persistence, and shut down successfully started modules in reverse dependency order even after deferred replay (#1080).
 - Resolve the project root when creating each app so late `SM_PROJECT_ROOT` changes apply to static assets, templates and i18n (#1081).
 - Keep Inertia version-conflict locations same-origin by escaping leading path separators, preserve all `Vary` fields and wildcard semantics, reject non-finite HTML JSON values, and allow rendering without session middleware (#1082).

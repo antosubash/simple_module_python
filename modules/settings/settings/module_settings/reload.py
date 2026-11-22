@@ -12,8 +12,10 @@ from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
 from simple_module_core.module_settings import module_settings_registry
 from simple_module_core.settings_hydrate import (
+    build_settings,
     env_supplied_fields,
     hydrate_settings,
+    parse_stored_value,
     value_type_for_field,
 )
 
@@ -172,5 +174,34 @@ async def apply_changes_and_reload(
         except ValidationError as exc:
             raise _relocate(exc, field_name) from exc
 
+    reload_on_commit(app, bus, store, package)
+    return validated
+
+
+async def clear_override_and_reload(
+    app: FastAPI, bus: EventBus, store: SettingsStore, *, package: str, field: str
+) -> BaseSettings:
+    """Validate the reset snapshot before removing any persisted override."""
+    cls = module_settings_registry(app).get(package)
+    if cls is None:
+        raise KeyError(f"Unknown settings package: {package!r}")
+    if field in env_supplied_fields(cls):
+        raise EnvPinnedError([field])
+    overrides = await store.get_overrides(package)
+    overrides.pop(field, None)
+    from_env = env_supplied_fields(cls)
+    for name, (raw, vtype) in overrides.items():
+        if name not in cls.model_fields or name in from_env:
+            continue
+        try:
+            parse_stored_value(raw, vtype)
+        except ValueError as exc:
+            error = ValueError(f"Stored value for {name} cannot be parsed as {vtype}")
+            raise ValidationError.from_exception_data(
+                cls.__name__,
+                [{"type": "value_error", "loc": (name,), "input": None, "ctx": {"error": error}}],
+            ) from exc
+    validated = build_settings(cls, overrides)
+    await store.clear_override(package, field)
     reload_on_commit(app, bus, store, package)
     return validated

@@ -191,7 +191,7 @@ class TestInvitePreview:
         assert resp.status_code == 200, resp.text
         invite = resp.json()["props"]["invite"]
         assert invite["email"] == "preview@example.com"
-        assert invite["already_accepted"] is False
+        assert "already_accepted" not in invite
 
     @pytest.mark.parametrize("token", ["", "not-a-jwt", "a.b.c"])
     async def test_unreadable_tokens_yield_no_preview(self, client: httpx.AsyncClient, token: str):
@@ -220,7 +220,7 @@ class TestInvitePreview:
                 f"/users/invite/accept?token={token}",
                 headers={"X-Inertia": "true", "Accept": "application/json"},
             )
-            assert resp.json()["props"]["invite"]["already_accepted"] is False
+            assert resp.json()["props"]["invite"]["email"] == "unspent@example.com"
 
         accepted = await client.post(
             "/api/users/auth/accept-invite",

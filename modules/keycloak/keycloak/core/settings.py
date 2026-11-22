@@ -18,10 +18,19 @@ class KeycloakSettings(DbBackedSettings):
     # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
-    server_url: str = env_str("SM_KEYCLOAK_SERVER_URL", "")
-    realm: str = env_str("SM_KEYCLOAK_REALM", "")
-    client_id: str = env_str("SM_KEYCLOAK_CLIENT_ID", "")
-    client_secret: str = env_str("SM_KEYCLOAK_CLIENT_SECRET", "")
+    server_url: str = Field(
+        default=env_str("SM_KEYCLOAK_SERVER_URL", ""), json_schema_extra={"requires_restart": True}
+    )
+    realm: str = Field(
+        default=env_str("SM_KEYCLOAK_REALM", ""), json_schema_extra={"requires_restart": True}
+    )
+    client_id: str = Field(
+        default=env_str("SM_KEYCLOAK_CLIENT_ID", ""), json_schema_extra={"requires_restart": True}
+    )
+    client_secret: str = Field(
+        default=env_str("SM_KEYCLOAK_CLIENT_SECRET", ""),
+        json_schema_extra={"requires_restart": True},
+    )
 
     # Off by default: the JWT ``tenant_id`` claim is only as trustworthy as the
     # realm mapper that produces it. A mapper reading an attribute the user can
@@ -31,7 +40,9 @@ class KeycloakSettings(DbBackedSettings):
     trust_tenant_claim: bool = env_bool("SM_KEYCLOAK_TRUST_TENANT_CLAIM", False)
 
     roles_claim_path: str = "realm_access.roles"
-    jwks_cache_ttl_seconds: int = 3600
+    jwks_cache_ttl_seconds: int = Field(
+        default=3600, ge=0, json_schema_extra={"requires_restart": True}
+    )
 
     role_mapping: dict[str, str] = Field(
         default_factory=lambda: {"admin": "admin", "user": "user"},

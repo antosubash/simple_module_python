@@ -27,7 +27,11 @@ class AttemptLimiter:
         max_failures: int,
         window_seconds: int,
         cooldown_seconds: int,
+        max_buckets: int = 10_000,
     ) -> None:
+        if max_buckets < 1:
+            raise ValueError("max_buckets must be positive")
+        self._max_buckets = max_buckets
         self._max = max_failures
         self._window = window_seconds
         self._cooldown = cooldown_seconds
@@ -38,8 +42,8 @@ class AttemptLimiter:
     def _now(now: float | None) -> float:
         return time.monotonic() if now is None else now
 
-    def _sweep(self, moment: float) -> None:
-        if moment < self._next_sweep:
+    def _sweep(self, moment: float, *, force: bool = False) -> None:
+        if not force and moment < self._next_sweep:
             return
         self._buckets = {
             key: bucket
@@ -58,6 +62,10 @@ class AttemptLimiter:
     def record_failure(self, key: str, *, now: float | None = None) -> None:
         moment = self._now(now)
         self._sweep(moment)
+        if key not in self._buckets and len(self._buckets) >= self._max_buckets:
+            self._sweep(moment, force=True)
+            while len(self._buckets) >= self._max_buckets:
+                del self._buckets[next(iter(self._buckets))]
         bucket = self._buckets.setdefault(key, _Bucket())
         bucket.failures = [t for t in bucket.failures if moment - t < self._window]
         bucket.failures.append(moment)

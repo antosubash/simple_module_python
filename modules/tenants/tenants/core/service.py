@@ -21,6 +21,7 @@ from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 from simple_module_db import PLATFORM_TENANT_ID
 from simple_module_db.admission import serialize_sqlite_writes
+from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -182,8 +183,11 @@ class TenantService(MembershipOpsMixin):
     async def list_all(self, *, search: str = "", limit: int = 50, offset: int = 0) -> list[Tenant]:
         stmt = select(Tenant).order_by(Tenant.created_at.desc()).limit(limit).offset(offset)
         if search:
-            like = f"%{search.lower()}%"
-            stmt = stmt.where(func.lower(Tenant.name).like(like) | Tenant.slug.like(like))
+            like = like_contains_pattern(search)
+            stmt = stmt.where(
+                col(Tenant.name).ilike(like, escape=LIKE_ESCAPE_CHAR)
+                | col(Tenant.slug).ilike(like, escape=LIKE_ESCAPE_CHAR)
+            )
         return list((await self.db.execute(stmt)).scalars().all())
 
     async def member_counts(self, tenant_ids: Sequence[str]) -> dict[str, int]:

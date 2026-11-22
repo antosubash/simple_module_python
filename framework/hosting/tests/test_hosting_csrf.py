@@ -125,3 +125,29 @@ def test_sign_in_survivors_registry():
     assert sign_in_preserved_keys(app) == frozenset()
     preserve_across_sign_in(app, "gate_marker")
     assert sign_in_preserved_keys(app) == {"gate_marker"}
+
+
+@pytest.mark.parametrize("site", [None, "same-origin", "same-site", "cross-site"])
+async def test_browser_origin_guard_rejects_cross_site_mutation(site):
+    from fastapi import HTTPException
+    from simple_module_hosting.csrf import require_browser_origin
+
+    headers = [] if site is None else [(b"sec-fetch-site", site.encode())]
+    request = Request({"type": "http", "method": "POST", "headers": headers})
+    if site == "cross-site":
+        with pytest.raises(HTTPException) as exc:
+            await require_browser_origin(request)
+        assert exc.value.status_code == 403
+    else:
+        await require_browser_origin(request)
+
+
+async def test_browser_origin_guard_preserves_safe_methods():
+    from simple_module_hosting.csrf import require_browser_origin
+
+    for method in ["GET", "HEAD", "OPTIONS"]:
+        await require_browser_origin(
+            Request(
+                {"type": "http", "method": method, "headers": [(b"sec-fetch-site", b"cross-site")]}
+            )
+        )

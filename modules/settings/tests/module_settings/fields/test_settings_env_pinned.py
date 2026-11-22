@@ -123,3 +123,29 @@ async def test_an_env_set_field_echoed_unchanged_is_not_refused(
         json={"task_default_queue": live, "retention_days": 9},
     )
     assert resp.status_code == 200, resp.text
+
+
+async def test_editor_delete_refuses_env_pinned_field(authenticated_client, app, monkeypatch):
+    store_factory = app.state.sm.db.session_factory
+    async with store_factory() as db:
+        await SettingsStore(SettingService(db)).set_override(
+            "background_tasks", "task_default_queue", "stored", "string"
+        )
+        await db.commit()
+    monkeypatch.setenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", "from-env")
+    env_supplied_fields.cache_clear()
+    try:
+        response = await authenticated_client.delete(
+            "/api/settings/modules/background_tasks/task_default_queue"
+        )
+        assert response.status_code == 422, response.text
+        (error,) = response.json()["detail"]
+        assert error["loc"] == ["body", "task_default_queue"]
+        assert error["type"] == "env_pinned"
+        assert error["msg"].startswith("Set by an environment variable")
+        async with store_factory() as db:
+            assert (await SettingsStore(SettingService(db)).get_overrides("background_tasks"))[
+                "task_default_queue"
+            ] == ("stored", "string")
+    finally:
+        env_supplied_fields.cache_clear()

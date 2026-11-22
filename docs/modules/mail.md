@@ -25,7 +25,7 @@ DB-backed (`MailSettings`, package `mail`), hot-reloaded without a restart.
 | `smtp_username` | `""` | blank means no authentication |
 | `smtp_password` | `""` | masked in the settings UI |
 | `smtp_from` | `no-reply@localhost` | |
-| `smtp_tls` | `true` | implicit TLS (`use_tls`) |
+| `smtp_tls` | `true` | implicit TLS (`use_tls`) on port 465; mandatory STARTTLS (`start_tls`) on other ports including 587; `false` disables both |
 
 Earlier versions kept these under `users` (`users.mailer`, `users.smtp_*`). A data migration renames the stored keys to `mail.backend` and `mail.smtp_*`; an existing `mail.*` row wins, and the downgrade reverses it.
 

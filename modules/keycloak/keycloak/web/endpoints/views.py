@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 
 from auth.oidc_common.renewal_outcomes import forget_outcomes
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+from simple_module_hosting.csrf import require_browser_origin
 from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse, Response
@@ -50,7 +51,7 @@ async def logged_out_page(inertia: InertiaDep):
     return await inertia.render(_PAGE_LOGGED_OUT)
 
 
-@router.post("/logout")
+@router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request) -> Response:
     from keycloak.identity.oidc import OIDCClient
 

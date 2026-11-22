@@ -13,6 +13,7 @@ readable here and writes are persisted on the way out.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import secrets
 from urllib.parse import quote
@@ -40,13 +41,15 @@ _ERR_WRONG = "Incorrect password."
 _ERR_THROTTLED = "Too many attempts. Try again later."
 
 
-def password_fingerprint(password: str) -> str:
+def password_fingerprint(password: str, secret_key: str = "") -> str:
     """Short digest of the active password, stored in the session.
 
     Comparing this on each request is what makes a password rotation
     invalidate every previously-unlocked session.
     """
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()[:16]
+    return hmac.new(
+        secret_key.encode("utf-8"), b"site_lock:" + password.encode("utf-8"), hashlib.sha256
+    ).hexdigest()[:16]
 
 
 class SiteLockMiddleware:
@@ -75,7 +78,9 @@ class SiteLockMiddleware:
             await self.app(scope, receive, send)
             return
 
-        fingerprint = password_fingerprint(settings.password)
+        sm = getattr(scope["app"].state, "sm", None)
+        secret_key = getattr(getattr(sm, "settings", None), "secret_key", "")
+        fingerprint = password_fingerprint(settings.password, secret_key)
         session = scope.get("session")
 
         if path == c.UNLOCK_PATH:

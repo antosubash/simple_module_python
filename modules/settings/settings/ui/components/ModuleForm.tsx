@@ -89,6 +89,19 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     return [...g.entries()];
   }, [m.fields]);
 
+  function handleFailure(result: { status?: number; error?: unknown }) {
+    if (result.status === 422) {
+      const split = splitValidationErrors(
+        (result.error as { detail?: unknown } | null)?.detail,
+        m.fields.map((f) => f.name),
+      );
+      setErrors(split.fields);
+      setFormErrors(split.form);
+    } else {
+      setFormErrors([t(keys.settings.modules_form.save_failed)]);
+    }
+  }
+
   async function onSave() {
     setBusy(true);
     setSaved(false);
@@ -102,15 +115,8 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         body: changed,
       }),
     );
-    if (result.status === 422) {
-      const split = splitValidationErrors(
-        (result.error as { detail?: unknown } | null)?.detail,
-        m.fields.map((f) => f.name),
-      );
-      setErrors(split.fields);
-      setFormErrors(split.form);
-    } else if (!result.ok) {
-      setFormErrors([t(keys.settings.modules_form.save_failed)]);
+    if (!result.ok) {
+      handleFailure(result);
     } else {
       // Keeping the form mounted lets the confirmation remain visible instead
       // of being discarded by an immediate Inertia reload.
@@ -129,13 +135,20 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   }
 
   async function onReset(name: string) {
+    setBusy(true);
     setSaved(false);
-    // A failed clear still reloads: the reload shows what the server holds.
-    await apiResult(
+    setErrors({});
+    setFormErrors([]);
+    const result = await apiResult(
       api.DELETE('/api/settings/modules/{package}/{field}', {
         params: { path: { package: m.package, field: name } },
       }),
     );
+    if (!result.ok) {
+      handleFailure(result);
+      setBusy(false);
+      return;
+    }
     setSavedOverrides((prev) => ({ ...prev, [name]: false }));
     setBuffer((prev) => ({
       ...prev,
@@ -158,6 +171,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         }));
       },
     });
+    setBusy(false);
   }
 
   return (

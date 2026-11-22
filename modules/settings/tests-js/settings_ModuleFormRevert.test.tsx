@@ -148,3 +148,23 @@ test('revert right after a save shows the live default and hides Revert', async 
   await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
 });
+
+test('a failed revert surfaces validation errors without clearing override or reloading', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ detail: [{ loc: ['body', 'password'], msg: 'Password is required' }] }),
+          { status: 422, headers: { 'Content-Type': 'application/json' } },
+        ),
+    ),
+  );
+  render(<ModuleForm module={view([field('password', 'gate-password', true)])} />);
+  fireEvent.change(screen.getByLabelText('password'), { target: { value: 'draft-pw' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
+  expect(await screen.findByText('Password is required')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Revert' })).toBeInTheDocument();
+  expect(screen.getByLabelText('password')).toHaveValue('draft-pw');
+  expect(mocks.reload).not.toHaveBeenCalled();
+});
