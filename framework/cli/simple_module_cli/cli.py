@@ -19,29 +19,32 @@ from typing import Annotated
 
 import typer
 
-from simple_module_cli import _add_install
-from simple_module_cli._project_cli_check import (
+from simple_module_cli.commands.add_cmd import add_module, run_add
+from simple_module_cli.commands.dev_cmd import dev_command
+from simple_module_cli.commands.docker_cmd import docker_app
+from simple_module_cli.commands.gen_cmd import gen_command
+from simple_module_cli.commands.migrations_cmd import migrations_app
+from simple_module_cli.commands.module_cmd import module_app
+from simple_module_cli.commands.new import new_project
+from simple_module_cli.commands.openapi_cmd import openapi_app
+from simple_module_cli.commands.plugins import discover_and_mount
+from simple_module_cli.commands.skills_cmd import app as skills_app
+from simple_module_cli.commands.update_cmd import update_modules
+from simple_module_cli.scaffold.case import to_kebab_case
+from simple_module_cli.scaffold.scaffolding import create_host as _create_host
+from simple_module_cli.scaffold.scaffolding import create_module as _create_module
+from simple_module_cli.scaffold.scaffolding import (
+    is_inside_existing_repo,
+    resolve_framework_version,
+)
+from simple_module_cli.sources import _add_install
+from simple_module_cli.sources._project_cli_check import (
     app_framework_pin,
     running_cli,
     warn_if_not_the_apps_cli,
 )
-from simple_module_cli.add_cmd import add_module, run_add
-from simple_module_cli.case import to_kebab_case
-from simple_module_cli.dev_cmd import dev_command
-from simple_module_cli.docker_cmd import docker_app
-from simple_module_cli.gen_cmd import gen_command
-from simple_module_cli.migrations_cmd import migrations_app
-from simple_module_cli.module_cmd import module_app
-from simple_module_cli.new import new_project
-from simple_module_cli.openapi_cmd import openapi_app
-from simple_module_cli.package_update import package_update
-from simple_module_cli.plugins import discover_and_mount
-from simple_module_cli.scaffolding import create_host as _create_host
-from simple_module_cli.scaffolding import create_module as _create_module
-from simple_module_cli.scaffolding import is_inside_existing_repo, resolve_framework_version
-from simple_module_cli.skills_cmd import app as skills_app
-from simple_module_cli.update_cmd import update_modules
-from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
+from simple_module_cli.sources.uv_workspace import find_workspace_root, is_workspace_member
+from simple_module_cli.updates.package_update import package_update
 
 app = typer.Typer(
     help="SimpleModule developer CLI.",

@@ -133,6 +133,11 @@ def _register_all() -> None:
             importlib.import_module(name)
     # CLI alias registers on use so the standalone scaffolder needs no core dependency (#984).
     deprecate("smpy package-update", remove_in="0.0.50", use="uv run smpy update")
+    deprecate(
+        "simple_module_inertia.response",
+        remove_in="0.0.52",
+        use="simple_module_inertia.protocol.response",
+    )
 
 
 def test_every_known_shim_is_registered() -> None:

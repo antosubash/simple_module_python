@@ -23,6 +23,10 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change:** mail exposes DB-backed `smtp_tls_mode` (`auto`, `starttls`, `implicit`); `auto` retains implicit TLS on 465 and STARTTLS elsewhere. Deployments that previously used implicit TLS on custom ports must select `implicit`; `smtp_tls=false` disables TLS in every mode (#1099).
 - **Behaviour change:** worker images use a separate non-root runtime without build tools or uv; web and worker images copy only their runtime artifacts (#1088).
 
+### Deprecated
+
+- `simple_module_inertia.response` is deprecated in favor of `simple_module_inertia.protocol.response` (and package-root `simple_module_inertia.InertiaResponse`); the compatibility shim emits `DeprecationWarning` on import and will be removed in `0.0.52`.
+
 ### Security
 
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).

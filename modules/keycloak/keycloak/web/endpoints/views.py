@@ -8,7 +8,7 @@ from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.csrf import require_browser_origin
 from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
-from simple_module_inertia.response import location
+from simple_module_inertia.protocol.response import location
 from starlette.responses import RedirectResponse, Response
 
 from keycloak.identity.renewal import _KEYS

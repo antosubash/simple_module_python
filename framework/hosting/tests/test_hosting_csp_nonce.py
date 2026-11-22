@@ -9,7 +9,7 @@ import pytest
 from jinja2 import Environment, FileSystemLoader
 from simple_module_core.csp import CspSourceRegistry
 from simple_module_hosting.middleware import SecurityHeadersMiddleware
-from simple_module_inertia.templating import InertiaContext, InertiaExtension
+from simple_module_inertia.assets.templating import InertiaContext, InertiaExtension
 from starlette.applications import Starlette
 from starlette.responses import HTMLResponse, PlainTextResponse
 from starlette.routing import Route

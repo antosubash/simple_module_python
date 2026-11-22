@@ -45,10 +45,10 @@ checkers, not a framework runtime lookup.
 | `task_config.py` | `modules/background_tasks/background_tasks/worker/task_routing.py:46` imports `<package>.task_config` for a module's Celery routes and beat schedule. |
 | `contracts/` | Public imports for sibling modules; the scaffold consumer is `framework/cli/simple_module_cli/templates/module/__PACKAGE__/web/service.py.tpl:15`. Keep public SQLModel DTOs, events and real extension contracts here. |
 | `pages/` | `framework/hosting/simple_module_hosting/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
-| `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py` selects the root pages directory and generates API types plus the `api` client. Optional `pages/api.ts` holds custom client logic only. |
+| `pages/api.generated.ts` | `framework/cli/simple_module_cli/tooling/openapi_types.py` selects the root pages directory and generates API types plus the `api` client. Optional `pages/api.ts` holds custom client logic only. |
 | `locales/` | The default `ModuleBase.locale_dirs()` in `framework/core/simple_module_core/module.py` discovers the root directory automatically; scaffolds emit locale JSON without a hook override. |
 | `theme.css`, `styles.css` | `framework/hosting/simple_module_hosting/assets.py:126` discovers both; `framework/core/simple_module_core/diagnostics/_css.py:171` and `framework/core/simple_module_core/diagnostics/_css.py:193` check their different cascade rules (SM022/SM023). |
-| `cli.py` | Only when a declared entry point targets it: `framework/cli/simple_module_cli/plugins.py:41` loads CLI plugins. |
+| `cli.py` | Only when a declared entry point targets it: `framework/cli/simple_module_cli/commands/plugins.py:41` loads CLI plugins. |
 
 Other root files and folders are legacy exceptions, tracked explicitly by
 `host/tests/test_module_layout.py:1`. Keep named lookup paths pinned with tests
@@ -139,7 +139,7 @@ relative to the project root. This also lets `pytest_plugins` in conftests
 import support modules. Keep helper module names distinct across those directories.
 
 The root `pyproject.toml:137` lists `modules/<name>/tests` in `testpaths`, and
-`framework/cli/simple_module_cli/framework_repo.py` wires that root. Pytest
+`framework/cli/simple_module_cli/scaffold/framework_repo.py` wires that root. Pytest
 recursively collects nested areas without listing each child directory.
 JS tests stay in `tests-js/`, not in package `ui/`.
 
