@@ -20,8 +20,6 @@ ALLOWED_ROOT = frozenset(
         "contracts",
         "pages",
         "locales",
-        "package.json",
-        "tsconfig.json",
         "theme.css",
         "styles.css",
         "cli.py",
@@ -159,7 +157,7 @@ def assert_module_layout(
     entries = {
         p.name
         for p in package.iterdir()
-        if (not p.is_dir() and not (p.is_file() and p.suffix == ".py" and is_layout_shim(p)))
+        if (p.is_file() and p.suffix == ".py" and not is_layout_shim(p))
         or (
             p.is_dir()
             and p.name != "__pycache__"

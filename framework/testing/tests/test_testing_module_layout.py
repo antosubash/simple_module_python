@@ -40,8 +40,7 @@ def test_public_layout_helper_allows_duplicate_test_basenames(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "bad_path",
-    ["orders/service.py", "orders/stray.json", "tests/test_orders.py", "tests/__init__.py"],
+    "bad_path", ["orders/service.py", "tests/test_orders.py", "tests/__init__.py"]
 )
 def test_public_layout_helper_rejects_layout_drift(tmp_path, bad_path):
     from simple_module_test import assert_module_layout
@@ -54,16 +53,14 @@ def test_public_layout_helper_rejects_layout_drift(tmp_path, bad_path):
         assert_module_layout(tmp_path, "orders")
 
 
-@pytest.mark.parametrize("metadata_file", ["package.json", "tsconfig.json"])
-def test_public_layout_helper_allows_frontend_metadata_files(
-    tmp_path: Path, metadata_file: str
-) -> None:
+@pytest.mark.parametrize("extra_file", ["package.json", "tsconfig.json", "index.ts", "README.md"])
+def test_public_layout_helper_allows_non_python_root_files(tmp_path: Path, extra_file: str) -> None:
     from simple_module_test import assert_module_layout
 
     pkg = tmp_path / "orders"
     (pkg / "core").mkdir(parents=True)
     (tmp_path / "tests" / "core").mkdir(parents=True)
-    (pkg / metadata_file).write_text("{}\n", encoding="utf-8")
+    (pkg / extra_file).write_text("x\n", encoding="utf-8")
     assert_module_layout(tmp_path, "orders")
 
 
