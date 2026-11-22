@@ -150,3 +150,74 @@ async def test_lifespan_cancellation_still_closes_remaining_backends_and_engine(
         async with _lifespan.build_lifespan([module])(app):
             pass
     assert events == ["rate_cancel", "final", "initial", "dispose"]
+
+
+def test_lifespan_fork_while_tracker_holds_lock_keeps_listener_unblocked():
+    import subprocess
+    import sys
+
+    probe = """
+import asyncio, os, signal, threading
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from fastapi import FastAPI
+from simple_module_core.leases import configure_leases
+from simple_module_hosting import _lifespan
+
+closed = []
+
+class Backend:
+    def __init__(self, name):
+        self.name = name
+
+    async def aclose(self):
+        closed.append(self.name)
+
+_lifespan.migration_status = AsyncMock(return_value={"is_current": True})
+_lifespan.hydrate_settings_from_db = AsyncMock()
+configure_leases(Backend("initial"))
+app = FastAPI()
+app.state.sm = SimpleNamespace(db=SimpleNamespace(engine=object()), rate_limit_store=None)
+module = SimpleNamespace(on_startup=AsyncMock(), on_shutdown=AsyncMock())
+
+async def main():
+    cm = _lifespan.build_lifespan([module], dispose_database=False)(app)
+    await cm.__aenter__()
+    try:
+        tracker = next(ref() for ref in _lifespan._TRACKERS if ref() is not None)
+        held, release = threading.Event(), threading.Event()
+
+        def hold():
+            with tracker.lock:
+                held.set()
+                release.wait(3)
+
+        thread = threading.Thread(target=hold)
+        thread.start()
+        assert held.wait(2)
+        pid = os.fork()
+        if pid == 0:
+            signal.alarm(2)
+            code = 1
+            try:
+                configure_leases(Backend("child"))
+                await cm.__aexit__(None, None, None)
+                assert closed == ["child", "initial"], closed
+                code = 0
+            except BaseException:
+                import traceback
+
+                traceback.print_exc()
+            finally:
+                os._exit(code)
+
+        release.set()
+        thread.join(timeout=2)
+        _, status = os.waitpid(pid, 0)
+        assert os.waitstatus_to_exitcode(status) == 0
+    finally:
+        await cm.__aexit__(None, None, None)
+
+asyncio.run(main())
+"""
+    subprocess.run([sys.executable, "-c", probe], check=True, timeout=10)

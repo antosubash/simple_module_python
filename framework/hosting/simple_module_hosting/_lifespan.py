@@ -14,7 +14,9 @@ can still reach the database.
 from __future__ import annotations
 
 import logging
+import os
 import threading
+import weakref
 from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
@@ -33,6 +35,44 @@ from simple_module_hosting.migrations import migration_problem, migration_status
 from simple_module_hosting.setup_gate import is_first_run
 
 logger = logging.getLogger(__name__)
+
+
+_TRACKERS: set[weakref.ref[_LeaseTracker]] = set()
+
+
+class _LeaseTracker:
+    """Tracks lease backends seen during lifespan with fork-safe locking."""
+
+    def __init__(self, initial: object) -> None:
+        self.lock = threading.Lock()
+        self.tracked: list[object] = [initial]
+        self.seen: set[int] = {id(initial)}
+        _TRACKERS.add(weakref.ref(self, _TRACKERS.discard))
+
+    def track(self, backend: object) -> None:
+        with self.lock:
+            if id(backend) not in self.seen:
+                self.tracked.append(backend)
+                self.seen.add(id(backend))
+
+    def snapshot(self) -> list[object]:
+        with self.lock:
+            return list(self.tracked)
+
+    def reset_after_fork(self) -> None:
+        self.lock = threading.Lock()
+        self.seen = {id(item) for item in self.tracked}
+
+
+def _reset_forked_trackers() -> None:
+    for ref in tuple(_TRACKERS):
+        tracker = ref()
+        if tracker is not None:
+            tracker.reset_after_fork()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_forked_trackers)
 
 
 async def _shutdown_modules(
@@ -62,23 +102,14 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
         async with AsyncExitStack() as cleanup:
             if dispose_database:
                 cleanup.push_async_callback(app.state.sm.db.engine.dispose)
-            tracked: list[object] = [get_leases()]
-            seen = {id(tracked[0])}
-            tracking_lock = threading.Lock()
-
-            def track(backend: object) -> None:
-                with tracking_lock:
-                    if id(backend) not in seen:
-                        tracked.append(backend)
-                        seen.add(id(backend))
+            tracker = _LeaseTracker(get_leases())
+            track = tracker.track
 
             async def close_backends() -> None:
                 _remove_lease_listener(track)
                 track(get_leases())
-                with tracking_lock:
-                    backends = list(tracked)
                 async with AsyncExitStack() as resource_cleanup:
-                    for backend in backends:
+                    for backend in tracker.snapshot():
                         resource_cleanup.push_async_callback(_close_resource, backend)
                     resource_cleanup.push_async_callback(
                         _close_resource, getattr(app.state.sm, "rate_limit_store", None)
