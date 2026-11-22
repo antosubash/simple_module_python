@@ -13,7 +13,7 @@ import uuid
 import httpx
 from fastapi import FastAPI
 from fastapi_users.password import PasswordHelper
-from simple_module_db.query_stats import install_query_stats, track_queries
+from simple_module_db.engine.query_stats import install_query_stats, track_queries
 from simple_module_test import InertiaPage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

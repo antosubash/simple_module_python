@@ -5,8 +5,8 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from simple_module_db.base import create_module_base
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.types import AwareDateTime
 from sqlalchemy import JSON, Index, func
 from sqlmodel import Column, Field
 

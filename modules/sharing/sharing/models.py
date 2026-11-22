@@ -5,8 +5,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin, MultiTenantMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin, MultiTenantMixin
 from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import Field
 

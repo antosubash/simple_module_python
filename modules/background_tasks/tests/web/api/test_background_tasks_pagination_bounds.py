@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_db.pagination import MAX_PAGE, MAX_PER_PAGE
+from simple_module_db.queries.pagination import MAX_PAGE, MAX_PER_PAGE
 
 pytestmark = pytest.mark.usefixtures("_stub_celery")
 

@@ -12,7 +12,7 @@ from simple_module_core.access.file_access import ACTION_PUBLISH, FileAccessPoli
 from simple_module_core.access.permission_denied import PermissionDenied
 from simple_module_core.access.resources import ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
 from simple_module_db import finalize_session
-from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
+from simple_module_db.models.listeners import SESSION_HAS_WRITES_KEY
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col

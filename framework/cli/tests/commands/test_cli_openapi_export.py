@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from simple_module_cli.cli import app
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 from sqlalchemy import create_engine
 from typer.testing import CliRunner
 

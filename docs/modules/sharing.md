@@ -19,7 +19,7 @@ own share model. Nothing depends on it: the framework only sees the
 
 ```python
 from simple_module_core.access.resources import ResourceType
-from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy, select_by_id
 from sharing.core.policy import share_exists_for
 
 NOTE_TYPE = "notes.note"
@@ -184,7 +184,7 @@ model and services as follows:
 
 ```python
 from sharing.contracts import SubjectContext, SubjectProvider, get_subject_registry
-from simple_module_db.tenancy import current_tenant_id
+from simple_module_db.scoping.tenancy import current_tenant_id
 from sqlmodel import select
 
 
@@ -236,7 +236,7 @@ The callbacks are trusted module code with these contracts:
 and `principal`. `ResourcePrincipal` carries vetted `roles` and `tenant_id`
 separately from capped permissions. Trusted module extensions are in `context`;
 Sharing binds its registry there through the principal builder. Both HTTP's
-`resource_principal` and `simple_module_db.principals.principal_for` carry the
+`resource_principal` and `simple_module_db.queries.principals.principal_for` carry the
 same registry, including in workers. Headless callers must still bind
 `tenant_context(tenant_id)` around their resource queries. A manually built
 principal without a registry supports built-ins only.

@@ -29,7 +29,7 @@ async def _build_keycloak_app():
     the keycloak view routes are not even mounted on the shared ``app``
     fixture. Passing ``auth_provider`` to ``Settings`` outranks the env var.
     """
-    from simple_module_db.base import all_module_bases
+    from simple_module_db.models.base import all_module_bases
     from simple_module_hosting.app_builder import create_app
     from simple_module_hosting.migrations import resolve_head_revisions
     from sqlalchemy import text

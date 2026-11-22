@@ -20,8 +20,8 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse
 from simple_module_core.eventing.events import EventBus
-from simple_module_db.callbacks import register_on_commit
-from simple_module_db.pagination import PageParams
+from simple_module_db.engine.callbacks import register_on_commit
+from simple_module_db.queries.pagination import PageParams
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission

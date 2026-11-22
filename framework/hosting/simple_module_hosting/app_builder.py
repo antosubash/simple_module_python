@@ -27,9 +27,9 @@ from simple_module_core.web.health import HealthRegistry
 from simple_module_core.web.menu import MenuRegistry
 from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_core.web.setup_steps import SetupRegistry
-from simple_module_db.principals import bind_principal_registry
-from simple_module_db.session import DatabaseState
-from simple_module_db.tenant_cleanup import register_tenant_cleanup
+from simple_module_db.engine.session import DatabaseState
+from simple_module_db.queries.principals import bind_principal_registry
+from simple_module_db.scoping.tenant_cleanup import register_tenant_cleanup
 
 from simple_module_hosting._app_boot import (
     build_fastapi_app,

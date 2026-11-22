@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 from simple_module_core.access.permissions import is_admin
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession, current_tenant_id
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 
 from background_tasks.executions.service import BackgroundTaskService
 from background_tasks.logs.service import LogScope, LogService

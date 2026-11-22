@@ -20,11 +20,11 @@ from contextlib import contextmanager
 
 from celery.signals import worker_process_init
 from simple_module_db import DEFAULT_TENANT_ID
-from simple_module_db.audit_sinks import discover_audit_callback
-from simple_module_db.engine_options import connect_args
-from simple_module_db.listeners import attach_session_listeners
-from simple_module_db.provider import DatabaseProvider, detect_provider
-from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
+from simple_module_db.auditing.audit_sinks import discover_audit_callback
+from simple_module_db.engine.engine_options import connect_args
+from simple_module_db.engine.provider import DatabaseProvider, detect_provider
+from simple_module_db.models.listeners import attach_session_listeners
+from simple_module_db.scoping.query_filter import EngineTenancy, bind_engine_policy
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker

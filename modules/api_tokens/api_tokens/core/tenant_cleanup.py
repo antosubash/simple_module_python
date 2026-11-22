@@ -2,7 +2,7 @@
 
 from simple_module_core.eventing.durable_events import DurableContext
 from simple_module_core.tenant_events import TenantDeleted
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.scoping.tenancy import tenant_context
 from sqlmodel import delete
 
 from api_tokens.models import ApiToken

@@ -4,8 +4,8 @@ import asyncio
 from sqlite3 import SQLITE_BUSY_SNAPSHOT
 
 import pytest
-from simple_module_db.listeners import register_listeners
-from simple_module_db.session import init_db
+from simple_module_db.engine.session import init_db
+from simple_module_db.models.listeners import register_listeners
 from sqlalchemy import event, func, select, text
 from tenants.contracts.entitlements import EntitlementExceededError
 from tenants.contracts.schemas import InvitationCreate, TenantCreate

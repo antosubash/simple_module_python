@@ -15,7 +15,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_db import RequestSession
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from simple_module_hosting.auth_policy import session_cookie_is_secure
 from simple_module_hosting.session import SESSION_REMEMBER_KEY
 from simple_module_hosting.token_guard import Authenticated

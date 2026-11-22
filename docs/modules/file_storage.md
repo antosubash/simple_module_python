@@ -140,7 +140,7 @@ file, and forbids publishing for everyone, including admins:
 
 ```python
 from simple_module_core.access.file_access import register_file_access_policy
-from simple_module_db.resource_policy import OwnedResourcePolicy
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy
 
 from guides.core.constants import FILE_OWNER_LICENCE, PERM_REVIEW
 

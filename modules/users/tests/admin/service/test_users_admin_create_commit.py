@@ -2,7 +2,7 @@
 
 import pytest
 from background_tasks.models import OutboxMessage
-from simple_module_db import transaction
+from simple_module_db.engine import transaction
 from sqlalchemy import event
 from sqlmodel import select
 from users.contracts.events import UserCreated, UserInvited

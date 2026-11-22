@@ -24,8 +24,8 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from simple_module_db import PLATFORM_TENANT_ID, all_tenants, current_tenant_id
-from simple_module_db.query_filter import fallback_tenant_id, is_strict
-from simple_module_db.tenancy import missing_tenant_error
+from simple_module_db.scoping.query_filter import fallback_tenant_id, is_strict
+from simple_module_db.scoping.tenancy import missing_tenant_error
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

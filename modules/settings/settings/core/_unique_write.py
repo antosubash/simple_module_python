@@ -8,7 +8,7 @@ savepoint, leaving the request's transaction (and its session) usable.
 
 from __future__ import annotations
 
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 

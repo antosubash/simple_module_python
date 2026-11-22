@@ -15,7 +15,7 @@ import pytest
 from settings.contracts.schemas import SettingCreate, SettingScope
 from settings.core.constants import SENSITIVE_PLACEHOLDER
 from settings.core.service import SettingService
-from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
+from simple_module_db.queries.stored_settings import SYSTEM_SCOPE_ID
 
 pytestmark = pytest.mark.anyio
 

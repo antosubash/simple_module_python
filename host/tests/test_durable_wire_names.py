@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from simple_module_core.eventing.events import EventBus
 from simple_module_core.modules.discovery import discover_modules
-from simple_module_db.tenant_cleanup import register_tenant_cleanup
+from simple_module_db.scoping.tenant_cleanup import register_tenant_cleanup
 
 _TENANT_DELETED = "simple_module_core.tenant_events.TenantDeleted"
 _USER_DELETED = "simple_module_core.user_events.UserDeleted"

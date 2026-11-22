@@ -11,7 +11,7 @@ from permissions.core.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
 from permissions.core.service import PermissionService
 from permissions.module import PermissionsModule
 from simple_module_core.access.permissions import PermissionRegistry
-from simple_module_db.transaction import finalize_session
+from simple_module_db.engine.transaction import finalize_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.core.directory import UsersDirectory
 

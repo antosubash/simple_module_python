@@ -14,7 +14,7 @@ import pytest
 from background_tasks.core import sync_db
 from celery import Celery
 from simple_module_db import create_module_base
-from simple_module_db.audit_sinks import discover_audit_callback
+from simple_module_db.auditing.audit_sinks import discover_audit_callback
 from sqlalchemy import create_engine, select
 from sqlmodel import Field
 

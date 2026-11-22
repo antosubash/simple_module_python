@@ -10,7 +10,7 @@ from sharing.core.service import SharingError, SharingService
 from sharing.models import ResourceShare
 from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
 from simple_module_core.access.tenancy import TenantRole, tenant_role
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.scoping.tenancy import tenant_context
 from sqlalchemy import column
 
 

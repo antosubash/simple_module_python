@@ -7,8 +7,8 @@ One type system means one set of edge cases. You'll hit ty (type checker) false 
 ## Tables
 
 ```python
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
 from sqlmodel import Field
 
 Base = create_module_base("orders")

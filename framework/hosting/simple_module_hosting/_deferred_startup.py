@@ -8,7 +8,7 @@ import logging
 from fastapi import FastAPI
 from simple_module_core.modules.app_state import get_deferred_startup, get_deferred_startup_lock
 from simple_module_core.settings.module_settings import get_module_settings_registry
-from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
+from simple_module_db.queries.stored_settings import SessionOverrideSource, settings_table_exists
 
 from simple_module_hosting._hydrate_step import hydrate_all
 from simple_module_hosting._secret_key import persist_pending_secret_key
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 async def hydrate_settings_from_db(app: FastAPI) -> None:
     """Merge DB-stored overrides into every registered settings object.
 
-    Reads the settings table directly (``simple_module_db.stored_settings``),
+    Reads the settings table directly (``simple_module_db.queries.stored_settings``),
     so it works whether or not the ``settings`` plugin is enabled (#500). A
     missing table is a fresh install: nothing is stored yet, so there is
     nothing to merge.

@@ -11,9 +11,9 @@ from sharing.models import ResourceShare
 from sharing.module import SharingModule
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import all_tenants, tenant_context
-from simple_module_db.stored_settings import SCOPE_TENANT, Setting
-from simple_module_db.tenant_cleanup import register_tenant_cleanup
-from simple_module_db.transaction import finalize_session, rollback_session
+from simple_module_db.engine.transaction import finalize_session, rollback_session
+from simple_module_db.queries.stored_settings import SCOPE_TENANT, Setting
+from simple_module_db.scoping.tenant_cleanup import register_tenant_cleanup
 from sqlmodel import select
 from tenants.core.service import TenantService
 from tenants.models import Tenant

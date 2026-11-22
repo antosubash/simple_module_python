@@ -30,8 +30,8 @@ Edit `modules/orders/orders/models.py`:
 
 ```python
 from decimal import Decimal
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin, SoftDeleteMixin
 from sqlmodel import Field
 
 Base = create_module_base("orders")

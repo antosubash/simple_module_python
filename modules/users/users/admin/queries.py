@@ -8,8 +8,8 @@ from typing import Any, cast
 
 from fastapi import FastAPI
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from simple_module_db.pagination import PageParams
-from simple_module_db.transaction import rollback_session
+from simple_module_db.engine.transaction import rollback_session
+from simple_module_db.queries.pagination import PageParams
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -6,7 +6,7 @@ import re
 
 import httpx
 import pytest
-from simple_module_db.query_stats import install_query_stats
+from simple_module_db.engine.query_stats import install_query_stats
 from simple_module_hosting._server_timing import ServerTimingMiddleware, format_server_timing
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings

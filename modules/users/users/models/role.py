@@ -7,7 +7,7 @@ import uuid
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from simple_module_core.access.tenancy import TENANT_ROLE_PREFIX
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.models.mixins import AuditMixin
 from sqlalchemy.orm import validates
 from sqlmodel import Field, Relationship
 

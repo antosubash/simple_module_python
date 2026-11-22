@@ -183,7 +183,7 @@ async def test_late_resolution_runs_in_the_middleware_context():
     still see the request's tenant (the context captured by the layout middleware)."""
     import contextvars
 
-    from simple_module_db.tenancy import current_tenant_id
+    from simple_module_db.scoping.tenancy import current_tenant_id
     from simple_module_hosting._inertia_shared import resolve_inertia_shared
 
     async def factory():

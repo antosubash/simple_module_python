@@ -19,7 +19,7 @@ from typing import Any
 
 from auth.contracts.tokens import AUTH_KIND_SERVICE
 from simple_module_db import is_valid_tenant_id
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 from starlette.requests import Request
 
 from tenants.core.constants import TenantStatus

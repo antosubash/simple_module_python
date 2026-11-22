@@ -95,7 +95,7 @@ a block runs on an engine instrumented with `install_query_stats()`. The test
 that catches an N+1 compares a small table with a bigger one:
 
 ```python
-from simple_module_db.query_stats import install_query_stats, track_queries
+from simple_module_db.engine.query_stats import install_query_stats, track_queries
 
 
 async def _statements(app, client) -> int:
@@ -132,7 +132,7 @@ diffs) for the detail page.
 ### Paginate every list
 
 A list that grows with the data is paginated on the server, 20–50 rows a
-page. `paginate()` (`simple_module_db.pagination`) runs the count and the
+page. `paginate()` (`simple_module_db.queries.pagination`) runs the count and the
 page, and clamps a page past the end; `lenient_page_params()`
 (`simple_module_hosting.pagination`) turns a hand-edited `?page=` into a
 default instead of a 422; `PaginationBar` renders the control. For a feed the

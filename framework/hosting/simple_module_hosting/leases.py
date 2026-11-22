@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from simple_module_core.runtime.leases import InProcessLeaseBackend, LeaseBackend, configure_leases
-from simple_module_db.leases import DbLeaseBackend
+from simple_module_db.engine.leases import DbLeaseBackend
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.pool import NullPool
 
@@ -32,7 +32,7 @@ def build_lease_backend(
     if redis_url:
         return RedisLeaseBackend(redis_url)
     if engine is None and database_url:
-        from simple_module_db.session import init_db
+        from simple_module_db.engine.session import init_db
 
         # No pool: a worker may run each task in its own event loop, and a
         # pooled async connection cannot cross loops.

@@ -18,7 +18,7 @@ from users.models import User
 
 
 def test_public_api():
-    from simple_module_db.principals import principal_for
+    from simple_module_db.queries.principals import principal_for
 
     assert callable(principal_for)
 
@@ -27,7 +27,7 @@ def test_public_api():
     "case", ["role", "direct", "inactive", "disabled", "nonmember", "suspended"]
 )
 async def test_request_parity(app, tenant_client, case):
-    from simple_module_db.principals import principal_for
+    from simple_module_db.queries.principals import principal_for
 
     @app.get("/principal-parity")
     async def probe(who: ResourcePrincipal = Depends(resource_principal)):
@@ -84,7 +84,7 @@ async def single_app(settings):
 
 
 async def test_single_tenant_needs_no_membership(single_app):
-    from simple_module_db.principals import principal_for
+    from simple_module_db.queries.principals import principal_for
 
     app = single_app
     user_id = await create_user(app, "single@example.com")

@@ -20,7 +20,7 @@ from simple_module_core.access.resources import (
     ACTION_VIEW,
     ResourcePrincipal,
 )
-from simple_module_db.resource_policy import OwnedResourcePolicy
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 

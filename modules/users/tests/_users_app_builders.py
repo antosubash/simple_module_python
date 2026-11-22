@@ -35,7 +35,7 @@ def _users_overrides(allow_signup: bool = False) -> dict[str, tuple[str, str]]:
 async def _setup_app_db(application) -> None:
     """Create all tables and stamp alembic version so migration check passes."""
 
-    from simple_module_db.base import all_module_bases
+    from simple_module_db.models.base import all_module_bases
     from simple_module_hosting.migrations import resolve_head_revisions
     from sqlalchemy import text
 

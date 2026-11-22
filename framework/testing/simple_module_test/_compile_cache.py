@@ -46,7 +46,7 @@ def _dialect_key(engine: Any, options: dict[str, Any]) -> tuple | None:
 def share_sqlite_compile_cache() -> None:
     if os.environ.get("SM_TEST_SEPARATE_COMPILE_CACHES"):
         return
-    import simple_module_db.session as session
+    import simple_module_db.engine.session as session
 
     original = session.create_async_engine
 

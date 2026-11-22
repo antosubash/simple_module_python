@@ -9,8 +9,8 @@ from fastapi import status as http_status
 from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession
-from simple_module_db.deps import get_db
-from simple_module_db.pagination import PageParams
+from simple_module_db.engine.deps import get_db
+from simple_module_db.queries.pagination import PageParams
 from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
 from sqlalchemy.ext.asyncio import AsyncSession

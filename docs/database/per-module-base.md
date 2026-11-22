@@ -3,7 +3,7 @@
 Every module that declares SQLModel tables calls `create_module_base("<name>")` once, and inherits from the returned class:
 
 ```python
-from simple_module_db.base import create_module_base
+from simple_module_db.models.base import create_module_base
 
 Base = create_module_base("orders")
 
@@ -27,7 +27,7 @@ The same migrations apply to Postgres and SQLite. There is no provider branching
 Alembic's autogenerate needs a **single** `MetaData` object describing every table it should manage. Each module has its own — so `host/migrations/env.py` calls:
 
 ```python
-from simple_module_db.base import build_module_metadata
+from simple_module_db.models.base import build_module_metadata
 
 target_metadata = build_module_metadata()
 ```
@@ -79,7 +79,7 @@ If you can avoid a hard FK (store `order_id: int` without the constraint), modul
 For debugging, you can dump the registered tables:
 
 ```python
-from simple_module_db.base import build_module_metadata
+from simple_module_db.models.base import build_module_metadata
 
 meta = build_module_metadata()
 for t in meta.sorted_tables:

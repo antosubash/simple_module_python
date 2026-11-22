@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_db.stored_settings import (
+from simple_module_db.queries.stored_settings import (
     INTERNAL_SETTING_KEYS,
     SYSTEM_SCOPE_ID,
     VALUE_TYPE_STRING,

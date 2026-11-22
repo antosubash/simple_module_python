@@ -1,7 +1,7 @@
 """Detect system settings that still use the pre-mail-module namespace."""
 
 from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
-from simple_module_db.stored_settings import (
+from simple_module_db.queries.stored_settings import (
     SCOPE_SYSTEM,
     SYSTEM_SCOPE_ID,
     settings_table_clause,

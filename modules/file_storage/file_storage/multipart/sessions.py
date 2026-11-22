@@ -20,7 +20,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 from sqlalchemy import select
 from sqlmodel import col
 

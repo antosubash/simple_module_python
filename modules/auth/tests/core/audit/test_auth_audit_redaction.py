@@ -1,7 +1,7 @@
 """Refresh-outcome credentials are redacted from audit diffs."""
 
 from auth.models import RefreshOutcome
-from simple_module_db.audit import collect_audit_records
+from simple_module_db.auditing.audit import collect_audit_records
 from sqlalchemy.orm import Session
 
 

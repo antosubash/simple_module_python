@@ -13,7 +13,7 @@ from auth.core.constants import SESSION_ID_KEY
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
-from simple_module_db.callbacks import register_on_commit
+from simple_module_db.engine.callbacks import register_on_commit
 from simple_module_hosting.session import sign_in_preserved_keys, stamp_session_expiry
 
 from users.accounts.db_adapter import UserDatabaseWithRoles, get_user_db

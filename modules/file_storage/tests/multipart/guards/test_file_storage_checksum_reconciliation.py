@@ -9,7 +9,7 @@ from file_storage import tasks
 from file_storage.core import constants
 from file_storage.models import Base, StoredFile
 from simple_module_db import tenant_context
-from simple_module_db.tenancy import current_tenant_id
+from simple_module_db.scoping.tenancy import current_tenant_id
 from sqlalchemy import create_engine
 
 

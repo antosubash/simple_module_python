@@ -9,7 +9,7 @@ Used by the self-service list endpoint and by the tenant settings page.
 from __future__ import annotations
 
 from simple_module_core.settings.secret_fields import conceals_secret, mask
-from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
+from simple_module_db.queries.stored_settings import SYSTEM_SCOPE_ID
 from sqlmodel import SQLModel
 
 from settings.contracts.registry import SettingsRegistry

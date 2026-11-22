@@ -216,8 +216,8 @@ Details: [settings](framework/settings.md).
 
 ```python
 # modules/orders/orders/models.py
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
 from sqlmodel import Field
 
 Base = create_module_base("orders")
@@ -247,7 +247,7 @@ class OrderCreate(SQLModel):
 ### Per-module Base
 
 ```python
-from simple_module_db.base import create_module_base
+from simple_module_db.models.base import create_module_base
 
 Base = create_module_base("orders")
 ```
@@ -306,7 +306,7 @@ not get the row torn out from under them.
 ### Query filters and the shapes they cover
 
 The soft-delete and tenant filters are attached by a `do_orm_execute` listener
-(`simple_module_db.query_filter`). Loader criteria go on for *every* registered
+(`simple_module_db.scoping.query_filter`). Loader criteria go on for *every* registered
 soft-deletable / tenant-scoped model, not only the entities a statement names,
 and Core tables — at any depth, including outer joins (predicates in `ON`),
 subqueries, CTEs and unions (GH #506) — get explicit predicates. All of these

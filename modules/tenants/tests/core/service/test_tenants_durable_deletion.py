@@ -6,7 +6,7 @@ from background_tasks.models import OutboxMessage
 from simple_module_core.eventing.durable_events import event_key
 from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
-from simple_module_db.transaction import finalize_session, rollback_session
+from simple_module_db.engine.transaction import finalize_session, rollback_session
 from sqlalchemy import select
 from tenants.contracts.events import TenantDeleted as ProviderTenantDeleted
 from tenants.core.service import TenantService

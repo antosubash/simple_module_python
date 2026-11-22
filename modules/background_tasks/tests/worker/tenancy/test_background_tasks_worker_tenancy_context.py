@@ -98,7 +98,7 @@ def test_without_default_tenant_the_constant_is_used(tmp_path):
 def test_default_tenant_is_ignored_when_strict(tmp_path):
     _fresh(tmp_path, "strict", tenant_strict=True, default_tenant="main")
     try:
-        from simple_module_db.query_filter import _engine_policy
+        from simple_module_db.scoping.query_filter import _engine_policy
 
         sync_db.get_sync_session_factory()
         policy = _engine_policy[sync_db._engine]

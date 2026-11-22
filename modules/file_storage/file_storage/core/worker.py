@@ -20,7 +20,7 @@ from background_tasks.outbox.loop import run_on_worker_loop
 from background_tasks.outbox.worker import worker_bus, worker_session_factory
 from fastapi import UploadFile
 from simple_module_db import independent_session
-from simple_module_db.callbacks import register_on_commit
+from simple_module_db.engine.callbacks import register_on_commit
 from starlette.datastructures import Headers
 
 from file_storage.backends.guard import require_backend

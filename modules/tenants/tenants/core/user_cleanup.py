@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from simple_module_core.eventing.durable_events import DurableContext
-from simple_module_db.callbacks import register_on_commit
+from simple_module_db.engine.callbacks import register_on_commit
 from sqlmodel import col, delete, select
 
 from tenants.core.constants import MembershipRole, TenantStatus

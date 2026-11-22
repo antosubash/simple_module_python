@@ -29,7 +29,7 @@ def migration_diagnostics(modules: Sequence[ModuleBase], database_url: str) -> l
                 module_name=MIGRATION_OWNER,
             )
         ]
-    from simple_module_db.migration_state import read_migration_state
+    from simple_module_db.schema.migration_state import read_migration_state
 
     try:
         state = asyncio.run(read_migration_state(database_url, ini))

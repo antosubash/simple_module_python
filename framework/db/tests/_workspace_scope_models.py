@@ -65,9 +65,9 @@ def stamp_workspace(obj, value):
 
 @pytest.fixture
 def workspace_db(monkeypatch):
-    from simple_module_db import scopes
-    from simple_module_db.listeners import attach_session_listeners
-    from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
+    from simple_module_db.models.listeners import attach_session_listeners
+    from simple_module_db.scoping import scopes
+    from simple_module_db.scoping.query_filter import EngineTenancy, bind_engine_policy
 
     monkeypatch.setattr(scopes, "_scopes", dict(scopes._scopes))
     db.register_scope(

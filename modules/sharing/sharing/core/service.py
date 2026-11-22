@@ -21,7 +21,7 @@ from simple_module_core.access.resources import (
 from simple_module_core.access.user_directory import UserDirectory
 from simple_module_core.runtime.datetimes import aware as _aware
 from simple_module_core.runtime.datetimes import utcnow
-from simple_module_db.resource_policy import load_authorized
+from simple_module_db.queries.resource_policy import load_authorized
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select

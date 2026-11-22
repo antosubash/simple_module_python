@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from simple_module_db import current_tenant_id
-from simple_module_db.audit import AuditRecord
+from simple_module_db.auditing.audit import AuditRecord
 from sqlalchemy.orm import Session
 
 from audit_log.models import AuditEntry

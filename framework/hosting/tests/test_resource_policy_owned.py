@@ -22,7 +22,11 @@ from simple_module_core.access.resources import (
     ResourceTypeRegistry,
 )
 from simple_module_db import PageParams, paginate
-from simple_module_db.resource_policy import OwnedResourcePolicy, load_authorized, select_by_id
+from simple_module_db.queries.resource_policy import (
+    OwnedResourcePolicy,
+    load_authorized,
+    select_by_id,
+)
 from sqlmodel import select
 
 

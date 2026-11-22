@@ -13,7 +13,7 @@ from background_tasks.outbox.sweep import start_sweep, stop_sweep
 from background_tasks.tasks import purge_old_executions
 from simple_module_core.eventing.durable_events import event_key, serialize_event
 from simple_module_core.eventing.events import Event
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 from simple_module_test import wait_for
 from sqlalchemy import select
 

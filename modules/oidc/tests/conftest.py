@@ -9,7 +9,7 @@ from jwt.algorithms import RSAAlgorithm
 from oidc.core.settings import OidcSettings
 from oidc_flow_helpers import _AUDIENCE, _KID, _PRIVATE_KEY
 from simple_module_core.modules.discovery import discover_modules
-from simple_module_db.base import all_module_bases
+from simple_module_db.models.base import all_module_bases
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.migrations import resolve_head_revisions
 from simple_module_hosting.settings import Settings
@@ -81,7 +81,7 @@ async def oidc_app(httpx_mock, request):
         endpoint_base = "https://idp"
         authorization_url = f"{endpoint_base}/authorize"
         keys_url = "https://idp/keys"
-    from simple_module_db.stored_settings import Setting
+    from simple_module_db.queries.stored_settings import Setting
 
     async with app.state.sm.db.session_factory() as db:
         for name, value in oidc_settings.model_dump().items():

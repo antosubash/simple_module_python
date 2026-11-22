@@ -8,7 +8,7 @@ from background_tasks.worker import celery_app
 from background_tasks.worker import signals as _signals  # noqa: F401 - connects the handlers
 from celery import current_app
 from simple_module_db import TenantIsolationError, current_tenant_id, tenant_context
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 
 
 @pytest.fixture

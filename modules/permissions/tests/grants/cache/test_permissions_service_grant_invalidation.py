@@ -11,7 +11,7 @@ from permissions.models import UserPermission
 from simple_module_core.access.permissions import PermissionRegistry
 from simple_module_core.access.user_directory import DirectoryUser, NullUserDirectory
 from simple_module_core.eventing.invalidation import InvalidationBus
-from simple_module_db.transaction import finalize_session, rollback_session
+from simple_module_db.engine.transaction import finalize_session, rollback_session
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from starlette.requests import Request
 

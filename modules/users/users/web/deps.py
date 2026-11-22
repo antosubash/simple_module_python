@@ -20,7 +20,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi_users import FastAPIUsers
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.eventing.events import EventBus
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.accounts.backend import build_auth_backend, build_cookie_transport

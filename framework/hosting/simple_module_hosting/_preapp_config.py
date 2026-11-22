@@ -33,8 +33,8 @@ from pydantic_settings import BaseSettings
 from simple_module_core.settings.dotenv import parse_dotenv
 from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.settings.stored_settings import construct_leniently, parse_stored_value
-from simple_module_db.provider import detect_provider
-from simple_module_db.stored_settings import (
+from simple_module_db.engine.provider import detect_provider
+from simple_module_db.queries.stored_settings import (
     COL_KEY,
     COL_SCOPE,
     COL_SCOPE_ID,
@@ -78,7 +78,7 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]] | None:
     install), and ``{}`` when there are no host overrides. Connection and
     query errors raise.
 
-    The table belongs to the framework (``simple_module_db.stored_settings``,
+    The table belongs to the framework (``simple_module_db.queries.stored_settings``,
     #500), so this read no longer depends on the ``settings`` plugin.
     """
     t = settings_table_clause()

@@ -48,7 +48,7 @@ from simple_module_core.eventing.durable_events import (
 )
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import is_valid_tenant_id
-from simple_module_db.callbacks import discard_on_commit_callbacks, run_on_commit_callbacks
+from simple_module_db.engine.callbacks import discard_on_commit_callbacks, run_on_commit_callbacks
 from sqlalchemy import update
 
 from background_tasks.core.constants import (

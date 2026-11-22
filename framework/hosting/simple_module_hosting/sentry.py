@@ -16,8 +16,8 @@ from typing import Any, Literal
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.runtime.correlation import correlation_id
-from simple_module_db.listeners import current_user_id
-from simple_module_db.tenancy import current_tenant_id
+from simple_module_db.models.listeners import current_user_id
+from simple_module_db.scoping.tenancy import current_tenant_id
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting.sentry_scrub import scrub_event

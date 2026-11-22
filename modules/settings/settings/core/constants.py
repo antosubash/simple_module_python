@@ -14,7 +14,7 @@ from simple_module_core.access.permissions import PermissionCatalogue
 from simple_module_core.runtime.deprecation import deprecate
 
 # Re-exported (#500): these now live with the table in the framework.
-from simple_module_db.stored_settings import (  # noqa: F401
+from simple_module_db.queries.stored_settings import (  # noqa: F401
     ALL_VALUE_TYPES,
     DESCRIPTION_MAX_LENGTH,
     KEY_MAX_LENGTH,
@@ -43,7 +43,7 @@ LOCALE_NAMESPACE: Final = MODULE_PACKAGE
 
 # ── Scopes ───────────────────────────────────────────────────────────
 # Scope, value-type, table and field-limit constants moved to
-# ``simple_module_db.stored_settings`` with the table itself (#500); they are
+# ``simple_module_db.queries.stored_settings`` with the table itself (#500); they are
 # re-exported from the import block at the top of this file.
 ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
 

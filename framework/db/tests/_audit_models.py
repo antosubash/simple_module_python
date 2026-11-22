@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin, SoftDeleteMixin
 from sqlmodel import Field
 
 AuditBase = create_module_base("test_audit")

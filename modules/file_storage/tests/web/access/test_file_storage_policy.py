@@ -9,7 +9,7 @@ from file_storage.contracts import StoredFile
 from simple_module_core.access.file_access import register_file_access_policy
 from simple_module_core.access.resources import ACTION_VIEW
 from simple_module_db import tenant_context
-from simple_module_db.resource_policy import OwnedResourcePolicy
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy
 
 API = "/api/file-storage"
 TAG = "guides.licence"

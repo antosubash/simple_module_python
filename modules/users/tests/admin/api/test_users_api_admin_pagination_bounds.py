@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_db.pagination import MAX_PAGE, MAX_PER_PAGE
+from simple_module_db.queries.pagination import MAX_PAGE, MAX_PER_PAGE
 
 ADMIN_URL = "/api/users/admin"
 

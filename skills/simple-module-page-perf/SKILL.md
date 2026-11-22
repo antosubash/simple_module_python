@@ -112,7 +112,7 @@ Keep a fixed page fixed with a statement-count test. The cheapest of three
 requests excludes the auth layer's own periodic queries:
 
 ```python
-from simple_module_db.query_stats import install_query_stats, track_queries
+from simple_module_db.engine.query_stats import install_query_stats, track_queries
 
 
 async def _statements(app, client, url) -> int:

@@ -14,7 +14,7 @@ from background_tasks.executions.tenant_context import OWNER_HEADER, publish_as_
 from background_tasks.models import TaskExecution
 from background_tasks.worker import task_heartbeat as heartbeat_mod
 from background_tasks.worker.signals import on_task_postrun, on_task_prerun, on_task_publish
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 from sqlalchemy import select
 
 

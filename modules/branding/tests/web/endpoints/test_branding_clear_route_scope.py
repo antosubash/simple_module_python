@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from settings.contracts.schemas import SettingScope, SettingUpsert
 from settings.core.service import SettingService
-from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
+from simple_module_db.queries.stored_settings import SYSTEM_SCOPE_ID
 
 KEY = "branding.logo_file_id"
 SYSTEM_ROUTE = "/api/branding/logo"

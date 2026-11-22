@@ -107,7 +107,7 @@ class TenantMiddleware:
     """Establish the request's tenant context.
 
     Sets the ``current_tenant_id`` context var so that DB queries on
-    :class:`~simple_module_db.mixins.MultiTenantMixin` models are
+    :class:`~simple_module_db.models.mixins.MultiTenantMixin` models are
     automatically filtered, and new objects get ``tenant_id`` populated.
 
     Also stores the resolved value on ``request.state.tenant_id`` and where it

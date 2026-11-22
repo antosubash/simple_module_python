@@ -1,22 +1,13 @@
-"""Durable teardown of framework-owned tenant settings, including branding."""
+"""Deprecated alias for simple_module_db.scoping.tenant_cleanup."""
 
-from simple_module_core.eventing.durable_events import DurableContext
-from simple_module_core.eventing.events import EventBus
-from simple_module_core.tenant_events import TenantDeleted
-from sqlmodel import col, delete
+import sys
+from importlib import import_module
 
-from simple_module_db.stored_settings import SCOPE_TENANT, Setting
+from simple_module_core.runtime.deprecation import deprecated_module
 
-
-def register_tenant_cleanup(bus: EventBus) -> None:
-    """Register in both the host and workers, even without the settings plugin."""
-    bus.subscribe_durable(TenantDeleted, delete_tenant_settings)
-
-
-async def delete_tenant_settings(event: TenantDeleted, ctx: DurableContext) -> None:
-    """Hard-delete only this tenant's explicit overrides; safe on replay."""
-    await ctx.db.execute(
-        delete(Setting).where(
-            col(Setting.scope) == SCOPE_TENANT, col(Setting.scope_id) == event.tenant_id
-        )
-    )
+deprecated_module(
+    "simple_module_db.tenant_cleanup",
+    remove_in="0.0.52",
+    use="simple_module_db.scoping.tenant_cleanup",
+)
+sys.modules[__name__] = import_module("simple_module_db.scoping.tenant_cleanup")

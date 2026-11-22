@@ -24,7 +24,7 @@ from background_tasks.outbox.dispatch import deliver_one, dispatch
 from simple_module_core import DurableContext
 from simple_module_core.eventing.events import Event
 from simple_module_db import finalize_session
-from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_db.engine.transaction import SESSION_START_KEY
 from sqlalchemy import update
 
 pytestmark = pytest.mark.usefixtures("_stub_celery")

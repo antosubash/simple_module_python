@@ -35,7 +35,7 @@ The pattern (a `DbBackedSettings` subclass + `register_module_settings` from `si
 `DbBackedSettings` subclasses ignore the environment, and only the hosting lifespan hydrates `app.state.<package>.settings`. A Celery worker (or CLI script) never runs that lifespan, so a bare `FileStorageSettings()` there silently returns pydantic defaults. Hydrate synchronously instead:
 
 ```python
-from simple_module_db.stored_settings import hydrate_settings_sync
+from simple_module_db.queries.stored_settings import hydrate_settings_sync
 
 cfg = hydrate_settings_sync(FileStorageSettings, session, "file_storage")
 ```

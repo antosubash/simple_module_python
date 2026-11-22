@@ -1,7 +1,7 @@
 """Transactional publication of admin lifecycle events."""
 
 from simple_module_core.eventing.events import Event, EventBus
-from simple_module_db.callbacks import register_on_commit
+from simple_module_db.engine.callbacks import register_on_commit
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

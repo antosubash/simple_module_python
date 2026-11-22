@@ -10,7 +10,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING
 
 from simple_module_core.eventing.events import Event
-from simple_module_db.pagination import Page, PageParams, paginate
+from simple_module_db.queries.pagination import Page, PageParams, paginate
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

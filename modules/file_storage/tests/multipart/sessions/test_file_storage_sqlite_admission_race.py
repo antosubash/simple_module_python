@@ -13,8 +13,8 @@ from file_storage.models import Base, StoredFile, UploadSession
 from file_storage.multipart.sessions import UploadSessionService
 from file_storage.multipart.support import QuotaExceededError, StorageBusyError
 from simple_module_db import tenant_context
-from simple_module_db.listeners import register_listeners
-from simple_module_db.session import init_db
+from simple_module_db.engine.session import init_db
+from simple_module_db.models.listeners import register_listeners
 from sqlalchemy import event, func, select, text
 
 

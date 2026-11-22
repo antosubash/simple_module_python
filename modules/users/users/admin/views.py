@@ -5,8 +5,8 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_db.deps import get_db
-from simple_module_db.pagination import PageParams, clamp_page
+from simple_module_db.engine.deps import get_db
+from simple_module_db.queries.pagination import PageParams, clamp_page
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.pagination import lenient_page_params

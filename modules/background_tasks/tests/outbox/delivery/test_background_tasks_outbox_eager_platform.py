@@ -20,8 +20,8 @@ from background_tasks.outbox.dispatch import dispatch
 from simple_module_core import DurableContext
 from simple_module_core.eventing.events import Event
 from simple_module_db import all_tenants, current_tenant_id, finalize_session, tenant_context
-from simple_module_db.tenancy import is_all_tenants
-from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_db.engine.transaction import SESSION_START_KEY
+from simple_module_db.scoping.tenancy import is_all_tenants
 
 pytestmark = pytest.mark.usefixtures("_stub_celery")
 

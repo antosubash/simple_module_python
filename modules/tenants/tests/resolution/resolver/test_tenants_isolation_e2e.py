@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi import Depends, Request
 from simple_module_db import MultiTenantMixin, create_module_base
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from sqlalchemy import select
 from sqlmodel import Field
 from tenants.contracts.events import MembershipAdded, TenantCreated

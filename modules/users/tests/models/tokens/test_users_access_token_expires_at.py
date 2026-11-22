@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.types import AwareDateTime
 from sqlalchemy import select
 from users.models import User, UserAccessToken
 

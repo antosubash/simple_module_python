@@ -9,7 +9,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
-from simple_module_db.stored_settings import INSTALLATION_ID_KEY
+from simple_module_db.queries.stored_settings import INSTALLATION_ID_KEY
 
 from simple_module_hosting._stored_identity import ensure_stored_identity
 

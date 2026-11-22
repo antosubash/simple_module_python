@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid as uuid_mod
 from datetime import datetime
 
-from simple_module_db.base import create_module_base
+from simple_module_db.models.base import create_module_base
 from sqlmodel import Field
 
 Base = create_module_base("keycloak")

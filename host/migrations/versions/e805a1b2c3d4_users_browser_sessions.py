@@ -7,7 +7,7 @@ Revises: e731a1b2c3d4
 import sqlalchemy as sa
 from alembic import op
 from fastapi_users_db_sqlalchemy.generics import GUID
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.types import AwareDateTime
 
 revision = "e805a1b2c3d4"
 down_revision = "e731a1b2c3d4"

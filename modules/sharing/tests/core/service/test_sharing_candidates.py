@@ -10,7 +10,7 @@ from sharing.core.service import SharingError, SharingService
 from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
 from simple_module_core.access.tenancy import TenancyMode
 from simple_module_core.access.user_directory import DirectoryUser
-from simple_module_db.tenancy import current_tenant_id, tenant_context
+from simple_module_db.scoping.tenancy import current_tenant_id, tenant_context
 
 
 @pytest.fixture

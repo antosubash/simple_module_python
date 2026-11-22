@@ -1,0 +1,254 @@
+"""The cheap walk ``core_scope`` runs on every statement (#506, #559).
+
+``references_plain`` answers one question — does this statement read a
+scoped table outside the ORM's annotations? — and ORM statements usually
+answer no, so this runs on nearly every query while tenancy is on. It is a
+reachability search over the clause tree, pruned at ORM-annotated elements;
+everything here is about expanding fewer nodes, or expanding them more
+cheaply, without changing which elements are reachable (#559):
+
+* each element is expanded once, however many parents name it;
+* a bound parameter has no clause children and is not expanded;
+* a SELECT's declared children skip its empty collections, and the FROMs
+  ``froms_read`` would add are added only when its internals do not
+  already hold them (or they are ORM-annotated, which the walk prunes);
+* ``table`` is looked up without the costly ``AttributeError`` that a
+  column expression's ``__getattr__`` raises for it.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from sqlalchemy.sql.elements import ClauseElement, ColumnClause, ColumnElement
+from sqlalchemy.sql.selectable import (
+    Alias,
+    CompoundSelect,
+    Join,
+    Select,
+    TableClause,
+    TextualSelect,
+)
+from sqlalchemy.sql.traversals import _get_children
+
+from simple_module_db.scoping._core_joins import _base_name, _is_orm, is_scoped_leaf
+from simple_module_db.scoping.insert_guard import raw_values
+
+
+def orm_less(stmt: Any) -> bool:
+    """A SELECT naming no ORM entity in its columns, FROM list or joins.
+
+    Loader criteria have nothing to attach to there — ``exists().where(
+    Doc.x == ...)`` — so the tables its ``WHERE`` reads must be scoped like
+    Core ones. In an ORM select those tables are the entities' own.
+    """
+    targets = [entry[0] for entry in stmt._setup_joins]
+    return not any(_is_orm(el) for el in (*stmt._raw_columns, *stmt._from_obj, *targets))
+
+
+def where_froms(stmt: Any) -> list[Any]:
+    return [f for crit in stmt._where_criteria for f in crit._from_objects]
+
+
+def froms_read(stmt: Any) -> list[Any]:
+    """The FROMs a SELECT reads besides its joins, and the extra FROMs of a DML."""
+    if not isinstance(stmt, Select):
+        target = stmt.table._deannotate()
+        return [f for f in (*where_froms(stmt), *set_froms(stmt)) if f is not target]
+    froms = [*stmt.columns_clause_froms, *(f for f in stmt._from_obj if not isinstance(f, Join))]
+    return [*froms, *(where_froms(stmt) if orm_less(stmt) else core_where_froms(stmt))]
+
+
+def set_froms(stmt: Any) -> list[Any]:
+    """The FROMs an UPDATE's ``SET`` values pull in: ``values(name=other.c.name)``.
+
+    Such a table is joined in as ``UPDATE ... FROM``, exactly like one named
+    in the ``WHERE``. A scalar subquery adds no FROM; its own SELECT is
+    scoped where it is visited.
+    """
+    return [f for value in raw_values(stmt).values() for f in getattr(value, "_from_objects", ())]
+
+
+def core_where_froms(stmt: Select) -> list[Any]:
+    """The FROMs a SELECT's ``WHERE`` pulls in through plain (non-ORM) columns.
+
+    ``select(Tag.name).where(link.c.tag_id == Tag.id)`` reads ``link`` only
+    through its ``WHERE``. ``where_froms`` cannot be used for an ORM select:
+    an entity column's ``_from_objects`` is its bare table too, and an
+    ``aliased()`` entity's would gain a stray cartesian FROM. So the criteria
+    are walked down to their columns, pruning ORM-annotated elements and
+    anything that adds no FROM to this SELECT (a nested select's own
+    references are scoped where that select is visited).
+    """
+    found: list[Any] = []
+    stack: list[ClauseElement] = list(stmt._where_criteria)
+    while stack:
+        el = stack.pop()
+        if _is_orm(el) or not el._from_objects:
+            continue
+        if isinstance(el, ColumnClause):
+            found.extend(el._from_objects)
+        else:
+            stack.extend(el.get_children())
+    return found
+
+
+def references_plain(stmt: Any, names: set[str], opaque: frozenset[int] = frozenset()) -> bool:
+    """Whether ``stmt`` reads a scoped table outside the ORM's annotations.
+
+    ORM-annotated elements are not descended into: their tables are the
+    loader criteria's business, and every ORM column leads to a plain table —
+    except the selectable of an ``aliased(Model, <subquery or join>)`` entity,
+    which is whatever the caller built and is walked like any FROM, unless its
+    id is in ``opaque`` (SQL text under a scoped entity counts as a read).
+    The answer depends only on *which* elements are reachable, so an element
+    met twice — ORM-annotated and opaque ones included — is looked at once.
+    ``seen`` keeps the objects, not just their ids, so a temporary child list
+    cannot free one and recycle its id.
+    """
+    stack = [stmt]
+    seen: dict[int, Any] = {}
+    while stack:
+        el = stack.pop()
+        if id(el) in seen:
+            continue
+        if el is not stmt and _nested_dml_on(el, names):
+            return True  # its target is checked even when ORM-annotated
+        seen[id(el)] = el
+        if _is_orm(el):
+            selectable = aliased_selectable(el)
+            if selectable is not None and id(selectable) not in opaque:
+                if reads_text_as_scoped(el._annotations["parententity"], selectable, names):
+                    return True  # SQL text: nothing in it can be seen, let alone scoped
+                stack.append(selectable)
+            continue
+        if id(el) in opaque:
+            continue
+        target = el if isinstance(el, (TableClause, Alias)) else _table_of(el)
+        if isinstance(target, (TableClause, Alias)) and is_scoped_leaf(target, names):
+            return True
+        if el.__visit_name__ != "bindparam":  # a bound value: no clause children
+            stack.extend(_children(el))
+    return False
+
+
+def aliased_selectable(el: Any) -> Any | None:
+    """The selectable an ``aliased(Model, selectable)`` entity of ``el`` reads, if any.
+
+    A subquery / CTE of a SELECT (or of SQL text), a bare ``text().columns()``
+    or a ``Join`` of tables: whatever the caller built. ``aliased(Model)`` (an
+    alias of the mapped table) and other entities give ``None``: their tables
+    are covered by the loader criteria.
+    """
+    insp = el._annotations.get("parententity")
+    if insp is None or not insp.is_aliased_class:
+        return None
+    selectable = insp.selectable
+    if isinstance(selectable, (Join, TextualSelect)):
+        return selectable
+    inner = getattr(selectable, "element", None)
+    return selectable if isinstance(inner, (Select, CompoundSelect, TextualSelect)) else None
+
+
+def is_textual(selectable: Any) -> bool:
+    """``text(...).columns(...)``, bare or as a subquery / CTE."""
+    return isinstance(selectable, TextualSelect) or isinstance(
+        getattr(selectable, "element", None), TextualSelect
+    )
+
+
+def reads_text_as_scoped(insp: Any, selectable: Any, names: set[str]) -> bool:
+    """An entity of a scoped table whose rows come from SQL text, which no filter can read."""
+    return is_textual(selectable) and _base_name(insp.mapper.local_table) in names
+
+
+_DML = ("insert", "update", "delete")
+
+
+def _nested_dml_on(el: Any, names: set[str]) -> bool:
+    return el.__visit_name__ in _DML and _base_name(el.table) in names
+
+
+_SELECT_OMIT = ("_correlate", "_correlate_except")
+_EMPTYABLE = (tuple, list)
+
+
+def _children(el: Any) -> list[Any]:
+    # ``Select.get_children`` adds every FROM it derives from the columns and
+    # WHERE, deannotated, so every ORM statement would look Core. Its declared
+    # internals plus the FROMs ``froms_read`` would scope are what counts —
+    # less what the internals already hold: the FROM list itself, and the
+    # columns-clause FROMs of an all-entity ORM columns clause (#559).
+    if isinstance(el, Select):
+        kids = _declared_children(el)
+        if not _orm_columns_only(el):
+            kids.extend(el.columns_clause_froms)
+        if orm_less(el):
+            kids.extend(where_froms(el))
+        return kids
+    if el.__visit_name__ in ("update", "delete"):
+        return [*el.get_children(), *froms_read(el)]
+    return list(el.get_children())
+
+
+def _declared_children(stmt: Select) -> list[Any]:
+    """``HasTraverseInternals.get_children(stmt, omit_attrs=_SELECT_OMIT)``, as a list.
+
+    The same generated dispatch, minus the call per empty collection: most
+    of a SELECT's ~30 declared attributes are ``()`` on any given statement.
+    """
+    kids: list[Any] = []
+    dispatch = _get_children.run_generated_dispatch(
+        stmt, stmt._traverse_internals, "_generated_get_children_traversal"
+    )
+    for attrname, obj, meth in dispatch:
+        if obj is None or (obj.__class__ in _EMPTYABLE and not obj) or attrname in _SELECT_OMIT:
+            continue
+        kids.extend(meth(obj))
+    return kids
+
+
+def _orm_columns_only(stmt: Select) -> bool:
+    """Every ``columns_clause_froms`` entry is ORM-annotated, so the walk prunes it.
+
+    Under the ORM compile plugin an annotated column's FROM is its entity's
+    ``__clause_element__()`` — a ``Mapper``'s or ``AliasedInsp``'s selectable,
+    annotated with ``parententity`` itself. The Core plugin would give the
+    column's own ``_from_objects`` instead, which may be a plain table.
+    """
+    return stmt._propagate_attrs.get("compile_state_plugin") == "orm" and all(
+        _is_orm(c) for c in stmt._raw_columns
+    )
+
+
+# Per class: does attribute lookup of ``table`` end in ``ColumnElement.__getattr__``?
+_COMPARATOR_LOOKUP: dict[type, bool] = {}
+
+
+def _table_of(el: Any) -> Any:
+    """``getattr(el, "table", None)``, exactly — minus the ``AttributeError`` it costs.
+
+    When no class in the MRO defines ``table``, Python tries the instance
+    ``__dict__`` and then ``__getattr__``; for a ``ColumnElement`` that is
+    ``getattr(self.comparator, "table")``, which this calls directly instead
+    of letting ``__getattr__`` format an error message to be thrown away.
+    Any other class (one that defines ``table``, has no ``__dict__`` or its
+    own ``__getattr__``) takes the plain ``getattr``.
+    """
+    cls = el.__class__
+    via_comparator = _COMPARATOR_LOOKUP.get(cls)
+    if via_comparator is None:
+        via_comparator = _COMPARATOR_LOOKUP[cls] = (
+            cls.__getattr__ is ColumnElement.__getattr__
+            if issubclass(cls, ColumnElement)
+            and cls.__dictoffset__ != 0
+            and not any("table" in vars(k) for k in cls.__mro__)
+            else False
+        )
+    if not via_comparator:
+        return getattr(el, "table", None)
+    found = el.__dict__.get("table", _MISSING)
+    return getattr(el.comparator, "table", None) if found is _MISSING else found
+
+
+_MISSING = object()

@@ -3,7 +3,7 @@
 from simple_module_core.eventing.durable_events import DurableContext
 from simple_module_core.eventing.invalidation import Invalidation
 from simple_module_core.user_events import UserDeleted
-from simple_module_db.callbacks import register_on_commit
+from simple_module_db.engine.callbacks import register_on_commit
 from sqlmodel import col, delete
 
 from permissions.grants.source import CHANNEL, apply_invalidation

@@ -62,6 +62,6 @@ Any old framework submodule path imported outside its owning package (in `module
 | `inertia` | `simple_module_inertia` | 1 | 0 | follows this layout |
 | `cli` | `simple_module_cli` | 2 | 0 | follows this layout |
 | `core` | `simple_module_core` | 4 | 0 | follows this layout |
-| `db` | `simple_module_db` | 56 | 78 | legacy flat (`LEGACY_FLAT`) |
+| `db` | `simple_module_db` | 1 | 0 | follows this layout |
 | `hosting` | `simple_module_hosting` | 109 | 177 | legacy flat (`LEGACY_FLAT`) |
 | `testing` | `simple_module_test` | 22 | 14 | legacy flat (`LEGACY_FLAT`) |

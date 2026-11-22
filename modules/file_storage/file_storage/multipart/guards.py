@@ -7,7 +7,7 @@ import zlib
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
-from simple_module_db.admission import serialize_sqlite_writes
+from simple_module_db.engine.admission import serialize_sqlite_writes
 from sqlalchemy import delete, func, select, text
 from sqlmodel import col
 

@@ -319,13 +319,13 @@ The session cookie is `Secure` outside development and testing.
 - Per-module `Base` via `create_module_base("<name>")`; every module owns its
   `MetaData` but all tables share one schema. Prefix `__tablename__` with the
   module name (`orders_order`); the scaffold does it, nothing enforces it.
-- Mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin`,
+- Mixins in `simple_module_db.models.mixins`: `AuditMixin`, `SoftDeleteMixin`,
   `MultiTenantMixin`, `VersionedMixin`. Soft-delete and tenant filters cover
   every statement shape. Bypass with `execution_options(include_deleted=True)`;
   purge with `hard_delete(session, obj)`. `docs/database/mixins.md`.
 - A bare `datetime` field already maps to a UTC-aware type. When you declare
   an explicit column type, use `sa_type=AwareDateTime()`
-  (`simple_module_db.types`), never `DateTime(timezone=True)`, which reads back
+  (`simple_module_db.models.types`), never `DateTime(timezone=True)`, which reads back
   naive on SQLite.
 - SQLite runs with WAL (file DBs), `busy_timeout` and **`foreign_keys=ON`**:
   both sides of an FK need the same column type (`sa.Uuid` vs fastapi-users'
@@ -340,7 +340,7 @@ The session cookie is `Secure` outside development and testing.
   `MultiTenantMixin` model with no current tenant raises `TenantIsolationError`.
   Cross-tenant code says so with `all_tenants()` /
   `execution_options(all_tenants=True)`; jobs act for one tenant with
-  `tenant_context(id)` (both in `simple_module_db.tenancy`). Off, rows are
+  `tenant_context(id)` (both in `simple_module_db.scoping.tenancy`). Off, rows are
   stamped `default_tenant` when set, else `DEFAULT_TENANT_ID` (`"default"`).
   Unique keys on tenant tables must include `tenant_id` (`SM024`). Tenant-level
   routes act on the *active* tenant, never a tenant id from the URL. The `tenants`

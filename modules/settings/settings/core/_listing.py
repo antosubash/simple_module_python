@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from simple_module_db.stored_settings import INTERNAL_SETTING_KEYS, SYSTEM_SCOPE_ID, Setting
+from simple_module_db.queries.stored_settings import INTERNAL_SETTING_KEYS, SYSTEM_SCOPE_ID, Setting
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col

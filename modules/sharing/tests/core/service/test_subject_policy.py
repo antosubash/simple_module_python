@@ -11,7 +11,7 @@ from sharing.core.subjects import default_subject_registry
 from sharing.models import ResourceShare
 from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_core.access.tenancy import TenantRole, tenant_role
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.scoping.tenancy import tenant_context
 from sqlalchemy import event
 from sqlmodel import select
 

@@ -35,7 +35,7 @@ Usage in endpoints:
 from typing import Annotated
 from fastapi import Depends
 from simple_module_db import RequestSession
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 
 SessionDep = Annotated[RequestSession, Depends(get_db)]
 
@@ -222,7 +222,7 @@ If you find yourself writing `await session.commit()` inside a service, step bac
 
 ### SQLite admission checks
 
-`simple_module_db.admission.serialize_sqlite_writes(db, table, on_busy=error)`
+`simple_module_db.engine.admission.serialize_sqlite_writes(db, table, on_busy=error)`
 takes the SQLite writer lock with a zero-row UPDATE before a read/check/write
 admission. It changes no rows and holds the lock until commit or rollback;
 Postgres is a no-op, so callers keep their existing row/advisory locks. Storage

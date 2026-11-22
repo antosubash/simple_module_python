@@ -13,7 +13,7 @@ enforce the same rule and give the same 404/403 answers (GH #526).
 | `ResourcePolicy` | `simple_module_core.access.resources` | Protocol: `filter(principal, action, stmt)` and `can(principal, action, obj)` |
 | `ResourcePrincipal` | `simple_module_core.access.resources` | `user_id`, resolved permissions, live roles/tenant and trusted module context |
 | `ResourceType`, `ResourceTypeRegistry` | `simple_module_core.access.resources` | What `register_resource_types` declares; read at `app.state.sm.resource_types` |
-| `OwnedResourcePolicy`, `select_by_id`, `load_authorized` | `simple_module_db.resource_policy` | The stock owner / public / shared policy |
+| `OwnedResourcePolicy`, `select_by_id`, `load_authorized` | `simple_module_db.queries.resource_policy` | The stock owner / public / shared policy |
 | `RequiresResource`, `resource_principal` | `simple_module_hosting.resource_deps` | FastAPI dependencies |
 | `sharing` module (optional) | `modules/sharing` | A generic `sharing_resource_share` table, grant/revoke API, admin page |
 
@@ -44,7 +44,7 @@ the other way round.
 
 ```python
 from simple_module_core.access.resources import ResourceType
-from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy, select_by_id
 
 NOTE_POLICY = OwnedResourcePolicy(
     Note.owner_id,

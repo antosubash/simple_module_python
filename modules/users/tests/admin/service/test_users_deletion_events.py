@@ -13,7 +13,7 @@ from sharing.module import SharingModule
 from simple_module_core.eventing.durable_events import event_key
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import all_tenants, tenant_context
-from simple_module_db.transaction import finalize_session, rollback_session
+from simple_module_db.engine.transaction import finalize_session, rollback_session
 from sqlmodel import select
 from starlette.requests import Request
 from tenants.core.constants import MembershipRole, TenantStatus

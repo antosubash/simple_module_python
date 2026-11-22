@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from pydantic import ConfigDict, model_validator
-from simple_module_db.stored_settings import (
+from simple_module_db.queries.stored_settings import (
     DESCRIPTION_MAX_LENGTH,
     KEY_MAX_LENGTH,
     SCOPE_ID_MAX_LENGTH,

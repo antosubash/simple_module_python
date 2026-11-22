@@ -19,7 +19,7 @@ view but not *action* is a 403.
 Modules declare their types in ``register_resource_types`` so cross-cutting
 code (the optional ``sharing`` module) can find a type's policy and load a row
 by its string id. ``simple_module_core`` stays SQLAlchemy-free: statements are
-typed ``Any``; the stock policy lives in ``simple_module_db.resource_policy``.
+typed ``Any``; the stock policy lives in ``simple_module_db.queries.resource_policy``.
 """
 
 from __future__ import annotations

@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Query
-from simple_module_db.pagination import DEFAULT_PER_PAGE, MAX_PAGE, MAX_PER_PAGE, PageParams
+from simple_module_db.queries.pagination import DEFAULT_PER_PAGE, MAX_PAGE, MAX_PER_PAGE, PageParams
 
 
 def page_params(default_per_page: int = DEFAULT_PER_PAGE):

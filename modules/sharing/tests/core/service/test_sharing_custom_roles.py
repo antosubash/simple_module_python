@@ -21,8 +21,8 @@ from simple_module_core.access.resources import (
     ResourceTypeRegistry,
 )
 from simple_module_core.runtime.datetimes import utcnow
-from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy, select_by_id
+from simple_module_db.scoping.tenancy import tenant_context
 from sqlmodel import select
 
 TYPE = "sharing_test.custom"

@@ -2,9 +2,9 @@
 
 import pytest
 from _models import _tenant_session
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import MultiTenantMixin, SoftDeleteMixin
+from simple_module_db.scoping.tenancy import tenant_context
 from sqlmodel import Field
 
 Base = create_module_base("shape_matrix")

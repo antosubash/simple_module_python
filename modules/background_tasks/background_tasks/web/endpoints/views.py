@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from simple_module_db.pagination import PageParams
+from simple_module_db.queries.pagination import PageParams
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission

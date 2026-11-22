@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 
-from simple_module_db.session import init_db
+from simple_module_db.engine.session import init_db
 from simple_module_hosting import merge_host_settings
 from simple_module_test import forge_session_cookie
 from users.core.bootstrap import create_admin

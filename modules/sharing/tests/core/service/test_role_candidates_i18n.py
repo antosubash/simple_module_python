@@ -11,7 +11,7 @@ from sharing.core.service import SharingService
 from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
 from simple_module_core.access.tenancy import TenantRole, tenant_role
 from simple_module_core.localization.i18n import I18nRegistry, Translator
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.scoping.tenancy import tenant_context
 
 
 @pytest.fixture

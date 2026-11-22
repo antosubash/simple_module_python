@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 from simple_module_core.access.user_directory import get_user_directory
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from sqlalchemy.ext.asyncio import AsyncSession
 

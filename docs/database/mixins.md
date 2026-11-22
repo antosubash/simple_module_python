@@ -1,10 +1,10 @@
 # Mixins
 
-Standard mixins in `simple_module_db.mixins`. Compose as many as you need alongside the per-module `Base`.
+Standard mixins in `simple_module_db.models.mixins`. Compose as many as you need alongside the per-module `Base`.
 
 ```python
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import (
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import (
     AuditMixin,
     SoftDeleteMixin,
     MultiTenantMixin,
@@ -27,7 +27,7 @@ class Order(
     ...
 ```
 
-Each mixin adds columns; the framework's SQLAlchemy event listeners (registered once per engine in `simple_module_db.listeners`) populate them. Auth and tenant middleware push the current user / tenant into contextvars (`current_user_id`, `current_tenant_id`) that those listeners read, so writes are stamped automatically.
+Each mixin adds columns; the framework's SQLAlchemy event listeners (registered once per engine in `simple_module_db.models.listeners`) populate them. Auth and tenant middleware push the current user / tenant into contextvars (`current_user_id`, `current_tenant_id`) that those listeners read, so writes are stamped automatically.
 
 ## `AuditMixin`
 

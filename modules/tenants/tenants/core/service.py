@@ -20,8 +20,8 @@ from simple_module_core.eventing.events import Event, EventBus
 from simple_module_core.eventing.invalidation import InvalidationBus
 from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 from simple_module_db import PLATFORM_TENANT_ID
-from simple_module_db.admission import serialize_sqlite_writes
-from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern
+from simple_module_db.engine.admission import serialize_sqlite_writes
+from simple_module_db.queries.search import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

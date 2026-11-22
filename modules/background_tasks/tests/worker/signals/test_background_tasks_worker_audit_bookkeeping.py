@@ -15,7 +15,7 @@ from background_tasks.core import sync_db
 from background_tasks.core.constants import TaskStatus
 from background_tasks.models import Base, OutboxMessage, TaskExecution
 from background_tasks.worker._signal_support import now_utc
-from simple_module_db.audit_sinks import discover_audit_callback
+from simple_module_db.auditing.audit_sinks import discover_audit_callback
 from sqlalchemy import create_engine, select
 
 audit_models = pytest.importorskip("audit_log.models")

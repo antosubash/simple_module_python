@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, status
-from simple_module_db.pagination import PageParams, paginate
+from simple_module_db.queries.pagination import PageParams, paginate
 from sqlalchemy import delete, false, func, select, update
 from sqlmodel import col
 

@@ -9,7 +9,7 @@ from settings.module_settings.reload import apply_changes_and_reload
 from settings.module_settings.store import SettingsStore
 from simple_module_core.mailer import mail as core_mail
 from simple_module_core.mailer.mail import ConsoleMailSender, resolve_mail_sender
-from simple_module_db.transaction import finalize_session
+from simple_module_db.engine.transaction import finalize_session
 
 
 async def test_startup_installs_the_configured_sender(app) -> None:

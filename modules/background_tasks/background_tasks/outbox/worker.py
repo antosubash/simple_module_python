@@ -27,10 +27,10 @@ from typing import Any
 
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import init_db
-from simple_module_db.listeners import attach_session_listeners
-from simple_module_db.principals import bind_principal_registry
-from simple_module_db.query_filter import bind_engine_policy
-from simple_module_db.tenant_cleanup import register_tenant_cleanup
+from simple_module_db.models.listeners import attach_session_listeners
+from simple_module_db.queries.principals import bind_principal_registry
+from simple_module_db.scoping.query_filter import bind_engine_policy
+from simple_module_db.scoping.tenant_cleanup import register_tenant_cleanup
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from background_tasks.core import sync_db

@@ -31,11 +31,11 @@ A worker never runs `create_app`, so it has no `app.state.sm.db` for `on_startup
 audit_log = "audit_log.core.capture:audit_callback"
 ```
 
-`background_tasks` binds whatever `simple_module_db.audit_sinks.discover_audit_callback()` finds to both of its worker engines — the sync engine task bodies and signal handlers use (`core/sync_db`) and the async engine durable outbox handlers run on (`outbox/worker`). A task's ORM writes, including `TaskExecution` lifecycle rows, are therefore audited exactly like a request's whenever `audit_log` is installed; neither package imports the other. The worker's audit rows carry no `user_id` (no request principal).
+`background_tasks` binds whatever `simple_module_db.auditing.audit_sinks.discover_audit_callback()` finds to both of its worker engines — the sync engine task bodies and signal handlers use (`core/sync_db`) and the async engine durable outbox handlers run on (`outbox/worker`). A task's ORM writes, including `TaskExecution` lifecycle rows, are therefore audited exactly like a request's whenever `audit_log` is installed; neither package imports the other. The worker's audit rows carry no `user_id` (no request principal).
 
 ### Statement DML: bulk, Core and raw writes
 
-`session.execute(update(Model)...)`, its `delete()` / `insert()` siblings and Core DML on `Model.__table__` never reach a flush, so a `do_orm_execute` listener (`simple_module_db.bulk_audit`) audits them instead, through the same per-engine `audit_callback` (requests and Celery workers alike):
+`session.execute(update(Model)...)`, its `delete()` / `insert()` siblings and Core DML on `Model.__table__` never reach a flush, so a `do_orm_execute` listener (`simple_module_db.auditing.bulk_audit`) audits them instead, through the same per-engine `audit_callback` (requests and Celery workers alike):
 
 - **`UPDATE` / `DELETE`.** Before the statement runs, the listener reads the primary keys it will touch, with the same `WHERE`, statement options (including `with_loader_criteria`) and tenant scope (soft-deleted rows included, as the write includes them). Up to 500 rows each get one entry (`bulk_updated`, `bulk_deleted`; an update that writes `is_deleted` is `bulk_soft_deleted` when the value is truthy or SQL such as `sa.true()`, else `bulk_restored`, decided per row for executemany; the statement's other written columns stay in `changes`); `changes` holds the `SET` values as `{field, new}` (a SQL expression is stored as SQL with bind placeholders). `session.execute(update(Model), [{"id": ..., ...}, ...])` takes the ids from the rows instead.
 - **More than 500 rows.** One summary entry with `entity_id` `"*"`: the `SET` values plus `where_sql` (the `WHERE` with bind placeholders, never the literal values), `rowcount` and `truncated: true`.
@@ -78,8 +78,8 @@ Auditing is on by default for every table. Two escape hatches, both class attrib
 ```python
 from typing import ClassVar
 from sqlmodel import Field
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
 
 Base = create_module_base("auth")
 

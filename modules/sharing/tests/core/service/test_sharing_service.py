@@ -25,7 +25,7 @@ from simple_module_core.access.resources import (
     ResourcePrincipal,
     ResourceTypeRegistry,
 )
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.scoping.tenancy import tenant_context
 from sqlmodel import select
 
 OWNER, FRIEND, STRANGER = (str(uuid.UUID(int=n)) for n in (1, 2, 3))
