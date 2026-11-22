@@ -108,7 +108,7 @@ async def test_bind_current_tenant_carries_the_tenant_past_the_request():
 
 
 async def test_bind_current_tenant_captures_the_bypass_too():
-    from simple_module_db.tenancy import is_all_tenants
+    from simple_module_db.scoping.tenancy import is_all_tenants
 
     with all_tenants():
         job = bind_current_tenant(is_all_tenants)

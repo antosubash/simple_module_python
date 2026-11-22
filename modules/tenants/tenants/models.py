@@ -13,9 +13,9 @@ from datetime import datetime
 from typing import ClassVar
 
 from simple_module_db import is_valid_tenant_id
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
+from simple_module_db.models.types import AwareDateTime
 from sqlalchemy import Column, Index, UniqueConstraint, text
 from sqlalchemy.orm import validates
 from sqlmodel import Field

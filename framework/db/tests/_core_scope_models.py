@@ -13,10 +13,10 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from _models import _tenant_session
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
-from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
-from simple_module_db.tenancy import current_tenant_id, tenant_context
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import MultiTenantMixin, SoftDeleteMixin
+from simple_module_db.scoping.query_filter import EngineTenancy, bind_engine_policy
+from simple_module_db.scoping.tenancy import current_tenant_id, tenant_context
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field
 

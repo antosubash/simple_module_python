@@ -11,7 +11,7 @@ from settings.contracts.schemas import (
     SettingUpsert,
     SettingValueType,
 )
-from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
+from simple_module_db.queries.stored_settings import SYSTEM_SCOPE_ID
 
 
 class TestScopeValidation:

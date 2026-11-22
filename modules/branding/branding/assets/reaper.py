@@ -24,7 +24,7 @@ from contextlib import nullcontext
 from typing import TYPE_CHECKING
 
 from simple_module_db import tenant_context
-from simple_module_db.callbacks import register_on_commit
+from simple_module_db.engine.callbacks import register_on_commit
 
 from branding.core.constants import PACKAGE, TENANT_IMAGE_FIELDS
 

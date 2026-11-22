@@ -28,8 +28,8 @@ To exclude a sensitive column:
 ```python
 from typing import ClassVar
 from sqlmodel import Field
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
 
 Base = create_module_base("auth")
 

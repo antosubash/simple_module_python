@@ -128,7 +128,7 @@ async def test_tenant_cleanup_commits_manifest_and_retries(app, tmp_path, monkey
 async def test_inline_cleanup_defers_objects_until_commit(
     db_session, tmp_path, monkeypatch, rollback
 ):
-    from simple_module_db.transaction import finalize_session, rollback_session
+    from simple_module_db.engine.transaction import finalize_session, rollback_session
     from tenants.core.service import TenantService
     from tenants.models import Tenant
 

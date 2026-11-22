@@ -32,8 +32,8 @@ from typing import Any
 from fastapi import Depends, HTTPException, Request
 from simple_module_core.access.permission_denied import PermissionDenied
 from simple_module_core.access.resources import ResourcePolicy, ResourcePrincipal
-from simple_module_db.deps import get_db
-from simple_module_db.resource_policy import load_authorized
+from simple_module_db.engine.deps import get_db
+from simple_module_db.queries.resource_policy import load_authorized
 
 from simple_module_hosting.permissions import (
     RequiresPermission,

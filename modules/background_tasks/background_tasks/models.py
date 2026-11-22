@@ -6,9 +6,9 @@ import uuid
 from datetime import datetime
 from typing import Any, ClassVar
 
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
+from simple_module_db.models.types import AwareDateTime
 from sqlalchemy import JSON, CheckConstraint, Column, Index, String, column
 from sqlalchemy.orm import load_only
 from sqlmodel import Field, SQLModel

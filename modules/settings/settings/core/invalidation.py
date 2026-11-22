@@ -9,7 +9,7 @@ from simple_module_core.eventing.invalidation_refresh import InvalidationRefresh
 from simple_module_core.modules.app_state import get_services
 from simple_module_core.settings.module_settings import module_settings_registry
 from simple_module_core.settings.settings_hydrate import hydrate_settings
-from simple_module_db.stored_settings import settings_table_exists
+from simple_module_db.queries.stored_settings import settings_table_exists
 
 from settings.contracts.events import SettingsReloaded
 from settings.module_settings.store import SettingsStore

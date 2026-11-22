@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from _tenants_deletion_support import deletion_bus
 from simple_module_core.eventing.events import EventBus
-from simple_module_db.transaction import finalize_session, rollback_session
+from simple_module_db.engine.transaction import finalize_session, rollback_session
 from sqlalchemy import func, select
 from tenants.contracts.events import MembershipRemoved, TenantDeleted
 from tenants.contracts.schemas import TenantCreate

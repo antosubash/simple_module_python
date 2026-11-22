@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from fastapi_users_db_sqlalchemy.generics import GUID, now_utc
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.types import AwareDateTime
 from sqlalchemy import Index
 from sqlmodel import Field
 

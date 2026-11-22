@@ -6,8 +6,8 @@ from fastapi import Depends, Request
 from simple_module_core.access.file_access import file_access_policies
 from simple_module_core.access.permissions import grants
 from simple_module_core.eventing.events import EventBus
-from simple_module_db.deps import get_db
-from simple_module_db.listeners import current_user_id
+from simple_module_db.engine.deps import get_db
+from simple_module_db.models.listeners import current_user_id
 from simple_module_hosting.permissions import ensure_resolved_permissions
 from simple_module_hosting.resource_deps import resource_principal
 from sqlalchemy.ext.asyncio import AsyncSession

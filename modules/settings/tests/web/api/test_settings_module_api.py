@@ -147,7 +147,7 @@ async def test_clear_field_returns_422_when_remaining_override_is_unparseable(
 ):
     from settings.core.service import SettingService
     from settings.module_settings.store import SYSTEM_SCOPE_ID, SettingsStore
-    from simple_module_db.stored_settings import Setting
+    from simple_module_db.queries.stored_settings import Setting
 
     async with app.state.sm.db.session_factory() as db:
         store = SettingsStore(SettingService(db))

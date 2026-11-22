@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 import pytest
 from fastapi import FastAPI, Request
-from simple_module_db.tenancy import current_tenant_id
+from simple_module_db.scoping.tenancy import current_tenant_id
 from simple_module_hosting import sentry as sm_sentry
 
 sentry_sdk = pytest.importorskip("sentry_sdk")

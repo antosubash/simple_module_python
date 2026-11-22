@@ -8,7 +8,7 @@ from background_tasks.worker import signals as _signals  # noqa: F401 - connects
 from background_tasks.worker.tenant_celery import TenantCelery, TenantTask
 from celery import Task, _state, current_app, shared_task
 from simple_module_db import TenantIsolationError, current_tenant_id, tenant_context
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 
 
 class CustomTask(Task):

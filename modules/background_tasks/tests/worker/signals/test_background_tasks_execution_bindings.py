@@ -10,7 +10,7 @@ from background_tasks.worker.log_context import get_log_context
 from background_tasks.worker.signals import on_task_postrun, on_task_prerun
 from celery import Celery
 from simple_module_db import current_tenant_id, tenant_context
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 
 
 @pytest.fixture

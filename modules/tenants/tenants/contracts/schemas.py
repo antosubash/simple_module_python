@@ -8,7 +8,7 @@ from datetime import datetime
 from email_validator import EmailNotValidError, validate_email
 from pydantic import field_validator
 from simple_module_db import PLATFORM_TENANT_ID
-from simple_module_db.pagination import Page
+from simple_module_db.queries.pagination import Page
 from sqlmodel import Field, SQLModel
 
 from tenants.core.constants import MAX_EMAIL_LEN, MAX_NAME_LEN, MembershipRole

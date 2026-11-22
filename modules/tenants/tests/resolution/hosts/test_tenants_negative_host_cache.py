@@ -8,7 +8,7 @@ from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.eventing.invalidation import Invalidation
 from simple_module_core.runtime.singleflight import MAX_FILL_ATTEMPTS
-from simple_module_db.transaction import finalize_session
+from simple_module_db.engine.transaction import finalize_session
 from tenants.contracts.schemas import TenantCreate
 from tenants.core.constants import HOSTS_INVALIDATION_CHANNEL, INVALIDATION_CHANNEL
 from tenants.core.service import TenantService

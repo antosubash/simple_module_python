@@ -25,8 +25,8 @@ from simple_module_core import DurableContext
 from simple_module_core.eventing.durable_events import event_key, serialize_event
 from simple_module_core.eventing.events import Event, EventBus
 from simple_module_db import finalize_session, init_db
-from simple_module_db.listeners import register_listeners
-from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_db.engine.transaction import SESSION_START_KEY
+from simple_module_db.models.listeners import register_listeners
 from simple_module_test.database import (
     database_url_for_tests,
     init_db_kwargs,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 from file_storage.core import constants
-from simple_module_db.pagination import MAX_PAGE, MAX_PER_PAGE
+from simple_module_db.queries.pagination import MAX_PAGE, MAX_PER_PAGE
 
 LIST_FILES = f"{constants.ROUTE_PREFIX_API}{constants.PATH_FILES}"
 

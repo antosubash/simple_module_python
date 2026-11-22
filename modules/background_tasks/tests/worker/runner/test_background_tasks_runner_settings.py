@@ -9,7 +9,7 @@ import pytest
 from background_tasks.core import sync_db
 from background_tasks.core.settings import BackgroundTasksSettings
 from background_tasks.worker.settings import clear_settings_cache, load_runner_settings
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -112,7 +112,7 @@ def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypa
     from background_tasks.worker import celery_app, principals
     from background_tasks.worker.runner import build_runner_celery
     from simple_module_core.runtime import leases
-    from simple_module_db.leases import DbLeaseBackend
+    from simple_module_db.engine.leases import DbLeaseBackend
     from simple_module_hosting.installation import load_installation_id
 
     configs = []

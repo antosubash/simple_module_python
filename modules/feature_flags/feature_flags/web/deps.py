@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request
 from simple_module_core.access.tenancy import tenant_exists
 from simple_module_core.web.feature_flags import FeatureFlagRegistry
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from feature_flags.core.service import FeatureFlagService

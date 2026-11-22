@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from _users_admin_support import _build_service
 from fastapi_users.exceptions import UserAlreadyExists
-from simple_module_db.callbacks import register_on_commit, run_on_commit_callbacks
+from simple_module_db.engine.callbacks import register_on_commit, run_on_commit_callbacks
 
 
 @pytest.mark.anyio

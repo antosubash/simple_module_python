@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
-from simple_module_db.pagination import PageParams
+from simple_module_db.queries.pagination import PageParams
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 

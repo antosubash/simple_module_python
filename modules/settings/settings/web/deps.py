@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from simple_module_core.modules.app_state import get_services
 from simple_module_core.settings.module_settings import get_module_settings_registry
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from settings.contracts.accessor import SettingsAccessor

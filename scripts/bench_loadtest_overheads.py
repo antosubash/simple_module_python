@@ -13,9 +13,9 @@ from timeit import repeat
 
 from feature_flags.contracts.schemas import FeatureFlagView
 from itsdangerous import TimestampSigner
-from simple_module_db._core_walk import references_plain
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import MultiTenantMixin, SoftDeleteMixin
+from simple_module_db.scoping._core_walk import references_plain
 from simple_module_hosting.middleware import SecurityHeadersMiddleware
 from simple_module_hosting.path_matching import matches_path
 from simple_module_hosting.session import SessionMiddleware

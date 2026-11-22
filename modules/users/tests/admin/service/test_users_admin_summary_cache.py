@@ -7,8 +7,8 @@ from unittest.mock import patch
 import pytest
 from fastapi_users.password import PasswordHelper
 from simple_module_core.eventing.invalidation import Invalidation
-from simple_module_db.callbacks import register_on_commit
-from simple_module_db.transaction import finalize_session, rollback_session
+from simple_module_db.engine.callbacks import register_on_commit
+from simple_module_db.engine.transaction import finalize_session, rollback_session
 from sqlalchemy import event, select
 from users.accounts.db_adapter import UserDatabaseWithRoles
 from users.accounts.manager import UserManager

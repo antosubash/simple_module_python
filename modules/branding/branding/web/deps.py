@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from file_storage.files.service import FileStorageService
 from file_storage.web.deps import get_file_storage_service
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from branding.core.service import BrandingService

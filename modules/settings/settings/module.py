@@ -35,7 +35,7 @@ async def _resolve_setting_labels(db: AsyncSession, ids: list[str]) -> dict[str,
     screen calls the row. Ids that are not integers belong to some other id
     space and are left unnamed, which falls back to showing the id.
     """
-    from simple_module_db.stored_settings import Setting
+    from simple_module_db.queries.stored_settings import Setting
     from sqlalchemy import select
 
     numeric = {int(raw): raw for raw in ids if raw.lstrip("-").isdigit()}
@@ -135,7 +135,7 @@ class SettingsModule(ModuleBase):
             registry.map_role(tenant_role(role), [Permissions.TENANT_EDIT])
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
-        from simple_module_db.stored_settings import Setting
+        from simple_module_db.queries.stored_settings import Setting
 
         registry.register(
             AuditLink.for_model(

@@ -13,7 +13,7 @@ pip install simple_module_db
 - `create_module_base("<module_name>")` — a module-scoped declarative `Base` with its own `MetaData`. All modules share the host's single schema, so `__tablename__` should be prefixed with the module name (e.g. `users_user`) to avoid collisions.
 - Per-request `RequestSession` (`get_db`) that commits pending writes before the response and rolls back read-only requests.
 - `session.on_commit(callback)` for synchronous or asynchronous cache refreshes that must only run after a successful request commit.
-- Mixins in `simple_module_db.mixins`: `AuditMixin` (created_at/updated_at), `SoftDeleteMixin` (auto-filtered unless `stmt.execution_options(include_deleted=True)`), `MultiTenantMixin`, `VersionedMixin`.
+- Mixins in `simple_module_db.models.mixins`: `AuditMixin` (created_at/updated_at), `SoftDeleteMixin` (auto-filtered unless `stmt.execution_options(include_deleted=True)`), `MultiTenantMixin`, `VersionedMixin`.
 - `DatabaseState` container used by the framework to avoid global mutable state.
 
 ## Usage

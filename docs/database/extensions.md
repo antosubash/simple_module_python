@@ -33,7 +33,7 @@ extension (trusted extensions such as `ltree` and `pg_trgm` need only
 
 ## Column types
 
-`simple_module_db.types`:
+`simple_module_db.models.types`:
 
 | Type | Postgres | SQLite |
 |---|---|---|
@@ -41,7 +41,7 @@ extension (trusted extensions such as `ltree` and `pg_trgm` need only
 | `TSVector` | `TSVECTOR` (built in) | `TEXT` |
 
 ```python
-from simple_module_db.types import LTree, TSVector
+from simple_module_db.models.types import LTree, TSVector
 
 
 class Category(SQLModel, table=True):
@@ -51,7 +51,7 @@ class Category(SQLModel, table=True):
 
 Operators are Postgres-only (`Category.path.op("<@")(...)`, `.op("@@")`);
 guard such queries or test them under the `postgres` marker. Autogenerate
-renders both as `simple_module_db.types.LTree()` and adds the import, so one
+renders both as `simple_module_db.models.types.LTree()` and adds the import, so one
 revision upgrades on Postgres and SQLite. Reflection recognises `ltree`, so
 `alembic check` stays clean.
 

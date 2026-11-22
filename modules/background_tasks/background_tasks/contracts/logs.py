@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.types import AwareDateTime
 from sqlmodel import Field, SQLModel
 
 

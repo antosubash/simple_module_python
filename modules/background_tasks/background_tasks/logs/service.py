@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from simple_module_db import RequestSession
-from simple_module_db.pagination import PageParams, paginate
+from simple_module_db.queries.pagination import PageParams, paginate
 from sqlalchemy import false, select
 from sqlmodel import col
 

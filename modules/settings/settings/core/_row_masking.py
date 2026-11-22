@@ -11,7 +11,7 @@ that there is no second way to serialize a row.
 from __future__ import annotations
 
 from simple_module_core.settings.secret_fields import conceals_secret
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 
 from settings.contracts.schemas import SettingOut
 from settings.core.constants import SENSITIVE_PLACEHOLDER

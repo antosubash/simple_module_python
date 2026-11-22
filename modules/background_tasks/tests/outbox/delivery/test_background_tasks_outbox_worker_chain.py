@@ -31,7 +31,7 @@ from simple_module_core.eventing.durable_events import event_key, serialize_even
 from simple_module_core.eventing.events import Event, EventBus
 from simple_module_core.modules import discovery
 from simple_module_db import finalize_session
-from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_db.engine.transaction import SESSION_START_KEY
 from sqlalchemy.pool import NullPool
 
 POLICY = OutboxPolicy(max_attempts=8, lease_seconds=300)

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, status
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession
-from simple_module_db.pagination import total_pages
+from simple_module_db.queries.pagination import total_pages
 from sqlalchemy import func, select
 
 from background_tasks.contracts.schemas import (

@@ -18,7 +18,7 @@ import httpx
 import pytest
 from _middleware_support import _build_app, _session_cookie
 from fastapi import Request
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 from starlette.responses import JSONResponse
 
 # ---------------------------------------------------------------------------

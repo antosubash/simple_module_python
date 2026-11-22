@@ -56,7 +56,7 @@ factory reference used by `independent_session(session)`:
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
 from simple_module_db import DatabaseState, RequestSession
-from simple_module_db.session import SESSION_FACTORY_KEY
+from simple_module_db.engine.session import SESSION_FACTORY_KEY
 
 
 def make_database(settings):

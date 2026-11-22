@@ -31,8 +31,8 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from simple_module_db import RequestSession, bind_current_tenant, mark_written
-from simple_module_db.callbacks import open_savepoints
-from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_db.engine.callbacks import open_savepoints
+from simple_module_db.engine.transaction import SESSION_START_KEY
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, SessionTransaction

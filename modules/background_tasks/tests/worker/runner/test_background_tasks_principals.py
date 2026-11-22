@@ -6,7 +6,7 @@ from background_tasks.core import sync_db
 from background_tasks.outbox import worker
 from background_tasks.worker import principals
 from simple_module_core.access.principals import PRINCIPALS_KEY
-from simple_module_db.principals import principal_for
+from simple_module_db.queries.principals import principal_for
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 

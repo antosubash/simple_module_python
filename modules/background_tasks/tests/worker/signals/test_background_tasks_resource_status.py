@@ -5,7 +5,7 @@ from background_tasks.core.constants import TaskStatus
 from background_tasks.models import TaskExecution
 from simple_module_core.access.resources import ResourceType
 from simple_module_core.access.tenancy import TenantRole
-from simple_module_db.resource_policy import select_by_id
+from simple_module_db.queries.resource_policy import select_by_id
 from sqlalchemy import false
 
 URL = "/api/background_tasks/tasks/{}/status"

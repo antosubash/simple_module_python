@@ -14,7 +14,7 @@ from settings.module_settings.reload import apply_changes_and_reload, clear_over
 from settings.module_settings.store import SettingsStore
 from simple_module_core.eventing.events import EventBus
 from simple_module_core.settings.module_settings import register_module_settings
-from simple_module_db.transaction import finalize_session
+from simple_module_db.engine.transaction import finalize_session
 
 
 class _UsersCfg(BaseSettings):

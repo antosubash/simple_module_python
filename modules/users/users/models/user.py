@@ -15,8 +15,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID
-from simple_module_db.mixins import AuditMixin
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.mixins import AuditMixin
+from simple_module_db.models.types import AwareDateTime
 from sqlalchemy import Index, false, text
 from sqlmodel import Field, Relationship
 

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from file_storage.files import thumbnails
-from simple_module_db.session import RequestSession
+from simple_module_db.engine.session import RequestSession
 
 
 @pytest.mark.parametrize("bulk", [False, True])

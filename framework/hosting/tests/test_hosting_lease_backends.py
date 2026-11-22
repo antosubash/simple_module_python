@@ -14,7 +14,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 from simple_module_core.runtime.leases import InProcessLeaseBackend, LeaseBackend, lease, semaphore
-from simple_module_db.leases import DbLeaseBackend, LeaseRow
+from simple_module_db.engine.leases import DbLeaseBackend, LeaseRow
 from simple_module_hosting._lease_redis import RedisLeaseBackend
 from simple_module_test import wait_for
 

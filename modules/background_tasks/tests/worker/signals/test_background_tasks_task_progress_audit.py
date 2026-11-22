@@ -11,7 +11,7 @@ from background_tasks.core import sync_db
 from background_tasks.core.constants import TaskStatus
 from background_tasks.models import TaskExecution
 from background_tasks.worker import task_heartbeat as heartbeat_mod
-from simple_module_db.audit_sinks import discover_audit_callback
+from simple_module_db.auditing.audit_sinks import discover_audit_callback
 from sqlalchemy import create_engine, func, select
 
 audit_models = pytest.importorskip("audit_log.models")

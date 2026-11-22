@@ -16,7 +16,7 @@ from simple_module_core.access.permissions import PermissionRegistry
 from simple_module_core.access.principal_permissions import load_principal
 from simple_module_core.access.role_directory import get_role_directory
 from simple_module_core.access.user_directory import get_user_directory
-from simple_module_db.transaction import finalize_session
+from simple_module_db.engine.transaction import finalize_session
 from users.core.directory import UsersDirectory
 from users.models import Role, User, UserRole
 

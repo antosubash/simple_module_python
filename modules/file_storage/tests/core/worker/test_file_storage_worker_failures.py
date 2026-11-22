@@ -116,7 +116,7 @@ def test_named_handle_infers_basename_and_stays_open(worker_db, tmp_path):
 
 @pytest.mark.parametrize("operation", ["open_local", "presigned_url"])
 def test_unscoped_reads_fail_closed(worker_db, operation):
-    from simple_module_db.tenancy import TenantIsolationError
+    from simple_module_db.scoping.tenancy import TenantIsolationError
 
     with tenant_context("alpha"):
         out = contracts.store_path(BytesIO(b"private"), filename="a.bin")

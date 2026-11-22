@@ -6,7 +6,7 @@ from background_tasks.outbox import worker as outbox_worker
 from background_tasks.worker.settings import clear_settings_cache
 from file_storage.models import StoredFile
 from simple_module_core.eventing.events import EventBus
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 

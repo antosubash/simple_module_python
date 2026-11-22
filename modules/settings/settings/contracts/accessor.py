@@ -23,7 +23,7 @@ import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
-from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
+from simple_module_db.queries.stored_settings import SYSTEM_SCOPE_ID
 
 from settings.contracts.registry import SettingsRegistry
 from settings.contracts.schemas import (

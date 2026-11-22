@@ -9,8 +9,8 @@ from fastapi import Depends, Request
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
-from simple_module_db.callbacks import run_on_commit_callbacks
-from simple_module_db.deps import get_db
+from simple_module_db.engine.callbacks import run_on_commit_callbacks
+from simple_module_db.engine.deps import get_db
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

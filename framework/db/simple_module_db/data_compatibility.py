@@ -1,82 +1,13 @@
-"""Database-backed Doctor diagnostics, separate from core's static checks."""
+"""Deprecated alias for simple_module_db.schema.data_compatibility."""
 
-from collections.abc import Sequence
+import sys
+from importlib import import_module
 
-from alembic.runtime.migration import MigrationContext
-from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
-from simple_module_core.migrations.data_compatibility import collect_data_compatibility
-from simple_module_core.modules.module import ModuleBase
+from simple_module_core.runtime.deprecation import deprecated_module
 
-from simple_module_db.listeners import register_listeners
-from simple_module_db.migration_state import database_exists
-from simple_module_db.session import init_db
-
-DATA_COMPATIBILITY_CODE = "SM033"
-
-
-async def database_compatibility_diagnostics(
-    modules: Sequence[ModuleBase], database_url: str
-) -> list[Diagnostic]:
-    state = None
-    try:
-        if not database_exists(database_url):
-            return []  # Nothing migrated yet; opening it would create an empty SQLite file.
-        # Read-only diagnostics: never switch a legacy SQLite file to WAL.
-        state = init_db(database_url, sqlite_wal=False)
-        # Doctor has no host settings: checks must explicitly opt into all tenants.
-        state.tenant_strict = True
-        register_listeners(state)
-        engine = state.engine
-    except Exception:
-        if state is not None:
-            await state.engine.dispose()
-        # A malformed or non-async URL must be a finding, not a traceback; the URL can
-        # carry credentials, so it is not echoed.
-        return [_problem(DiagnosticLevel.WARNING, "Could not open the database URL.")]
-    try:
-        try:
-            async with engine.connect() as conn:
-                migrated = await conn.run_sync(
-                    lambda sync: bool(MigrationContext.configure(sync).get_current_heads())
-                )
-        except Exception:
-            # Unreachable is a warning: doctor also runs where no database is up
-            # (CI, a laptop without the stack); boot is where errors are refused.
-            # Connection errors can carry credentials, so the cause is not shown.
-            return [_problem(DiagnosticLevel.WARNING, "Could not reach the database.")]
-        if not migrated:
-            return []
-        try:
-            async with state.session_factory() as db:
-                issues = await collect_data_compatibility(modules, db)
-        except Exception as exc:
-            # A check that crashes is a bug to fix, not a pass: doctor must fail.
-            return [
-                _problem(
-                    DiagnosticLevel.ERROR,
-                    f"A module data compatibility check failed ({type(exc).__name__}).",
-                )
-            ]
-        return [
-            Diagnostic(
-                level=DiagnosticLevel(issue.severity),
-                code=DATA_COMPATIBILITY_CODE,
-                module_name=issue.upgrade_id.split(".", 1)[0],
-                message=f"{issue.upgrade_id}: {issue.message}",
-                suggestion=issue.remediation(),
-            )
-            for issue in issues
-        ]
-    finally:
-        await engine.dispose()
-
-
-def _problem(level: DiagnosticLevel, message: str) -> Diagnostic:
-    return Diagnostic(
-        level=level,
-        code=DATA_COMPATIBILITY_CODE,
-        module_name="<database>",
-        message=message,
-        suggestion="Check database connectivity and apply pending host schema migrations, "
-        "then rerun doctor.",
-    )
+deprecated_module(
+    "simple_module_db.data_compatibility",
+    remove_in="0.0.52",
+    use="simple_module_db.schema.data_compatibility",
+)
+sys.modules[__name__] = import_module("simple_module_db.schema.data_compatibility")

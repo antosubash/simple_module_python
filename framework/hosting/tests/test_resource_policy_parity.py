@@ -11,7 +11,7 @@ import uuid
 import pytest
 from _resacc_models import ResaccDoc
 from simple_module_core.access.resources import ACTION_EDIT, ResourcePrincipal
-from simple_module_db.resource_policy import OwnedResourcePolicy
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy
 from sqlmodel import Field, SQLModel, select
 
 

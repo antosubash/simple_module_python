@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import Request
 from simple_module_db import init_db
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from simple_module_hosting import _app_boot, _lifespan, app_builder
 from sqlalchemy.engine import make_url
 

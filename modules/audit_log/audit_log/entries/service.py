@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from datetime import datetime
 
-from simple_module_db.provider import DatabaseProvider
+from simple_module_db.engine.provider import DatabaseProvider
 from sqlalchemy import Select, and_, func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col

@@ -15,7 +15,7 @@ from background_tasks.outbox.dispatch import dispatch
 from simple_module_core import DurableContext
 from simple_module_core.eventing.events import Event
 from simple_module_db import current_tenant_id, finalize_session, tenant_context
-from simple_module_db.transaction import SESSION_START_KEY, rollback_session
+from simple_module_db.engine.transaction import SESSION_START_KEY, rollback_session
 
 pytestmark = pytest.mark.usefixtures("_stub_celery")
 

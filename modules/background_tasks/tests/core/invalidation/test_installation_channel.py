@@ -6,7 +6,7 @@ import pytest
 from background_tasks.core._lifecycle import start_invalidation_transport
 from background_tasks.core.settings import BackgroundTasksSettings
 from simple_module_core.eventing.invalidation import InvalidationBus
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 from sqlalchemy import create_engine
 
 
@@ -55,7 +55,7 @@ async def test_web_uses_database_identity_and_bridges_legacy(database_url, monke
 
 
 async def test_explicit_env_channel_beats_stored_channel(database_url, monkeypatch):
-    from simple_module_db.stored_settings import hydrate_settings_sync
+    from simple_module_db.queries.stored_settings import hydrate_settings_sync
     from sqlalchemy.orm import Session
 
     engine = create_engine(database_url.replace("sqlite+aiosqlite://", "sqlite://"))

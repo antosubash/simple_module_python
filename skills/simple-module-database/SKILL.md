@@ -7,13 +7,13 @@ description: Use when adding SQLModel tables to a simple_module_python module, d
 
 ## Per-module Base
 
-Every module that owns tables creates its own SQLAlchemy declarative `Base` from `simple_module_db.base.create_module_base(<name>)`. **Never share a Base across modules** and never use `sqlmodel.SQLModel.metadata` directly — autogenerate would then mix tables from unrelated modules.
+Every module that owns tables creates its own SQLAlchemy declarative `Base` from `simple_module_db.models.base.create_module_base(<name>)`. **Never share a Base across modules** and never use `sqlmodel.SQLModel.metadata` directly — autogenerate would then mix tables from unrelated modules.
 
 ```python
 # orders/models.py
 from sqlmodel import Field
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
 
 Base = create_module_base("orders")
 

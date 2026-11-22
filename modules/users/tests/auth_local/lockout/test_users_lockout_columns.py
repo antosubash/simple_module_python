@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from simple_module_db.audit import snapshot_changes
+from simple_module_db.auditing.audit import snapshot_changes
 from sqlalchemy import select
 from users.models import User
 

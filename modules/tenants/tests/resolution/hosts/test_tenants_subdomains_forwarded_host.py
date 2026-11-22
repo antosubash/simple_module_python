@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 from fastapi import Depends
 from simple_module_db import MultiTenantMixin, create_module_base, tenant_context
-from simple_module_db.deps import get_db
+from simple_module_db.engine.deps import get_db
 from simple_module_hosting._forwarded_host import ForwardedHostMiddleware
 from sqlalchemy import select
 from sqlmodel import Field

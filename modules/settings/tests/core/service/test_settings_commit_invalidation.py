@@ -6,7 +6,7 @@ from settings.core.service import SettingService
 from settings.module_settings.reload import apply_changes_and_reload
 from settings.module_settings.store import SettingsStore
 from simple_module_core.eventing.invalidation import Invalidation
-from simple_module_db.transaction import finalize_session, rollback_session
+from simple_module_db.engine.transaction import finalize_session, rollback_session
 
 
 @pytest.mark.parametrize("commit", [False, True])

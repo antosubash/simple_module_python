@@ -8,7 +8,7 @@ import pytest
 from _sharing_support import NOTE_TYPE, SharingTestNote, create_note_table, register_note_type
 from sharing.models import ResourceShare
 from simple_module_core.access.tenancy import TenantRole, tenant_member_ids
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.scoping.tenancy import tenant_context
 
 SHARES = "/api/sharing/shares"
 

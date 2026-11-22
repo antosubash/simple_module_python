@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from simple_module_core.access.resources import ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
-from simple_module_db.resource_policy import OwnedResourcePolicy
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy
 from sqlmodel import Field, SQLModel, exists, select
 
 BYPASS = "resacc.manage"

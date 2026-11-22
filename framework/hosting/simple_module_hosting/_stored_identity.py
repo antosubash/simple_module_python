@@ -3,7 +3,7 @@
 import contextlib
 from collections.abc import Callable
 
-from simple_module_db.stored_settings import (
+from simple_module_db.queries.stored_settings import (
     COL_KEY,
     COL_SCOPE,
     COL_SCOPE_ID,

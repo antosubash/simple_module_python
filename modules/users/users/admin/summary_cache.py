@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from simple_module_core.eventing.invalidation import InvalidationBus
-from simple_module_db.callbacks import register_on_commit
+from simple_module_db.engine.callbacks import register_on_commit
 from sqlalchemy import event, func, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession

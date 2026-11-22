@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import time
 
-from simple_module_db.query_stats import track_queries
+from simple_module_db.engine.query_stats import track_queries
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 

@@ -12,7 +12,7 @@ from simple_module_core.access.user_directory import (
     chunked,
     parse_user_ids,
 )
-from simple_module_db.user_directory_sql import (
+from simple_module_db.queries.user_directory_sql import (
     name_or_email_contains,
     search_rows,
     to_directory_user,

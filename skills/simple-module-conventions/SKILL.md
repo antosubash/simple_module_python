@@ -13,7 +13,7 @@ The framework relies on these invariants. Every rule here exists because somethi
 
 ```python
 from sqlmodel import Field, SQLModel
-from simple_module_db.base import create_module_base
+from simple_module_db.models.base import create_module_base
 
 Base = create_module_base("orders")
 
@@ -64,7 +64,7 @@ class SiteLockModule(ModuleBase):
 ```
 
 - Settings are DB-backed: subclass `simple_module_core.settings.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env. The optional host root secret is resolved before module registration; Users derives purpose-specific token keys from it, outside editable DB settings.
-- Import from the framework, not the plugin: `simple_module_core.settings.module_settings`, `simple_module_core.settings.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers).
+- Import from the framework, not the plugin: `simple_module_core.settings.module_settings`, `simple_module_core.settings.settings_hydrate`, `simple_module_db.queries.stored_settings` (`Setting`, `hydrate_settings_sync` for workers).
 - Shared account/invitation origins use `simple_module_hosting.public_urls.public_origin`: blank module origins inherit `host.public_base_url`; never derive emailed links from request Host. All auth providers use host cookie-security and post-login policy. Body/rate/CORS host guards reload live through immutable policy snapshots; module rules still apply.
 - Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
 - The state attribute key is the lowercase package name or the lowercased `meta.name` — the diagnostics check accepts either. For module package `auth` with `meta.name="Auth"`, `app.state.auth` works either way.

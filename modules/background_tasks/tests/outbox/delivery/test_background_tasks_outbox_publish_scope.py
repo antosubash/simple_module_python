@@ -28,8 +28,8 @@ from simple_module_db import (
     finalize_session,
     tenant_context,
 )
-from simple_module_db.tenancy import is_all_tenants
-from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_db.engine.transaction import SESSION_START_KEY
+from simple_module_db.scoping.tenancy import is_all_tenants
 from sqlalchemy import select
 
 pytestmark = pytest.mark.usefixtures("_stub_celery")

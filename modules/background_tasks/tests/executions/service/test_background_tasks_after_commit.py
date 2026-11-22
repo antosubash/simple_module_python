@@ -23,7 +23,7 @@ from background_tasks.executions.service import BackgroundTaskService
 from background_tasks.models import TaskExecution
 from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession, finalize_session
-from simple_module_db.transaction import SESSION_START_KEY, rollback_session
+from simple_module_db.engine.transaction import SESSION_START_KEY, rollback_session
 from sqlalchemy import event, select
 
 ADMIN_BASE = "/api/background_tasks/admin"

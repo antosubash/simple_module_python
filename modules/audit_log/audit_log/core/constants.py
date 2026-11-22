@@ -44,7 +44,7 @@ ACTION_UPDATED: Final = "updated"
 ACTION_DELETED: Final = "deleted"
 ACTION_SOFT_DELETED: Final = "soft_deleted"
 ACTION_RESTORED: Final = "restored"
-# Statement DML (#557); the names match ``simple_module_db.bulk_audit``.
+# Statement DML (#557); the names match ``simple_module_db.auditing.bulk_audit``.
 ACTION_BULK_INSERTED: Final = "bulk_inserted"
 ACTION_BULK_UPDATED: Final = "bulk_updated"
 ACTION_BULK_DELETED: Final = "bulk_deleted"

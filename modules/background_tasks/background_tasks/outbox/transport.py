@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING, Any
 
 from simple_module_core.eventing.durable_events import event_key, serialize_event
 from simple_module_db import RequestSession, current_tenant_id
-from simple_module_db.tenancy import is_all_tenants
-from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_db.engine.transaction import SESSION_START_KEY
+from simple_module_db.scoping.tenancy import is_all_tenants
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 

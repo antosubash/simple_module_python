@@ -17,7 +17,7 @@ import pytest
 from audit_log.core.constants import ACTION_CREATED
 from audit_log.entries.service import AuditLogService
 from audit_log.models import AuditEntry
-from simple_module_db.provider import DatabaseProvider
+from simple_module_db.engine.provider import DatabaseProvider
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _ENTITY_TYPES = ("Alpha", "Beta", "Gamma")

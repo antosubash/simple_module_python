@@ -476,7 +476,7 @@ CI runs the same target on a Postgres service (`migrations-roundtrip-pg` job in
 
 A module that stores `ltree` paths or `tsvector` documents overrides
 `db_extensions()` (`return ["ltree"]`) and declares columns with
-`simple_module_db.types.LTree` / `TSVector`. The host's `env.py` creates the
+`simple_module_db.models.types.LTree` / `TSVector`. The host's `env.py` creates the
 extensions before any revision runs, and the types fall back to `TEXT` on
 SQLite. See [Extensions and column types](/database/extensions).
 

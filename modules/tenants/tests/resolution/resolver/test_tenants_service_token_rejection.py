@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 from starlette.requests import Request
 from tenants.core.constants import TenantStatus
 from tenants.resolution.token_tenant import _service_tenant

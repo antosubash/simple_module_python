@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID, TIMESTAMPAware, now_utc
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.types import AwareDateTime
 from sqlmodel import Field
 
 from users.models._base import Base

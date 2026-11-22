@@ -193,7 +193,7 @@ reload and the generic key/value API on top.
 | `register_module_settings`, `ModuleSettingsRegistry`, `module_settings_registry(app)` | `simple_module_core.settings.module_settings` |
 | `hydrate_settings`, `build_settings`, `OverrideSource`, `RELATED_FIELDS_CTX`, field helpers | `simple_module_core.settings.settings_hydrate` |
 | Secret-field masking (`conceals_secret`, `mask`, ...) | `simple_module_core.settings.secret_fields` |
-| `Setting` model, scope/table constants, `get_overrides_sync`, `hydrate_settings_sync` | `simple_module_db.stored_settings` |
+| `Setting` model, scope/table constants, `get_overrides_sync`, `hydrate_settings_sync` | `simple_module_db.queries.stored_settings` |
 
 Import directly from the framework locations above. The settings plugin keeps
 its `settings.models` model identity and its area-level store, constants and
@@ -203,7 +203,7 @@ A Celery worker or CLI script never runs the lifespan, so it hydrates
 synchronously:
 
 ```python
-from simple_module_db.stored_settings import hydrate_settings_sync
+from simple_module_db.queries.stored_settings import hydrate_settings_sync
 
 cfg = hydrate_settings_sync(OrdersSettings, session, "orders")
 ```

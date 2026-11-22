@@ -3,7 +3,7 @@
 import pytest
 from settings.contracts.schemas import SettingScope
 from settings.core.service import SettingService
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 from simple_module_test import inertia_page
 from sqlalchemy import select
 

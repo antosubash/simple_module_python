@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from simple_module_db.audit import collect_audit_records
+from simple_module_db.auditing.audit import collect_audit_records
 from sqlalchemy.orm import Session
 from tenants.models import Invitation
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from simple_module_db.query_filter import strict_configured
+from simple_module_db.scoping.query_filter import strict_configured
 from simple_module_hosting.i18n_deps import TranslatorDep
 
 from file_storage.core import constants

@@ -2,7 +2,7 @@
 
 from typing import Any, ClassVar
 
-from simple_module_db.base import create_module_base
+from simple_module_db.models.base import create_module_base
 from sqlalchemy import JSON, BigInteger
 from sqlmodel import Field
 

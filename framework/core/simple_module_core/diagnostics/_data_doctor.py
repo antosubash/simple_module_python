@@ -17,6 +17,6 @@ def data_compatibility_diagnostics(
         return []
     if not checking_modules(modules):
         return []
-    from simple_module_db.data_compatibility import database_compatibility_diagnostics
+    from simple_module_db.schema.data_compatibility import database_compatibility_diagnostics
 
     return asyncio.run(database_compatibility_diagnostics(modules, database_url))

@@ -18,7 +18,7 @@ from contextvars import ContextVar, Token
 from typing import Any
 
 from simple_module_db import TenantIsolationError, current_tenant_id, is_valid_tenant_id
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 
 from background_tasks.core.constants import OWNER_ID_MAX_LENGTH
 

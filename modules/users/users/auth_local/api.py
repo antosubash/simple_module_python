@@ -17,8 +17,8 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY
-from simple_module_db.deps import get_db
-from simple_module_db.transaction import rollback_session
+from simple_module_db.engine.deps import get_db
+from simple_module_db.engine.transaction import rollback_session
 from simple_module_hosting.auth_policy import session_cookie_is_secure
 from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
 from simple_module_hosting.token_guard import Authenticated

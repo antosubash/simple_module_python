@@ -249,7 +249,7 @@ def _note_unverifiable_expression_indexes(engine) -> None:
             find_expression_indexes,
             sqlite_file_index_names,
         )
-        from simple_module_db.base import all_module_bases
+        from simple_module_db.models.base import all_module_bases
 
         found = find_expression_indexes(
             table for base in all_module_bases for table in base.metadata.tables.values()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from feature_flags.core.constants import SCOPE_TENANT
 from feature_flags.core.service import FeatureFlagService
 from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
-from simple_module_db.transaction import finalize_session
+from simple_module_db.engine.transaction import finalize_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

@@ -15,7 +15,7 @@ from typing import Any, ClassVar
 
 import sqlalchemy as sa
 from fastapi_users_db_sqlalchemy.generics import GUID
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.types import AwareDateTime
 from sqlmodel import Field
 
 from users.models._base import Base

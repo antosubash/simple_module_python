@@ -13,7 +13,7 @@ from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.models import StoredFile
 from sharing.module import SharingModule
 from simple_module_db import all_tenants, tenant_context
-from simple_module_db.stored_settings import SCOPE_TENANT, Setting
+from simple_module_db.queries.stored_settings import SCOPE_TENANT, Setting
 from sqlmodel import select
 from tenants.core.service import TenantService
 

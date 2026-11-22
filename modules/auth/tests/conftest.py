@@ -10,7 +10,7 @@ from auth.contracts.schemas import UserContext
 from auth.oidc_common.renewal import refresh_session
 from auth.oidc_common.session import SessionKeys
 from simple_module_core.runtime.leases import configure_leases, reset_lease_backend
-from simple_module_db.leases import DbLeaseBackend
+from simple_module_db.engine.leases import DbLeaseBackend
 from starlette.requests import Request
 
 
@@ -19,8 +19,8 @@ async def renewal(request, tmp_path):
     from importlib import import_module
 
     from auth.models import Base
-    from simple_module_db.leases import LeaseRow
-    from simple_module_db.session import init_db
+    from simple_module_db.engine.leases import LeaseRow
+    from simple_module_db.engine.session import init_db
 
     db_state = init_db(f"sqlite+aiosqlite:///{tmp_path}/refresh.db")
     async with db_state.engine.begin() as conn:

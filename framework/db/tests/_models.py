@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Awaitable, Callable
 
-from simple_module_db.base import create_module_base
-from simple_module_db.listeners import register_listeners
-from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
-from simple_module_db.session import init_db
+from simple_module_db.engine.session import init_db
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.listeners import register_listeners
+from simple_module_db.models.mixins import MultiTenantMixin, SoftDeleteMixin
 from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession

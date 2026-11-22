@@ -6,7 +6,7 @@ import pytest
 from _api_tokens_support import INERTIA_HEADERS, PAT_URL, create_pat
 from api_tokens.core.constants import TokenKind
 from api_tokens.credentials.service import ApiTokenService
-from simple_module_db.tenancy import tenant_context
+from simple_module_db.scoping.tenancy import tenant_context
 
 
 async def test_service_pages_and_revoke_all(db_session):

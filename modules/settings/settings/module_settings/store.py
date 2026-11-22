@@ -1,7 +1,7 @@
 """DB-backed key/value store for module settings (SYSTEM scope).
 
 The read-only queries (``package_overrides``, ``get_overrides_sync``) moved to
-``simple_module_db.stored_settings`` with the table (#500) and are re-exported
+``simple_module_db.queries.stored_settings`` with the table (#500) and are re-exported
 here. ``SettingsStore`` satisfies
 ``simple_module_core.settings.settings_hydrate.OverrideSource``.
 
@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import hashlib
 
-from simple_module_db.callbacks import OnCommitCallback
-from simple_module_db.stored_settings import (  # noqa: F401  (re-exported, #500)
+from simple_module_db.engine.callbacks import OnCommitCallback
+from simple_module_db.queries.stored_settings import (  # noqa: F401  (re-exported, #500)
     SYSTEM_SCOPE_ID,
     get_overrides_sync,
     package_overrides,

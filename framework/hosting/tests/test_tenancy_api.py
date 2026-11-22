@@ -6,9 +6,9 @@ import httpx
 import pytest
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db import DEFAULT_TENANT_ID, all_tenants, current_tenant_id
-from simple_module_db.base import create_module_base
-from simple_module_db.deps import get_db
-from simple_module_db.mixins import MultiTenantMixin
+from simple_module_db.engine.deps import get_db
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import MultiTenantMixin
 from simple_module_hosting.tenancy import (
     TenancyMode,
     require_tenant,

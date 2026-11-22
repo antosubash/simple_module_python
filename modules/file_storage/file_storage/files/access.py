@@ -7,7 +7,7 @@ from typing import Any
 from simple_module_core.access.file_access import ACTION_PUBLISH, FileAccessPolicyRegistry
 from simple_module_core.access.permission_denied import PermissionDenied
 from simple_module_core.access.resources import ACTION_VIEW, ResourcePrincipal
-from simple_module_db.resource_policy import OwnedResourcePolicy, load_authorized
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy, load_authorized
 from sqlalchemy import and_, or_, select
 from sqlmodel import col
 

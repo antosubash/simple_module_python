@@ -12,8 +12,8 @@ A row's ``scope`` selects whether the override applies globally
 
 from __future__ import annotations
 
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field
 

@@ -15,8 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.access.permissions import grants
 from simple_module_core.access.resources import ACTION_VIEW
 from simple_module_db import RequestSession, current_tenant_id
-from simple_module_db.deps import get_db
-from simple_module_db.resource_policy import load_authorized
+from simple_module_db.engine.deps import get_db
+from simple_module_db.queries.resource_policy import load_authorized
 from simple_module_hosting.permissions import ensure_resolved_permissions
 from simple_module_hosting.resource_deps import resource_principal
 from simple_module_hosting.token_guard import Authenticated

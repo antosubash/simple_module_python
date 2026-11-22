@@ -13,9 +13,9 @@ from simple_module_core.web.feature_flags import FeatureFlagRegistry
 from simple_module_core.web.health import HealthRegistry
 from simple_module_core.web.menu import MenuRegistry
 from simple_module_core.web.public_routes import PublicRouteRegistry
-from simple_module_db.listeners import register_listeners
-from simple_module_db.query_stats import install_query_stats
-from simple_module_db.session import DatabaseState, init_db
+from simple_module_db.engine.query_stats import install_query_stats
+from simple_module_db.engine.session import DatabaseState, init_db
+from simple_module_db.models.listeners import register_listeners
 
 from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._openapi import (

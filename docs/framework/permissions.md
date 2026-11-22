@@ -168,7 +168,7 @@ and direct grants are read through the caller's session on each resolution, so
 workers need no permission invalidation listener. Transaction-local role overlays
 never mutate another session's registry. Custom factories can use
 `build_principal_registry(modules, settings)` from `simple_module_core.access.principals`
-and `bind_principal_registry(factory, registry)` from `simple_module_db.principals`;
+and `bind_principal_registry(factory, registry)` from `simple_module_db.queries.principals`;
 pass the same selected, dependency-ordered modules as the host.
 
 Eager tasks in the web process reuse the app's existing principal registry,

@@ -8,7 +8,7 @@ import pytest
 from simple_module_core.access.principals import PRINCIPALS_KEY, PrincipalRegistry
 from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_core.access.user_directory import DirectoryUser, NullUserDirectory
-from simple_module_db.principals import principal_for
+from simple_module_db.queries.principals import principal_for
 from simple_module_hosting.permissions import resolve_request_permissions
 from simple_module_hosting.resource_deps import resource_principal
 from starlette.requests import Request

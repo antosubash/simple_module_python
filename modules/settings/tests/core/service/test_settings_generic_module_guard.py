@@ -1,7 +1,7 @@
 """Generic store mutations cannot bypass module validation (#690)."""
 
 import pytest
-from simple_module_db.stored_settings import Setting
+from simple_module_db.queries.stored_settings import Setting
 
 
 @pytest.mark.parametrize(

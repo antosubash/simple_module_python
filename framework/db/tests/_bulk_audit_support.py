@@ -6,9 +6,9 @@ from collections.abc import AsyncGenerator
 
 from _audit_models import AuditBase, AuditTestItem
 from _models import _TenantBase
-from simple_module_db.audit import AuditRecord
-from simple_module_db.listeners import register_listeners
-from simple_module_db.session import DatabaseState, init_db
+from simple_module_db.auditing.audit import AuditRecord
+from simple_module_db.engine.session import DatabaseState, init_db
+from simple_module_db.models.listeners import register_listeners
 from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session

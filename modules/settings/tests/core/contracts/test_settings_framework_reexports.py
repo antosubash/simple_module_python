@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import simple_module_core.settings.module_settings as core_registry
 import simple_module_core.settings.secret_fields as core_secrets
-import simple_module_db.stored_settings as db_settings
+import simple_module_db.queries.stored_settings as db_settings
 
 
 def test_setting_model_is_one_class() -> None:

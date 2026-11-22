@@ -26,7 +26,7 @@ from collections.abc import AsyncGenerator, Iterator
 import httpx
 import pytest
 from simple_module_core.modules.discovery import DEFAULT_AUTH_PROVIDER
-from simple_module_db.session import DatabaseState, init_db
+from simple_module_db.engine.session import DatabaseState, init_db
 from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -99,7 +99,7 @@ def settings() -> Settings:
 @pytest.fixture
 async def db_state() -> AsyncGenerator[DatabaseState, None]:
     """Create a fresh in-memory DatabaseState with listeners registered."""
-    from simple_module_db.listeners import register_listeners
+    from simple_module_db.models.listeners import register_listeners
 
     url = database_url_for_tests()
     state = init_db(url, **init_db_kwargs(url))

@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 
 import pytest
 from simple_module_db import record_bulk_audit
-from simple_module_db.audit import collect_audit_records
-from simple_module_db.listeners import attach_session_listeners
-from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
+from simple_module_db.auditing.audit import collect_audit_records
+from simple_module_db.models.listeners import attach_session_listeners
+from simple_module_db.scoping.query_filter import EngineTenancy, bind_engine_policy
 from sqlalchemy import create_engine, delete, update
 from sqlalchemy.orm import Session
 from users.models import OAuthAccount, RefreshToken, User, UserAccessToken

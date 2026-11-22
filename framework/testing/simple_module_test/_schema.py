@@ -13,14 +13,14 @@ import importlib
 from functools import lru_cache
 
 from simple_module_core.modules.discovery import discover_modules
-from simple_module_db.base import all_module_bases
+from simple_module_db.models.base import all_module_bases
 
 
 @lru_cache(maxsize=1)
 def _ensure_models_imported() -> list:
     """Import all module models so all_module_bases is populated (cached)."""
-    import simple_module_db.leases  # framework-owned table (#539)
-    import simple_module_db.stored_settings  # noqa: F401  framework-owned table (#500)
+    import simple_module_db.engine.leases  # framework-owned table (#539)
+    import simple_module_db.queries.stored_settings  # noqa: F401  framework-owned table (#500)
 
     for mod in discover_modules():
         pkg = type(mod).__module__.split(".")[0]

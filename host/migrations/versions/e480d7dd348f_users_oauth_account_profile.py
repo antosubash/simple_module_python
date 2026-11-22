@@ -9,7 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.types import AwareDateTime
 
 # revision identifiers, used by Alembic.
 revision: str = "e480d7dd348f"

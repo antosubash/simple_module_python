@@ -11,7 +11,7 @@ class at boot whether or not the ``settings`` plugin is enabled. The DB read
 itself is behind :class:`OverrideSource`, which ``simple_module_db`` (direct
 session reads) and the ``settings`` plugin (``SettingsStore``) both satisfy;
 the sync worker twin, ``hydrate_settings_sync``, lives in
-``simple_module_db.stored_settings`` because it needs a SQLAlchemy session.
+``simple_module_db.queries.stored_settings`` because it needs a SQLAlchemy session.
 """
 
 from __future__ import annotations

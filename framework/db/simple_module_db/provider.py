@@ -1,26 +1,13 @@
-"""Database provider detection."""
+"""Deprecated alias for simple_module_db.engine.provider."""
 
-from enum import StrEnum
+import sys
+from importlib import import_module
 
-from sqlalchemy.engine import make_url
-from sqlalchemy.exc import ArgumentError
+from simple_module_core.runtime.deprecation import deprecated_module
 
-
-class DatabaseProvider(StrEnum):
-    SQLITE = "sqlite"
-    POSTGRESQL = "postgresql"
-
-
-def detect_provider(database_url: str) -> DatabaseProvider:
-    """Detect a supported provider, rejecting other dialects without leaking credentials."""
-    try:
-        dialect = make_url(database_url).get_backend_name()
-    except (ArgumentError, ValueError):
-        raise ValueError("Invalid database URL") from None
-    if dialect == "sqlite":
-        return DatabaseProvider.SQLITE
-    if dialect in {"postgresql", "postgres"}:
-        return DatabaseProvider.POSTGRESQL
-    raise ValueError(
-        f"Unsupported database dialect {dialect!r}; supported dialects are sqlite and postgresql"
-    )
+deprecated_module(
+    "simple_module_db.provider",
+    remove_in="0.0.52",
+    use="simple_module_db.engine.provider",
+)
+sys.modules[__name__] = import_module("simple_module_db.engine.provider")

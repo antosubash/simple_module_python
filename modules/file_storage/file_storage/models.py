@@ -6,9 +6,9 @@ import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
-from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin
-from simple_module_db.types import AwareDateTime
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin
+from simple_module_db.models.types import AwareDateTime
 from sqlalchemy import Index
 from sqlmodel import Field
 

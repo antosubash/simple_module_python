@@ -12,8 +12,8 @@ import uuid as uuid_mod
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_db.deps import get_db
-from simple_module_db.transaction import rollback_session
+from simple_module_db.engine.deps import get_db
+from simple_module_db.engine.transaction import rollback_session
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, col

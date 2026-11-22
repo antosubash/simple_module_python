@@ -44,7 +44,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from file_storage.models import StoredFile
 
 if TYPE_CHECKING:
-    from simple_module_db.session import DatabaseState
+    from simple_module_db.engine.session import DatabaseState
 
     from file_storage.files.access import FileAccess
 

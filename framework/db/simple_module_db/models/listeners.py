@@ -1,0 +1,299 @@
+"""SQLAlchemy event listeners for auto-populating entity fields."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from contextvars import ContextVar
+from datetime import UTC, datetime
+
+from simple_module_core.runtime.correlation import correlation_id
+from sqlalchemy import event
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.orm import Session
+
+from simple_module_db.auditing.audit_redaction import AUDIT_REDACTED, pk_is_redacted
+from simple_module_db.auditing.bulk_audit import audit_statement
+from simple_module_db.engine.session import DatabaseState
+from simple_module_db.engine.writes import (
+    _HARD_DELETE_KEY,
+    SESSION_HAS_WRITES_KEY,
+    _is_purge,
+    _mark_dml_written,
+    _mark_session_written,
+    attach_write_listeners,
+    hard_delete,
+    mark_written,
+)
+from simple_module_db.models.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.scoping._scope_writes import guard_scope_flush
+from simple_module_db.scoping.bulk_guard import install_bulk_guard
+from simple_module_db.scoping.flush_guard import guard_flush
+from simple_module_db.scoping.query_filter import (
+    bind_engine_policy,
+    engine_policy,
+    filter_statements,
+)
+
+from ..scoping._persisted_owner import mark_unverified, owner_mark, restore_owner_mark
+
+# Re-exported: ``transaction`` and published modules import these from here.
+__all__ = [
+    "SESSION_HAS_WRITES_KEY",
+    "TenantIsolationError",
+    "current_tenant_id",
+    "current_user_id",
+    "hard_delete",
+    "mark_written",
+    "register_listeners",
+]
+
+# Re-exported: callers import these from here since before tenancy.py existed.
+from simple_module_db.scoping.tenancy import TenantIsolationError, current_tenant_id
+
+logger = logging.getLogger(__name__)
+_entity_pk_failure_warned = False
+_db_logger = logging.getLogger("simple_module.db")
+
+# Set by auth middleware on each request
+current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
+
+# Key on ``Session.info`` for pending audit snapshots produced in before_flush
+# and consumed in after_flush_postexec (when DB-assigned PKs are populated).
+_AUDIT_PENDING_KEY = "_audit_pending"
+
+# DB audit event names
+_EVENT_ENTITY_CREATED = "db.entity.created"
+_EVENT_ENTITY_UPDATED = "db.entity.updated"
+_EVENT_ENTITY_SOFT_DELETED = "db.entity.soft_deleted"
+_EVENT_ENTITY_DELETED = "db.entity.deleted"
+
+# DB operation strings used in log extra dicts
+_OP_CREATE = "create"
+_OP_UPDATE = "update"
+_OP_SOFT_DELETE = "soft_delete"
+_OP_DELETE = "delete"
+
+_LISTENERS_ATTACHED = "_sm_entity_listeners_attached"
+
+
+def _entity_label(obj: object) -> str:
+    """Return 'ClassName' for a mapped entity instance."""
+    return type(obj).__name__
+
+
+def _entity_pk(obj: object) -> object:
+    """Return the primary key value(s) if available, else None.
+
+    A primary key that is itself a credential (a session or refresh token) is
+    masked: this value goes to the application log.
+    """
+    try:
+        if pk_is_redacted(type(obj)):
+            return AUDIT_REDACTED
+        inspector = sa_inspect(obj)
+        if inspector is None:
+            return None
+        identity = inspector.identity
+        if identity and len(identity) == 1:
+            return identity[0]
+        return identity
+    except Exception:
+        global _entity_pk_failure_warned
+        if not _entity_pk_failure_warned:
+            _entity_pk_failure_warned = True
+            logger.warning("Audit identity inspection failed; omitting primary key", exc_info=True)
+        return None
+
+
+def register_listeners(db_state: DatabaseState) -> None:
+    """Register SQLAlchemy event listeners for audit, soft delete, versioning, and tenancy.
+
+    Registers on the engine-scoped session events. Safe to call multiple times
+    — subsequent calls are no-ops.
+    """
+    if db_state._listeners_registered:
+        logger.debug("Listeners already registered, skipping")
+        return
+
+    # Strict mode and the audit sink are read from db_state at flush/query
+    # time, per engine — never from a process global, so two apps in one
+    # process cannot see each other's audit callback (#498).
+    bind_engine_policy(db_state.engine.sync_engine, db_state)
+    attach_session_listeners(db_state.sync_session_class)
+    db_state._listeners_registered = True
+    logger.info("Registered SQLAlchemy entity listeners")
+
+
+def attach_session_listeners(session_class: type[Session]) -> None:
+    """Attach the entity listeners to a session class; idempotent.
+
+    For a process with no ``DatabaseState`` (the Celery worker's sync engine),
+    call this and ``bind_engine_policy(engine, EngineTenancy(...))``; pass
+    ``audit_callback`` there to audit that engine's writes.
+
+    Idempotence is a marker in the ``__dict__`` of the class or a base, not
+    ``event.contains``: SQLAlchemy keys its event registry on ``id(target)``,
+    so a fresh session class that reuses a garbage-collected one's id reads as
+    already wired and would silently get no tenant, soft-delete or write
+    listeners at all. A subclass of a wired class is skipped because SQLAlchemy
+    propagates class-level session listeners to subclasses (even ones defined
+    later); wiring it again would fire every listener twice.
+    """
+    if any(base.__dict__.get(_LISTENERS_ATTACHED) for base in session_class.__mro__):
+        return
+    for name, fn in (
+        ("before_flush", _before_flush_listener),
+        ("after_flush", _mark_session_written),
+        ("detached_to_persistent", mark_unverified),
+        ("after_flush_postexec", _after_flush_audit),
+        ("after_soft_rollback", _clear_pending_audit),
+        ("do_orm_execute", _mark_dml_written),
+        ("do_orm_execute", filter_statements),
+        # Last: it reads the statement after tenant scoping and guards, and
+        # runs it itself (``invoke_statement``) between prefetch and record.
+        ("do_orm_execute", audit_statement),
+    ):
+        event.listen(session_class, name, fn)
+    # The legacy bulk_* methods reach no session event: guard them directly.
+    install_bulk_guard(session_class)
+    attach_write_listeners(session_class)
+    setattr(session_class, _LISTENERS_ATTACHED, True)
+
+
+def _log_entity_change(obj: object, event_name: str, *, extra: dict[str, object]) -> None:
+    # Models flagged ``__audit_exclude__`` (telemetry such as retained logs) are
+    # not logged either: the log record would be retained and written again.
+    if getattr(obj, "__audit_exclude__", False) is True:
+        return
+    _db_logger.info(event_name, extra=extra)
+
+
+def _clear_pending_audit(session: Session, previous_transaction: object = None) -> None:
+    session.info.pop(_AUDIT_PENDING_KEY, None)
+
+
+def _before_flush_listener(
+    session: Session,
+    flush_context: object,
+    instances: object,
+) -> None:
+    session.info.pop(_AUDIT_PENDING_KEY, None)
+    guard_flush(session)
+    guard_scope_flush(session)
+    user_id = current_user_id.get()
+    now = datetime.now(UTC)
+
+    for obj in session.new:
+        if isinstance(obj, AuditMixin):
+            if obj.created_by is None:
+                obj.created_by = user_id
+            if obj.updated_by is None:
+                obj.updated_by = user_id
+
+        _log_entity_change(
+            obj,
+            _EVENT_ENTITY_CREATED,
+            extra={
+                "operation": _OP_CREATE,
+                "entity": _entity_label(obj),
+                "user_id": user_id,
+            },
+        )
+
+    for obj in session.dirty:
+        if not session.is_modified(obj):
+            continue
+
+        if isinstance(obj, AuditMixin):
+            obj.updated_at = now
+            obj.updated_by = user_id
+
+        if isinstance(obj, VersionedMixin):
+            obj.version += 1
+
+        _log_entity_change(
+            obj,
+            _EVENT_ENTITY_UPDATED,
+            extra={
+                "operation": _OP_UPDATE,
+                "entity": _entity_label(obj),
+                "entity_id": _entity_pk(obj),
+                "user_id": user_id,
+            },
+        )
+
+    # Deleted objects — convert to soft delete if applicable
+    hard_delete_ids = session.info.pop(_HARD_DELETE_KEY, frozenset())
+    for obj in list(session.deleted):
+        if isinstance(obj, SoftDeleteMixin) and not _is_purge(obj, hard_delete_ids):
+            # Cancel the hard delete; the re-add keeps the object's owner mark.
+            mark = owner_mark(obj)
+            session.expunge(obj)
+            # Merge back as modified with soft-delete fields set
+            obj.is_deleted = True
+            obj.deleted_at = now
+            obj.deleted_by = user_id
+            session.add(obj)
+            restore_owner_mark(obj, mark)
+
+            _log_entity_change(
+                obj,
+                _EVENT_ENTITY_SOFT_DELETED,
+                extra={
+                    "operation": _OP_SOFT_DELETE,
+                    "entity": _entity_label(obj),
+                    "entity_id": _entity_pk(obj),
+                    "user_id": user_id,
+                },
+            )
+        else:
+            _log_entity_change(
+                obj,
+                _EVENT_ENTITY_DELETED,
+                extra={
+                    "operation": _OP_DELETE,
+                    "entity": _entity_label(obj),
+                    "entity_id": _entity_pk(obj),
+                    "user_id": user_id,
+                },
+            )
+
+    # Audit phase 1: snapshot diffs while attribute history is still available.
+    # entity_id resolution is deferred to after_flush_postexec because
+    # DB-assigned integer PKs aren't populated until the INSERT executes.
+    if _audit_callback(session) is not None:
+        from simple_module_db.auditing.audit import snapshot_changes
+
+        correlation_id_val = correlation_id.get("") or None
+        pending = snapshot_changes(session, user_id, correlation_id_val)
+        if pending:
+            session.info[_AUDIT_PENDING_KEY] = pending
+
+
+def _audit_callback(session: Session) -> Callable[[Session, list], None] | None:
+    """The audit sink bound to this session's engine (``DatabaseState`` or
+    ``EngineTenancy``), or ``None`` when that engine is not audited."""
+    return getattr(engine_policy(session), "audit_callback", None)
+
+
+def _after_flush_audit(session: Session, flush_context: object) -> None:
+    """Phase 2: finalize audit records now that DB-assigned PKs are populated.
+
+    Called via ``after_flush_postexec`` — after INSERTs have executed and
+    SQLAlchemy has refreshed PK columns on the live object. Records added
+    here land in ``session.new`` for the *next* flush (triggered by commit's
+    autoflush). The recursion guard relies on AuditEntry having
+    ``__audit_exclude__ = True`` so its own flush produces no pending records.
+    """
+    callback = _audit_callback(session)
+    if callback is None:
+        return
+    pending = session.info.pop(_AUDIT_PENDING_KEY, None)
+    if not pending:
+        return
+    from simple_module_db.auditing.audit import finalize_records
+
+    records = finalize_records(pending)
+    if records:
+        callback(session, records)

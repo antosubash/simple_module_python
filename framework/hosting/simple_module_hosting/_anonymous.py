@@ -10,7 +10,7 @@ pinned.
 
 from __future__ import annotations
 
-from simple_module_db.listeners import current_user_id
+from simple_module_db.models.listeners import current_user_id
 from starlette.requests import HTTPConnection
 
 from simple_module_hosting._tenant import reresolve_tenant

@@ -6,9 +6,9 @@ import pytest
 from fastapi import Depends, Request
 from simple_module_core.access.resources import ACTION_VIEW, ResourcePrincipal
 from simple_module_db import MultiTenantMixin, create_module_base, tenant_context
-from simple_module_db.deps import get_db
-from simple_module_db.principals import principal_for
-from simple_module_db.resource_policy import OwnedResourcePolicy
+from simple_module_db.engine.deps import get_db
+from simple_module_db.queries.principals import principal_for
+from simple_module_db.queries.resource_policy import OwnedResourcePolicy
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_hosting.resource_deps import RequiresResource, resource_principal
 from sqlalchemy import delete

@@ -19,7 +19,7 @@ from file_storage.files.service import (
 from file_storage.models import StoredFile
 from file_storage.multipart.support import QuotaExceededError
 from simple_module_db import tenant_context
-from simple_module_db.tenancy import TenantIsolationError
+from simple_module_db.scoping.tenancy import TenantIsolationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 

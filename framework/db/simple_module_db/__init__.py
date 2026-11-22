@@ -1,33 +1,45 @@
 """SimpleModule DB — async SQLAlchemy/SQLModel runtime shared by every module."""
 
-from simple_module_db.audit import AuditRecord
-from simple_module_db.base import create_module_base
-from simple_module_db.bulk_audit import UnauditedWriteError, record_bulk_audit
-from simple_module_db.callbacks import OnCommitCallback
-from simple_module_db.deps import get_db
-from simple_module_db.extensions import UnsupportedDatabaseError, ensure_db_extensions
-from simple_module_db.independent import independent_session
-from simple_module_db.migration_portability import drop_enums_if_postgres
-from simple_module_db.migrations import (
-    build_module_metadata,
-    make_include_object,
-    make_process_revision_directives,
-    render_item,
+from simple_module_db.auditing.audit import AuditRecord
+from simple_module_db.auditing.bulk_audit import UnauditedWriteError, record_bulk_audit
+from simple_module_db.engine.callbacks import OnCommitCallback
+from simple_module_db.engine.deps import get_db
+from simple_module_db.engine.independent import independent_session
+from simple_module_db.engine.provider import DatabaseProvider, detect_provider
+from simple_module_db.engine.session import DatabaseState, RequestSession, init_db
+from simple_module_db.engine.transaction import CommitBeforeResponseMiddleware, finalize_session
+from simple_module_db.engine.writes import hard_delete, mark_written
+from simple_module_db.models.base import create_module_base
+from simple_module_db.models.extensions import UnsupportedDatabaseError, ensure_db_extensions
+from simple_module_db.models.mixins import (
+    AuditMixin,
+    MultiTenantMixin,
+    SoftDeleteMixin,
+    VersionedMixin,
 )
-from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
-from simple_module_db.pagination import (
+from simple_module_db.models.types import AwareDateTime, LTree, TSVector
+from simple_module_db.queries.pagination import (
     Page,
     PageParams,
     clamp_page,
     paginate,
     total_pages,
 )
-from simple_module_db.principals import principal_for
-from simple_module_db.provider import DatabaseProvider, detect_provider
-from simple_module_db.scopes import ScopeFilter, ScopeIsolationError, register_scope
-from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
-from simple_module_db.session import DatabaseState, RequestSession, init_db
-from simple_module_db.tenancy import (
+from simple_module_db.queries.principals import principal_for
+from simple_module_db.queries.search import (
+    LIKE_ESCAPE_CHAR,
+    like_contains_pattern,
+    like_prefix_pattern,
+)
+from simple_module_db.schema.migration_portability import drop_enums_if_postgres
+from simple_module_db.schema.migrations import (
+    build_module_metadata,
+    make_include_object,
+    make_process_revision_directives,
+    render_item,
+)
+from simple_module_db.scoping.scopes import ScopeFilter, ScopeIsolationError, register_scope
+from simple_module_db.scoping.tenancy import (
     ALL_TENANTS_OPTION,
     DEFAULT_TENANT_ID,
     PLATFORM_TENANT_ID,
@@ -41,9 +53,6 @@ from simple_module_db.tenancy import (
     no_tenant,
     tenant_context,
 )
-from simple_module_db.transaction import CommitBeforeResponseMiddleware, finalize_session
-from simple_module_db.types import AwareDateTime, LTree, TSVector
-from simple_module_db.writes import hard_delete, mark_written
 
 __all__ = [
     "ALL_TENANTS_OPTION",

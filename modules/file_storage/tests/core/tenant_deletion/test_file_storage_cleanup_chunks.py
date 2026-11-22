@@ -9,7 +9,7 @@ from file_storage.models import StoredFile, UploadSession
 from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db import tenant_context
-from simple_module_db.transaction import finalize_session
+from simple_module_db.engine.transaction import finalize_session
 
 
 async def test_cleanup_chunks_preserve_every_entry(db_session, monkeypatch):
