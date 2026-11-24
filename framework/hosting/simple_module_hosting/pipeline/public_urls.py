@@ -28,7 +28,7 @@ def _is_loopback(host: str) -> bool:
     if host == "localhost":
         return True
     try:
-        return ip_address(host.removeprefix("[").removesuffix("]")).is_loopback
+        return ip_address(host.strip("[]")).is_loopback
     except ValueError:
         return False
 

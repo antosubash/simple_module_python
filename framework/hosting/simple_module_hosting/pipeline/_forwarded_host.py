@@ -150,4 +150,4 @@ class ForwardedHostMiddleware:
         ]
         proto = _forwarded_proto(scope) or scope.get("scheme", "")
         default = _DEFAULT_PORTS.get(proto, _FALLBACK_PORT)
-        scope["server"] = (host.removeprefix("[").removesuffix("]"), int(port) if port else default)
+        scope["server"] = (host.strip("[]"), int(port) if port else default)
