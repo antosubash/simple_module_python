@@ -19,6 +19,7 @@ _MSG_RESPONSE_START = "http.response.start"
 # Security response header names
 _HEADER_CSP = "Content-Security-Policy"
 _HEADER_HSTS = "Strict-Transport-Security"
+_HEADER_REFERRER_POLICY = "Referrer-Policy"
 
 # Security response header values
 _XCTO_NOSNIFF = "nosniff"
@@ -103,7 +104,6 @@ class SecurityHeadersMiddleware:
             (b"x-content-type-options", _XCTO_NOSNIFF.encode("latin-1")),
             (b"x-frame-options", _XFO_SAMEORIGIN.encode("latin-1")),
             (b"x-xss-protection", _XXSS_DISABLED.encode("latin-1")),
-            (b"referrer-policy", _REFERRER_STRICT_ORIGIN.encode("latin-1")),
         )
         self._static_names = frozenset(name for name, _ in self._static_headers)
         # Providers (settings-driven origins, #434) are evaluated per response;
@@ -129,6 +129,7 @@ class SecurityHeadersMiddleware:
                 raw.extend(self._static_headers)
                 message["headers"] = raw
                 headers = MutableHeaders(raw=raw)
+                headers.setdefault(_HEADER_REFERRER_POLICY, _REFERRER_STRICT_ORIGIN)
                 # A 304 refreshes the cached response's headers: a new nonce there
                 # would no longer match the cached body, so keep the cached CSP.
                 if self.csp and message.get("status") != _HTTP_NOT_MODIFIED:

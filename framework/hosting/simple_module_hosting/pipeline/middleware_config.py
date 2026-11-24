@@ -13,12 +13,15 @@ from starlette.middleware.gzip import GZipMiddleware
 from simple_module_hosting.i18n.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.observability._observability import RequestLoggingMiddleware
 from simple_module_hosting.pipeline._server_timing import ServerTimingMiddleware
+from simple_module_hosting.pipeline.compression import HostGZipMiddleware
 from simple_module_hosting.pipeline.session import SessionMiddleware
 
 MiddlewareStage = Literal["before_session", "default", "after_tenant"]
 
 # These change compression/observability only, never access or request safety.
-_DISABLABLE = frozenset({GZipMiddleware, RequestLoggingMiddleware, ServerTimingMiddleware})
+_DISABLABLE = frozenset(
+    {GZipMiddleware, HostGZipMiddleware, RequestLoggingMiddleware, ServerTimingMiddleware}
+)
 _STAGE_ANCHORS = {"before_session": SessionMiddleware, "after_tenant": LocaleMiddleware}
 
 
@@ -148,7 +151,9 @@ def _merge_replacement(original: Middleware, replacement: Middleware) -> Middlew
 
 
 def _target_index(layers: list[Middleware], target: type) -> int:
-    indices = [index for index, layer in enumerate(layers) if layer.cls is target]
+    # The Starlette class remains an override target for the host GZip layer.
+    matches = (target, HostGZipMiddleware) if target is GZipMiddleware else (target,)
+    indices = [index for index, layer in enumerate(layers) if layer.cls in matches]
     if not indices:
         raise KeyError(f"Middleware {target.__name__} is not installed")
     if len(indices) != 1:

@@ -4,6 +4,7 @@ import pytest
 from fastapi import FastAPI
 from simple_module_hosting.boot import app_builder
 from simple_module_hosting.pipeline._body_limit import BodyLimitMiddleware
+from simple_module_hosting.pipeline.compression import HostGZipMiddleware
 from simple_module_hosting.pipeline.middleware import SecurityHeadersMiddleware
 from simple_module_hosting.pipeline.session import SessionMiddleware
 from simple_module_hosting.rate_limit._rate_limit import RateLimitMiddleware
@@ -60,9 +61,9 @@ def test_optional_layer_disabled_and_other_app_unchanged(settings):
     app = app_builder.create_app(
         settings, customize=lambda app: disable_middleware(app, GZipMiddleware)
     )
-    assert GZipMiddleware not in [m.cls for m in app.user_middleware]
+    assert HostGZipMiddleware not in [m.cls for m in app.user_middleware]
     other = app_builder.create_app(settings)
-    assert GZipMiddleware in [m.cls for m in other.user_middleware]
+    assert HostGZipMiddleware in [m.cls for m in other.user_middleware]
 
 
 def test_replacement_keeps_position_and_constructor_defaults(settings):

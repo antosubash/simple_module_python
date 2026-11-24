@@ -132,13 +132,27 @@ Emits a structured log line per request with method, path, status, duration, and
 
 ### `GZipMiddleware`
 
-Starlette's, compressing any response body over `COMPRESSION_MIN_BYTES` (500). Placed inside `CorrelationId` and `RequestLogging` — which set headers and read request state — but outside everything that produces a body, **including the `/static` mount**, which is where it earns its place: the built CSS is ~139 KB raw against ~21 KB gzipped, and the JS bundle compresses about 3×. Uncompressed assets dominated cold page load, several times larger than anything on the server request path.
+The host uses `HostGZipMiddleware`, a Starlette GZip subclass, with a
+500-byte minimum size and compression level 5. It sits inside request logging
+and outside response producers, including the `/static` mount.
 
-It runs at `COMPRESSION_LEVEL` 5, not Starlette's default of 9. Compression runs on the event loop that serves every other request, and level 9 buys almost nothing on JSON and HTML: a 76 KB first-load page comes out 1.2% smaller than at level 5 for 2.4× the CPU (6.4 ms vs 2.7 ms). Pre-compressed static assets are served as-is and never re-compressed, so they keep whatever level they were built with.
+The middleware skips status 206 and any response with `Content-Range`,
+preserving the response bytes and range headers. It also skips pre-compressed
+static assets and excludes PMTiles, ZIP and gzip archives, WOFF fonts, audio,
+video, images other than SVG, gRPC and server-sent events by default.
+
+Pass a tuple of media types or wildcards as `exclude_content_types` when
+replacing the layer with `HostGZipMiddleware` from
+`simple_module_hosting.pipeline.compression`. Range responses are always excluded.
+Starlette's `GZipMiddleware` class remains a valid target for both
+`replace_middleware` and `disable_middleware`.
 
 ### `SecurityHeadersMiddleware`
 
 Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Modules that load assets from an external origin extend the policy through the [`register_csp_sources`](lifecycle.md#register_csp_sourcesregistry) hook; both the dev and production variants include those origins.
+
+A response can set its own `Referrer-Policy`. The middleware supplies
+`strict-origin-when-cross-origin` when the header is absent.
 
 Outside development, `script-src` and `script-src-elem` use
 `'self' 'nonce-<request nonce>' 'strict-dynamic'`, without `'unsafe-inline'` or

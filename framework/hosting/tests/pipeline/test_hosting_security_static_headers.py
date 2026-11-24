@@ -36,7 +36,28 @@ async def test_security_static_headers_replace_duplicates(hsts):
     assert [v for k, v in headers if k == b"set-cookie"] == [b"a=1", b"b=2"]
     assert dict(headers)[b"x-content-type-options"] == b"nosniff"
     assert dict(headers)[b"x-xss-protection"] == b"0"
-    assert dict(headers)[b"referrer-policy"] == b"strict-origin-when-cross-origin"
+    assert dict(headers)[b"referrer-policy"] == b"endpoint-value"
     assert dict(headers)[b"strict-transport-security"] == (
         hsts.encode() if hsts else b"endpoint-value"
     )
+
+
+@pytest.mark.parametrize(
+    ("route_policy", "expected"),
+    [(None, "strict-origin-when-cross-origin"), ("no-referrer", "no-referrer")],
+)
+async def test_referrer_policy_defaults_only_when_absent(route_policy, expected):
+    from httpx import ASGITransport, AsyncClient
+    from starlette.applications import Starlette
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    async def page(request):
+        headers = {"Referrer-Policy": route_policy} if route_policy else None
+        return PlainTextResponse("page", headers=headers)
+
+    app = SecurityHeadersMiddleware(Starlette(routes=[Route("/", page)]))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/")
+
+    assert response.headers.get_list("referrer-policy") == [expected]
