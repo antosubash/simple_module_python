@@ -202,6 +202,7 @@ def main() -> int:
             if any(
                 not isinstance(finding, Diagnostic)
                 or not isinstance(finding.level, DiagnosticLevel)
+                or not isinstance(finding.code, str)
                 for finding in findings
             ):
                 raise TypeError("Invalid module doctor diagnostic")

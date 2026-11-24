@@ -36,9 +36,13 @@ def _accepts_link_origin(mailer: TemplatedMailer) -> bool:
     """A subclass overriding a send method with the original signature opts out."""
     for name in _SEND_METHODS:
         params = signature(getattr(mailer, name)).parameters
-        if "link_origin" not in params and not any(
-            p.kind is Parameter.VAR_KEYWORD for p in params.values()
+        origin = params.get("link_origin")
+        if origin is not None and origin.kind in (
+            Parameter.POSITIONAL_OR_KEYWORD,
+            Parameter.KEYWORD_ONLY,
         ):
+            continue
+        if not any(p.kind is Parameter.VAR_KEYWORD for p in params.values()):
             return False
     return True
 

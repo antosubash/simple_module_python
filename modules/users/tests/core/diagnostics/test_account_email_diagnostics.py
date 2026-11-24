@@ -3,7 +3,7 @@
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core import __main__ as doctor
-from simple_module_core.diagnostics import DiagnosticLevel
+from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from users.core.diagnostics import account_email_diagnostics
 
 
@@ -42,7 +42,7 @@ def test_account_email_origin_warning(monkeypatch, environment, stored_host, sto
         assert not findings
 
 
-@pytest.mark.parametrize("invalid_result", [False, True])
+@pytest.mark.parametrize("invalid_result", ["exception", "wrong_type", "invalid_code"])
 def test_doctor_reports_module_hook_failure_and_continues(
     monkeypatch, capsys, tmp_path, invalid_result
 ):
@@ -52,8 +52,10 @@ def test_doctor_reports_module_hook_failure_and_continues(
         meta = ModuleMeta(name="BrokenModule")
 
         def doctor_diagnostics(self, database_url):
-            if invalid_result:
+            if invalid_result == "wrong_type":
                 return ["sensitive database connection details"]
+            if invalid_result == "invalid_code":
+                return [Diagnostic(DiagnosticLevel.WARNING, [], "Invalid code", self.meta.name)]
             raise ValueError("sensitive database connection details")
 
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'absent.db'}")

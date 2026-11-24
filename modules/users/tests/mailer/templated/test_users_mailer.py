@@ -2,9 +2,33 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
-from users.mailer import mailer_delivers
+from fastapi import FastAPI, Request
+from simple_module_hosting.config.host_settings import HostSettings
+from users.mailer import mailer_delivers, request_mail_options
 from users.mailer.templated import TemplatedMailer
+
+
+def test_positional_only_origin_is_not_passed_as_a_keyword():
+    class CustomMailer(TemplatedMailer):
+        async def send_verification(self, email, token, link_origin=None, /):  # ty: ignore[incompatible-method-override]
+            pass
+
+    app = FastAPI()
+    app.state.host = SimpleNamespace(
+        settings=HostSettings(forwarded_host_allowlist=["app.example"])
+    )
+    request = Request(
+        {
+            "type": "http",
+            "app": app,
+            "scheme": "https",
+            "headers": [(b"host", b"app.example")],
+        }
+    )
+    assert request_mail_options(CustomMailer(base_url=""), request) == {}
 
 
 def test_custom_mailer_can_disable_delivery(captured_mail):

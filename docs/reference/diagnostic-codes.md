@@ -43,7 +43,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | `SM032` | ERROR (fails boot in every environment) | A `ModuleBase.spa_mounts()` prefix overlaps a module's `route_prefix`/`view_prefix`/`admin_view_prefix`, a `static_mounts()` prefix, a framework path (`/api`, `/admin`, `/setup`, `/i18n`, `/health`, `/static`, `/modules`) or another SPA mount. The mount would shadow, or be shadowed by, that router. | Pick a prefix nothing else uses. See [Legacy SPA mounts](/framework/spa-mounts). |
 | `SM033` | ERROR or WARNING | A module data compatibility check found a missing semantic upgrade (a WARNING when the database could not be checked; a SQLite file that does not exist yet is skipped). Token schema/legacy credentials are errors; unmoved mail system keys warn. Errors refuse boot outside development. Never-migrated first runs defer checks. | Follow the module's remediation. If it gives a `smpy migrations prepare` command, review the generated revision and apply `upgrade heads`. See [Upgrading a host](/guide/upgrading). |
 | `SM034` | WARNING | A `subscribe_durable(...)` call in a module's package source has no `name=`. The default name is the handler's import path, so moving or renaming the handler strands its undelivered outbox rows (they retry as an unknown handler, then go `dead`). Found by AST scan; `tests/` is skipped. | Pass `name=` with a constant from `constants.py` whose value is the current default name. See [Durable delivery](/framework/events#durable-delivery). |
-| `SM035` | WARNING | `make doctor` finds that Users is active and `users.base_url`, `host.public_base_url` and `host.forwarded_host_allowlist` are empty. | Set a configured origin or configure the [account email request allowlist](/framework/settings#shared-host-policy). Sends without a request require a configured origin. |
+| `SM035` | WARNING (Doctor only) | `make doctor` finds that Users is active and `users.base_url`, `host.public_base_url` and `host.forwarded_host_allowlist` are empty. | Set a configured origin or configure the [account email request allowlist](/framework/settings#shared-host-policy). Sends without a request require a configured origin. |
 | `SM036` | ERROR (Doctor only) | A module’s `doctor_diagnostics` hook failed. Doctor continues checking the other modules and exits with status 1. | Check the failing module’s diagnostic hook and deployment configuration. |
 
 `SM022`/`SM023` are the two halves of the same invariant: a module's optional [`theme.css` is imported unlayered and `styles.css` into `layer(components)`](/module-authoring#styling), and CSS put in the wrong one silently does nothing (or silently wins everything).
@@ -73,7 +73,6 @@ Treat a clean dev boot as the "ready to ship" gate. If you want to run the diagn
 
 If you think a rule deserves a code, open a design doc in `docs/plans/` first — existing codes are stable contracts (downstream tooling can grep for them). Use the next free number in the `SM0XX` range and:
 
-1. Add the check to `simple_module_core.diagnostics`.
-2. Wire it into `run_diagnostics()` (or the relevant `*Diagnostics.run()` method) so it runs at app boot.
-3. Update this page with the row.
-4. Add a test case under `framework/core/tests/`.
+1. For a framework check that runs at boot, add it to `simple_module_core.diagnostics` and wire it into `run_diagnostics()` or the relevant `*Diagnostics.run()` method. Add a test under `framework/core/tests/`.
+2. For a module-specific deployment check, implement `doctor_diagnostics(database_url)` on the module and add a test under the module's tests. See [Lifecycle hooks](/framework/lifecycle).
+3. Update this page with the new code and when it runs.
