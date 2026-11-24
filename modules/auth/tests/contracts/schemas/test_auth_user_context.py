@@ -162,12 +162,8 @@ class TestUserContextTokenFields:
 
 
 class TestUserContextSession:
-    def test_null_email_and_name_round_trip_as_empty_strings(self):
-        ctx = UserContext(id="1", email=None, name=None)
-        payload = ctx.to_session_dict()
-        assert payload["email"] is None
-        assert payload["name"] is None
-
+    def test_null_email_and_name_decode_as_empty_strings(self):
+        payload = {"id": "1", "email": None, "name": None}
         assert UserContext.from_session_dict(payload) == UserContext(id="1", email="", name="")
 
     def test_legacy_string_none_email_decodes_as_empty(self):

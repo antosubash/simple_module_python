@@ -123,7 +123,7 @@ class UserContext:
             name = payload["name"]
             return cls(
                 id=str(payload["id"]),
-                # Older sessions may contain an email already stringified from null.
+                # Treat the legacy string "None" as a missing email.
                 email="" if email is None or email == "None" else str(email),
                 email_verified=payload.get("email_verified") is True,
                 name="" if name is None else str(name),
