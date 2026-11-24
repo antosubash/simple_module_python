@@ -99,7 +99,7 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
             OAuthAccount.oauth_name == create_dict["oauth_name"],
             OAuthAccount.account_id != create_dict["account_id"],
         )
-        if (await self.session.execute(conflict.limit(1))).scalar_one_or_none() is not None:
+        if await self.session.scalar(conflict.limit(1)) is not None:
             raise OAuthAccountLinkedElsewhereError
         return await super().add_oauth_account(user, create_dict)
 
