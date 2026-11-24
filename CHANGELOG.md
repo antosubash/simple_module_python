@@ -37,6 +37,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Security
 
+- Refuse OAuth sign-in by verified email when the local account already has a different identity from the same provider, preserving its existing links and roles (#1128).
+
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
 - Validate incoming `X-Correlation-ID` headers in `CorrelationIdMiddleware` for bounded length and safe token characters (#1065).
 - Reject ASCII control characters in `file_storage` media types and `branding` image normalization, preserve validated MIME parameters while falling back safely on downloads, sanitize generated storage key suffixes, and enforce canonical `is_relative_to` confinement in `FilesystemBackend._resolve` (#1069).

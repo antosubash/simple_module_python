@@ -19,6 +19,7 @@ from sqlalchemy.orm import noload, selectinload
 from users.accounts.token_storage import prune_tokens
 from users.core.settings import DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS
 from users.models import OAuthAccount, User, UserAccessToken
+from users.oauth.errors import OAuthAccountLinkedElsewhereError
 
 
 class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
@@ -82,6 +83,30 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
             )
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def add_oauth_account(self, user, create_dict):
+        # Serialize link additions for this user until the upstream insert
+        # commits. SQLite has no row locks and can defer BEGIN until the write.
+        connection = await self.session.connection()
+        if connection.dialect.name == "sqlite":
+            await connection.run_sync(_begin_sqlite_link_transaction)
+        else:
+            await self.session.execute(select(User.id).where(User.id == user.id).with_for_update())
+        # Query fresh links under the lock, independent of the ORM collection
+        # loaded during the earlier email lookup.
+        conflict = select(OAuthAccount.id).where(
+            OAuthAccount.user_id == user.id,
+            OAuthAccount.oauth_name == create_dict["oauth_name"],
+            OAuthAccount.account_id != create_dict["account_id"],
+        )
+        if (await self.session.execute(conflict.limit(1))).scalar_one_or_none() is not None:
+            raise OAuthAccountLinkedElsewhereError
+        return await super().add_oauth_account(user, create_dict)
+
+
+def _begin_sqlite_link_transaction(connection):
+    if not connection.connection.driver_connection.in_transaction:
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
 
 
 async def get_user_db(
