@@ -32,7 +32,7 @@ _DEFAULT_PORTS = {"https": 443, "wss": 443}
 _FALLBACK_PORT = 80
 TRUSTED_PROXY_SCOPE_KEY = "sm.trusted_proxy_peer"
 _HOST_PATTERN = re.compile(
-    r"(?P<host>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?|\[[a-f0-9:]+\])(?::(?P<port>[0-9]{1,5}))?"
+    r"(?P<host>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?|\[[a-f0-9:.]+\])(?::(?P<port>[0-9]{1,5}))?"
 )
 
 
@@ -69,7 +69,8 @@ class TrustedPeers:
             if not item or item == _WILDCARD:
                 continue
             try:
-                self._networks.append(ipaddress.ip_network(item, strict=False))
+                # Match Uvicorn: a CIDR with host bits set is not a trusted network.
+                self._networks.append(ipaddress.ip_network(item))
             except ValueError:
                 self._literals.add(item)  # e.g. a unix-socket peer name
 

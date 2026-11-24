@@ -59,12 +59,16 @@ def request_mail_options(mailer: object, request: Request | None) -> MailLinkOpt
 
 @runtime_checkable
 class Mailer(Protocol):
-    async def send_verification(
-        self, email: str, token: str, *, link_origin: str | None = None
-    ) -> None: ...
-    async def send_password_reset(
-        self, email: str, token: str, *, link_origin: str | None = None
-    ) -> None: ...
+    """The send interface a third-party mailer implements.
+
+    The built-in ``TemplatedMailer`` also accepts a keyword-only
+    ``link_origin``; callers pass it only after ``request_mail_options``
+    confirms the concrete mailer takes it, so this protocol keeps the original
+    signatures and existing implementations still type-check.
+    """
+
+    async def send_verification(self, email: str, token: str) -> None: ...
+    async def send_password_reset(self, email: str, token: str) -> None: ...
     # *message* is the optional note the inviter typed on the batch form.
     # Keyword-defaulted so a third-party mailer written against the older
     # three-argument signature keeps satisfying this protocol.
@@ -74,8 +78,6 @@ class Mailer(Protocol):
         token: str,
         invited_by_name: str,
         message: str | None = None,
-        *,
-        link_origin: str | None = None,
     ) -> None: ...
 
 
@@ -95,7 +97,10 @@ def mailer_delivers(
     rather than the settings because ``delivers_email`` is the mailer's own
     claim; a third-party mailer that never set the flag is taken at its word.
     """
-    if isinstance(mailer, TemplatedMailer):
+    if (
+        isinstance(mailer, TemplatedMailer)
+        and type(mailer).delivers_email is TemplatedMailer.delivers_email
+    ):
         return mailer.delivers_with_origin(link_origin, log_missing_origin=log_missing_origin)
     return bool(mailer is not None and getattr(mailer, "delivers_email", True))
 

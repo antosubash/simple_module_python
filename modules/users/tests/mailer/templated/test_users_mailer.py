@@ -3,7 +3,18 @@
 from __future__ import annotations
 
 import pytest
+from users.mailer import mailer_delivers
 from users.mailer.templated import TemplatedMailer
+
+
+def test_custom_mailer_can_disable_delivery(captured_mail):
+    class CustomMailer(TemplatedMailer):
+        @property
+        def delivers_email(self) -> bool:
+            return False
+
+    mailer = CustomMailer(base_url="https://app.example")
+    assert not mailer_delivers(mailer)
 
 
 @pytest.mark.parametrize("url", ["http://localhost:8000", "https://app.example.com"])

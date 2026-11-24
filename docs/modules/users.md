@@ -233,7 +233,7 @@ Password reset, verification and invitation emails use `users.base_url` first,
 then `host.public_base_url` (including `SM_PUBLIC_BASE_URL`), then the resolved
 request origin if it matches `host.forwarded_host_allowlist`. HTTPS is
 eligible. HTTP requires a trusted proxy peer or an allowlisted loopback host
-(`localhost`, `127.0.0.0/8` or `[::1]`). Sends without a request require a
+(`localhost`, its subdomains, `127.0.0.0/8` or `[::1]`). Sends without a request require a
 configured origin. The trusted proxy peer is recognised by the framework's
 `host.trusted_proxy` handling; if Uvicorn itself runs with `--proxy-headers`
 it replaces the peer address first, so plain-HTTP links behind a proxy are

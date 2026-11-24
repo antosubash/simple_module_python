@@ -95,7 +95,7 @@ It uses the scheme and authority resolved by the hosting middleware.
 host, wildcard subdomain and optional port rules as [ForwardedHost](/framework/middleware#forwardedhostmiddleware-opt-in).
 The middleware accepts `X-Forwarded-Host` only from a trusted proxy. HTTPS is
 eligible for any allowlisted host. HTTP requires a trusted proxy peer or a
-loopback host (`localhost`, `127.0.0.0/8` or `[::1]`), which must also be
+loopback host (`localhost`, its subdomains, `127.0.0.0/8` or `[::1]`), which must also be
 allowlisted. Use brackets when listing an IPv6 address and add an optional
 port after the closing bracket.
 

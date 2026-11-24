@@ -5,8 +5,13 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI, Request
 from simple_module_hosting.config.host_settings import HostSettings
-from simple_module_hosting.pipeline._forwarded_host import TRUSTED_PROXY_SCOPE_KEY
+from simple_module_hosting.pipeline._forwarded_host import TRUSTED_PROXY_SCOPE_KEY, TrustedPeers
 from simple_module_hosting.pipeline.public_urls import trusted_request_origin
+
+
+def test_trusted_peers_do_not_expand_an_invalid_network():
+    assert "192.0.2.1" not in TrustedPeers("192.0.2.10/24")
+    assert "192.0.2.1" in TrustedPeers("192.0.2.0/24")
 
 
 @pytest.mark.parametrize(
@@ -21,8 +26,16 @@ from simple_module_hosting.pipeline.public_urls import trusted_request_origin
         ("https", "app.example\\@other.example", ["*.example"], False, None),
         ("http", "127.255.0.2:8000", ["127.255.0.2"], False, "http://127.255.0.2:8000"),
         ("http", "127.0.0.1.example", ["127.0.0.1.example"], False, None),
+        ("http", "app.localhost", ["*.localhost"], False, "http://app.localhost"),
         ("http", "[::1]:8000", ["[::1]"], False, "http://[::1]:8000"),
         ("http", "[::2]", ["[::2]"], False, None),
+        (
+            "https",
+            "[::ffff:192.0.2.10]",
+            ["[::ffff:192.0.2.10]"],
+            False,
+            "https://[::ffff:192.0.2.10]",
+        ),
         ("http", "app.example:8000", ["app.example"], True, "http://app.example:8000"),
         ("ws", "app.example", ["app.example"], True, None),
     ],
@@ -36,7 +49,7 @@ def test_trusted_request_origin(scheme, authority, allowlist, trusted_peer, expe
             "app": app,
             "scheme": scheme,
             "path": "/irrelevant",
-            "query_string": b"token=ignored",
+            "query_string": b"label=\xff",
             "headers": [(b"host", authority.encode())],
             TRUSTED_PROXY_SCOPE_KEY: trusted_peer,
         }

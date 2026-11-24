@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from ipaddress import ip_address
 
 from simple_module_core.modules.app_state import get_host_services
+from starlette.datastructures import URL
 from starlette.requests import Request
 
 from simple_module_hosting.config.host_settings import HostSettings
 from simple_module_hosting.pipeline._forwarded_host import TRUSTED_PROXY_SCOPE_KEY, HostAllowlist
+from simple_module_hosting.pipeline._insecure_transport import _is_loopback
 
 __all__ = ["public_origin", "trusted_request_origin"]
 
@@ -24,15 +25,6 @@ def _allowlist(entries: tuple[str, ...]) -> HostAllowlist:
     return HostAllowlist(entries)
 
 
-def _is_loopback(host: str) -> bool:
-    if host == "localhost":
-        return True
-    try:
-        return ip_address(host.strip("[]")).is_loopback
-    except ValueError:
-        return False
-
-
 def trusted_request_origin(request: Request) -> str | None:
     """Accept an allowlisted HTTP(S) authority from the resolved request scope."""
     settings = getattr(get_host_services(request.app), "settings", None)
@@ -40,16 +32,22 @@ def trusted_request_origin(request: Request) -> str | None:
     if not settings or not settings.forwarded_host_allowlist or scheme not in ("http", "https"):
         return None
 
-    authority = request.url.netloc
-    # Starlette can fall back to scope["server"] for a malformed Host. A supplied
-    # authority must be the one that actually resolved, and it must be unambiguous.
+    # Use the authority after proxy handling without interpreting the path or query.
     host_headers = request.headers.getlist("host")
-    if host_headers and host_headers != [authority]:
+    if len(host_headers) == 1:
+        (authority,) = host_headers
+        if authority != authority.strip():
+            return None
+    elif not host_headers:
+        authority = URL(scope={**request.scope, "path": "/", "query_string": b""}).netloc
+    else:
         return None
     parsed = _allowlist(tuple(settings.forwarded_host_allowlist)).match(authority)
     if parsed is None:
         return None
     host, port = parsed
-    if scheme == "http" and not (request.scope.get(TRUSTED_PROXY_SCOPE_KEY) or _is_loopback(host)):
+    if scheme == "http" and not (
+        request.scope.get(TRUSTED_PROXY_SCOPE_KEY) or _is_loopback(host.strip("[]"))
+    ):
         return None
     return f"{scheme}://{host}" if port is None else f"{scheme}://{host}:{port}"

@@ -1,6 +1,8 @@
 """Doctor warns when no configured origin or request allowlist can supply links."""
 
 import pytest
+from simple_module_core import ModuleBase, ModuleMeta
+from simple_module_core import __main__ as doctor
 from simple_module_core.diagnostics import DiagnosticLevel
 from users.core.diagnostics import account_email_diagnostics
 
@@ -38,3 +40,27 @@ def test_account_email_origin_warning(monkeypatch, environment, stored_host, sto
         assert finding.level == DiagnosticLevel.WARNING
     else:
         assert not findings
+
+
+def test_doctor_reports_module_hook_failure_and_continues(monkeypatch, capsys, tmp_path):
+    from users.module import UsersModule
+
+    class BrokenModule(ModuleBase):
+        meta = ModuleMeta(name="BrokenModule")
+
+        def doctor_diagnostics(self, database_url):
+            raise ValueError("sensitive database connection details")
+
+    monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'absent.db'}")
+    monkeypatch.setenv("SM_PUBLIC_BASE_URL", "")
+    monkeypatch.setenv("SM_FORWARDED_HOST_ALLOWLIST", "[]")
+    monkeypatch.setattr(doctor, "parse_dotenv", dict)
+    monkeypatch.setattr(doctor, "discover_modules", lambda strict: [BrokenModule(), UsersModule()])
+    monkeypatch.setattr(doctor, "run_diagnostics", lambda *args, **kwargs: [])
+
+    assert doctor.main() == 1
+    output = capsys.readouterr().err
+    assert "SM036 [ERROR] BrokenModule" in output
+    assert "SM035 [WARNING] Users" in output
+    assert "sensitive database connection details" not in output
+    assert not (tmp_path / "absent.db").exists()
