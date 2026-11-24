@@ -102,9 +102,10 @@ async def test_logout_publishes_after_local_and_back_channel_logout(httpx_mock):
 
     httpx_mock.add_response(url=_LOGOUT, method="POST", status_code=204)
     request = _request()
-    user_id = uuid4()
+    # A UUID-shaped IdP subject stays the original string, case included.
+    user_id = str(uuid4()).upper()
     email = "signed-in@example.test"
-    request.state.user = UserContext(id=str(user_id), email=email, name="Signed in")
+    request.state.user = UserContext(id=user_id, email=email, name="Signed in")
     bus = request.app.state.sm.event_bus = EventBus()
     observed = []
 

@@ -58,7 +58,7 @@ async def end_browser_session(
     request: Request, db: AsyncSession, background_tasks: BackgroundTasks
 ) -> str:
     """Revoke the browser session and its access token; return the cookie name."""
-    event = session_logout_event(request)
+    event = session_logout_event(request, local_account=True)
     await revoke_browser_session(request, db)
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name
