@@ -144,7 +144,9 @@ video, images other than SVG, gRPC and server-sent events by default.
 Pass `exclude_content_types` when replacing the layer with `HostGZipMiddleware`
 from `simple_module_hosting.pipeline.compression`. This tuple replaces the
 default list and accepts exact media types or top-level wildcards such as
-`image/*`. Range responses are always excluded.
+`image/*`. The `application/grpc` entry also matches `application/grpc+` subtypes.
+Older supported Starlette versions still exclude server-sent events through
+their built-in exclusion. `HostGZipMiddleware` always excludes range responses.
 Starlette's `GZipMiddleware` class remains a valid target for both
 `replace_middleware` and `disable_middleware`.
 
@@ -152,8 +154,8 @@ Starlette's `GZipMiddleware` class remains a valid target for both
 
 Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Modules that load assets from an external origin extend the policy through the [`register_csp_sources`](lifecycle.md#register_csp_sourcesregistry) hook; both the dev and production variants include those origins.
 
-A response can set its own `Referrer-Policy`; the default applies only when the
-header is absent (and never to a 304, which keeps the cached response's policy).
+A response can set its own `Referrer-Policy`. When the header is absent, the
+host adds the default except on a 304, where the cache can keep its stored policy.
 
 Outside development, `script-src` and `script-src-elem` use
 `'self' 'nonce-<request nonce>' 'strict-dynamic'`, without `'unsafe-inline'` or
