@@ -61,3 +61,21 @@ async def test_referrer_policy_defaults_only_when_absent(route_policy, expected)
         response = await client.get("/")
 
     assert response.headers.get_list("referrer-policy") == [expected]
+
+
+async def test_referrer_policy_default_skipped_on_not_modified():
+    """A 304 must not replace the policy the cached 200 carried."""
+    from httpx import ASGITransport, AsyncClient
+    from starlette.applications import Starlette
+    from starlette.responses import Response
+    from starlette.routing import Route
+
+    async def page(request):
+        return Response(status_code=304)
+
+    app = SecurityHeadersMiddleware(Starlette(routes=[Route("/", page)]))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/")
+
+    assert response.status_code == 304
+    assert "referrer-policy" not in response.headers

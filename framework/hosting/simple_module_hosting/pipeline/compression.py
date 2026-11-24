@@ -53,6 +53,9 @@ class HostGZipMiddleware(GZipMiddleware):
     ) -> None:
         super().__init__(app, minimum_size=minimum_size, compresslevel=compresslevel)
         self._excluded_types = frozenset(map(_media_type, exclude_content_types))
+        # SVG is textual: the default image wildcard leaves it compressible, but
+        # a caller's own image/* exclusion means every image type.
+        self._svg_compressible = exclude_content_types is DEFAULT_EXCLUDED_CONTENT_TYPES
 
     def _skip_compression(self, message: Message) -> bool:
         headers = Headers(raw=message.get("headers", []))
@@ -66,11 +69,9 @@ class HostGZipMiddleware(GZipMiddleware):
             and "application/grpc" in self._excluded_types
         ):
             return True
-        # SVG is textual, so the image wildcard leaves it eligible for gzip.
-        return (
-            media_type != "image/svg+xml"
-            and f"{media_type.partition('/')[0]}/*" in self._excluded_types
-        )
+        if media_type == "image/svg+xml" and self._svg_compressible:
+            return False
+        return f"{media_type.partition('/')[0]}/*" in self._excluded_types
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":

@@ -129,7 +129,10 @@ class SecurityHeadersMiddleware:
                 raw.extend(self._static_headers)
                 message["headers"] = raw
                 headers = MutableHeaders(raw=raw)
-                headers.setdefault(_HEADER_REFERRER_POLICY, _REFERRER_STRICT_ORIGIN)
+                # A 304 refreshes the cached response's headers: adding the default
+                # there would replace a stricter policy the cached 200 carried.
+                if message.get("status") != _HTTP_NOT_MODIFIED:
+                    headers.setdefault(_HEADER_REFERRER_POLICY, _REFERRER_STRICT_ORIGIN)
                 # A 304 refreshes the cached response's headers: a new nonce there
                 # would no longer match the cached body, so keep the cached CSP.
                 if self.csp and message.get("status") != _HTTP_NOT_MODIFIED:

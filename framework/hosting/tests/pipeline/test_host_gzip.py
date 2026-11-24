@@ -93,3 +93,25 @@ async def test_host_gzip_override(settings, disable):
     assert response.status_code == 200
     assert "content-encoding" not in response.headers
     assert response.content == _BODY
+
+
+@pytest.mark.parametrize(
+    ("excluded", "encoding"),
+    [(None, "gzip"), (("image/*",), None)],
+    ids=["default_list_compresses_svg", "explicit_image_wildcard_excludes_svg"],
+)
+async def test_svg_follows_explicit_image_wildcard(excluded, encoding):
+    from starlette.applications import Starlette
+    from starlette.routing import Route
+
+    async def svg(request):
+        return Response(_BODY, media_type="image/svg+xml")
+
+    kwargs = {} if excluded is None else {"exclude_content_types": excluded}
+    app = HostGZipMiddleware(Starlette(routes=[Route("/", svg)]), **kwargs)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/", headers=_REQUEST_HEADERS)
+
+    assert response.headers.get("content-encoding") == encoding
