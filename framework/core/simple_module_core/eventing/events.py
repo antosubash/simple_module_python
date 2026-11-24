@@ -22,7 +22,7 @@ from simple_module_core.eventing.durable_events import (
 
 logger = logging.getLogger(__name__)
 
-EventHandler = Callable[..., Coroutine[Any, Any, None] | None]
+EventHandler = Callable[..., Coroutine[Any, Any, None] | asyncio.Future[None] | None]
 
 
 @dataclass
@@ -99,7 +99,8 @@ class EventBus:
         """Dispatch event to all registered handlers (awaited).
 
         All handlers run concurrently via ``asyncio.gather``.
-        Individual handler failures are logged but do not propagate.
+        A failing or self-cancelling handler is logged and never breaks the
+        publisher; cancelling ``publish`` itself still cancels the gather.
         """
         handlers = self._emitter.listeners(self._event_key(type(event)))
         if not handlers:
@@ -109,14 +110,20 @@ class EventBus:
             return_exceptions=True,
         )
         for i, result in enumerate(results):
+            name = getattr(handlers[i], "__qualname__", repr(handlers[i]))
             if isinstance(result, Exception):
                 logger.error(
                     "Event handler %s failed for %s: %s",
-                    getattr(handlers[i], "__qualname__", repr(handlers[i])),
+                    name,
                     type(event).__name__,
                     result,
                     exc_info=result,
                 )
+            elif isinstance(result, asyncio.CancelledError):
+                # A subscriber cancelling itself must not cancel the publisher
+                # (a logout or save request); an outer cancel of publish never
+                # reaches here because gather re-raises it.
+                logger.warning("Event handler %s cancelled for %s", name, type(event).__name__)
 
     def publish_nowait(self, event: Event) -> None:
         """Fire-and-forget: schedule event dispatch on the current event loop.

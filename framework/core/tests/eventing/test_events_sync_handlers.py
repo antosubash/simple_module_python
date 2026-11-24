@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 
@@ -45,6 +46,30 @@ async def test_sync_handler_runs() -> None:
     await bus.publish(Pinged(n=7))
 
     assert seen == [7]
+
+
+@pytest.mark.parametrize("return_future", [False, True])
+async def test_self_cancelling_handler_is_isolated(return_future: bool, caplog) -> None:
+    bus = EventBus()
+    seen: list[int] = []
+
+    def cancel(event: Pinged) -> asyncio.Future[None]:
+        if not return_future:
+            raise asyncio.CancelledError
+        future = asyncio.get_running_loop().create_future()
+        asyncio.get_running_loop().call_soon(future.cancel)
+        return future
+
+    async def record(event: Pinged) -> None:
+        seen.append(event.n)
+
+    bus.subscribe(Pinged, cancel)
+    bus.subscribe(Pinged, record)
+    with caplog.at_level(logging.WARNING):
+        await bus.publish(Pinged(n=7))
+
+    assert seen == [7]
+    assert "cancelled for Pinged" in caplog.text
 
 
 @pytest.mark.parametrize("fail_first", [True, False])
