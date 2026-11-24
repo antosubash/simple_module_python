@@ -42,13 +42,18 @@ def test_account_email_origin_warning(monkeypatch, environment, stored_host, sto
         assert not findings
 
 
-def test_doctor_reports_module_hook_failure_and_continues(monkeypatch, capsys, tmp_path):
+@pytest.mark.parametrize("invalid_result", [False, True])
+def test_doctor_reports_module_hook_failure_and_continues(
+    monkeypatch, capsys, tmp_path, invalid_result
+):
     from users.module import UsersModule
 
     class BrokenModule(ModuleBase):
         meta = ModuleMeta(name="BrokenModule")
 
         def doctor_diagnostics(self, database_url):
+            if invalid_result:
+                return ["sensitive database connection details"]
             raise ValueError("sensitive database connection details")
 
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'absent.db'}")

@@ -110,6 +110,7 @@ async def admin_bulk_invite(
     accepted, overflow = ordered[:MAX_ADDRESSES], ordered[MAX_ADDRESSES:]
 
     results: list[BulkInviteResult] = []
+    delivers: bool | None = None
     for email in accepted:
         try:
             async with independent_session(request.app) as checkpoint:
@@ -135,7 +136,9 @@ async def admin_bulk_invite(
             )
             continue
 
-        if mailer_delivers(mailer, **mail_options, log_missing_origin=True):
+        if delivers is None:
+            delivers = mailer_delivers(mailer, **mail_options, log_missing_origin=True)
+        if delivers:
             try:
                 await mailer.send_invite(
                     user.email, token, invited_by_name, data.message, **mail_options

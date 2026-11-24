@@ -198,7 +198,14 @@ def main() -> int:
     diagnostics.extend(data_compatibility_diagnostics(modules, database_url))
     for module in modules:
         try:
-            diagnostics.extend(tuple(module.doctor_diagnostics(database_url)))
+            findings = tuple(module.doctor_diagnostics(database_url))
+            if any(
+                not isinstance(finding, Diagnostic)
+                or not isinstance(finding.level, DiagnosticLevel)
+                for finding in findings
+            ):
+                raise TypeError("Invalid module doctor diagnostic")
+            diagnostics.extend(findings)
         except Exception:
             # Diagnostic hooks may touch credentials; do not print exception text.
             diagnostics.append(

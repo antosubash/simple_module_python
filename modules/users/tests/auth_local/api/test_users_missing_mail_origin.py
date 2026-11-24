@@ -68,6 +68,19 @@ class _AccountLookup(BaseUserDatabase[User, UUID]):
         ("http://app.example", ["app.example"], {}, None, "", "", None),
         ("http://app.example", ["app.example"], {}, "10.0.0.1", "", "", None),
         (
+            "http://internal.example",
+            ["app.example"],
+            {
+                "x-forwarded-host": "app.example",
+                "x-forwarded-proto": "http",
+                "x-forwarded-for": "203.0.113.10",
+            },
+            "127.0.0.1",
+            "",
+            "",
+            "http://app.example",
+        ),
+        (
             "https://app.example",
             ["app.example"],
             {},
