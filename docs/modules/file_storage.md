@@ -91,9 +91,10 @@ configuration, which you must set on the bucket.
 
 The public routes are exempt from `AuthMiddleware` through
 `register_public_routes` (`GET` and `HEAD`; uploads, PATCH and deletes stay gated).
-`HEAD` returns the same status and headers as `GET` without reading the file:
-it ignores `Range`, honours `If-None-Match`, and reports the full
-`Content-Length` (#1131).
+`HEAD` returns headers without a response body and honours `If-None-Match`.
+When the app serves the original file directly, `HEAD` ignores `Range` and
+reports the full `Content-Length` from stored metadata without opening the
+file body (#1131).
 Serving rules:
 
 - Only `public=True`, non-deleted rows resolve; unknown, private and deleted

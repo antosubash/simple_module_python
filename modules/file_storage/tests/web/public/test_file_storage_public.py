@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import uuid
 
 import httpx
 from file_storage.core import constants
+from PIL import Image
 
 API = constants.ROUTE_PREFIX_API
 
@@ -68,6 +70,25 @@ async def test_upload_public_returns_url_and_anonymous_get_works(
     # thumbnail route, it serves the original file and returns 200.
     thumbnail_head = await client.head(f"{API}/public/{body['id']}/thumbnail")
     assert thumbnail_head.status_code == 404
+
+
+async def test_public_thumbnail_head_matches_get(authenticated_client, client):
+    image = io.BytesIO()
+    Image.new("RGB", (20, 20)).save(image, format="PNG")
+    body = await _upload(
+        authenticated_client, "a.png", image.getvalue(), "image/png", public="true"
+    )
+    url = f"{API}/public/{body['id']}/thumbnail?w=64"
+    headers = {"Accept-Encoding": "identity"}
+
+    get = await client.get(url, headers=headers)
+    head = await client.head(url, headers=headers)
+
+    assert head.status_code == get.status_code == 200
+    assert head.content == b""
+    assert head.headers["content-type"] == get.headers["content-type"] == "image/webp"
+    assert head.headers["content-length"] == get.headers["content-length"]
+    assert head.headers["etag"] == get.headers["etag"]
 
 
 async def test_private_file_is_404_anonymously(authenticated_client, client):
