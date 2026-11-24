@@ -110,7 +110,10 @@ class EventBus:
             return_exceptions=True,
         )
         for i, result in enumerate(results):
-            name = getattr(handlers[i], "__qualname__", repr(handlers[i]))
+            if result is None:
+                continue
+            handler = handlers[i]
+            name = getattr(handler, "__qualname__", type(handler).__qualname__)
             if isinstance(result, Exception):
                 logger.error(
                     "Event handler %s failed for %s: %s",

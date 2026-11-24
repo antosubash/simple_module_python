@@ -48,6 +48,27 @@ async def test_sync_handler_runs() -> None:
     assert seen == [7]
 
 
+async def test_publish_does_not_format_successful_handler() -> None:
+    bus = EventBus()
+
+    class Subscriber:
+        called = False
+
+        async def __call__(self, event: Pinged) -> None:
+            self.called = True
+
+        def __repr__(self) -> str:
+            if self.called:
+                raise RuntimeError("subscriber repr unavailable after dispatch")
+            return type(self).__name__
+
+    subscriber = Subscriber()
+    bus.subscribe(Pinged, subscriber)
+    await bus.publish(Pinged())
+
+    assert subscriber.called
+
+
 @pytest.mark.parametrize("return_future", [False, True])
 async def test_self_cancelling_handler_is_isolated(return_future: bool, caplog) -> None:
     bus = EventBus()
