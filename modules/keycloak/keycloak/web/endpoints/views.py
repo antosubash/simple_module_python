@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from auth.contracts.events import session_logout_event
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.csrf import require_browser_origin
@@ -56,6 +57,7 @@ async def logout(request: Request) -> Response:
     from keycloak.identity.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
+    event = session_logout_event(request)
     refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))
     await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()
@@ -74,6 +76,8 @@ async def logout(request: Request) -> Response:
         except Exception:
             # Never log the exception text: it may carry request details.
             logger.warning("Keycloak back-channel logout failed")
+    if event is not None:
+        await request.app.state.sm.event_bus.publish(event)
     base_url = str(request.base_url).rstrip("/")
     logout_url = client.build_logout_url(
         post_logout_redirect_uri=f"{base_url}{_LOGGED_OUT_PATH}",

@@ -2,6 +2,7 @@
 
 import logging
 
+from auth.contracts.events import session_logout_event
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.auth_policy import login_redirect_url
@@ -40,6 +41,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
+    event = session_logout_event(request)
     client = request.app.state.oidc.client
     if client is not None:
         try:
@@ -55,6 +57,8 @@ async def logout(request: Request):
             )
     await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()
+    if event is not None:
+        await request.app.state.sm.event_bus.publish(event)
     destination = f"{str(request.base_url).rstrip('/')}{LOGGED_OUT_PATH}"
     if client is not None:
         try:

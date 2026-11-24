@@ -122,6 +122,7 @@ from users.contracts.events import (
     UserCreated,
     UserDeleted,
     UserDisabled,
+    UserLoggedOut,
     RoleAssigned,
 )
 ```
@@ -133,7 +134,7 @@ from users.contracts.events import (
 | `UserDetailsUpdate` | Admin edit input: `email`, `full_name`. |
 | `UserListItem` | Admin list row; adds `is_external`, `created_at`, `roles`. |
 | `RoleListItem` | `id`, `name`, `description`, `user_count`. |
-| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
+| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `UserLoggedOut`, `RoleAssigned` | Events — see [Events](#events). |
 
 Other modules read accounts through the [user directory](/framework/user-directory),
 which this module installs as `users.core.directory.UsersDirectory` in
@@ -314,7 +315,13 @@ in worker threads so unrelated requests can continue during hashing (#737).
 | `UserCreated` | `user_id`, `email`, `created_by` | on admin create (`POST /api/users/admin`) |
 | `UserDeleted` | `user_id` | on admin delete; durable (outbox, or inline in the request transaction). Defined in `simple_module_core.user_events` so modules subscribe without depending on `users` |
 | `UserDisabled` | `user_id` | on admin disable |
+| `UserLoggedOut` | `user_id`, `email` | after authenticated browser or API session logout, including sessions established through OAuth |
 | `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
+
+`UserLoggedOut` is an in-process event defined in `simple_module_core.user_events`
+and re-exported from `users.contracts.events`. Local logout publishes after the
+session revocation transaction finalizes. Subscriber failures are logged and
+logout still succeeds.
 
 Single admin create/invite publishes `UserCreated` / `UserInvited` through the
 transactional admin-event helper: durable handlers use the request transaction

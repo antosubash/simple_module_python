@@ -106,3 +106,25 @@ async def test_cross_site_logout_is_refused_without_clearing_session(flow_client
     assert json.loads(base64.b64decode(TimestampSigner("test-secret-key").unsign(cookie))) == {
         "marker": "retained"
     }
+
+
+async def test_logout_publishes_only_for_an_authenticated_session(oidc_app, flow_client):
+    from simple_module_core.user_events import UserLoggedOut
+
+    observed = []
+
+    async def observe(event):
+        observed.append(event)
+
+    oidc_app.state.sm.event_bus.subscribe(UserLoggedOut, observe)
+    assert (await flow_client.post("/oidc/logout")).status_code == 303
+    assert observed == []
+
+    signed_in = {
+        "user_ctx": {"id": "subject", "email": "a@example.com", "name": "A", "roles": []},
+        "expires_at": 4_102_444_800,
+        "oidc_identity": [oidc_app.state.oidc.metadata.issuer, "subject"],
+    }
+    flow_client.cookies.set("session", forge_session_cookie("test-secret-key", signed_in))
+    assert (await flow_client.post("/oidc/logout")).status_code == 303
+    assert observed == [UserLoggedOut(user_id="subject", email="a@example.com")]

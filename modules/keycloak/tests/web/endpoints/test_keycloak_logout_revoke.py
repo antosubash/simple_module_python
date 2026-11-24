@@ -91,3 +91,30 @@ async def test_logout_drops_shared_renewal_outcomes_before_clearing(httpx_mock, 
         ("keycloak_refresh_token", True)
     ]
     assert request.session == {}
+
+
+async def test_logout_publishes_after_local_and_back_channel_logout(httpx_mock):
+    from uuid import uuid4
+
+    from auth.contracts.schemas import UserContext
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.user_events import UserLoggedOut
+
+    httpx_mock.add_response(url=_LOGOUT, method="POST", status_code=204)
+    request = _request()
+    user_id = uuid4()
+    email = "signed-in@example.test"
+    request.state.user = UserContext(id=str(user_id), email=email, name="Signed in")
+    bus = request.app.state.sm.event_bus = EventBus()
+    observed = []
+
+    async def observe(event):
+        observed.append((event, dict(request.session), len(httpx_mock.get_requests())))
+
+    async def failing_handler(event):
+        raise RuntimeError("subscriber failed")
+
+    bus.subscribe(UserLoggedOut, observe)
+    bus.subscribe(UserLoggedOut, failing_handler)
+    assert (await views.logout(request)).status_code == 303
+    assert observed == [(UserLoggedOut(user_id=user_id, email=email), {}, 1)]

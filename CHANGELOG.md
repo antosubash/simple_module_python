@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Users, Keycloak, and OIDC publish an in-process `UserLoggedOut` event after authenticated session logout (#1125).
 - Regression coverage for Docker runtime/Compose invariants, the documented temporary-database migration roundtrip, and shared pytest configuration (#1088, #1089, #1090).
 
 ### Changed

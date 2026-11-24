@@ -4,8 +4,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from auth.contracts.events import session_logout_event
 from auth.core.constants import SESSION_ID_KEY
-from fastapi import Request
+from fastapi import BackgroundTasks, Request
 from simple_module_db.engine.callbacks import register_on_commit
 from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY, SESSION_SIGNATURE_MAX_AGE
 from sqlalchemy import delete
@@ -53,10 +54,16 @@ async def revoke_browser_session(request: Request, db: AsyncSession) -> None:
     register_on_commit(db, lambda: publish_revocation(request.app, uuid.UUID(user_id)))
 
 
-async def end_browser_session(request: Request, db: AsyncSession) -> str:
+async def end_browser_session(
+    request: Request, db: AsyncSession, background_tasks: BackgroundTasks
+) -> str:
     """Revoke the browser session and its access token; return the cookie name."""
+    event = session_logout_event(request)
     await revoke_browser_session(request, db)
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name
     await revoke_access_token(db, request.cookies.get(cookie_name))
+    if event is not None:
+        # The response starts only after the request transaction finalizes.
+        background_tasks.add_task(request.app.state.sm.event_bus.publish, event)
     return cookie_name
