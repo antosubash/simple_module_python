@@ -58,8 +58,10 @@ class HostGZipMiddleware(GZipMiddleware):
         self._svg_compressible = exclude_content_types is DEFAULT_EXCLUDED_CONTENT_TYPES
 
     def _skip_compression(self, message: Message) -> bool:
+        if message["status"] == HTTPStatus.PARTIAL_CONTENT:
+            return True
         headers = Headers(raw=message.get("headers", []))
-        if message["status"] == HTTPStatus.PARTIAL_CONTENT or "content-range" in headers:
+        if "content-range" in headers:
             return True
         media_type = _media_type(headers.get("content-type", ""))
         if media_type in self._excluded_types:

@@ -151,8 +151,8 @@ Starlette's `GZipMiddleware` class remains a valid target for both
 
 Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Modules that load assets from an external origin extend the policy through the [`register_csp_sources`](lifecycle.md#register_csp_sourcesregistry) hook; both the dev and production variants include those origins.
 
-A response can set its own `Referrer-Policy`. The middleware supplies
-`strict-origin-when-cross-origin` when the header is absent.
+A response can set its own `Referrer-Policy`; the default applies only when the
+header is absent (and never to a 304, which keeps the cached response's policy).
 
 Outside development, `script-src` and `script-src-elem` use
 `'self' 'nonce-<request nonce>' 'strict-dynamic'`, without `'unsafe-inline'` or

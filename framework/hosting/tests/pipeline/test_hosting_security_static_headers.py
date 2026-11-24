@@ -1,7 +1,11 @@
 """Static security headers replace all endpoint values without losing other headers."""
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from simple_module_hosting.pipeline.middleware import SecurityHeadersMiddleware
+from starlette.applications import Starlette
+from starlette.responses import PlainTextResponse, Response
+from starlette.routing import Route
 
 
 @pytest.mark.parametrize("hsts", [None, "max-age=123"])
@@ -47,11 +51,6 @@ async def test_security_static_headers_replace_duplicates(hsts):
     [(None, "strict-origin-when-cross-origin"), ("no-referrer", "no-referrer")],
 )
 async def test_referrer_policy_defaults_only_when_absent(route_policy, expected):
-    from httpx import ASGITransport, AsyncClient
-    from starlette.applications import Starlette
-    from starlette.responses import PlainTextResponse
-    from starlette.routing import Route
-
     async def page(request):
         headers = {"Referrer-Policy": route_policy} if route_policy else None
         return PlainTextResponse("page", headers=headers)
@@ -65,10 +64,6 @@ async def test_referrer_policy_defaults_only_when_absent(route_policy, expected)
 
 async def test_referrer_policy_default_skipped_on_not_modified():
     """A 304 must not replace the policy the cached 200 carried."""
-    from httpx import ASGITransport, AsyncClient
-    from starlette.applications import Starlette
-    from starlette.responses import Response
-    from starlette.routing import Route
 
     async def page(request):
         return Response(status_code=304)
