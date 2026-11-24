@@ -321,7 +321,9 @@ in worker threads so unrelated requests can continue during hashing (#737).
 `UserLoggedOut` is an in-process event defined in `simple_module_core.user_events`
 and re-exported from `users.contracts.events`. Users publishes the account ID
 as a UUID after the session revocation transaction finalizes. Subscriber
-failures are logged and logout still succeeds.
+failures are logged and logout still succeeds. Delivery is not exactly-once:
+two logout requests racing on the same session can each publish the event, so
+make subscribers idempotent (releasing a per-user reservation twice is harmless).
 
 Single admin create/invite publishes `UserCreated` / `UserInvited` through the
 transactional admin-event helper: durable handlers use the request transaction
