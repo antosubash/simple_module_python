@@ -21,7 +21,7 @@ const boolField: FieldMeta = {
 };
 
 function renderRow(field: FieldMeta) {
-  return render(
+  render(
     <ModuleFieldRow
       field={field}
       package="events"
