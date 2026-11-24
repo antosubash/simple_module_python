@@ -68,6 +68,10 @@ class TemplatedMailer:
         return origin.rstrip("/")
 
     @property
+    def has_configured_origin(self) -> bool:
+        return bool(self._base)
+
+    @property
     def delivers_email(self) -> bool:
         """Whether the installed sender puts mail in front of a person."""
         return self.delivers_with_origin()

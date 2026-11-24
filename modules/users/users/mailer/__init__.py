@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from inspect import Parameter, signature
 from pathlib import Path
 from typing import Protocol, TypedDict, runtime_checkable
 
@@ -28,11 +29,28 @@ class MailLinkOptions(TypedDict, total=False):
     link_origin: str
 
 
+_SEND_METHODS = ("send_verification", "send_password_reset", "send_invite")
+
+
+def _accepts_link_origin(mailer: TemplatedMailer) -> bool:
+    """A subclass overriding a send method with the original signature opts out."""
+    for name in _SEND_METHODS:
+        params = signature(getattr(mailer, name)).parameters
+        if "link_origin" not in params and not any(
+            p.kind is Parameter.VAR_KEYWORD for p in params.values()
+        ):
+            return False
+    return True
+
+
 def request_mail_options(mailer: object, request: Request | None) -> MailLinkOptions:
-    # Third-party mailers using the original signatures receive no extra keyword.
+    # A configured origin always wins, so the request origin is only offered
+    # without one, and only to mailers whose send methods take the keyword.
     if (
         isinstance(mailer, TemplatedMailer)
+        and not mailer.has_configured_origin
         and request is not None
+        and _accepts_link_origin(mailer)
         and (origin := trusted_request_origin(request)) is not None
     ):
         return {"link_origin": origin}

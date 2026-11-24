@@ -234,7 +234,12 @@ then `host.public_base_url` (including `SM_PUBLIC_BASE_URL`), then the resolved
 request origin if it matches `host.forwarded_host_allowlist`. HTTPS is
 eligible. HTTP requires a trusted proxy peer or an allowlisted loopback host
 (`localhost`, `127.0.0.0/8` or `[::1]`). Sends without a request require a
-configured origin. If no origin qualifies, delivery is skipped with an ERROR
+configured origin. The trusted proxy peer is recognised by the framework's
+`host.trusted_proxy` handling; if Uvicorn itself runs with `--proxy-headers`
+it replaces the peer address first, so plain-HTTP links behind a proxy are
+skipped (HTTPS is unaffected). A custom `TemplatedMailer` subclass whose send
+methods keep the original signature never receives a request origin. If no
+origin qualifies, delivery is skipped with an ERROR
 log. Public reset and verification responses remain generic. Copied links stay
 relative when both configured origins are blank. See the
 [shared host policy](/framework/settings#shared-host-policy) for allowlist

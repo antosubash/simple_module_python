@@ -4,6 +4,7 @@ import asyncio
 
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.settings.settings_hydrate import build_settings
+from simple_module_core.settings.stored_settings import construct_leniently
 from simple_module_db.engine.session import init_db
 from simple_module_db.queries.stored_settings import get_overrides, settings_table_exists
 from simple_module_db.schema.migration_state import database_exists
@@ -36,7 +37,8 @@ def account_email_diagnostics(database_url: str, module_name: str) -> list[Diagn
     except (SQLAlchemyError, OSError, ValueError):
         # The database checks report connectivity separately; the origin is unknown.
         return []
-    host = HostSettings(**apply_host_overrides(host_rows))
+    # Lenient like boot: a stale stored row is dropped, not fatal to Doctor.
+    host = construct_leniently(HostSettings, apply_host_overrides(host_rows))
     users = build_settings(UsersSettings, users_rows, lenient=True)
     if public_origin(host, users.base_url) or host.forwarded_host_allowlist:
         return []
