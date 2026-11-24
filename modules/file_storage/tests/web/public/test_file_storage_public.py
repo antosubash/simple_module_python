@@ -40,14 +40,32 @@ async def test_upload_public_returns_url_and_anonymous_get_works(
         assert "sandbox" in resp.headers["content-security-policy"]
         assert resp.headers["content-disposition"].startswith("inline")
         etag = resp.headers["etag"]
+        # HEAD answers like GET without a body (#1131). Identity encoding so
+        # the host's gzip layer leaves Content-Length on both responses.
+        plain = {"Accept-Encoding": "identity"}
+        full = await client.get(url, headers=plain)
+        head = await client.head(url, headers=plain)
+        assert head.status_code == full.status_code == 200
+        assert head.content == b""
+        for header in (
+            "content-length",
+            "etag",
+            "accept-ranges",
+            "content-type",
+            "content-disposition",
+            "cache-control",
+        ):
+            assert head.headers[header] == full.headers[header]
     again = await client.get(f"{API}/public/{body['id']}", headers={"If-None-Match": etag})
     assert again.status_code == 304
 
 
 async def test_private_file_is_404_anonymously(authenticated_client, client):
     body = await _upload(authenticated_client)
-    assert (await client.get(f"{API}/public/{body['id']}")).status_code == 404
-    assert (await client.get(f"{API}/public/{uuid.uuid4()}")).status_code == 404
+    for file_id in (body["id"], uuid.uuid4()):
+        url = f"{API}/public/{file_id}/a.txt"
+        assert (await client.get(url)).status_code == 404
+        assert (await client.head(url)).status_code == 404
 
 
 async def test_patch_toggles_public(authenticated_client, client):

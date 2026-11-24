@@ -1,7 +1,7 @@
 """Anonymous read routes for files marked ``public`` (#353).
 
 Exempted from ``AuthMiddleware`` by ``FileStorageModule.register_public_routes``
-(GET only). Every miss — unknown, private, soft-deleted — is the same 404, so
+(GET and HEAD). Every miss — unknown, private, soft-deleted — is the same 404, so
 the route cannot be used to learn which ids exist.
 """
 
@@ -90,3 +90,21 @@ async def public_file_named(
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> Response:
     return await _serve_public(service, file_id, request, t)
+
+
+# HEAD answers like GET without a body (#1131): link checkers and download
+# tools probe public files with it. Kept out of the schema so the generated
+# client and operation ids are unchanged; Starlette's file and streaming
+# responses send headers only for HEAD.
+for _path, _endpoint in (
+    (constants.PATH_PUBLIC_THUMBNAIL, public_thumbnail),
+    (constants.PATH_PUBLIC, public_file),
+    (constants.PATH_PUBLIC_NAMED, public_file_named),
+):
+    router.add_api_route(
+        _path,
+        _endpoint,
+        methods=[constants.HTTP_HEAD],
+        include_in_schema=False,
+        response_model=None,
+    )

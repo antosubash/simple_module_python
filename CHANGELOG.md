@@ -43,6 +43,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- file_storage: `HEAD` on a public file URL (and its thumbnail) answers like `GET` without a body, instead of `401`, so link checkers and download tools see public files (#1131).
 - Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
 - Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
 - Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).

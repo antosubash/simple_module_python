@@ -90,12 +90,12 @@ class FileStorageModule(ModuleBase):
         uploads, deletes and the authenticated download keep requiring a
         session. The handler itself still refuses anything not ``public``.
         """
-        from file_storage.core.constants import PUBLIC_FILES_RATE
+        from file_storage.core.constants import PUBLIC_FILES_RATE, PUBLIC_READ_METHODS
         from file_storage.web.cookieless import PUBLIC_PATH_PATTERN
 
         # Its own, wider bucket: one public page can embed dozens of images and
         # thumbnails, which would exhaust the shared anonymous default.
-        registry.add_regex(PUBLIC_PATH_PATTERN, methods={"GET"}, rate=PUBLIC_FILES_RATE)
+        registry.add_regex(PUBLIC_PATH_PATTERN, methods=PUBLIC_READ_METHODS, rate=PUBLIC_FILES_RATE)
 
     def register_cors_policies(self, registry: CorsPolicyRegistry) -> None:
         """Let any origin read public files, without credentials (#527)."""
