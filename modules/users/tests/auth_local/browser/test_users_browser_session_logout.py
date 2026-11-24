@@ -164,8 +164,7 @@ async def test_logout_publishes_authenticated_user_after_revocation(
     async def observe(event):
         observed.append(event)
         async with users_app.state.sm.db.session_factory() as db:
-            revoked_user = (await db.execute(select(RevokedSession.user_id))).scalar_one()
-            revoked_users.append(revoked_user)
+            revoked_users.append((await db.execute(select(RevokedSession.user_id))).scalar_one())
 
     async def failing_handler(event):
         raise RuntimeError("subscriber failed")

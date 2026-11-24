@@ -1,5 +1,6 @@
 """Build auth lifecycle events from the current authenticated principal."""
 
+from contextlib import suppress
 from uuid import UUID
 
 from simple_module_core.user_events import UserLoggedOut
@@ -21,8 +22,6 @@ def session_logout_event(request: Request, *, local_account: bool) -> UserLogged
         return None
     user_id: UUID | str = user.id
     if local_account:
-        try:
+        with suppress(ValueError):
             user_id = UUID(user.id)
-        except ValueError:
-            user_id = user.id
     return UserLoggedOut(user_id=user_id, email=user.email)
