@@ -43,6 +43,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- core: `EventBus.publish` runs sync subscribers inside its isolation: a raising sync handler is logged and the remaining handlers still run, and a sync handler that returns `None` no longer breaks the dispatch (#1134).
 - Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
 - Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
 - Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).

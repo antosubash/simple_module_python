@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
@@ -21,7 +22,8 @@ from simple_module_core.eventing.durable_events import (
 
 logger = logging.getLogger(__name__)
 
-EventHandler = Callable[..., Coroutine[Any, Any, None]]
+# Sync or async (docs/framework/events.md); ``publish`` awaits only awaitables.
+EventHandler = Callable[..., Coroutine[Any, Any, None] | None]
 
 
 @dataclass
@@ -35,6 +37,18 @@ class Event:
             product_id: int
             name: str
     """
+
+
+async def _call_handler(handler: EventHandler, event: Event) -> None:
+    """Run one handler inside the gather, sync or async (#1134).
+
+    Calling a handler while building the ``gather`` arguments let a sync
+    handler's exception escape ``publish`` before any other handler ran, and a
+    sync handler's ``None`` result is not awaitable at all.
+    """
+    result = handler(event)
+    if inspect.isawaitable(result):
+        await result
 
 
 class EventBus:
@@ -92,7 +106,7 @@ class EventBus:
         if not handlers:
             return
         results = await asyncio.gather(
-            *(h(event) for h in handlers),
+            *(_call_handler(h, event) for h in handlers),
             return_exceptions=True,
         )
         for i, result in enumerate(results):

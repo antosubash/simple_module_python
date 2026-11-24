@@ -1,0 +1,68 @@
+"""Sync subscribers run inside ``EventBus.publish`` like async ones (#1134)."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+
+import pytest
+from simple_module_core.eventing.events import Event, EventBus
+
+
+@dataclass
+class Pinged(Event):
+    n: int = 0
+
+
+async def test_raising_sync_handler_is_logged_and_others_still_run(caplog) -> None:
+    bus = EventBus()
+    ran: list[str] = []
+
+    def broken(event: Pinged) -> None:
+        raise RuntimeError("sync subscriber failed")
+
+    async def later(event: Pinged) -> None:
+        ran.append("async")
+
+    bus.subscribe(Pinged, broken)
+    bus.subscribe(Pinged, later)
+
+    with caplog.at_level(logging.ERROR):
+        await bus.publish(Pinged(n=1))
+
+    assert ran == ["async"]
+    assert "sync subscriber failed" in caplog.text
+
+
+async def test_sync_handler_runs() -> None:
+    bus = EventBus()
+    seen: list[int] = []
+
+    def record(event: Pinged) -> None:
+        seen.append(event.n)
+
+    bus.subscribe(Pinged, record)
+    await bus.publish(Pinged(n=7))
+
+    assert seen == [7]
+
+
+@pytest.mark.parametrize("fail_first", [True, False])
+async def test_async_failure_is_still_isolated(fail_first: bool, caplog) -> None:
+    bus = EventBus()
+    ran: list[str] = []
+
+    async def broken(event: Pinged) -> None:
+        raise ValueError("async subscriber failed")
+
+    def ok(event: Pinged) -> None:
+        ran.append("sync")
+
+    for handler in (broken, ok) if fail_first else (ok, broken):
+        bus.subscribe(Pinged, handler)
+
+    with caplog.at_level(logging.ERROR):
+        await bus.publish(Pinged())
+
+    assert ran == ["sync"]
+    assert "async subscriber failed" in caplog.text
