@@ -22,7 +22,6 @@ from simple_module_core.eventing.durable_events import (
 
 logger = logging.getLogger(__name__)
 
-# Sync or async (docs/framework/events.md); ``publish`` awaits only awaitables.
 EventHandler = Callable[..., Coroutine[Any, Any, None] | None]
 
 
