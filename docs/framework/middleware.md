@@ -141,9 +141,10 @@ preserving the response bytes and range headers. It also skips pre-compressed
 static assets and excludes PMTiles, ZIP and gzip archives, WOFF fonts, audio,
 video, images other than SVG, gRPC and server-sent events by default.
 
-Pass a tuple of media types or wildcards as `exclude_content_types` when
-replacing the layer with `HostGZipMiddleware` from
-`simple_module_hosting.pipeline.compression`. Range responses are always excluded.
+Pass `exclude_content_types` when replacing the layer with `HostGZipMiddleware`
+from `simple_module_hosting.pipeline.compression`. This tuple replaces the
+default list and accepts exact media types or top-level wildcards such as
+`image/*`. Range responses are always excluded.
 Starlette's `GZipMiddleware` class remains a valid target for both
 `replace_middleware` and `disable_middleware`.
 

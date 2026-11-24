@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from inspect import Parameter, signature
 from typing import Any, Literal
@@ -119,18 +120,27 @@ def finalize_middleware(app: FastAPI) -> None:
         if replacement is None:
             del layers[index]
         else:
-            layers[index] = _merge_replacement(original, replacement)
+            # Bind legacy positional options against the public target's signature.
+            constructor_class = target if target is GZipMiddleware else original.cls
+            layers[index] = _merge_replacement(
+                original, replacement, constructor_class=constructor_class
+            )
     app.user_middleware = layers
     config.finalized = True
 
 
-def _merge_replacement(original: Middleware, replacement: Middleware) -> Middleware:
+def _merge_replacement(
+    original: Middleware,
+    replacement: Middleware,
+    *,
+    constructor_class: Callable[..., Any] | None = None,
+) -> Middleware:
     if not original.args and not replacement.args:
         options: dict[str, Any] = dict(original.kwargs)
         options.update(replacement.kwargs)
         return Middleware(replacement.cls, **options)
 
-    constructor = signature(original.cls)
+    constructor = signature(constructor_class or original.cls)
     bound = constructor.bind_partial(None, *original.args, **original.kwargs)
     if replacement.args:
         # Only positional overrides replace inherited ones; binding the bare
