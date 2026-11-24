@@ -22,7 +22,7 @@ from users.contracts.schemas import UserRead
 from users.core.bootstrap import resolve_bootstrap_credentials
 from users.demo import resolve_demo_accounts
 from users.invites.preview import preview_invite
-from users.mailer import mailer_delivers
+from users.mailer import mailer_delivers, request_mail_options
 from users.models import User
 from users.oauth.errors import OAUTH_ERROR_CODES
 
@@ -49,7 +49,8 @@ _SECONDS_PER_DAY = 60 * 60 * 24
 
 def _mailer_delivers(request: Request) -> bool:
     """Drives the amber "the link is in the server log" callout."""
-    return mailer_delivers(getattr(getattr(request.app.state, "users", None), "mailer", None))
+    mailer = getattr(getattr(request.app.state, "users", None), "mailer", None)
+    return mailer_delivers(mailer, **request_mail_options(mailer, request))
 
 
 @router.get("/login", response_model=None)

@@ -29,7 +29,7 @@ from users.core.constants import (
 from users.core.exceptions import ExternalUserNoPasswordError
 from users.core.password_hashing import PASSWORD_HELPER, PasswordHashingMixin
 from users.core.token_secrets import TokenSecretsMixin
-from users.mailer import Mailer
+from users.mailer import Mailer, request_mail_options
 from users.models import User
 
 if TYPE_CHECKING:
@@ -67,8 +67,6 @@ class UserManager(  # ty: ignore[incompatible-property-override] upstream only r
         self.allow_signup = settings.allow_signup
         self.require_verification = settings.require_verification
 
-    # ── Password policy ──────────────────────────────────────
-
     async def validate_password(self, password: str, user) -> None:
         # Measured after stripping: "        " is eight characters and passed
         # the raw length check, so a whitespace-only password was accepted
@@ -82,8 +80,6 @@ class UserManager(  # ty: ignore[incompatible-property-override] upstream only r
             raise exceptions.InvalidPasswordException(reason="Password cannot contain your email")
         if password.isdigit():
             raise exceptions.InvalidPasswordException(reason="Password cannot be all numbers")
-
-    # ── Auth (password-credential guards) ────────────────────
 
     async def authenticate(self, credentials):
         """Authenticate by email + password.
@@ -179,7 +175,9 @@ class UserManager(  # ty: ignore[incompatible-property-override] upstream only r
     async def on_after_forgot_password(
         self, user: User, token: str, request: Request | None = None
     ) -> None:
-        await self.mailer.send_password_reset(user.email, token)
+        await self.mailer.send_password_reset(
+            user.email, token, **request_mail_options(self.mailer, request)
+        )
 
     async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
         """Lift a login lockout (GH #530): proving control of the mailbox is the way out.
@@ -200,7 +198,9 @@ class UserManager(  # ty: ignore[incompatible-property-override] upstream only r
     async def on_after_request_verify(
         self, user: User, token: str, request: Request | None = None
     ) -> None:
-        await self.mailer.send_verification(user.email, token)
+        await self.mailer.send_verification(
+            user.email, token, **request_mail_options(self.mailer, request)
+        )
 
     async def on_after_login(
         self, user: User, request: Request | None = None, response=None

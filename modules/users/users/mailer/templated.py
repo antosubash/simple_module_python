@@ -23,6 +23,10 @@ if TYPE_CHECKING:
     from users.mailer import AppNameProvider
 
 logger = logging.getLogger(__name__)
+_MISSING_ORIGIN = (
+    "Account email skipped: configure host.public_base_url / SM_PUBLIC_BASE_URL "
+    "(or users.base_url) for absolute links"
+)
 
 
 class TemplatedMailer:
@@ -66,20 +70,43 @@ class TemplatedMailer:
     @property
     def delivers_email(self) -> bool:
         """Whether the installed sender puts mail in front of a person."""
-        return bool(self._base) and current_mail_sender().delivers_email
+        return self.delivers_with_origin()
 
-    async def send_verification(self, email: str, token: str) -> None:
+    def delivers_with_origin(
+        self, link_origin: str | None = None, *, log_missing_origin: bool = False
+    ) -> bool:
+        if not (self._base or link_origin):
+            if log_missing_origin:
+                logger.error(_MISSING_ORIGIN)
+            return False
+        return current_mail_sender().delivers_email
+
+    async def send_verification(
+        self, email: str, token: str, *, link_origin: str | None = None
+    ) -> None:
         app = self._app_name()
         link = f"/users/verify?token={token}"
         await self._send(
-            email, f"Verify your email for {app}", MAIL_TEMPLATE_VERIFY, app_name=app, link=link
+            email,
+            f"Verify your email for {app}",
+            MAIL_TEMPLATE_VERIFY,
+            app_name=app,
+            link=link,
+            link_origin=link_origin,
         )
 
-    async def send_password_reset(self, email: str, token: str) -> None:
+    async def send_password_reset(
+        self, email: str, token: str, *, link_origin: str | None = None
+    ) -> None:
         app = self._app_name()
         link = f"/users/reset-password?token={token}"
         await self._send(
-            email, f"Reset your {app} password", MAIL_TEMPLATE_RESET, app_name=app, link=link
+            email,
+            f"Reset your {app} password",
+            MAIL_TEMPLATE_RESET,
+            app_name=app,
+            link=link,
+            link_origin=link_origin,
         )
 
     async def send_invite(
@@ -88,6 +115,8 @@ class TemplatedMailer:
         token: str,
         invited_by_name: str,
         message: str | None = None,
+        *,
+        link_origin: str | None = None,
     ) -> None:
         app = self._app_name()
         link = f"/users/invite/accept?token={token}"
@@ -97,6 +126,7 @@ class TemplatedMailer:
             MAIL_TEMPLATE_INVITE,
             app_name=app,
             link=link,
+            link_origin=link_origin,
             invited_by_name=invited_by_name,
             # Stripped here rather than in the template: a message of nothing
             # but whitespace should leave no quoted block behind.
@@ -104,14 +134,18 @@ class TemplatedMailer:
         )
 
     async def _send(
-        self, to: str, subject: str, template_name: str, *, link: str, **context: Any
+        self,
+        to: str,
+        subject: str,
+        template_name: str,
+        *,
+        link: str,
+        link_origin: str | None,
+        **context: Any,
     ) -> None:
-        base = self._base
+        base = self._base or link_origin
         if not base:
-            logger.error(
-                "Account email skipped: configure host.public_base_url / SM_PUBLIC_BASE_URL "
-                "(or users.base_url) for absolute links"
-            )
+            logger.error(_MISSING_ORIGIN)
             return
         context["link"] = f"{base}{link}"
         body = self._template_env.get_template(template_name).render(**context)

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TypedDict, runtime_checkable
 
-from simple_module_hosting.pipeline.public_urls import public_origin
+from simple_module_hosting.pipeline.public_urls import public_origin, trusted_request_origin
+from starlette.requests import Request
 
 from users.core.settings import UsersSettings
+from users.mailer.templated import TemplatedMailer
 
 #: Returns the live application name (e.g. from the branding module) so emails
 #: are branded with the deployment's name rather than the framework default.
@@ -22,10 +24,29 @@ def default_app_name() -> str:
     return DEFAULT_APP_NAME
 
 
+class MailLinkOptions(TypedDict, total=False):
+    link_origin: str
+
+
+def request_mail_options(mailer: object, request: Request | None) -> MailLinkOptions:
+    # Third-party mailers using the original signatures receive no extra keyword.
+    if (
+        isinstance(mailer, TemplatedMailer)
+        and request is not None
+        and (origin := trusted_request_origin(request)) is not None
+    ):
+        return {"link_origin": origin}
+    return {}
+
+
 @runtime_checkable
 class Mailer(Protocol):
-    async def send_verification(self, email: str, token: str) -> None: ...
-    async def send_password_reset(self, email: str, token: str) -> None: ...
+    async def send_verification(
+        self, email: str, token: str, *, link_origin: str | None = None
+    ) -> None: ...
+    async def send_password_reset(
+        self, email: str, token: str, *, link_origin: str | None = None
+    ) -> None: ...
     # *message* is the optional note the inviter typed on the batch form.
     # Keyword-defaulted so a third-party mailer written against the older
     # three-argument signature keeps satisfying this protocol.
@@ -35,10 +56,17 @@ class Mailer(Protocol):
         token: str,
         invited_by_name: str,
         message: str | None = None,
+        *,
+        link_origin: str | None = None,
     ) -> None: ...
 
 
-def mailer_delivers(mailer: object | None) -> bool:
+def mailer_delivers(
+    mailer: object | None,
+    *,
+    link_origin: str | None = None,
+    log_missing_origin: bool = False,
+) -> bool:
     """Whether *mailer* actually puts mail in front of a person.
 
     Four screens branch on this — the reset-sent card, add-people, resend
@@ -49,6 +77,8 @@ def mailer_delivers(mailer: object | None) -> bool:
     rather than the settings because ``delivers_email`` is the mailer's own
     claim; a third-party mailer that never set the flag is taken at its word.
     """
+    if isinstance(mailer, TemplatedMailer):
+        return mailer.delivers_with_origin(link_origin, log_missing_origin=log_missing_origin)
     return bool(mailer is not None and getattr(mailer, "delivers_email", True))
 
 
@@ -59,8 +89,6 @@ def build_mailer(
     template_dirs: Sequence[str | Path] = (),
     base_url_provider: Callable[[], str] | None = None,
 ) -> Mailer:
-    from users.mailer.templated import TemplatedMailer
-
     return TemplatedMailer(
         base_url=base_url_provider or public_origin(None, settings.base_url),
         app_name_provider=app_name_provider,

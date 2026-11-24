@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from simple_module_core.access.permissions import PermissionRegistry
     from simple_module_core.access.principals import PrincipalRegistry
     from simple_module_core.access.resources import ResourceTypeRegistry
+    from simple_module_core.diagnostics import Diagnostic
     from simple_module_core.eventing.events import EventBus
     from simple_module_core.eventing.invalidation import InvalidationBus
     from simple_module_core.web.audit_links import AuditLinkRegistry
@@ -265,6 +266,10 @@ class ModuleBase(RequestHooksMixin, ABC):
         return []
 
     # ── Lifecycle ─────────────────────────────────────────────
+
+    def doctor_diagnostics(self, database_url: str) -> Sequence[Diagnostic]:
+        """Optional read-only checks of deployment configuration for Doctor."""
+        return ()
 
     async def check_data_compatibility(self, db: Any) -> Sequence[DataCompatibilityIssue]:
         """Read-only upgrade checks before settings hydration and module startup.

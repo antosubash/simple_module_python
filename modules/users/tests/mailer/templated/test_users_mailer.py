@@ -67,3 +67,22 @@ async def test_default_app_name_when_no_provider(captured_mail):
     await TemplatedMailer(base_url="http://localhost:8000").send_verification("a@b.com", "tok")
 
     assert "SimpleModule" in captured_mail.messages[0].subject
+
+
+@pytest.mark.parametrize(
+    ("method", "arguments", "path"),
+    [
+        ("send_password_reset", (), "reset-password"),
+        ("send_verification", (), "verify"),
+        ("send_invite", ("Alice Admin",), "invite/accept"),
+    ],
+)
+async def test_request_origin_is_per_send(method, arguments, path, captured_mail, caplog):
+    mailer = TemplatedMailer(base_url="")
+    send = getattr(mailer, method)
+    await send("user@example.com", "token", *arguments, link_origin="https://app.example")
+    await send("user@example.com", "next-token", *arguments)
+
+    (message,) = captured_mail.messages
+    assert f"https://app.example/users/{path}?token=token" in message.text
+    assert "Account email skipped: configure host.public_base_url" in caplog.text

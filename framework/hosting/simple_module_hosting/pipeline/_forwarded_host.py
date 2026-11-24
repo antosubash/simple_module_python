@@ -30,12 +30,25 @@ _FORWARDED_HOST_HEADER = b"x-forwarded-host"
 _FORWARDED_PROTO_HEADER = b"x-forwarded-proto"
 _DEFAULT_PORTS = {"https": 443, "wss": 443}
 _FALLBACK_PORT = 80
-_HOST_PATTERN = re.compile(r"^(?P<host>[a-z0-9]([a-z0-9._-]*[a-z0-9])?)(:(?P<port>\d{1,5}))?$")
+TRUSTED_PROXY_SCOPE_KEY = "sm.trusted_proxy_peer"
+_HOST_PATTERN = re.compile(
+    r"(?P<host>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?|\[[a-f0-9:]+\])(?::(?P<port>[0-9]{1,5}))?"
+)
 
 
 def _split_host(value: str) -> tuple[str, str | None] | None:
-    match = _HOST_PATTERN.match(value.strip().lower())
-    return (match["host"], match["port"]) if match else None
+    match = _HOST_PATTERN.fullmatch(value.strip().lower())
+    if match is None:
+        return None
+    host, port = match["host"], match["port"]
+    if host.startswith("["):
+        try:
+            ipaddress.IPv6Address(host[1:-1])
+        except ValueError:
+            return None
+    if port is not None and int(port) > 65535:
+        return None
+    return host, port
 
 
 def _forwarded_proto(scope: Scope) -> str | None:
@@ -97,6 +110,10 @@ class HostAllowlist:
             return True
         return any(host.endswith("." + name) and port_ok(p) for name, p in self._suffixes)
 
+    def match(self, authority: str) -> tuple[str, str | None] | None:
+        parsed = _split_host(authority)
+        return parsed if parsed is not None and self.allows(*parsed) else None
+
 
 class ForwardedHostMiddleware:
     def __init__(self, app: ASGIApp, *, trusted_hosts: str, allowlist: Iterable[str]) -> None:
@@ -108,6 +125,7 @@ class ForwardedHostMiddleware:
         if scope["type"] in ("http", "websocket"):
             client = scope.get("client")
             if client and client[0] in self._peers:
+                scope[TRUSTED_PROXY_SCOPE_KEY] = True
                 self._rewrite(scope)
         await self.app(scope, receive, send)
 
@@ -120,8 +138,8 @@ class ForwardedHostMiddleware:
         # Rightmost value: the one our trusted proxy added. Earlier values came
         # from upstream hops or the client and cannot be trusted (an appending
         # proxy keeps whatever the client sent at the front).
-        parsed = _split_host(raw.split(",")[-1])
-        if parsed is None or not self._allowed.allows(*parsed):
+        parsed = self._allowed.match(raw.split(",")[-1])
+        if parsed is None:
             logger.debug("Ignoring X-Forwarded-Host %r: not on the allowlist", raw)
             return
         host, port = parsed
@@ -132,4 +150,4 @@ class ForwardedHostMiddleware:
         ]
         proto = _forwarded_proto(scope) or scope.get("scheme", "")
         default = _DEFAULT_PORTS.get(proto, _FALLBACK_PORT)
-        scope["server"] = (host, int(port) if port else default)
+        scope["server"] = (host.removeprefix("[").removesuffix("]"), int(port) if port else default)

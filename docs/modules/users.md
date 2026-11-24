@@ -206,7 +206,7 @@ Edit the remaining settings under Users at `/admin/settings/`:
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
 | `cookie_samesite` | `"lax"` |
-| `base_url` | `""` — inherit `host.public_base_url`; an explicit users origin wins. Both blank: copied links remain relative and account emails are skipped with an ERROR log naming `host.public_base_url` / `SM_PUBLIC_BASE_URL`. Public reset and verification responses remain unchanged. |
+| `base_url` | `""` — inherit `host.public_base_url`. When both are blank, account emails can use an allowlisted request origin. |
 | `mail_template_dirs` | `[]` — ordered absolute template directories, restart required; see [Overriding auth email templates](#overriding-auth-email-templates) |
 | `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
 | `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
@@ -228,6 +228,17 @@ Edit the remaining settings under Users at `/admin/settings/`:
 | `oauth_trusted_email_domains` | `{}` — per provider, domains whose addresses count as verified; `microsoft` and `oidc` only (see [Trusted email domains](#trusted-email-domains)) |
 | `oauth_sync_profile` | `False` — update `full_name` from the IdP's display name on every sign-in, not only when the account is created |
 | `oauth_oidc_client_id` / `oauth_oidc_client_secret` / `oauth_oidc_discovery_url` / `oauth_oidc_display_name` | `""` / `""` / `""` / `"OIDC"` — generic OIDC |
+
+Password reset, verification and invitation emails use `users.base_url` first,
+then `host.public_base_url` (including `SM_PUBLIC_BASE_URL`), then the resolved
+request origin if it matches `host.forwarded_host_allowlist`. HTTPS is
+eligible. HTTP requires a trusted proxy peer or an allowlisted loopback host
+(`localhost`, `127.0.0.0/8` or `[::1]`). Sends without a request require a
+configured origin. If no origin qualifies, delivery is skipped with an ERROR
+log. Public reset and verification responses remain generic. Copied links stay
+relative when both configured origins are blank. See the
+[shared host policy](/framework/settings#shared-host-policy) for allowlist
+matching and proxy handling.
 
 ## Permissions
 
