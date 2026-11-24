@@ -1,6 +1,6 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { FieldInput, type FieldMeta } from './FieldInput';
-import { FieldSource } from './FieldSource';
+import { FieldSource, sourceShowsDescription } from './FieldSource';
 
 interface Props {
   field: FieldMeta;
@@ -33,9 +33,10 @@ export function ModuleFieldRow({
 }: Props) {
   const { t } = useT();
   const id = `field-${pkg}-${field.name}`;
-  // A bool's description is the trailing meta; repeating it here would print
-  // the same sentence twice on the same row.
-  const showDescription = field.description && field.type !== 'bool';
+  // A bool's description is normally the trailing meta; repeating it here would
+  // print the same sentence twice. When the trailing column shows something
+  // else (a stored value, a secret), the description belongs here instead.
+  const showDescription = !!field.description && !sourceShowsDescription(field);
 
   return (
     // Query the editor card: two sidebars can leave little space at a wide viewport.
