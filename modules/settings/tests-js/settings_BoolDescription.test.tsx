@@ -36,12 +36,18 @@ function renderRow(field: FieldMeta) {
 test('a bool description shows once, in the trailing column, without a stored value', () => {
   renderRow(boolField);
   expect(screen.getAllByText(WARNING)).toHaveLength(1);
+  expect(screen.getByText(boolField.name).parentElement).not.toContainElement(
+    screen.getByText(WARNING),
+  );
 });
 
 // #1062: the stored-value text takes the trailing column over; the warning must stay on the row.
 test('a bool description stays on the row while a stored value overrides it', () => {
   renderRow({ ...boolField, value: true, db_override: true });
   expect(screen.getAllByText(WARNING)).toHaveLength(1);
+  expect(screen.getByText(boolField.name).parentElement).toContainElement(
+    screen.getByText(WARNING),
+  );
 });
 
 test('a bool input_type field keeps its description when overridden', () => {

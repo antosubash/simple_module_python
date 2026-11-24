@@ -40,7 +40,10 @@ export function ModuleFieldRow({
 
   return (
     // Query the editor card: two sidebars can leave little space at a wide viewport.
-    <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,140px)_minmax(180px,1fr)] @xl:grid-cols-[minmax(0,140px)_minmax(180px,1fr)_minmax(0,160px)] @xl:items-center">
+    <div
+      data-testid={`row-${id}`}
+      className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,140px)_minmax(180px,1fr)] @xl:grid-cols-[minmax(0,140px)_minmax(180px,1fr)_minmax(0,160px)] @xl:items-center"
+    >
       <div className="min-w-0">
         <label htmlFor={id} className="block [overflow-wrap:anywhere] text-[13px] font-medium">
           {field.name}

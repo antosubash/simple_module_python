@@ -43,7 +43,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- settings: a boolean field's description stays on its row while a stored value overrides it; the label column shows it whenever the trailing column shows the stored-value text (#1062).
+- Settings descriptions for boolean fields remain visible when a stored override or secret hint occupies the trailing column (#1062).
 - Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
 - Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
 - Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).

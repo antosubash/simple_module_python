@@ -72,19 +72,22 @@ def test_bool_description_stays_while_stored_value_overrides(
     page.goto("/admin/settings/")
     page.get_by_role("button", name=re.compile(r"^file_storage\b")).click()
 
-    toggle = page.get_by_role("switch", name="public_files_cors")
-    description = page.get_by_text("Let any origin read public files cross-origin", exact=False)
+    row = page.get_by_test_id("row-field-file_storage-public_files_cors")
+    toggle = row.get_by_role("switch", name="public_files_cors", exact=True)
+    description = row.get_by_text("Let any origin read public files cross-origin", exact=False)
+    revert = row.get_by_role("button", name="Revert", exact=True)
+    expect(revert).to_have_count(0)
     expect(description).to_be_visible()
 
     toggle.click()
     save = page.get_by_role("button", name="Save")
     save.click()
-    expect(save).to_be_disabled()
-    revert = page.get_by_role("button", name="Revert")
     expect(revert).to_be_visible()
-    expect(description).to_be_visible()
-
-    # Remove the stored value so the test is idempotent.
-    revert.click()
-    expect(revert).to_be_hidden()
+    try:
+        expect(save).to_be_disabled()
+        expect(description).to_be_visible()
+    finally:
+        # Remove the stored value even when the regression assertion fails.
+        revert.click()
+        expect(revert).to_have_count(0)
     expect(description).to_be_visible()
