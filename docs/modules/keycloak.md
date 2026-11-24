@@ -53,8 +53,9 @@ The browser session uses a signed, **unencrypted** cookie, so the refresh token 
 After clearing an authenticated local session and attempting back-channel SSO
 logout when a refresh token is available, Keycloak publishes the in-process
 `UserLoggedOut` event from `simple_module_core.user_events`. Its `user_id` is the
-authenticated principal ID, which can be the OIDC subject if the local cache is
-unavailable. Subscriber failures are logged and logout still succeeds.
+authenticated principal ID as a string. It is usually the local cache row ID
+and falls back to the OIDC subject if the cache is unavailable. Subscriber
+failures are logged and logout still succeeds.
 
 `KeycloakModule.register_public_routes` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
 

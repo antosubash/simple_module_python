@@ -121,10 +121,10 @@ async def test_logout_publishes_only_for_an_authenticated_session(oidc_app, flow
     assert observed == []
 
     signed_in = {
-        "user_ctx": {"id": "subject", "email": "a@example.com", "name": "A", "roles": []},
+        "user_ctx": {"id": "cache-id", "email": "a@example.com", "name": "A", "roles": []},
         "expires_at": 4_102_444_800,
         "oidc_identity": [oidc_app.state.oidc.metadata.issuer, "subject"],
     }
     flow_client.cookies.set("session", forge_session_cookie("test-secret-key", signed_in))
     assert (await flow_client.post("/oidc/logout")).status_code == 303
-    assert observed == [UserLoggedOut(user_id="subject", email="a@example.com")]
+    assert observed == [UserLoggedOut(user_id="cache-id", email="a@example.com")]

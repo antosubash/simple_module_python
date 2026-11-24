@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.csrf import require_browser_origin
 from simple_module_hosting.frontend.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.protocol.response import location
+from starlette.background import BackgroundTask
 from starlette.responses import RedirectResponse, Response
 
 from keycloak.identity.renewal import _KEYS
@@ -76,8 +77,6 @@ async def logout(request: Request) -> Response:
         except Exception:
             # Never log the exception text: it may carry request details.
             logger.warning("Keycloak back-channel logout failed")
-    if event is not None:
-        await request.app.state.sm.event_bus.publish(event)
     base_url = str(request.base_url).rstrip("/")
     logout_url = client.build_logout_url(
         post_logout_redirect_uri=f"{base_url}{_LOGGED_OUT_PATH}",
@@ -85,5 +84,9 @@ async def logout(request: Request) -> Response:
     if is_inertia_request(request.scope):
         # An Inertia XHR cannot follow a redirect to the IdP (CSP connect-src);
         # 409 + X-Inertia-Location makes the client do a full-page visit.
-        return location(logout_url)
-    return RedirectResponse(logout_url, status_code=303)
+        response = location(logout_url)
+    else:
+        response = RedirectResponse(logout_url, status_code=303)
+    if event is not None:
+        response.background = BackgroundTask(request.app.state.sm.event_bus.publish, event)
+    return response

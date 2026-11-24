@@ -319,9 +319,9 @@ in worker threads so unrelated requests can continue during hashing (#737).
 | `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
 
 `UserLoggedOut` is an in-process event defined in `simple_module_core.user_events`
-and re-exported from `users.contracts.events`. Local logout publishes after the
-session revocation transaction finalizes. Subscriber failures are logged and
-logout still succeeds.
+and re-exported from `users.contracts.events`. Users publishes the account ID
+as a UUID after the session revocation transaction finalizes. Subscriber
+failures are logged and logout still succeeds.
 
 Single admin create/invite publishes `UserCreated` / `UserInvited` through the
 transactional admin-event helper: durable handlers use the request transaction

@@ -220,7 +220,8 @@ with a warning rather than blocking sign-in.
 
 After clearing an authenticated session, the provider publishes the in-process
 `UserLoggedOut` event from `simple_module_core.user_events`. Subscribers receive
-the principal ID and email. Subscriber failures are logged and logout continues.
+the principal ID (the local cache row ID as a string) and email. Subscriber
+failures are logged and logout continues.
 
 Logout uses the discovered `end_session_endpoint` with
 `client_id` and `post_logout_redirect_uri=<app>/oidc/logged-out`. Inertia logout
