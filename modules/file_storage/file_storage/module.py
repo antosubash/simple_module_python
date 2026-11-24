@@ -84,9 +84,9 @@ class FileStorageModule(ModuleBase):
         view_router.include_router(views)
 
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:
-        """Let anyone GET a file its owner marked public (#353).
+        """Let anyone read a file its owner marked public (#353, #1131).
 
-        GET-only and anchored to ``/public/{id}[/{name}|/thumbnail]``, so
+        GET and HEAD are anchored to ``/public/{id}[/{name}|/thumbnail]``, so
         uploads, deletes and the authenticated download keep requiring a
         session. The handler itself still refuses anything not ``public``.
         """

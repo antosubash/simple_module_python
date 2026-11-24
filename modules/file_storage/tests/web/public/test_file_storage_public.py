@@ -58,6 +58,16 @@ async def test_upload_public_returns_url_and_anonymous_get_works(
             assert head.headers[header] == full.headers[header]
     again = await client.get(f"{API}/public/{body['id']}", headers={"If-None-Match": etag})
     assert again.status_code == 304
+    conditional_head = await client.head(
+        f"{API}/public/{body['id']}", headers={"If-None-Match": etag}
+    )
+    assert conditional_head.status_code == 304
+    assert conditional_head.headers["etag"] == again.headers["etag"]
+
+    # A text file has no thumbnail. If the named-file route shadows the
+    # thumbnail route, it serves the original file and returns 200.
+    thumbnail_head = await client.head(f"{API}/public/{body['id']}/thumbnail")
+    assert thumbnail_head.status_code == 404
 
 
 async def test_private_file_is_404_anonymously(authenticated_client, client):
@@ -164,3 +174,31 @@ async def test_patch_public_rejects_non_boolean(authenticated_client, client):
         assert resp.status_code == 422, (value, resp.text)
     assert (await authenticated_client.get(url)).json()["public"] is False
     assert (await client.get(f"{API}/public/{body['id']}")).status_code == 404
+
+
+async def test_public_head_skips_file_reads(authenticated_client, client, app, monkeypatch):
+    body = await _upload(authenticated_client, public="true")
+
+    async def unexpected_read(*args):
+        raise AssertionError("HEAD opened the file body")
+
+    async def missing_object(key):
+        return False
+
+    backend = app.state.file_storage.backend
+    monkeypatch.setattr(backend, "get", unexpected_read)
+    monkeypatch.setattr(backend, "get_range", unexpected_read)
+    for headers in ({}, {"Range": "bytes=1-2"}, {"Range": "bytes=99-"}):
+        response = await client.head(body["public_url"], headers=headers)
+        assert response.status_code == 200
+        assert response.headers["content-length"] == "5"
+        assert "content-range" not in response.headers
+        assert response.content == b""
+
+    cached = await client.head(
+        body["public_url"], headers={"If-None-Match": response.headers["etag"]}
+    )
+    assert cached.status_code == 304
+
+    monkeypatch.setattr(backend, "exists", missing_object)
+    assert (await client.head(body["public_url"])).status_code == 404
