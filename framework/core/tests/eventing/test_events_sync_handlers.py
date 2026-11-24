@@ -35,6 +35,31 @@ async def test_raising_sync_handler_is_logged_and_others_still_run(caplog) -> No
     assert "sync subscriber failed" in caplog.text
 
 
+async def test_publish_logs_failure_when_subscriber_name_lookup_raises(caplog) -> None:
+    bus = EventBus()
+
+    class Subscriber:
+        called = False
+
+        def __getattr__(self, name: str) -> str:
+            if name == "__qualname__" and self.called:
+                raise RuntimeError("subscriber name unavailable after dispatch")
+            raise AttributeError(name)
+
+        def __call__(self, event: Pinged) -> None:
+            self.called = True
+            raise ValueError("subscriber failed")
+
+    bus.subscribe(Pinged, Subscriber())
+    await bus.publish(Pinged())
+
+    record = next(record for record in caplog.records if record.levelno == logging.ERROR)
+    assert record.exc_info is not None
+    assert isinstance(record.exc_info[1], ValueError)
+    assert str(record.exc_info[1]) == "subscriber failed"
+    assert record.exc_info[2] is not None
+
+
 async def test_sync_handler_runs() -> None:
     bus = EventBus()
     seen: list[int] = []

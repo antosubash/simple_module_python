@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,7 +22,7 @@ from simple_module_core.eventing.durable_events import (
 
 logger = logging.getLogger(__name__)
 
-EventHandler = Callable[..., Coroutine[Any, Any, None] | asyncio.Future[None] | None]
+EventHandler = Callable[..., Awaitable[None] | None]
 
 
 @dataclass
@@ -113,7 +113,10 @@ class EventBus:
             if result is None:
                 continue
             handler = handlers[i]
-            name = getattr(handler, "__qualname__", type(handler).__qualname__)
+            try:
+                name = handler.__qualname__
+            except Exception:
+                name = type(handler).__qualname__
             if isinstance(result, Exception):
                 logger.error(
                     "Event handler %s failed for %s: %s",
