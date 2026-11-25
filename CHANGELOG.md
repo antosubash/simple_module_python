@@ -45,6 +45,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- core: `EventBus.publish` runs sync subscribers inside its isolation: a raising sync handler is logged and the remaining handlers still run, and a sync handler that returns `None` no longer breaks the dispatch (#1134).
 - Browser sessions now restore null email and name values as empty strings. Legacy session emails stored as `"None"` also restore as empty strings (#1133).
 - file_storage: `HEAD` on a public file URL (and its thumbnail) answers like `GET` without a body, instead of `401`, so link checkers and download tools see public files (#1131).
 - Skip host GZip compression for partial responses and already-compressed media types, preserving range headers and byte offsets (#1127).

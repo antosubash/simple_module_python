@@ -123,7 +123,7 @@ If you want a handler to see several event types, subscribe it to each one expli
 - **Awaited** from the publisher's perspective: `await bus.publish(...)` runs all handlers **concurrently** via `asyncio.gather` and resolves once they've all completed. (Use `publish_nowait(...)` for fire-and-forget scheduling on the loop.)
 - **In-process only.** Not delivered to other uvicorn workers, other processes, or other hosts.
 - **No persistence.** A crash mid-publish loses undelivered events.
-- **Handler failures are isolated.** `publish` gathers with `return_exceptions=True`: each handler exception is logged and the publish itself never raises.
+- **Handler failures are isolated.** `publish` runs sync and async handlers inside `asyncio.gather(..., return_exceptions=True)` and awaits any awaitable they return. It logs ordinary handler exceptions at ERROR and handler cancellation at WARNING, including when a handler returns an awaitable that is cancelled. Other handlers continue running. Cancelling `publish` itself still cancels the gather and propagates to the caller.
 
 If you need durable delivery across processes, use [durable delivery](#durable-delivery) below. The older pattern — a handler that enqueues a Celery task — still works, but loses the event if the process dies between the commit and the enqueue:
 
