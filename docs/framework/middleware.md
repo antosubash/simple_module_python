@@ -84,7 +84,7 @@ It used to be load-bearing for the UI too, because Inertia's page url was absolu
 
 It is still load-bearing for anything else that reads `request.url.scheme` or calls `request.url_for(...)` to build an absolute url — OAuth/OIDC's `callback_url` (`modules/users/users/oauth/api.py`, `modules/keycloak/keycloak/web/endpoints/api.py`) and the locale cookie's `secure` flag (`simple_module_hosting/i18n/i18n_routes.py`) among them. Left unset behind a TLS-terminating proxy, an OAuth redirect_uri is built as `http://…` and most providers reject it as a mismatch against the `https://…` one registered in their console.
 
-Set it to a comma-separated list of proxy IPs/CIDRs, or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
+Set it to a comma-separated list of proxy IPs/CIDRs (network addresses, such as `10.0.0.0/24`: a CIDR with host bits set trusts no peer and logs a WARNING), or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
 
 ### `ForwardedHostMiddleware` *(opt-in)*
 

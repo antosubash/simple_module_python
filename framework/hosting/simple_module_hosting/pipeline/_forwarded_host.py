@@ -44,6 +44,18 @@ def _forwarded_proto(scope: Scope) -> str | None:
     return raw.split(",")[-1].strip().lower() or None
 
 
+def _warn_if_host_bits_set(item: str) -> None:
+    try:
+        network = ipaddress.ip_network(item, strict=False)
+    except ValueError:
+        return
+    logger.warning(
+        "trusted_proxy entry %r has host bits set and trusts no peer; did you mean %s?",
+        item,
+        network,
+    )
+
+
 class TrustedPeers:
     """Mirror of uvicorn's trusted-hosts rule: ``*``, IPs and CIDRs, comma-separated."""
 
@@ -56,8 +68,11 @@ class TrustedPeers:
             if not item or item == _WILDCARD:
                 continue
             try:
-                self._networks.append(ipaddress.ip_network(item, strict=False))
+                # Match uvicorn: a CIDR with host bits set is not a network, so
+                # it cannot widen trust beyond what ProxyHeaders accepts.
+                self._networks.append(ipaddress.ip_network(item))
             except ValueError:
+                _warn_if_host_bits_set(item)
                 self._literals.add(item)  # e.g. a unix-socket peer name
 
     def __contains__(self, peer: str | None) -> bool:

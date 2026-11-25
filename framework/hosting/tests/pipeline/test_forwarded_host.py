@@ -126,6 +126,15 @@ class TestPeers:
     def test_trusted_hosts_rule(self, spec: str, peer: str | None, trusted: bool) -> None:
         assert (peer in TrustedPeers(spec)) is trusted
 
+    def test_cidr_with_host_bits_set_trusts_no_peer(self, caplog) -> None:
+        # uvicorn's ProxyHeaders rejects it too; ForwardedHost must not trust more.
+        with caplog.at_level("WARNING"):
+            peers = TrustedPeers("192.0.2.10/24")
+        assert "192.0.2.1" not in peers
+        assert "192.0.2.10" not in peers
+        assert "192.0.2.0/24" in caplog.text
+        assert "192.0.2.1" in TrustedPeers("192.0.2.0/24")
+
     def test_allowlist_skips_invalid_entries(self) -> None:
         assert not HostAllowlist(["bad entry/", ""]).allows("app.example.com", None)
 
