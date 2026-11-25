@@ -73,7 +73,8 @@ async def test_second_microsoft_identity_is_refused(
         if r.levelno == logging.WARNING and "OAUTH_ACCOUNT_LINKED_ELSEWHERE" in r.getMessage()
     )
     assert warning.getMessage() == (
-        "OAuth sign-in through microsoft refused: OAUTH_ACCOUNT_LINKED_ELSEWHERE"
+        "OAuth sign-in through microsoft refused: "
+        f"OAUTH_ACCOUNT_LINKED_ELSEWHERE (user {local_account})"
     )
 
 

@@ -217,8 +217,12 @@ def register_oauth_routes(api_router: APIRouter) -> None:
                 is_verified_by_default=email_verified,
             )
         except OAuthAccountLinkedElsewhereError:
+            # The local user id lets an operator find the account; no address or IdP id.
             logger.warning(
-                "OAuth sign-in through %s refused: %s", provider, OAUTH_ACCOUNT_LINKED_ELSEWHERE
+                "OAuth sign-in through %s refused: %s (user %s)",
+                provider,
+                OAUTH_ACCOUNT_LINKED_ELSEWHERE,
+                existing.id if existing is not None else None,
             )
             return refuse_login(request, OAUTH_ACCOUNT_LINKED_ELSEWHERE, status.HTTP_403_FORBIDDEN)
         except fu_exceptions.UserAlreadyExists:
