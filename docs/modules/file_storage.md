@@ -92,9 +92,23 @@ configuration, which you must set on the bucket.
 The public routes are exempt from `AuthMiddleware` through
 `register_public_routes` (`GET` and `HEAD`; uploads, PATCH and deletes stay gated).
 `HEAD` returns headers without a response body and honours `If-None-Match`.
-When the app serves the original file directly, `HEAD` ignores `Range` and
-reports the full `Content-Length` from stored metadata without opening the
-file body (#1131).
+For original files, `HEAD` ignores `Range`, checks object existence and reports
+the full `Content-Length`, safe content type, disposition and app ETag from
+stored metadata without opening the body. This also applies to S3: `HEAD`
+answers `200` directly; `GET` keeps its presigned `302` redirect (#1139).
+
+Thumbnail `HEAD` never generates a variant. A cached variant supplies its size
+through backend metadata, without reading its body, and uses the same app ETag
+and cache headers as `GET`. A cold variant returns `200` with `image/webp` and
+the width-specific ETag, omitting `Content-Length` because the encoded size is
+unknown. Missing originals and non-thumbnail types return `404`; invalid image
+headers, type mismatches and exceeded source/pixel budgets return `422`. Cold
+probes read at most 64 KiB of the original and parse its header without decoding
+pixels. Headers extending beyond that budget and corruption detectable only by
+decoding are validated by the first `GET`; a decodable-looking source may
+therefore answer `200` to `HEAD` and later fail `GET` with `422` (#1140).
+Third-party backends without the optional `head(key)` metadata method omit the
+cached variant's length too.
 Serving rules:
 
 - Only `public=True`, non-deleted rows resolve; unknown, private and deleted

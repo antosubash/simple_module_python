@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from file_storage.backends.guard import require_backend
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.core import constants
-from file_storage.files import thumbnails
+from file_storage.files import thumbnail_metadata, thumbnails
 from file_storage.files.downloads import content_disposition, presigned_download_url
 from file_storage.files.media_types import is_active_content
 from file_storage.files.ranges import file_body_response
@@ -73,6 +73,22 @@ async def thumbnail_response(
     ):
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     try:
+        if request is not None and request.method == constants.HTTP_HEAD:
+            await service._release_connection(row)
+            size = await thumbnail_metadata.head_size(
+                service.backend,
+                key=row.key,
+                content_type=row.content_type,
+                width=snapped,
+                source_size=row.size_bytes,
+            )
+            response = Response(media_type=constants.THUMBNAIL_CONTENT_TYPE, headers=headers)
+            # Response's default length of zero would describe an empty variant.
+            if size is None:
+                del response.headers["Content-Length"]
+            else:
+                response.headers["Content-Length"] = str(size)
+            return response
         data = await service.thumbnail(row, snapped)
     except (thumbnails.NotAnImageError, StorageNotFoundError) as exc:
         # A row whose object is gone is a miss, not a server error.
