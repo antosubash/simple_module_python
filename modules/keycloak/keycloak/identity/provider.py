@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _empty_if_none(value: str | None) -> str:
-    return "" if value is None else value
+def _string_or_empty(value: object) -> str:
+    return value if isinstance(value, str) else ""
 
 
 class KeycloakAuthProvider(CachePersistence, SessionRenewal):
@@ -124,9 +124,10 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
         ]
         return UserContext(
             id=cache_id,
-            email=_empty_if_none(claims.get("email")),
+            email=_string_or_empty(claims.get("email")),
             email_verified=claims.get("email_verified") is True,
-            name=_empty_if_none(claims.get("preferred_username") or claims.get("name")),
+            name=_string_or_empty(claims.get("preferred_username"))
+            or _string_or_empty(claims.get("name")),
             roles=self._without_tenant_roles(mapped),
             tenant_id=self._trusted_tenant(claims.get("tenant_id")),
         )
