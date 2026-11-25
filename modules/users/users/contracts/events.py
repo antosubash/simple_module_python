@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass
 
 from simple_module_core.eventing.events import Event
-from simple_module_core.user_events import UserDeleted
+from simple_module_core.user_events import UserDeleted, UserLoggedOut
 
 __all__ = [
     "RoleAssigned",
@@ -14,6 +14,7 @@ __all__ = [
     "UserDeleted",
     "UserDisabled",
     "UserInvited",
+    "UserLoggedOut",
     "UserRegistered",
 ]
 

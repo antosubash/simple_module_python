@@ -2,12 +2,14 @@
 
 import logging
 
+from auth.contracts.events import session_logout_event
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.auth_policy import login_redirect_url
 from simple_module_hosting.auth.csrf import require_browser_origin
 from simple_module_hosting.frontend.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.protocol.response import location
+from starlette.background import BackgroundTask
 from starlette.responses import RedirectResponse
 
 from oidc.core.constants import (
@@ -40,6 +42,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
+    event = session_logout_event(request, local_account=False)
     client = request.app.state.oidc.client
     if client is not None:
         try:
@@ -62,5 +65,9 @@ async def logout(request: Request):
         except Exception:
             logger.warning("OIDC logout unavailable; local session cleared")
     if is_inertia_request(request.scope):
-        return location(destination)
-    return RedirectResponse(destination, status_code=303)
+        response = location(destination)
+    else:
+        response = RedirectResponse(destination, status_code=303)
+    if event is not None:
+        response.background = BackgroundTask(request.app.state.sm.event_bus.publish, event)
+    return response
