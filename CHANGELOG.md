@@ -45,6 +45,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Skip host GZip compression for partial responses and already-compressed media types, preserving range headers and byte offsets (#1127).
+- Preserve a response’s own Referrer-Policy and omit the host default on 304 responses so caches retain the existing policy (#1061).
 - Settings descriptions for boolean fields remain visible when a stored override or secret hint occupies the trailing column (#1062).
 - Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
 - Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
