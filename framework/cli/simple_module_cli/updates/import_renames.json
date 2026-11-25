@@ -1,0 +1,577 @@
+{
+  "_generated_by": "scripts/gen_import_renames.py",
+  "renames": {
+    "simple_module_core.activity_feed": {
+      "new": "simple_module_core.access.activity_feed",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.app_state": {
+      "new": "simple_module_core.modules.app_state",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.audit_links": {
+      "new": "simple_module_core.web.audit_links",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.body_limits": {
+      "new": "simple_module_core.web.body_limits",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.correlation": {
+      "new": "simple_module_core.runtime.correlation",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.cors": {
+      "new": "simple_module_core.web.cors",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.crypto": {
+      "new": "simple_module_core.runtime.crypto",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.csp": {
+      "new": "simple_module_core.web.csp",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.data_compatibility": {
+      "new": "simple_module_core.migrations.data_compatibility",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.datetimes": {
+      "new": "simple_module_core.runtime.datetimes",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.deprecation": {
+      "new": "simple_module_core.runtime.deprecation",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.design_packs": {
+      "new": "simple_module_core.web.design_packs",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.discovery": {
+      "new": "simple_module_core.modules.discovery",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.dotenv": {
+      "new": "simple_module_core.settings.dotenv",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.durable_events": {
+      "new": "simple_module_core.eventing.durable_events",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.environments": {
+      "new": "simple_module_core.settings.environments",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.events": {
+      "new": "simple_module_core.eventing.events",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.exceptions": {
+      "new": "simple_module_core.runtime.exceptions",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.feature_flags": {
+      "new": "simple_module_core.web.feature_flags",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.file_access": {
+      "new": "simple_module_core.access.file_access",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.health": {
+      "new": "simple_module_core.web.health",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.i18n": {
+      "new": "simple_module_core.localization.i18n",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.invalidation": {
+      "new": "simple_module_core.eventing.invalidation",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.invalidation_refresh": {
+      "new": "simple_module_core.eventing.invalidation_refresh",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.leases": {
+      "new": "simple_module_core.runtime.leases",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.mail": {
+      "new": "simple_module_core.mailer.mail",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.menu": {
+      "new": "simple_module_core.web.menu",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.migration_support": {
+      "new": "simple_module_core.migrations.support",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.module": {
+      "new": "simple_module_core.modules.module",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.module_meta": {
+      "new": "simple_module_core.modules.module_meta",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.module_settings": {
+      "new": "simple_module_core.settings.module_settings",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.permission_denied": {
+      "new": "simple_module_core.access.permission_denied",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.permissions": {
+      "new": "simple_module_core.access.permissions",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.principal_permissions": {
+      "new": "simple_module_core.access.principal_permissions",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.principals": {
+      "new": "simple_module_core.access.principals",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.public_routes": {
+      "new": "simple_module_core.web.public_routes",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.rate_limit": {
+      "new": "simple_module_core.web.rate_limit",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.redirect_safety": {
+      "new": "simple_module_core.web.redirect_safety",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.resources": {
+      "new": "simple_module_core.access.resources",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.role_directory": {
+      "new": "simple_module_core.access.role_directory",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.secret_fields": {
+      "new": "simple_module_core.settings.secret_fields",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.services": {
+      "new": "simple_module_core.modules.services",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.settings_base": {
+      "new": "simple_module_core.settings.settings_base",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.settings_hydrate": {
+      "new": "simple_module_core.settings.settings_hydrate",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.setup_steps": {
+      "new": "simple_module_core.web.setup_steps",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.singleflight": {
+      "new": "simple_module_core.runtime.singleflight",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.spa_mount": {
+      "new": "simple_module_core.web.spa_mount",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.stored_settings": {
+      "new": "simple_module_core.settings.stored_settings",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.tenancy": {
+      "new": "simple_module_core.access.tenancy",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.user_directory": {
+      "new": "simple_module_core.access.user_directory",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_core.versioning": {
+      "new": "simple_module_core.modules.versioning",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db._core_walk": {
+      "new": "simple_module_db.scoping._core_walk",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.admission": {
+      "new": "simple_module_db.engine.admission",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.audit": {
+      "new": "simple_module_db.auditing.audit",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.audit_sinks": {
+      "new": "simple_module_db.auditing.audit_sinks",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.base": {
+      "new": "simple_module_db.models.base",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.callbacks": {
+      "new": "simple_module_db.engine.callbacks",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.core_scope": {
+      "new": "simple_module_db.scoping.core_scope",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.data_compatibility": {
+      "new": "simple_module_db.schema.data_compatibility",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.deps": {
+      "new": "simple_module_db.engine.deps",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.engine_options": {
+      "new": "simple_module_db.engine.engine_options",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.extensions": {
+      "new": "simple_module_db.models.extensions",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.independent": {
+      "new": "simple_module_db.engine.independent",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.leases": {
+      "new": "simple_module_db.engine.leases",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.listeners": {
+      "new": "simple_module_db.models.listeners",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.migration_state": {
+      "new": "simple_module_db.schema.migration_state",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.mixins": {
+      "new": "simple_module_db.models.mixins",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.pagination": {
+      "new": "simple_module_db.queries.pagination",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.principals": {
+      "new": "simple_module_db.queries.principals",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.provider": {
+      "new": "simple_module_db.engine.provider",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.query_filter": {
+      "new": "simple_module_db.scoping.query_filter",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.query_stats": {
+      "new": "simple_module_db.engine.query_stats",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.resource_policy": {
+      "new": "simple_module_db.queries.resource_policy",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.scope_predicates": {
+      "new": "simple_module_db.scoping.scope_predicates",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.scopes": {
+      "new": "simple_module_db.scoping.scopes",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.search": {
+      "new": "simple_module_db.queries.search",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.session": {
+      "new": "simple_module_db.engine.session",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.stored_settings": {
+      "new": "simple_module_db.queries.stored_settings",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.tenancy": {
+      "new": "simple_module_db.scoping.tenancy",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.tenant_cleanup": {
+      "new": "simple_module_db.scoping.tenant_cleanup",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.transaction": {
+      "new": "simple_module_db.engine.transaction",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.types": {
+      "new": "simple_module_db.models.types",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_db.user_directory_sql": {
+      "new": "simple_module_db.queries.user_directory_sql",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._api_version": {
+      "new": "simple_module_hosting.config._api_version",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._app_boot": {
+      "new": "simple_module_hosting.boot._app_boot",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._body_limit": {
+      "new": "simple_module_hosting.pipeline._body_limit",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._csp_dynamic": {
+      "new": "simple_module_hosting.pipeline._csp_dynamic",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._forwarded_host": {
+      "new": "simple_module_hosting.pipeline._forwarded_host",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._host_services": {
+      "new": "simple_module_hosting.config._host_services",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._hydrate_step": {
+      "new": "simple_module_hosting.boot._hydrate_step",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._i18n_modules": {
+      "new": "simple_module_hosting.i18n._i18n_modules",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._i18n_target": {
+      "new": "simple_module_hosting.i18n._i18n_target",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._module_routes": {
+      "new": "simple_module_hosting.boot._module_routes",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._preapp_config": {
+      "new": "simple_module_hosting.config._preapp_config",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._route_paths": {
+      "new": "simple_module_hosting.pipeline._route_paths",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._secret_key": {
+      "new": "simple_module_hosting.config._secret_key",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting._tenant": {
+      "new": "simple_module_hosting.pipeline._tenant",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.admin_surfaces": {
+      "new": "simple_module_hosting.frontend.admin_surfaces",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.app_builder": {
+      "new": "simple_module_hosting.boot.app_builder",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.assets": {
+      "new": "simple_module_hosting.frontend.assets",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.auth_policy": {
+      "new": "simple_module_hosting.auth.auth_policy",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.bootstrap_settings": {
+      "new": "simple_module_hosting.config.bootstrap_settings",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.csrf": {
+      "new": "simple_module_hosting.auth.csrf",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.health": {
+      "new": "simple_module_hosting.boot.health",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.host": {
+      "new": "simple_module_hosting.boot.host",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.host_settings": {
+      "new": "simple_module_hosting.config.host_settings",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.i18n_deps": {
+      "new": "simple_module_hosting.i18n.i18n_deps",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.i18n_manifest": {
+      "new": "simple_module_hosting.i18n.i18n_manifest",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.inertia_deps": {
+      "new": "simple_module_hosting.frontend.inertia_deps",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.inertia_utils": {
+      "new": "simple_module_hosting.frontend.inertia_utils",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.installation": {
+      "new": "simple_module_hosting.config.installation",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.leases": {
+      "new": "simple_module_hosting.locking.leases",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.log_sinks": {
+      "new": "simple_module_hosting.observability.log_sinks",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.logging": {
+      "new": "simple_module_hosting.observability.logging",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.manifest": {
+      "new": "simple_module_hosting.frontend.manifest",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.middleware": {
+      "new": "simple_module_hosting.pipeline.middleware",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.migrations": {
+      "new": "simple_module_hosting.boot.migrations",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.migrations_env": {
+      "new": "simple_module_hosting.boot.migrations_env",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.pagination": {
+      "new": "simple_module_hosting.frontend.pagination",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.path_matching": {
+      "new": "simple_module_hosting.pipeline.path_matching",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.permissions": {
+      "new": "simple_module_hosting.auth.permissions",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.public_access": {
+      "new": "simple_module_hosting.pipeline.public_access",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.public_urls": {
+      "new": "simple_module_hosting.pipeline.public_urls",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.rate_limit_deps": {
+      "new": "simple_module_hosting.rate_limit.rate_limit_deps",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.redirects": {
+      "new": "simple_module_hosting.pipeline.redirects",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.resource_deps": {
+      "new": "simple_module_hosting.auth.resource_deps",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.sentry": {
+      "new": "simple_module_hosting.observability.sentry",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.session": {
+      "new": "simple_module_hosting.pipeline.session",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.settings": {
+      "new": "simple_module_hosting.config.settings",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.setup_gate": {
+      "new": "simple_module_hosting.pipeline.setup_gate",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.shared_props": {
+      "new": "simple_module_hosting.frontend.shared_props",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.tenancy": {
+      "new": "simple_module_hosting.pipeline.tenancy",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_hosting.token_guard": {
+      "new": "simple_module_hosting.auth.token_guard",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_inertia.response": {
+      "new": "simple_module_inertia.protocol.response",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test._schema": {
+      "new": "simple_module_test.db._schema",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.database": {
+      "new": "simple_module_test.db.database",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.fixtures": {
+      "new": "simple_module_test.app.fixtures",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.inertia": {
+      "new": "simple_module_test.web.inertia",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.layout": {
+      "new": "simple_module_test.app.layout",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.mail": {
+      "new": "simple_module_test.fakes.mail",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.session_cookie": {
+      "new": "simple_module_test.web.session_cookie",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.setup_wizard": {
+      "new": "simple_module_test.web.setup_wizard",
+      "remove_in": "0.0.55"
+    },
+    "simple_module_test.tenant_client": {
+      "new": "simple_module_test.web.tenant_client",
+      "remove_in": "0.0.55"
+    }
+  }
+}

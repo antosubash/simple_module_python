@@ -46,7 +46,7 @@ assert any(
     for item in caught
 )
 entry = next(d for d in registered_deprecations() if d.name == 'simple_module_test.{old}')
-assert entry.remove_in == '0.0.52'
+assert entry.remove_in == '0.0.55'
 assert entry.use == 'simple_module_test.{new}'
 """,
         ],

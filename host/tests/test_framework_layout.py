@@ -174,7 +174,7 @@ def _write(base: Path, rel: str, content: str) -> None:
     target.write_text(content, encoding="utf-8")
 
 
-_ALIAS = 'deprecated_module("old", remove_in="0.0.52", use="new")\nsys.modules[__name__] = obj\n'
+_ALIAS = 'deprecated_module("old", remove_in="0.0.55", use="new")\nsys.modules[__name__] = obj\n'
 _KW_ALIAS = (
     'warnings.warn("old", category=DeprecationWarning, stacklevel=2)\nsys.modules[__name__] = obj\n'
 )

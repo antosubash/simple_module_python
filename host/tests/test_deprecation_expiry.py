@@ -9,6 +9,7 @@ import), or consciously move its date.
 from __future__ import annotations
 
 import importlib
+import json
 import warnings
 from importlib.metadata import version
 from pathlib import Path
@@ -135,9 +136,27 @@ def _register_all() -> None:
     deprecate("smpy package-update", remove_in="0.0.50", use="uv run smpy update")
     deprecate(
         "simple_module_inertia.response",
-        remove_in="0.0.52",
+        remove_in="0.0.55",
         use="simple_module_inertia.protocol.response",
     )
+
+
+def layout_renames() -> dict[str, dict[str, str]]:
+    """The ``smpy fix-imports`` table: every layout shim's old path -> new path."""
+    _register_all()
+    by_name = {d.name: d for d in registered_deprecations()}
+    shims = sorted(set(_layout_shims()))
+    return {
+        old: {"new": by_name[old].use or "", "remove_in": by_name[old].remove_in} for old in shims
+    }
+
+
+_RENAMES_JSON = _REPO_ROOT / "framework/cli/simple_module_cli/updates/import_renames.json"
+
+
+def test_fix_imports_table_matches_layout_shims() -> None:
+    shipped = json.loads(_RENAMES_JSON.read_text(encoding="utf-8"))["renames"]
+    assert shipped == layout_renames(), "run: uv run python scripts/gen_import_renames.py"
 
 
 def test_every_known_shim_is_registered() -> None:

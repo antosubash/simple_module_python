@@ -8,8 +8,8 @@ import pytest
 from simple_module_test.app.layout import is_layout_shim_source, is_shim_package
 
 _VALID_ALIAS_CALLS = (
-    'deprecated_module("old", remove_in="0.0.52", use="new")\nsys.modules[__name__] = target\n',
-    'deprecation.deprecated_module("old", remove_in="0.0.52", use="new")\n'
+    'deprecated_module("old", remove_in="0.0.55", use="new")\nsys.modules[__name__] = target\n',
+    'deprecation.deprecated_module("old", remove_in="0.0.55", use="new")\n'
     "sys.modules[__name__] = target\n",
     'warnings.warn("old", DeprecationWarning, stacklevel=2)\nsys.modules[__name__] = target\n',
     'warnings.warn("old", category=DeprecationWarning, stacklevel=2)\n'
@@ -18,7 +18,7 @@ _VALID_ALIAS_CALLS = (
 _INVALID_ALIAS_CALLS = (
     'warnings.warn("old", UserWarning, stacklevel=2)\nsys.modules[__name__] = target\n',
     'def f():\n    return "deprecated_module(x) sys.modules[__name__]"\n',
-    'deprecated_module("old", remove_in="0.0.52", use="new")\n',
+    'deprecated_module("old", remove_in="0.0.55", use="new")\n',
     "sys.modules[__name__] = target\n",
     "def broken(:\n",
 )

@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `smpy fix-imports` rewrites imports of the framework paths deprecated by the domain-area layout moves (`import`, `from … import`, `from pkg import moved_module`, attribute chains and dotted strings) to their new area paths; `--check` fails CI while old paths remain and `--diff` previews. The rename table is generated from the registered shims by `scripts/gen_import_renames.py`.
 - Regression coverage for Docker runtime/Compose invariants, the documented temporary-database migration roundtrip, and shared pytest configuration (#1088, #1089, #1090).
 
 ### Changed
@@ -25,15 +26,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Deprecated
 
-- The former flat `simple_module_test._schema`, `database`, `fixtures`, `inertia`, `layout`, `mail`, `session_cookie`, `setup_wizard` and `tenant_client` paths are deprecated in favor of their `app`, `db`, `web` and `fakes` area paths. All 9 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports, including the `inertia_page` callable, are unchanged.
+- The former flat `simple_module_test._schema`, `database`, `fixtures`, `inertia`, `layout`, `mail`, `session_cookie`, `setup_wizard` and `tenant_client` paths are deprecated in favor of their `app`, `db`, `web` and `fakes` area paths. All 9 compatibility aliases warn on import and carry `remove_in="0.0.55"`; package-root exports, including the `inertia_page` callable, are unchanged.
 
-- The former flat `simple_module_hosting.*` submodule paths are deprecated in favor of the `boot`, `config`, `pipeline`, `rate_limit`, `auth`, `error_handling`, `frontend`, `i18n`, `observability` and `locking` areas. All 50 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and lazy loading are unchanged.
+- The former flat `simple_module_hosting.*` submodule paths are deprecated in favor of the `boot`, `config`, `pipeline`, `rate_limit`, `auth`, `error_handling`, `frontend`, `i18n`, `observability` and `locking` areas. All 50 compatibility aliases warn on import and carry `remove_in="0.0.55"`; package-root exports and lazy loading are unchanged.
 
-- The former flat `simple_module_db.*` submodule paths are deprecated in favor of the `engine`, `models`, `scoping`, `auditing`, `schema` and `queries` areas. All 32 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and the tenant cleanup durable handler wire name are unchanged.
+- The former flat `simple_module_db.*` submodule paths are deprecated in favor of the `engine`, `models`, `scoping`, `auditing`, `schema` and `queries` areas. All 32 compatibility aliases warn on import and carry `remove_in="0.0.55"`; package-root exports and the tenant cleanup durable handler wire name are unchanged.
 
-- The former flat `simple_module_core.*` submodule paths (including `migration_support`) are deprecated in favor of the `modules`, `access`, `eventing`, `settings`, `web`, `localization`, `mailer`, `runtime` and `migrations` area paths. All 51 compatibility aliases warn on import and carry `remove_in="0.0.52"`; package-root exports and durable event wire names are unchanged.
+- The former flat `simple_module_core.*` submodule paths (including `migration_support`) are deprecated in favor of the `modules`, `access`, `eventing`, `settings`, `web`, `localization`, `mailer`, `runtime` and `migrations` area paths. All 51 compatibility aliases warn on import and carry `remove_in="0.0.55"`; package-root exports and durable event wire names are unchanged.
 
-- `simple_module_inertia.response` is deprecated in favor of `simple_module_inertia.protocol.response` (and package-root `simple_module_inertia.InertiaResponse`); the compatibility shim emits `DeprecationWarning` on import and will be removed in `0.0.52`.
+- `simple_module_inertia.response` is deprecated in favor of `simple_module_inertia.protocol.response` (and package-root `simple_module_inertia.InertiaResponse`); the compatibility shim emits `DeprecationWarning` on import and will be removed in `0.0.55`.
 
 ### Security
 
