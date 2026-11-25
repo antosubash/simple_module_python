@@ -471,6 +471,16 @@ def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
     )
 ```
 
+## `doctor_diagnostics(database_url)`
+
+A synchronous, read-only override that `make doctor` (`smpy doctor`) calls once
+per module after the framework checks. It returns a sequence of `Diagnostic`
+findings and is empty by default; a boot never runs it. Use it for deployment
+configuration a module depends on but cannot enforce at boot, such as the
+`users` module's `SM035` warning when account emails have no link origin.
+Read stored settings without writing, and return nothing when the database is
+unreachable (Doctor reports connectivity separately).
+
 ## `check_data_compatibility(db)`
 
 This async read-only hook returns a sequence of `DataCompatibilityIssue` frozen
