@@ -64,6 +64,7 @@ export interface SettingsFieldRendererProps {
   onChange: (name: string, value: unknown) => void;
   value: unknown;
   id?: string;
+  'aria-describedby'?: string;
 }
 
 export type MenuIcon = ComponentType<{

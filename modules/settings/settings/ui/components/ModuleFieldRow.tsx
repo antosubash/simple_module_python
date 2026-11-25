@@ -1,4 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { useId } from 'react';
 import { FieldInput, type FieldMeta } from './FieldInput';
 import { FieldSource, sourceShowsDescription } from './FieldSource';
 
@@ -33,6 +34,8 @@ export function ModuleFieldRow({
 }: Props) {
   const { t } = useT();
   const id = `field-${pkg}-${field.name}`;
+  const descriptionId = useId();
+  const describedBy = field.description ? descriptionId : undefined;
   // A bool's description is normally the trailing meta; repeating it here would
   // print the same sentence twice. When the trailing column shows something
   // else (a stored value, a secret), the description belongs here instead.
@@ -49,7 +52,10 @@ export function ModuleFieldRow({
           {field.name}
         </label>
         {showDescription && (
-          <p className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground">
+          <p
+            id={describedBy}
+            className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground"
+          >
             {field.description}
           </p>
         )}
@@ -65,12 +71,18 @@ export function ModuleFieldRow({
             so the server refuses edits to it; a disabled fieldset stops the form
             from collecting an edit that would 422 the whole save. */}
         <fieldset disabled={!!field.env_set} className="min-w-0 border-0 p-0">
-          <FieldInput id={id} field={field} value={value} onChange={onChange} />
+          <FieldInput
+            id={id}
+            aria-describedby={describedBy}
+            field={field}
+            value={value}
+            onChange={onChange}
+          />
         </fieldset>
       </div>
 
       <div className="min-w-0 [overflow-wrap:anywhere] @md:col-span-2 @xl:col-span-1 @xl:justify-self-start">
-        <FieldSource field={field} onReset={onReset} />
+        <FieldSource field={field} descriptionId={describedBy} onReset={onReset} />
       </div>
 
       {/* Its own grid row, spanning the control and trailing columns: inside

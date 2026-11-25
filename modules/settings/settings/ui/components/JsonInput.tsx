@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 type Props = {
   id?: string;
+  'aria-describedby'?: string;
   name: string;
   value: unknown;
   nullable: boolean;
@@ -23,7 +24,15 @@ function toText(value: unknown): string {
  * sent as-is, so the server's 422 names the field; the inline hint just says
  * why before Save.
  */
-export function JsonInput({ id, name, value, nullable, className, onChange }: Props) {
+export function JsonInput({
+  id,
+  'aria-describedby': describedBy,
+  name,
+  value,
+  nullable,
+  className,
+  onChange,
+}: Props) {
   const { t } = useT();
   const [text, setText] = useState(() => toText(value));
   const [invalid, setInvalid] = useState(false);
@@ -63,6 +72,7 @@ export function JsonInput({ id, name, value, nullable, className, onChange }: Pr
     <div className="flex flex-col gap-1">
       <Textarea
         id={id}
+        aria-describedby={describedBy}
         rows={3}
         value={text}
         aria-invalid={invalid}
