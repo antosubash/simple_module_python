@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 
+from auth.contracts.events import session_logout_event
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.csrf import require_browser_origin
 from simple_module_hosting.frontend.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.protocol.response import location
+from starlette.background import BackgroundTask
 from starlette.responses import RedirectResponse, Response
 
 from keycloak.identity.renewal import _KEYS
@@ -56,6 +58,7 @@ async def logout(request: Request) -> Response:
     from keycloak.identity.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
+    event = session_logout_event(request, local_account=False)
     refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))
     await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()
@@ -81,5 +84,9 @@ async def logout(request: Request) -> Response:
     if is_inertia_request(request.scope):
         # An Inertia XHR cannot follow a redirect to the IdP (CSP connect-src);
         # 409 + X-Inertia-Location makes the client do a full-page visit.
-        return location(logout_url)
-    return RedirectResponse(logout_url, status_code=303)
+        response = location(logout_url)
+    else:
+        response = RedirectResponse(logout_url, status_code=303)
+    if event is not None:
+        response.background = BackgroundTask(request.app.state.sm.event_bus.publish, event)
+    return response

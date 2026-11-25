@@ -220,6 +220,7 @@
     "resend_verification": "Bestätigungs-E-Mail erneut senden",
     "verification_resent": "Bestätigungs-E-Mail erneut gesendet. Bitte prüfen Sie Ihr Postfach.",
     "error_rate_limited": "Zu viele Versuche. Bitte versuchen Sie es in einigen Minuten erneut.",
+    "oauth_account_linked_elsewhere": "Die Single-Sign-on-Anmeldung ist fehlgeschlagen. Verwenden Sie eine andere Anmeldemethode oder wenden Sie sich an einen Administrator.",
     "oauth_account_not_verified": "Bestätigen Sie die E-Mail-Adresse Ihres bestehenden Kontos, bevor Sie Single Sign-on verknüpfen. Wenden Sie sich bei Bedarf an einen Administrator.",
     "oauth_signup_disabled": "Dieses Konto ist nicht registriert. Wenden Sie sich an einen Administrator, um Zugang zu erhalten.",
     "oauth_signin_failed": "Die Single-Sign-on-Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder verwenden Sie eine andere Anmeldemethode.",
