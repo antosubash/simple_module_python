@@ -4,11 +4,11 @@ import httpx
 import pytest
 from _users_admin_support import _build_service, _make_user
 from fastapi import FastAPI
-from simple_module_test import forge_session_cookie
+from simple_module_test import forge_session_cookie, inertia_page
 from sqlalchemy import select
 from users.core.errors import install_exception_handlers
 from users.core.exceptions import AdminAccountSafetyError, AdminPermissionError
-from users.models import Role, User, UserRole
+from users.models import OAuthAccount, Role, User, UserRole
 
 pytestmark = pytest.mark.anyio
 
@@ -81,7 +81,7 @@ async def test_delegate_cannot_grant_unheld_role(delegated_client, users_db, ope
 
 
 @pytest.mark.parametrize("kind", ["admin", "superuser", "powerful"])
-@pytest.mark.parametrize("operation", ["reset", "roles", "disable", "email", "delete"])
+@pytest.mark.parametrize("operation", ["reset", "roles", "disable", "email", "delete", "unlink"])
 async def test_delegate_cannot_control_privileged_target(
     delegated_client, users_db, kind, operation
 ):
@@ -101,6 +101,24 @@ async def test_delegate_cannot_control_privileged_target(
         response = await client.patch(f"{url}/disable")
     elif operation == "email":
         response = await client.patch(url, json={"email": "stolen@example.com"})
+    elif operation == "unlink":
+        link = OAuthAccount(
+            user_id=target.id,
+            oauth_name="oidc",
+            account_id="protected-identity",
+            account_email=target.email,
+            access_token="at",
+        )
+        users_db.add(link)
+        await users_db.commit()
+        page = inertia_page(await client.get(f"/admin/users/{target.id}"))
+        response = await client.delete(
+            f"/admin/users/{target.id}/linked-sign-ins/{link.id}",
+            headers={"X-CSRF-Token": page.props["csrfToken"]},
+        )
+        assert (
+            await users_db.execute(select(OAuthAccount).where(OAuthAccount.id == link.id))
+        ).scalar_one_or_none() is not None
     else:
         response = await client.delete(url)
     assert response.status_code == 403

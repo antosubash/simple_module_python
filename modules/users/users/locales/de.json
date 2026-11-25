@@ -432,6 +432,12 @@
   },
   "linked_sign_ins": {
     "title": "Verknüpfte Anmeldungen",
+    "remove": "Entfernen",
+    "confirm_title": "{provider}-Anmeldung entfernen?",
+    "confirm_body": "Dies entfernt nur diese verknüpfte Anmeldung. Benutzer, Rollen und bestehende Sitzungen bleiben erhalten. Eine spätere Anmeldung kann erneut eine Identität verknüpfen, wenn der Anbieter die übereinstimmende E-Mail-Adresse bestätigt.",
+    "removed": "Anmeldung entfernt",
+    "remove_failed": "Anmeldung konnte nicht entfernt werden",
+    "duplicates": "Mehrere Identitäten desselben Anbieters sind verknüpft. Prüfen Sie die verknüpften Anmeldungen und entfernen Sie veraltete Identitäten.",
     "last_sign_in": "Zuletzt angemeldet {when}",
     "never": "Noch nicht darüber angemeldet",
     "subject": "Subjekt"
