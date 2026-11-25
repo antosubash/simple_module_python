@@ -122,6 +122,7 @@ from users.contracts.events import (
     UserCreated,
     UserDeleted,
     UserDisabled,
+    UserLoggedOut,
     RoleAssigned,
 )
 ```
@@ -133,7 +134,7 @@ from users.contracts.events import (
 | `UserDetailsUpdate` | Admin edit input: `email`, `full_name`. |
 | `UserListItem` | Admin list row; adds `is_external`, `created_at`, `roles`. |
 | `RoleListItem` | `id`, `name`, `description`, `user_count`. |
-| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
+| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `UserLoggedOut`, `RoleAssigned` | Events — see [Events](#events). |
 
 Other modules read accounts through the [user directory](/framework/user-directory),
 which this module installs as `users.core.directory.UsersDirectory` in
@@ -314,7 +315,15 @@ in worker threads so unrelated requests can continue during hashing (#737).
 | `UserCreated` | `user_id`, `email`, `created_by` | on admin create (`POST /api/users/admin`) |
 | `UserDeleted` | `user_id` | on admin delete; durable (outbox, or inline in the request transaction). Defined in `simple_module_core.user_events` so modules subscribe without depending on `users` |
 | `UserDisabled` | `user_id` | on admin disable |
+| `UserLoggedOut` | `user_id`, `email` | after authenticated browser or API session logout, including sessions established through OAuth |
 | `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
+
+`UserLoggedOut` is an in-process event defined in `simple_module_core.user_events`
+and re-exported from `users.contracts.events`. Users publishes the account ID
+as a UUID after the session revocation transaction finalizes. Subscriber
+failures are logged and logout still succeeds. Delivery is not exactly-once:
+two logout requests racing on the same session can each publish the event, so
+make subscribers idempotent (releasing a per-user reservation twice is harmless).
 
 Single admin create/invite publishes `UserCreated` / `UserInvited` through the
 transactional admin-event helper: durable handlers use the request transaction
@@ -532,6 +541,15 @@ Built-in provider keys (the `{provider}` URL segment):
 | Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs + disables rather than breaking boot |
 
 A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email` and `is_verified_by_default` both follow whether the provider proved the email; Microsoft never does unless the opt-in below is on); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
+
+When a provider verifies an email address, first sign-in can link its identity to
+an eligible local account with that address. If the account already has a
+different identity from the same provider, sign-in is refused with
+`OAUTH_ACCOUNT_LINKED_ELSEWHERE` and the existing links and roles are preserved.
+This applies to every provider, including custom ones. For example, reassigning
+an Entra UPN to a new directory user does not transfer access to the previous
+user's local account. The login page shows a generic failure, and the server logs
+the reason code and provider at warning level.
 
 ### Custom providers
 

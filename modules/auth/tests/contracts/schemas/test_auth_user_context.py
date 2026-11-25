@@ -159,3 +159,17 @@ class TestUserContextTokenFields:
     async def test_malformed_scopes_reject_the_payload(self):
         payload = {"id": "1", "email": "a@b.com", "name": "A", "scopes": "x.read"}
         assert UserContext.from_session_dict(payload) is None
+
+
+class TestUserContextSession:
+    def test_null_email_and_name_decode_as_empty_strings(self):
+        payload = {"id": "1", "email": None, "name": None}
+        assert UserContext.from_session_dict(payload) == UserContext(id="1", email="", name="")
+
+    def test_legacy_string_none_email_decodes_as_empty(self):
+        payload = {"id": "1", "email": "None", "name": "A"}
+        assert UserContext.from_session_dict(payload) == UserContext(id="1", email="", name="A")
+
+    def test_normal_email_and_name_round_trip_unchanged(self):
+        ctx = UserContext(id="1", email="a@b.com", name="A")
+        assert UserContext.from_session_dict(ctx.to_session_dict()) == ctx

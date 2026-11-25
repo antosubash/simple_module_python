@@ -4,6 +4,7 @@ import pytest
 from fastapi import FastAPI
 from simple_module_hosting.boot import app_builder
 from simple_module_hosting.pipeline._body_limit import BodyLimitMiddleware
+from simple_module_hosting.pipeline.compression import HostGZipMiddleware
 from simple_module_hosting.pipeline.middleware import SecurityHeadersMiddleware
 from simple_module_hosting.pipeline.session import SessionMiddleware
 from simple_module_hosting.rate_limit._rate_limit import RateLimitMiddleware
@@ -60,9 +61,32 @@ def test_optional_layer_disabled_and_other_app_unchanged(settings):
     app = app_builder.create_app(
         settings, customize=lambda app: disable_middleware(app, GZipMiddleware)
     )
-    assert GZipMiddleware not in [m.cls for m in app.user_middleware]
+    assert HostGZipMiddleware not in [m.cls for m in app.user_middleware]
     other = app_builder.create_app(settings)
-    assert GZipMiddleware in [m.cls for m in other.user_middleware]
+    assert HostGZipMiddleware in [m.cls for m in other.user_middleware]
+
+
+def test_legacy_gzip_target_accepts_starlette_positional_options(settings):
+    from inspect import signature
+
+    from simple_module_hosting import replace_middleware
+
+    if "thread_minimum_size" not in signature(GZipMiddleware).parameters:
+        pytest.skip("Starlette does not support a GZip thread threshold")
+
+    class CustomGZip(GZipMiddleware):
+        pass
+
+    app = app_builder.create_app(
+        settings,
+        customize=lambda app: replace_middleware(
+            app, GZipMiddleware, Middleware(CustomGZip, 1024, 4, 8192)
+        ),
+    )
+    stack = app.build_middleware_stack()
+    while not isinstance(stack, CustomGZip):
+        stack = stack.app
+    assert (stack.minimum_size, stack.compresslevel, stack.thread_minimum_size) == (1024, 4, 8192)
 
 
 def test_replacement_keeps_position_and_constructor_defaults(settings):

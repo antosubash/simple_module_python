@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.engine.deps import get_db
 from simple_module_hosting.auth.auth_policy import login_redirect_url
@@ -122,10 +122,12 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
 
 
 @router.post("/logout", response_model=None, dependencies=[Depends(require_browser_origin)])
-async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
+async def logout(
+    request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)
+) -> RedirectResponse:
     """POST-only to resist cross-site `<img>` logout attacks — the menu's
     logout link submits this as an Inertia form."""
-    cookie_name = await end_browser_session(request, db)
+    cookie_name = await end_browser_session(request, db, background_tasks)
     # 303 forces the follow-up to GET — Inertia treats the redirect as a full
     # navigation rather than replaying the POST.
     response = RedirectResponse("/", status_code=303)

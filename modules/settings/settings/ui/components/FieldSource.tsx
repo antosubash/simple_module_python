@@ -6,6 +6,21 @@ function isBlank(value: unknown): boolean {
 }
 
 /**
+ * Whether the trailing column shows a toggle's description. A stored override
+ * or a secret takes that column over, so the row must print the description
+ * elsewhere: a description can carry a safety warning that matters most
+ * exactly when someone has changed the setting.
+ */
+export function sourceShowsDescription(field: FieldMeta): boolean {
+  return (
+    !field.db_override &&
+    !field.is_secret &&
+    (field.input_type ?? field.type) === 'bool' &&
+    !!field.description
+  );
+}
+
+/**
  * The trailing column of a settings row: where this value came from, and the
  * one action that applies to it.
  *
@@ -46,7 +61,7 @@ export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () 
 
   // A toggle's env var name says nothing a reader wants; what the switch
   // currently means does.
-  if ((field.input_type ?? field.type) === 'bool' && field.description) {
+  if (sourceShowsDescription(field)) {
     return <span className="text-[11.5px] text-muted-foreground">{field.description}</span>;
   }
 

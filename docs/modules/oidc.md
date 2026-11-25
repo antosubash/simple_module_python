@@ -218,7 +218,12 @@ token, no revocation request is made. A malformed or non-HTTPS (outside
 development) `revocation_endpoint`, or malformed auth-method lists, are ignored
 with a warning rather than blocking sign-in.
 
-Logout then clears the local session and uses discovered `end_session_endpoint` with
+After clearing an authenticated session, the provider publishes the in-process
+`UserLoggedOut` event from `simple_module_core.user_events`. Subscribers receive
+the principal ID (the local cache row ID as a string) and email. Subscriber
+failures are logged and logout continues.
+
+Logout uses the discovered `end_session_endpoint` with
 `client_id` and `post_logout_redirect_uri=<app>/oidc/logged-out`. Inertia logout
 uses external navigation. Without that endpoint, logout stays local. There is
 **no `id_token_hint`**, so an IdP may prompt for confirmation or retain its SSO

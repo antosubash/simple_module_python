@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from urllib.parse import parse_qs
 
 import httpx
+import pytest
 from keycloak.core.settings import KeycloakSettings
 from keycloak.identity.tokens import seal_refresh_token
 from keycloak.web.endpoints import views
@@ -91,3 +92,39 @@ async def test_logout_drops_shared_renewal_outcomes_before_clearing(httpx_mock, 
         ("keycloak_refresh_token", True)
     ]
     assert request.session == {}
+
+
+@pytest.mark.parametrize("email", ["signed-in@example.test", None])
+async def test_logout_publishes_after_local_and_back_channel_logout(httpx_mock, email):
+    from uuid import uuid4
+
+    from auth.contracts.schemas import UserContext
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.user_events import UserLoggedOut
+
+    httpx_mock.add_response(url=_LOGOUT, method="POST", status_code=204)
+    request = _request()
+    # A UUID-shaped IdP subject stays the original string, case included.
+    user_id = str(uuid4()).upper()
+    request.state.user = UserContext.from_session_dict(
+        {"id": user_id, "email": email, "name": "Signed in"}
+    )
+    bus = request.app.state.sm.event_bus = EventBus()
+    observed = []
+
+    async def observe(event):
+        observed.append((event, dict(request.session), len(httpx_mock.get_requests())))
+
+    async def failing_handler(event):
+        raise RuntimeError("subscriber failed")
+
+    bus.subscribe(UserLoggedOut, observe)
+    bus.subscribe(UserLoggedOut, failing_handler)
+    response = await views.logout(request)
+    assert response.status_code == 303
+
+    async def send(message):
+        assert observed == []
+
+    await response(request.scope, request.receive, send)
+    assert observed == [(UserLoggedOut(user_id=user_id, email=email or ""), {}, 1)]

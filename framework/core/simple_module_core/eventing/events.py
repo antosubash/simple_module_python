@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,7 +22,7 @@ from simple_module_core.eventing.durable_events import (
 
 logger = logging.getLogger(__name__)
 
-EventHandler = Callable[..., Coroutine[Any, Any, None]]
+EventHandler = Callable[..., Awaitable[None] | None]
 
 
 @dataclass
@@ -35,6 +36,18 @@ class Event:
             product_id: int
             name: str
     """
+
+
+async def _call_handler(handler: EventHandler, event: Event) -> None:
+    """Run one handler inside the gather, sync or async (#1134).
+
+    Calling a handler while building the ``gather`` arguments let a sync
+    handler's exception escape ``publish`` before any other handler ran, and a
+    sync handler's ``None`` result is not awaitable at all.
+    """
+    result = handler(event)
+    if inspect.isawaitable(result):
+        await result
 
 
 class EventBus:
@@ -86,24 +99,37 @@ class EventBus:
         """Dispatch event to all registered handlers (awaited).
 
         All handlers run concurrently via ``asyncio.gather``.
-        Individual handler failures are logged but do not propagate.
+        A failing or self-cancelling handler is logged and never breaks the
+        publisher; cancelling ``publish`` itself still cancels the gather.
         """
         handlers = self._emitter.listeners(self._event_key(type(event)))
         if not handlers:
             return
         results = await asyncio.gather(
-            *(h(event) for h in handlers),
+            *(_call_handler(h, event) for h in handlers),
             return_exceptions=True,
         )
         for i, result in enumerate(results):
+            if result is None:
+                continue
+            handler = handlers[i]
+            try:
+                name = handler.__qualname__
+            except Exception:
+                name = type(handler).__qualname__
             if isinstance(result, Exception):
                 logger.error(
                     "Event handler %s failed for %s: %s",
-                    getattr(handlers[i], "__qualname__", repr(handlers[i])),
+                    name,
                     type(event).__name__,
                     result,
                     exc_info=result,
                 )
+            elif isinstance(result, asyncio.CancelledError):
+                # A subscriber cancelling itself must not cancel the publisher
+                # (a logout or save request); an outer cancel of publish never
+                # reaches here because gather re-raises it.
+                logger.warning("Event handler %s cancelled for %s", name, type(event).__name__)
 
     def publish_nowait(self, event: Event) -> None:
         """Fire-and-forget: schedule event dispatch on the current event loop.

@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from simple_module_core.modules.app_state import get_body_limits
 from simple_module_db import CommitBeforeResponseMiddleware
 from simple_module_inertia import InertiaMiddleware
-from starlette.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting.auth.auth_policy import session_cookie_is_secure
@@ -19,6 +18,7 @@ from simple_module_hosting.pipeline._body_limit import BodyLimitMiddleware
 from simple_module_hosting.pipeline._cors import CorsMiddleware
 from simple_module_hosting.pipeline._forwarded_host import ForwardedHostMiddleware
 from simple_module_hosting.pipeline._server_timing import ServerTimingMiddleware
+from simple_module_hosting.pipeline.compression import HostGZipMiddleware
 from simple_module_hosting.pipeline.maintenance import MaintenanceMiddleware
 from simple_module_hosting.pipeline.middleware import (
     CorrelationIdMiddleware,
@@ -151,7 +151,7 @@ def install_middleware(app: FastAPI, settings: Settings, csp_registry: CspSource
     # JS bundle compresses about 3x. Uncompressed assets dominated cold page
     # load, several times larger than anything on the server request path.
     app.add_middleware(
-        GZipMiddleware, minimum_size=COMPRESSION_MIN_BYTES, compresslevel=COMPRESSION_LEVEL
+        HostGZipMiddleware, minimum_size=COMPRESSION_MIN_BYTES, compresslevel=COMPRESSION_LEVEL
     )
     # Right inside RequestLogging (so a 413 is logged) and outside GZip and the
     # whole module tier: an oversized body is refused before anything reads it.
