@@ -533,6 +533,15 @@ Built-in provider keys (the `{provider}` URL segment):
 
 A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email` and `is_verified_by_default` both follow whether the provider proved the email; Microsoft never does unless the opt-in below is on); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
 
+When a provider verifies an email address, first sign-in can link its identity to
+an eligible local account with that address. If the account already has a
+different identity from the same provider, sign-in is refused with
+`OAUTH_ACCOUNT_LINKED_ELSEWHERE` and the existing links and roles are preserved.
+This applies to every provider, including custom ones. For example, reassigning
+an Entra UPN to a new directory user does not transfer access to the previous
+user's local account. The login page shows a generic failure, and the server logs
+the reason code and provider at warning level.
+
 ### Custom providers
 
 Modules that depend on Users can register a named factory through `users.contracts`.
