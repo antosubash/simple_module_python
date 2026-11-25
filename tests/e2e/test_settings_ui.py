@@ -60,3 +60,34 @@ def test_toggle_host_multi_tenant_persists(
     expect(save).to_be_disabled()
 
     assert page.get_by_role("switch").first.is_checked() == before
+
+
+def test_bool_description_stays_while_stored_value_overrides(
+    page: Page, e2e_username: str, e2e_password: str
+) -> None:
+    """A toggle's description stays on its row once a stored value overrides
+    it (#1062): the trailing column switches to the stored-value text."""
+    page.goto("/")
+    _login(page, e2e_username, e2e_password)
+    page.goto("/admin/settings/")
+    page.get_by_role("button", name=re.compile(r"^file_storage\b")).click()
+
+    row = page.get_by_test_id("row-field-file_storage-public_files_cors")
+    toggle = row.get_by_role("switch", name="public_files_cors", exact=True)
+    description = row.get_by_text("Let any origin read public files cross-origin", exact=False)
+    revert = row.get_by_role("button", name="Revert", exact=True)
+    expect(revert).to_have_count(0)
+    expect(description).to_be_visible()
+
+    toggle.click()
+    save = page.get_by_role("button", name="Save")
+    save.click()
+    expect(revert).to_be_visible()
+    try:
+        expect(save).to_be_disabled()
+        expect(description).to_be_visible()
+    finally:
+        # Remove the stored value even when the regression assertion fails.
+        revert.click()
+        expect(revert).to_have_count(0)
+    expect(description).to_be_visible()

@@ -14,3 +14,11 @@ class UserDeleted(Event):
     """
 
     user_id: uuid.UUID
+
+
+@dataclass
+class UserLoggedOut(Event):
+    """An authenticated user ended their session."""
+
+    user_id: uuid.UUID | str
+    email: str

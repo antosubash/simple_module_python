@@ -13,7 +13,16 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY
@@ -173,9 +182,11 @@ async def login(
 
 
 @router.post("/auth/logout", status_code=204, dependencies=[Depends(require_browser_csrf)])
-async def api_logout(request: Request, db: AsyncSession = Depends(get_db)):
+async def api_logout(
+    request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)
+):
     """API logout — revokes the access token, clears its cookie and the session."""
-    cookie_name = await end_browser_session(request, db)
+    cookie_name = await end_browser_session(request, db, background_tasks)
     response = Response(status_code=204)
     response.delete_cookie(cookie_name, path="/")
     return response

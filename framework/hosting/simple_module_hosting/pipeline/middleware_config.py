@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from inspect import Parameter, signature
 from typing import Any, Literal
@@ -13,12 +14,15 @@ from starlette.middleware.gzip import GZipMiddleware
 from simple_module_hosting.i18n.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.observability._observability import RequestLoggingMiddleware
 from simple_module_hosting.pipeline._server_timing import ServerTimingMiddleware
+from simple_module_hosting.pipeline.compression import HostGZipMiddleware
 from simple_module_hosting.pipeline.session import SessionMiddleware
 
 MiddlewareStage = Literal["before_session", "default", "after_tenant"]
 
 # These change compression/observability only, never access or request safety.
-_DISABLABLE = frozenset({GZipMiddleware, RequestLoggingMiddleware, ServerTimingMiddleware})
+_DISABLABLE = frozenset(
+    {GZipMiddleware, HostGZipMiddleware, RequestLoggingMiddleware, ServerTimingMiddleware}
+)
 _STAGE_ANCHORS = {"before_session": SessionMiddleware, "after_tenant": LocaleMiddleware}
 
 
@@ -116,18 +120,27 @@ def finalize_middleware(app: FastAPI) -> None:
         if replacement is None:
             del layers[index]
         else:
-            layers[index] = _merge_replacement(original, replacement)
+            # Bind legacy positional options against the public target's signature.
+            constructor_class = target if target is GZipMiddleware else original.cls
+            layers[index] = _merge_replacement(
+                original, replacement, constructor_class=constructor_class
+            )
     app.user_middleware = layers
     config.finalized = True
 
 
-def _merge_replacement(original: Middleware, replacement: Middleware) -> Middleware:
+def _merge_replacement(
+    original: Middleware,
+    replacement: Middleware,
+    *,
+    constructor_class: Callable[..., Any] | None = None,
+) -> Middleware:
     if not original.args and not replacement.args:
         options: dict[str, Any] = dict(original.kwargs)
         options.update(replacement.kwargs)
         return Middleware(replacement.cls, **options)
 
-    constructor = signature(original.cls)
+    constructor = signature(constructor_class or original.cls)
     bound = constructor.bind_partial(None, *original.args, **original.kwargs)
     if replacement.args:
         # Only positional overrides replace inherited ones; binding the bare
@@ -148,7 +161,9 @@ def _merge_replacement(original: Middleware, replacement: Middleware) -> Middlew
 
 
 def _target_index(layers: list[Middleware], target: type) -> int:
-    indices = [index for index, layer in enumerate(layers) if layer.cls is target]
+    # The Starlette class remains an override target for the host GZip layer.
+    matches = (target, HostGZipMiddleware) if target is GZipMiddleware else (target,)
+    indices = [index for index, layer in enumerate(layers) if layer.cls in matches]
     if not indices:
         raise KeyError(f"Middleware {target.__name__} is not installed")
     if len(indices) != 1:

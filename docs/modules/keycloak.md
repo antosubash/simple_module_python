@@ -50,6 +50,13 @@ See [browser session authority](auth.md#browser-session-authority-750).
 
 The browser session uses a signed, **unencrypted** cookie, so the refresh token is Fernet-encrypted (key derived with HKDF from `secret_key`) before it is stored; a rotated key or a tampered value counts as no refresh token and requires sign-in. To stay below the roughly 4 KB browser limit with a refresh token and role claims, the ID token is validated at sign-in but never stored. A refresh token that would overflow the cookie is omitted; the session then ends at access-token expiry and requires sign-in again. Logout first ends the SSO session back-channel (POST to the end-session endpoint with the client credentials and the refresh token; failures are logged and never block the redirect), then redirects with `client_id` instead of `id_token_hint`.
 
+After clearing an authenticated local session and attempting back-channel SSO
+logout when a refresh token is available, Keycloak publishes the in-process
+`UserLoggedOut` event from `simple_module_core.user_events`. Its `user_id` is the
+authenticated principal ID as a string. It is usually the local cache row ID
+and falls back to the OIDC subject if the cache is unavailable. Subscriber
+failures are logged and logout still succeeds.
+
 `KeycloakModule.register_public_routes` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
 
 ## Bearer-token validation
