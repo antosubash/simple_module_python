@@ -111,6 +111,18 @@ class TestRewrite:
     async def test_malformed_values_are_ignored(self, value: str) -> None:
         assert (await _get(_mw(["*.example.com"]), value))["host"] == "internal"
 
+    async def test_bracketed_ipv6_host_is_rewritten(self) -> None:
+        body = await _get(_mw(["[2001:db8::1]"]), "[2001:db8::1]:8443")
+        assert body == {
+            "url": f"http://[2001:db8::1]:8443{_PROBE_PATH}",
+            "host": "2001:db8::1",
+        }
+
+    @pytest.mark.parametrize("value", ["[2001:db8::zz]", "[::1", f"{_PUBLIC_HOST}:65536"])
+    async def test_invalid_ipv6_or_port_is_ignored(self, value: str) -> None:
+        allowlist = ["[2001:db8::zz]", "[::1]", _PUBLIC_HOST]
+        assert (await _get(_mw(allowlist), value))["host"] == "internal"
+
 
 class TestPeers:
     @pytest.mark.parametrize(

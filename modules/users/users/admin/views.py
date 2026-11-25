@@ -21,7 +21,7 @@ from users.admin.service import UserService
 from users.core.constants import Permissions, sanitize_list_filters
 from users.core.exceptions import UserNotFoundError
 from users.core.roles_cache import get_roles_cache
-from users.mailer import mailer_delivers
+from users.mailer import mailer_delivers, request_mail_options
 from users.web.deps import get_user_service
 
 router = APIRouter()
@@ -122,7 +122,7 @@ async def admin_add_people_page(
     users_state = getattr(request.app.state, "users", None)
     mailer = getattr(users_state, "mailer", None)
     settings = getattr(users_state, "settings", None)
-    delivers = mailer_delivers(mailer)
+    delivers = mailer_delivers(mailer, **request_mail_options(mailer, request))
     return await inertia.render(
         _PAGE_ADMIN_ADD,
         {

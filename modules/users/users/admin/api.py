@@ -41,6 +41,7 @@ from users.core.exceptions import (
 )
 from users.invites.bulk import bulk_router
 from users.invites.resend import resend_router
+from users.mailer import request_mail_options
 from users.web.deps import get_event_bus, get_mailer, get_user_service
 
 _DUPLICATE_EMAIL = "A user with this email already exists."
@@ -105,7 +106,8 @@ async def admin_invite_user(
         )
     except fa_exceptions.UserAlreadyExists:
         raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
-    db.on_commit(lambda: mailer.send_invite(user.email, token, invited_by_name))
+    mail_options = request_mail_options(mailer, request)
+    db.on_commit(lambda: mailer.send_invite(user.email, token, invited_by_name, **mail_options))
     await publish_admin_event(
         bus,
         UserInvited(
