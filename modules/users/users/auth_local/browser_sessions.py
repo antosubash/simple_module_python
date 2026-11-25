@@ -14,6 +14,7 @@ from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from users.accounts.provider import UsersAuthProvider
 from users.accounts.session_revocation import publish_revocation
 from users.accounts.token_storage import revoke_access_token
 from users.core.constants import SESSION_USER_ID_KEY
@@ -58,7 +59,9 @@ async def end_browser_session(
     request: Request, db: AsyncSession, background_tasks: BackgroundTasks
 ) -> str:
     """Revoke the browser session and its access token; return the cookie name."""
-    event = session_logout_event(request, local_account=True)
+    provider: UsersAuthProvider = request.app.state.auth.auth_provider
+    session_user = await provider.resolve_session(request)
+    event = session_logout_event(session_user, local_account=True)
     await revoke_browser_session(request, db)
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name

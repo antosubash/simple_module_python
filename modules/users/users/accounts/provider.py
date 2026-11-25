@@ -102,6 +102,10 @@ class UsersAuthProvider:
                 return None
             return await self._resolve_bearer(request.scope, credential)
 
+        return await self.resolve_session(request)
+
+    async def resolve_session(self, request: Request) -> UserContext | None:
+        """Validate the browser session independently of Authorization headers."""
         session = request.scope.get("session", {})
         raw_user_id = session.get(SESSION_USER_ID_KEY)
         if not raw_user_id:
