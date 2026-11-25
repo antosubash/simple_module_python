@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _string_or_empty(value: object) -> str:
+    return value if isinstance(value, str) else ""
+
+
 class KeycloakAuthProvider(CachePersistence, SessionRenewal):
     """OIDC auth provider backed by Keycloak."""
 
@@ -120,9 +124,10 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
         ]
         return UserContext(
             id=cache_id,
-            email=claims.get("email", ""),
+            email=_string_or_empty(claims.get("email")),
             email_verified=claims.get("email_verified") is True,
-            name=(claims.get("preferred_username") or claims.get("name", "")),
+            name=_string_or_empty(claims.get("preferred_username"))
+            or _string_or_empty(claims.get("name")),
             roles=self._without_tenant_roles(mapped),
             tenant_id=self._trusted_tenant(claims.get("tenant_id")),
         )
