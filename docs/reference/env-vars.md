@@ -70,7 +70,7 @@ settings can change live unless pinned by the environment. See [Settings](/frame
 | `SM_NATIVE_LINK_PREFIXES` | `[]` | JSON array of path prefixes whose links use full browser navigation. Runtime. |
 | `SM_LOG_LEVEL` | `INFO` | Application logging threshold. Restart required. |
 | `SM_LOG_FORMAT` | `json` | Structured `json` or readable `text`. Restart required. |
-| `SM_TRUSTED_PROXY` | unset | Comma-separated trusted proxy IPs or CIDRs. `*` trusts any peer. A trusted TLS terminator can supply the client IP and original request scheme for logs and auth callbacks. Restart required. |
+| `SM_TRUSTED_PROXY` | unset | Comma-separated trusted proxy IPs or CIDRs. `*` trusts any peer. Write a CIDR as its network address (`10.0.0.0/24`); one with host bits set trusts no peer and logs a WARNING. A trusted TLS terminator can supply the client IP and original request scheme for logs and auth callbacks. Restart required. |
 | `SM_FORWARDED_HOST_ALLOWLIST` | `[]` | JSON array of allowed forwarded hosts, such as `["app.example.com","*.example.org"]`. Entries may include ports. Requires `SM_TRUSTED_PROXY`. Restart required. |
 | `SM_SESSION_COOKIE_SECURE` | unset | `Secure` flag for both the session cookie and the users auth cookie. Unset enables it outside development and testing. Restart required. |
 | `SM_MAX_REQUEST_BODY_BYTES` | `10485760` | Global request body limit in bytes. `0` disables the guard. Applies live after a settings save. |
