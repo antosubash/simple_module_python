@@ -119,11 +119,14 @@ class UserContext:
         if not isinstance(payload, dict):
             return None
         try:
+            email = payload["email"]
+            name = payload["name"]
             return cls(
                 id=str(payload["id"]),
-                email=str(payload["email"]),
+                # Treat the legacy string "None" as a missing email.
+                email="" if email is None or email == "None" else str(email),
                 email_verified=payload.get("email_verified") is True,
-                name=str(payload["name"]),
+                name="" if name is None else str(name),
                 roles=list(payload.get("roles") or []),
                 tenant_id=payload.get("tenant_id"),
                 # Absent on cookies written before the field existed.

@@ -42,8 +42,8 @@ continues to test the old configuration until restart.
 | `GET /api/file-storage/files/{file_id}/thumbnail` | `?w=` → `image/webp` | `file_storage.download` |
 | `GET /api/file-storage/files/{file_id}/download` | → 302 (S3) or stream (filesystem); honours `Range` (see [Range requests](#range-requests)) | `file_storage.download` |
 | `DELETE /api/file-storage/files/{file_id}` | → 204 | `file_storage.delete` |
-| `GET /api/file-storage/public/{file_id}[/{filename}]` | bytes (**anonymous**) | none, `public` files only |
-| `GET /api/file-storage/public/{file_id}/thumbnail` | `?w=` → `image/webp` (**anonymous**) | none, `public` files only |
+| `GET`, `HEAD /api/file-storage/public/{file_id}[/{filename}]` | bytes (**anonymous**); `HEAD` returns the headers only | none, `public` files only |
+| `GET`, `HEAD /api/file-storage/public/{file_id}/thumbnail` | `?w=` → `image/webp` (**anonymous**) | none, `public` files only |
 
 ### Listing: search, filter, sort
 
@@ -90,7 +90,11 @@ read can redirect to a presigned bucket URL; the browser then applies the bucket
 configuration, which you must set on the bucket.
 
 The public routes are exempt from `AuthMiddleware` through
-`register_public_routes` (GET only; uploads, PATCH and deletes stay gated).
+`register_public_routes` (`GET` and `HEAD`; uploads, PATCH and deletes stay gated).
+`HEAD` returns headers without a response body and honours `If-None-Match`.
+When the app serves the original file directly, `HEAD` ignores `Range` and
+reports the full `Content-Length` from stored metadata without opening the
+file body (#1131).
 Serving rules:
 
 - Only `public=True`, non-deleted rows resolve; unknown, private and deleted

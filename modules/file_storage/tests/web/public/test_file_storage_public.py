@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import uuid
 
 import httpx
 from file_storage.core import constants
+from PIL import Image
 
 API = constants.ROUTE_PREFIX_API
 
@@ -40,14 +42,61 @@ async def test_upload_public_returns_url_and_anonymous_get_works(
         assert "sandbox" in resp.headers["content-security-policy"]
         assert resp.headers["content-disposition"].startswith("inline")
         etag = resp.headers["etag"]
+        # HEAD answers like GET without a body (#1131). Identity encoding so
+        # the host's gzip layer leaves Content-Length on both responses.
+        plain = {"Accept-Encoding": "identity"}
+        full = await client.get(url, headers=plain)
+        head = await client.head(url, headers=plain)
+        assert head.status_code == full.status_code == 200
+        assert head.content == b""
+        for header in (
+            "content-length",
+            "etag",
+            "accept-ranges",
+            "content-type",
+            "content-disposition",
+            "cache-control",
+        ):
+            assert head.headers[header] == full.headers[header]
     again = await client.get(f"{API}/public/{body['id']}", headers={"If-None-Match": etag})
     assert again.status_code == 304
+    conditional_head = await client.head(
+        f"{API}/public/{body['id']}", headers={"If-None-Match": etag}
+    )
+    assert conditional_head.status_code == 304
+    assert conditional_head.headers["etag"] == again.headers["etag"]
+
+    # A text file has no thumbnail. If the named-file route shadows the
+    # thumbnail route, it serves the original file and returns 200.
+    thumbnail_head = await client.head(f"{API}/public/{body['id']}/thumbnail")
+    assert thumbnail_head.status_code == 404
+
+
+async def test_public_thumbnail_head_matches_get(authenticated_client, client):
+    image = io.BytesIO()
+    Image.new("RGB", (20, 20)).save(image, format="PNG")
+    body = await _upload(
+        authenticated_client, "a.png", image.getvalue(), "image/png", public="true"
+    )
+    url = f"{API}/public/{body['id']}/thumbnail?w=64"
+    headers = {"Accept-Encoding": "identity"}
+
+    get = await client.get(url, headers=headers)
+    head = await client.head(url, headers=headers)
+
+    assert head.status_code == get.status_code == 200
+    assert head.content == b""
+    assert head.headers["content-type"] == get.headers["content-type"] == "image/webp"
+    assert head.headers["content-length"] == get.headers["content-length"]
+    assert head.headers["etag"] == get.headers["etag"]
 
 
 async def test_private_file_is_404_anonymously(authenticated_client, client):
     body = await _upload(authenticated_client)
-    assert (await client.get(f"{API}/public/{body['id']}")).status_code == 404
-    assert (await client.get(f"{API}/public/{uuid.uuid4()}")).status_code == 404
+    for file_id in (body["id"], uuid.uuid4()):
+        url = f"{API}/public/{file_id}/a.txt"
+        assert (await client.get(url)).status_code == 404
+        assert (await client.head(url)).status_code == 404
 
 
 async def test_patch_toggles_public(authenticated_client, client):
@@ -146,3 +195,31 @@ async def test_patch_public_rejects_non_boolean(authenticated_client, client):
         assert resp.status_code == 422, (value, resp.text)
     assert (await authenticated_client.get(url)).json()["public"] is False
     assert (await client.get(f"{API}/public/{body['id']}")).status_code == 404
+
+
+async def test_public_head_skips_file_reads(authenticated_client, client, app, monkeypatch):
+    body = await _upload(authenticated_client, public="true")
+
+    async def unexpected_read(*args):
+        raise AssertionError("HEAD opened the file body")
+
+    async def missing_object(key):
+        return False
+
+    backend = app.state.file_storage.backend
+    monkeypatch.setattr(backend, "get", unexpected_read)
+    monkeypatch.setattr(backend, "get_range", unexpected_read)
+    for headers in ({}, {"Range": "bytes=1-2"}, {"Range": "bytes=99-"}):
+        response = await client.head(body["public_url"], headers=headers)
+        assert response.status_code == 200
+        assert response.headers["content-length"] == "5"
+        assert "content-range" not in response.headers
+        assert response.content == b""
+
+    cached = await client.head(
+        body["public_url"], headers={"If-None-Match": response.headers["etag"]}
+    )
+    assert cached.status_code == 304
+
+    monkeypatch.setattr(backend, "exists", missing_object)
+    assert (await client.head(body["public_url"])).status_code == 404

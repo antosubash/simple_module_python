@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Users, Keycloak, and OIDC publish an in-process `UserLoggedOut` event after authenticated session logout (#1125).
 - Regression coverage for Docker runtime/Compose invariants, the documented temporary-database migration roundtrip, and shared pytest configuration (#1088, #1089, #1090).
 
 ### Changed
@@ -37,6 +38,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Security
 
+- **Behaviour change:** refuse OAuth sign-in by verified email when the local account already has a different identity from the same provider, preserving its existing links and roles (#1128). This applies to every provider, including GitHub and Google: a user who recreates their provider account is refused until the old link is removed. The refusal is logged at WARNING with the provider and local user id.
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
 - Validate incoming `X-Correlation-ID` headers in `CorrelationIdMiddleware` for bounded length and safe token characters (#1065).
 - Reject ASCII control characters in `file_storage` media types and `branding` image normalization, preserve validated MIME parameters while falling back safely on downloads, sanitize generated storage key suffixes, and enforce canonical `is_relative_to` confinement in `FilesystemBackend._resolve` (#1069).
@@ -44,6 +46,11 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - core: `EventBus.publish` runs sync subscribers inside its isolation: a raising sync handler is logged and the remaining handlers still run, and a sync handler that returns `None` no longer breaks the dispatch (#1134).
+- Browser sessions now restore null email and name values as empty strings. Legacy session emails stored as `"None"` also restore as empty strings (#1133).
+- file_storage: `HEAD` on a public file URL (and its thumbnail) answers like `GET` without a body, instead of `401`, so link checkers and download tools see public files (#1131).
+- Skip host GZip compression for partial responses and already-compressed media types, preserving range headers and byte offsets (#1127).
+- Preserve a response’s own Referrer-Policy and omit the host default on 304 responses so caches retain the existing policy (#1061).
+- Settings descriptions for boolean fields remain visible when a stored override or secret hint occupies the trailing column (#1062).
 - Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
 - Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
 - Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).

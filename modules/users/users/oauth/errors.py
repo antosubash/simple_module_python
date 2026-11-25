@@ -5,12 +5,19 @@ from starlette.responses import RedirectResponse
 
 from users.core.constants import LOGIN_PAGE_PATH
 
-OAUTH_ERROR_CODES = frozenset({"account_not_verified", "signup_disabled", "signin_failed"})
+OAUTH_ACCOUNT_LINKED_ELSEWHERE = "OAUTH_ACCOUNT_LINKED_ELSEWHERE"
+
+
+class OAuthAccountLinkedElsewhereError(Exception):
+    """The local account already has a different identity for this provider."""
+
 
 _PUBLIC_CODES = {
+    OAUTH_ACCOUNT_LINKED_ELSEWHERE: "account_linked_elsewhere",
     "OAUTH_ACCOUNT_NOT_VERIFIED": "account_not_verified",
     "OAUTH_SIGNUP_DISABLED": "signup_disabled",
 }
+OAUTH_ERROR_CODES = frozenset((*_PUBLIC_CODES.values(), "signin_failed"))
 
 
 def _is_browser_navigation(request: Request) -> bool:
