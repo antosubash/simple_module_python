@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _empty_if_none(value: str | None) -> str:
+    return "" if value is None else value
+
+
 class KeycloakAuthProvider(CachePersistence, SessionRenewal):
     """OIDC auth provider backed by Keycloak."""
 
@@ -120,9 +124,9 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
         ]
         return UserContext(
             id=cache_id,
-            email=claims.get("email", ""),
+            email=_empty_if_none(claims.get("email")),
             email_verified=claims.get("email_verified") is True,
-            name=(claims.get("preferred_username") or claims.get("name", "")),
+            name=_empty_if_none(claims.get("preferred_username") or claims.get("name")),
             roles=self._without_tenant_roles(mapped),
             tenant_id=self._trusted_tenant(claims.get("tenant_id")),
         )

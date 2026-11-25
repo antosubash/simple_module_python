@@ -78,6 +78,7 @@ async def test_expired_session_refreshes_roles_and_deadline(refresh_session, htt
     assert principal is not None
     assert principal.roles == ["reader"]
     assert principal.email == "new@example.com"
+    assert principal.name == "New"
     assert principal.auth_kind == "session"
     assert request.session["user_ctx"] == principal.to_session_dict()
     assert request.session["expires_at"] == 1300
@@ -97,6 +98,23 @@ async def test_expired_session_refreshes_roles_and_deadline(refresh_session, htt
     request.session["expires_at"] = 999
     assert await provider.resolve_user(request) is None
     assert len(httpx_mock.get_requests()) == 1
+
+
+@pytest.mark.parametrize(
+    "profile_claims", [{"email": None, "name": None}, {}], ids=["null", "missing"]
+)
+async def test_refresh_defaults_absent_profile_claims(refresh_session, httpx_mock, profile_claims):
+    provider, request = refresh_session
+    claims = provider.jwks_cache.validate_jwt.return_value
+    del claims["email"], claims["preferred_username"]
+    claims.update(profile_claims)
+    httpx_mock.add_response(json={"access_token": "access-new"})
+
+    principal = await provider.resolve_user(request)
+
+    assert principal is not None
+    assert (principal.email, principal.name) == ("", "")
+    assert request.session["user_ctx"] == principal.to_session_dict()
 
 
 @pytest.mark.parametrize("failure", ["invalid_grant", "invalid_token", "expired_token"])
