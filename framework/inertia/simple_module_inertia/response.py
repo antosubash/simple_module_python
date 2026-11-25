@@ -5,7 +5,7 @@ import warnings
 from importlib import import_module
 
 warnings.warn(
-    "simple_module_inertia.response is deprecated and will be removed in 0.0.52; "
+    "simple_module_inertia.response is deprecated and will be removed in 0.0.55; "
     "use simple_module_inertia.protocol.response instead",
     DeprecationWarning,
     stacklevel=2,

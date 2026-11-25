@@ -4,6 +4,7 @@ Built-in commands:
   smpy new
   smpy add
   smpy update
+  smpy fix-imports
   smpy create-host
   smpy create-module
   smpy skills add / list / update
@@ -22,6 +23,7 @@ import typer
 from simple_module_cli.commands.add_cmd import add_module, run_add
 from simple_module_cli.commands.dev_cmd import dev_command
 from simple_module_cli.commands.docker_cmd import docker_app
+from simple_module_cli.commands.fix_imports_cmd import fix_imports
 from simple_module_cli.commands.gen_cmd import gen_command
 from simple_module_cli.commands.migrations_cmd import migrations_app
 from simple_module_cli.commands.module_cmd import module_app
@@ -64,6 +66,7 @@ app.command("dev")(dev_command)
 app.command("add")(add_module)
 app.command("update")(update_modules)
 app.command("package-update")(package_update)
+app.command("fix-imports")(fix_imports)
 app.add_typer(docker_app, name="docker")
 app.add_typer(skills_app, name="skills")
 app.add_typer(module_app, name="module")

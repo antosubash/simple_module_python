@@ -12,6 +12,18 @@ From the app root, use `uv run smpy update --dry-run` to preview changes, then
 frontend. Local sources stay local. Review release notes and prepare any required
 data revisions before applying migrations; updating packages does not migrate the DB.
 
+## Move off deprecated import paths
+
+`uv run smpy fix-imports --diff` previews rewrites of framework import paths that
+were moved into domain areas (for example `simple_module_core.cors` to
+`simple_module_core.web.cors`); `uv run smpy fix-imports` applies them across the
+current directory, skipping virtualenvs and `node_modules`. It also rewrites
+`from simple_module_core import cors`, attribute chains after a bare `import` and
+dotted strings such as `mock.patch("simple_module_core.cors.CorsRegistry")`.
+Anything it cannot rewrite safely is listed as `manual`. Run your formatter
+afterwards to re-sort imports, and add `uv run smpy fix-imports --check` to CI to
+keep old paths out before their shims are removed.
+
 ## Check and prepare
 
 Back up the database and review the release notes before upgrading packages.

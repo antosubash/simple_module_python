@@ -23,6 +23,12 @@ that release either deletes it or moves the date on purpose. A new shim must be
 added to that test's import list. Module-layout aliases are discovered automatically.
 Non-Python fallbacks are registered explicitly by the test.
 
+Layout aliases also feed `smpy fix-imports`, which rewrites old import paths in an
+app (`docs/guide/upgrading.md`). Its table is frozen into
+`framework/cli/simple_module_cli/updates/import_renames.json` so the CLI keeps no
+dependency on core; after adding, moving or removing a layout shim run
+`uv run python scripts/gen_import_renames.py` (the expiry test fails while it is stale).
+
 ## Removed early (#989)
 
 The shims previously scheduled for 0.1.0 have been removed. Old imports fail;

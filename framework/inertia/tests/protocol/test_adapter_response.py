@@ -35,7 +35,7 @@ def test_legacy_response_import_warns_and_aliases_protocol_response() -> None:
                     assert caught[0].category is DeprecationWarning
                     assert str(caught[0].message) == (
                         "simple_module_inertia.response is deprecated and will be removed in "
-                        "0.0.52; use simple_module_inertia.protocol.response instead"
+                        "0.0.55; use simple_module_inertia.protocol.response instead"
                     )
                     canonical = importlib.import_module("simple_module_inertia.protocol.response")
                     assert legacy is canonical

@@ -7,7 +7,7 @@ from simple_module_core.runtime.deprecation import deprecated_module
 
 deprecated_module(
     "simple_module_core.redirect_safety",
-    remove_in="0.0.52",
+    remove_in="0.0.55",
     use="simple_module_core.web.redirect_safety",
 )
 sys.modules[__name__] = import_module("simple_module_core.web.redirect_safety")

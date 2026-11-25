@@ -48,7 +48,7 @@ Test directories contain no `__init__.py` and no flat `tests/test_*.py` files; p
 
 ## Compatibility shims for moved paths
 
-Any old framework submodule path imported outside its owning package (in `modules/`, `host/`, or downstream `smpy_modules`) keeps a `sys.modules` alias shim at the old root location with `remove_in="0.0.52"` (`docs/framework/deprecations.md`):
+Any old framework submodule path imported outside its owning package (in `modules/`, `host/`, or downstream `smpy_modules`) keeps a `sys.modules` alias shim at the old root location with `remove_in="0.0.55"` (`docs/framework/deprecations.md`):
 
 - Packages that depend on `simple_module_core` (`core`, `db`, `hosting`, `testing`) use `simple_module_core.runtime.deprecation.deprecated_module`.
 - Leaf packages (`inertia`, `cli`) keep zero dependency on `core` by emitting stdlib `DeprecationWarning` before aliasing `sys.modules[__name__]` and registering the expiry target via `deprecate(...)` in `_register_all()` of `host/tests/test_deprecation_expiry.py`.

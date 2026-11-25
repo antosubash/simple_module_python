@@ -6,6 +6,6 @@ from importlib import import_module
 from simple_module_core.runtime.deprecation import deprecated_module
 
 deprecated_module(
-    "simple_module_core.discovery", remove_in="0.0.52", use="simple_module_core.modules.discovery"
+    "simple_module_core.discovery", remove_in="0.0.55", use="simple_module_core.modules.discovery"
 )
 sys.modules[__name__] = import_module("simple_module_core.modules.discovery")
