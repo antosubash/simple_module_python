@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `ModuleBase.doctor_diagnostics(database_url)`: an optional, read-only override through which a module adds findings to `make doctor` / `smpy doctor` (never run at boot). A hook that raises or returns something other than `Diagnostic` objects is reported as `SM036` (ERROR) without its exception text, and Doctor continues with the other modules. The `users` module uses it for `SM035` (WARNING): no `users.base_url`, `host.public_base_url` or `host.forwarded_host_allowlist`, so account emails have no origin (#1126).
 - Regression coverage for Docker runtime/Compose invariants, the documented temporary-database migration roundtrip, and shared pytest configuration (#1088, #1089, #1090).
 
 ### Changed

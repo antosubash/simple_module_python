@@ -88,13 +88,8 @@ def _database_url() -> str:
     return absolutize_sqlite_url(url, anchor=find_env_file().parent)
 
 
-def _database_dialect() -> str:
-    """Dialect name of ``SM_DATABASE_URL`` (``.env`` merged by the i18n loader first).
-
-    Defaults to ``sqlite`` like ``Settings.database_url``. Reads the env var
-    directly for the same reason the i18n settings do: no hosting import.
-    """
-    url = _database_url()
+def _database_dialect(url: str) -> str:
+    """Extract the dialect without importing the hosting settings."""
     return url.split(":", 1)[0].split("+", 1)[0]
 
 
@@ -188,18 +183,41 @@ def main() -> int:
 
     unknown_overrides, override_findings = unknown_overrides_for(modules, extra, supported, default)
 
+    database_url = _database_url()
     diagnostics = run_diagnostics(
         modules,
         i18n_supported_locales=supported,
         i18n_default_locale=default,
         i18n_extra_sources=extra,
         i18n_unknown_overrides=unknown_overrides,
-        database_dialect=_database_dialect(),
-        existing_index_names=sqlite_file_index_names(_database_url()),
+        database_dialect=_database_dialect(database_url),
+        existing_index_names=sqlite_file_index_names(database_url),
     )
     diagnostics.extend(override_findings)
-    diagnostics.extend(migration_diagnostics(modules, _database_url()))
-    diagnostics.extend(data_compatibility_diagnostics(modules, _database_url()))
+    diagnostics.extend(migration_diagnostics(modules, database_url))
+    diagnostics.extend(data_compatibility_diagnostics(modules, database_url))
+    for module in modules:
+        try:
+            findings = tuple(module.doctor_diagnostics(database_url))
+            if any(
+                not isinstance(finding, Diagnostic)
+                or not isinstance(finding.level, DiagnosticLevel)
+                or not isinstance(finding.code, str)
+                for finding in findings
+            ):
+                raise TypeError("Invalid module doctor diagnostic")
+            diagnostics.extend(findings)
+        except Exception:
+            # Diagnostic hooks may touch credentials; do not print exception text.
+            diagnostics.append(
+                Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM036",
+                    module_name=module.meta.name,
+                    message="The module's doctor_diagnostics hook failed.",
+                    suggestion="Check the module's diagnostic hook and deployment configuration.",
+                )
+            )
     # A missing dependency only warns at a dev boot, but production refuses
     # to start with it (GH #501), so doctor reports it as what it will be.
     for finding in diagnostics:

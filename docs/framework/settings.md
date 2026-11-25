@@ -101,7 +101,8 @@ port after the closing bracket.
 
 If there is no eligible request origin, including sends without a request,
 the mailer skips delivery and logs an ERROR naming `host.public_base_url`.
-Public reset and verification responses stay generic.
+Public reset and verification responses stay generic. Doctor warns with
+SM035 when both configured origins and the allowlist are empty.
 An explicitly stored users origin, including the old localhost default, keeps
 winning. Clear it to inherit the host.
 
