@@ -45,6 +45,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- file_storage: `HEAD` on a public file URL (and its thumbnail) answers like `GET` without a body, instead of `401`, so link checkers and download tools see public files (#1131).
 - Skip host GZip compression for partial responses and already-compressed media types, preserving range headers and byte offsets (#1127).
 - Preserve a response’s own Referrer-Policy and omit the host default on 304 responses so caches retain the existing policy (#1061).
 - Settings descriptions for boolean fields remain visible when a stored override or secret hint occupies the trailing column (#1062).
