@@ -45,7 +45,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- **Behaviour change:** Keycloak user-cache writes normalize non-string email and `preferred_username` claims to empty strings, matching principal normalization and preventing malformed profile claims from losing the cached identity at sign-in (#1146).
+- Keycloak user-cache writes tolerate malformed profile claims without losing the cached identity at sign-in. Missing or malformed emails preserve the last known address (empty for new identities); explicit null or empty `preferred_username` claims still clear the cached name (#1146).
 - During sign-in, bearer authentication, and session refresh, Keycloak principals default to an empty email when the email claim provides no string value and an empty name when neither `preferred_username` nor `name` provides a non-empty string (#1143).
 - core: `EventBus.publish` runs sync subscribers inside its isolation: a raising sync handler is logged and the remaining handlers still run, and a sync handler that returns `None` no longer breaks the dispatch (#1134).
 - Browser sessions now restore null email and name values as empty strings. Legacy session emails stored as `"None"` also restore as empty strings (#1133).

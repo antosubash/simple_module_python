@@ -133,28 +133,42 @@ async def test_keycloak_explicit_empty_name_clears_cached_name(cache_request, db
     async with db_state.session_factory() as db:
         row = (await db.execute(select(KeycloakUserCache))).scalar_one()
         assert str(row.id) == user_id
-        assert row.full_name == ""
+        assert row.full_name == name
 
 
 @pytest.mark.parametrize("existing", [False, True], ids=["insert", "update"])
 @pytest.mark.parametrize("claim, column", [("preferred_username", "full_name"), ("email", "email")])
 @pytest.mark.parametrize(
-    "value, expected",
+    "value, email_insert, email_update, name_insert, name_update",
     [
-        pytest.param(["profile"], "", id="list"),
-        pytest.param(123, "", id="number"),
-        pytest.param(None, "", id="null"),
-        pytest.param("profile@example.com", "profile@example.com", id="string"),
-        pytest.param({"v": 1}, "", id="dict"),
-        pytest.param("", "", id="empty"),
+        pytest.param(..., "", "old@example.com", None, "Old", id="missing"),
+        pytest.param(["profile"], "", "old@example.com", None, "Old", id="list"),
+        pytest.param(123, "", "old@example.com", None, "Old", id="number"),
+        pytest.param(False, "", "old@example.com", None, "Old", id="bool"),
+        pytest.param(None, "", "old@example.com", None, None, id="null"),
+        pytest.param("New", "New", "New", "New", "New", id="string"),
+        pytest.param({"v": 1}, "", "old@example.com", None, "Old", id="dict"),
+        pytest.param("", "", "", "", "", id="empty"),
     ],
 )
-async def test_keycloak_sign_in_normalizes_cached_profile_claims(
-    cache_request, db_state, existing, claim, column, value, expected
+async def test_keycloak_sign_in_preserves_cached_profile_claim_semantics(
+    cache_request,
+    db_state,
+    existing,
+    claim,
+    column,
+    value,
+    email_insert,
+    email_update,
+    name_insert,
+    name_update,
 ):
     provider = KeycloakAuthProvider()
     user_id = await provider._upsert_user_cache(cache_request, CLAIMS) if existing else None
-    ctx = await provider.sign_in_from_claims(cache_request, {**CLAIMS, claim: value})
+    claims = {**CLAIMS, claim: value}
+    if value is ...:
+        del claims[claim]
+    ctx = await provider.sign_in_from_claims(cache_request, claims)
     assert ctx.id != CLAIMS["sub"]  # a real cache id, not the raw-sub fallback
     if existing:
         assert ctx.id == user_id
@@ -162,4 +176,7 @@ async def test_keycloak_sign_in_normalizes_cached_profile_claims(
         row = (await db.execute(select(KeycloakUserCache))).scalar_one()
         assert str(row.id) == ctx.id
         assert row.keycloak_sub == CLAIMS["sub"]
-        assert getattr(row, column) == expected
+        expected_email = email_update if existing else email_insert
+        expected_name = name_update if existing else name_insert
+        assert row.email == (expected_email if column == "email" else "old@example.com")
+        assert row.full_name == (expected_name if column == "full_name" else "Old")
