@@ -53,9 +53,11 @@ function Login({
       ? t(keys.users.login.oauth_account_not_verified)
       : oauth_error === 'signup_disabled'
         ? t(keys.users.login.oauth_signup_disabled)
-        : oauth_error === 'signin_failed'
-          ? t(keys.users.login.oauth_signin_failed)
-          : null;
+        : oauth_error === 'account_linked_elsewhere'
+          ? t(keys.users.login.oauth_account_linked_elsewhere)
+          : oauth_error === 'signin_failed'
+            ? t(keys.users.login.oauth_signin_failed)
+            : null;
   const [error, setError] = useState<string | null>(oauthMessage);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resent, setResent] = useState(false);
