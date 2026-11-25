@@ -13,6 +13,7 @@ from simple_module_hosting.pipeline.session import session_has_expired
 from starlette.requests import Request
 
 from keycloak.core.constants import SESSION_USER_KEY as _SESSION_USER_CTX_KEY
+from keycloak.identity._claims import _string_or_empty
 from keycloak.identity.persistence import CachePersistence
 from keycloak.identity.renewal import SessionRenewal
 
@@ -22,10 +23,6 @@ if TYPE_CHECKING:
     from keycloak.identity.jwks import JWKSCache
 
 logger = logging.getLogger(__name__)
-
-
-def _string_or_empty(value: object) -> str:
-    return value if isinstance(value, str) else ""
 
 
 class KeycloakAuthProvider(CachePersistence, SessionRenewal):

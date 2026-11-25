@@ -3,6 +3,7 @@
 from auth.oidc_common.persistence import upsert_user_cache
 from starlette.requests import Request
 
+from keycloak.identity._claims import _string_or_empty
 from keycloak.models import KeycloakUserCache
 
 
@@ -14,8 +15,8 @@ class CachePersistence:
             request,
             model=KeycloakUserCache,
             identity={"keycloak_sub": claims["sub"]},
-            email=claims.get("email"),
-            name=claims.get("preferred_username"),
+            email=_string_or_empty(claims.get("email")),
+            name=_string_or_empty(claims.get("preferred_username")),
             throttle_login=throttle_login,
             update_name="preferred_username" in claims,
         )
