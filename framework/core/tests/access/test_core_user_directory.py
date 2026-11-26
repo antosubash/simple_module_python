@@ -90,7 +90,8 @@ async def test_default_email_lookup_trims_for_third_party_providers():
     user = DirectoryUser("ada", "Ada@Example.com")
 
     class Directory(NullUserDirectory):
-        async def search(self, db, term, *, limit, exact_email=False):
+        # Deliberately the legacy signature (no match_email) of a third-party provider.
+        async def search(self, db, term, *, limit, exact_email=False):  # ty: ignore[incompatible-method-override]
             return [user] if exact_email and term.lower() == user.email.lower() else []
 
     directory = Directory()
