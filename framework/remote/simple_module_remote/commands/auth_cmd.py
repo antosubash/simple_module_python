@@ -22,7 +22,22 @@ def _api_failure(exc: ApiError, what: str) -> click.ClickException:
     return CliError(f"{what}: {exc.message}", exit_code_for(exc.status))
 
 
-@click.command("login", help="Store a personal access token for the selected environment.")
+class _LoginCommand(click.Command):
+    """Never echoes extra arguments: they may be a token typed on the command line."""
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        try:
+            return super().parse_args(ctx, args)
+        except click.UsageError:
+            raise CliError(
+                "login takes no arguments and no token value: use --token (hidden prompt) "
+                "or --token-stdin"
+            ) from None
+
+
+@click.command(
+    "login", cls=_LoginCommand, help="Store a personal access token for the selected environment."
+)
 @click.option("--token", "prompt_token", is_flag=True, help="Prompt for the token (hidden input).")
 @click.option("--token-stdin", is_flag=True, help="Read the token from one line of stdin.")
 @click.pass_context
@@ -44,10 +59,11 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
             who = fetch_whoami(client)
     except ApiError as exc:
         raise _api_failure(exc, "the token was not accepted; nothing was stored") from None
-    if state.flag_tenant and who.get("tenant_id") != state.flag_tenant:
+    wanted = state.tenant(env)
+    if wanted and who.get("tenant_id") != wanted:
         pinned = who.get("tenant_id") or "no tenant"
         raise CliError(
-            f"--tenant {state.flag_tenant!r} does not match the token's pinned tenant id "
+            f"tenant {wanted!r} does not match the token's pinned tenant id "
             f"{pinned!r}; nothing was stored"
         )
     store = state.store()

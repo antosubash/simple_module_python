@@ -115,6 +115,10 @@ def _callback(**values: Any) -> None:
         validate_api_path(path)
     except UnsafePathError as exc:
         raise click.UsageError(str(exc)) from None
+    if method not in BODY_METHODS and any(
+        values.get(k) for k in ("json_arg", "file_arg", "sets", "set_jsons")
+    ):
+        raise click.UsageError(f"{method} takes no request body: drop --json/--file/--set")
     queries = _split_queries(values.pop("queries"))
     op = _synthetic(method, path, queries)
     for dest, param in param_map(op).items():

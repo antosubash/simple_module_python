@@ -6,8 +6,9 @@ import click
 
 from simple_module_remote.commands.runtime import AppState, CliError, fetch_whoami, state_of
 from simple_module_remote.commands.schema_cmd import schema_info
-from simple_module_remote.config.credentials import credential_key
+from simple_module_remote.config.credentials import TOKEN_ENV_SUFFIX, credential_key
 from simple_module_remote.config.environments import Environment
+from simple_module_remote.config.paths import env_prefix
 from simple_module_remote.http.errors import ApiError, UnsafePathError
 from simple_module_remote.http.safety import validate_base_url
 from simple_module_remote.output.sanitize import sanitize
@@ -64,7 +65,13 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
         key = credential_key(env.name, state.tenant(env))
         report.fail("credentials", exc.message, f"{state.cli} login --env {env.name} ({key})")
         return
-    report.ok("credentials", "present and bound to this origin")
+    from_var = bool(state.environ.get(env_prefix(state.cli) + TOKEN_ENV_SUFFIX))
+    report.ok(
+        "credentials",
+        f"token from {env_prefix(state.cli)}{TOKEN_ENV_SUFFIX}"
+        if from_var
+        else "present and bound to this origin",
+    )
     try:
         with state.client(env, token) as client:
             who = fetch_whoami(client)
@@ -72,15 +79,16 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
         report.fail("whoami", exc.message, f"{state.cli} login --env {env.name}")
         return
     report.ok("whoami", str(who.get("email")))
-    if state.flag_tenant is None:
-        report.ok("tenant", "no --tenant given")
-    elif who.get("tenant_id") == state.flag_tenant:
-        report.ok("tenant", f"token is pinned to {state.flag_tenant}")
+    wanted = state.tenant(env)
+    if wanted is None:
+        report.ok("tenant", "no tenant selected")
+    elif who.get("tenant_id") == wanted:
+        report.ok("tenant", f"token is pinned to {wanted}")
     else:
         report.fail(
             "tenant",
-            f"token is pinned to {who.get('tenant_id') or 'no tenant'}, not {state.flag_tenant}",
-            f"{state.cli} login --tenant {state.flag_tenant}",
+            f"token is pinned to {who.get('tenant_id') or 'no tenant'}, not {wanted}",
+            f"{state.cli} login --tenant {wanted}",
         )
 
 

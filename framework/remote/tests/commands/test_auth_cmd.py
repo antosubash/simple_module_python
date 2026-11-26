@@ -37,7 +37,12 @@ def test_login_rejects_token_argument(make_cli):
     cli = make_cli()
     runner = setup_env(cli)
     result = runner.invoke(cli, ["login", "--token", SECRET])
-    assert result.exit_code != 0
+    assert result.exit_code == 1
+    assert SECRET not in result.output and SECRET not in result.stderr
+    assert cli.requests == []
+    extra = runner.invoke(cli, ["login", "extra-positional"])
+    assert extra.exit_code == 1
+    assert "extra-positional" not in extra.output and "extra-positional" not in extra.stderr
     assert cli.requests == []
 
 
@@ -85,3 +90,27 @@ def test_logout_removes_token(make_cli, keyring_store):
     assert runner.invoke(cli, ["logout"]).exit_code == 0
     assert keyring_store.data == {}
     assert runner.invoke(cli, ["whoami"]).exit_code == 1
+
+
+def test_token_not_reused_across_envs(make_cli):
+    cli = make_cli()
+    runner = setup_env(cli)
+    runner.invoke(cli, ["env", "add", "other", "--url", "http://127.0.0.1:9000"])
+    runner.invoke(cli, ["login", "--token-stdin"], input=SECRET + "\n")
+    assert runner.invoke(cli, ["whoami"]).exit_code == 0
+    before = len(cli.requests)
+    result = runner.invoke(cli, ["--env", "other", "whoami"])
+    assert result.exit_code == 1
+    assert len(cli.requests) == before
+
+
+def test_env_default_tenant_checked_on_login(make_cli, keyring_store):
+    cli = make_cli()
+    runner = setup_env(cli, "--tenant", "wrong")
+    result = runner.invoke(cli, ["login", "--token-stdin"], input=SECRET + "\n")
+    assert result.exit_code == 1 and keyring_store.data == {}
+
+
+def test_root_usage_error_exits_1(make_cli):
+    result = CliRunner().invoke(make_cli(), ["--schema", "live", "whoami"])
+    assert result.exit_code == 1

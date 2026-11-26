@@ -56,11 +56,17 @@ class AppState:
     flag_env: str | None = None
     flag_tenant: str | None = None
     _store: CredentialStore | None = None
-    _token: str | None = None
+    _tokens: dict[tuple[str, str | None, str], str] = field(default_factory=dict)
 
     @property
     def user_agent(self) -> str:
         return f"{self.cli}/{self.version} simple_module_remote/{engine_version}"
+
+    def begin(self, env: str | None, tenant: str | None) -> None:
+        """Start an invocation: set the root flags and forget tokens from earlier ones."""
+        self.flag_env = env
+        self.flag_tenant = tenant
+        self._tokens.clear()
 
     @contextmanager
     def guard(self) -> Generator[None]:
@@ -97,12 +103,13 @@ class AppState:
         return self._store
 
     def token(self, env: Environment, explicit: bool) -> str:
-        if self._token is None:
+        key = (env.name, self.tenant(env), env.origin)
+        if key not in self._tokens:
             with self.guard():
-                self._token = resolve_token(
+                self._tokens[key] = resolve_token(
                     self.store(), env, self.tenant(env), self.environ, self.cli, explicit
                 )
-        return self._token
+        return self._tokens[key]
 
     def client(self, env: Environment, token: str | None) -> ApiClient:
         with self.guard():

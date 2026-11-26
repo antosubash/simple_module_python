@@ -38,3 +38,12 @@ def test_schema_status(make_cli):
     assert "bundled" in result.output and "9.9" in result.output
     fingerprint = next(ln for ln in result.output.splitlines() if ln.startswith("fingerprint"))
     assert len(fingerprint.split()[-1]) == 12
+
+
+def test_doctor_names_token_env_var(make_cli):
+    cli = make_cli()
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    env = {"SMDEV_ENV": "dev", "SMDEV_TOKEN": "tok"}
+    result = runner.invoke(cli, ["doctor"], env=env)
+    assert "token from SMDEV_TOKEN" in result.output

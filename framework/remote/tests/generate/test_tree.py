@@ -40,7 +40,21 @@ def test_help_lists_groups(make_cli):
         assert word in result.output
 
 
-def test_no_env_or_yes_envvar(make_cli, monkeypatch):
+def test_yes_envvar_ignored_on_protected_mutation(make_cli, monkeypatch):
+    cli = make_cli()
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "p", "--url", "http://localhost:8000", "--protected"])
+    runner.invoke(cli, ["env", "use", "p"])
+    runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
+    before = len(cli.requests)
+    env = {"SMDEV_YES": "1", "SMDEV_ENV": "p", "SMDEV_TOKEN": "tok"}
+    api = runner.invoke(cli, ["api", "POST", "/api/x", "--json", "{}"], env=env)
+    gen = runner.invoke(cli, ["users", "create-user", "--set", "email=a@b"], env=env)
+    assert api.exit_code == 1 and gen.exit_code == 1
+    assert len(cli.requests) == before
+
+
+def test_no_envvar_on_options(make_cli, monkeypatch):
     cli = make_cli()
     assert cli.context_settings.get("auto_envvar_prefix") is None
     monkeypatch.setenv("SMDEV_YES", "1")
@@ -53,10 +67,11 @@ def test_no_env_or_yes_envvar(make_cli, monkeypatch):
 
 
 def test_fresh_machine_hint(make_cli):
-    result = CliRunner().invoke(make_cli(), ["users", "list-users", "--page", "1"])
+    cli = make_cli()
+    result = CliRunner().invoke(cli, ["users", "list-users", "--page", "1"])
     assert result.exit_code == 1
     assert "env use" in result.output and "login" in result.output
-    assert make_cli().requests == []
+    assert cli.requests == []
 
 
 def test_generated_command_runs_with_stored_token(make_cli):

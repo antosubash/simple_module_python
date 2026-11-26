@@ -51,3 +51,12 @@ def test_api_bad_method_and_missing_args(make_cli):
     runner = logged_in(cli)
     assert runner.invoke(cli, ["api", "TRACE", "/api/x"]).exit_code == 1
     assert runner.invoke(cli, ["api"]).exit_code == 1
+
+
+def test_api_get_rejects_body_flags(make_cli):
+    cli = make_cli()
+    runner = logged_in(cli)
+    before = len(cli.requests)
+    for flags in (["--json", "{}"], ["--set", "a=1"]):
+        assert runner.invoke(cli, ["api", "GET", "/api/x", *flags]).exit_code == 1
+    assert len(cli.requests) == before
