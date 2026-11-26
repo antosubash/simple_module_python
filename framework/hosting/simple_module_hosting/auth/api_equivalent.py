@@ -205,7 +205,7 @@ def _resolve(routes: list[_ApiRoute], declared: ApiEquivalent) -> bool | None:
     sample = _sample(target.template)
     for route in routes:
         if declared.method in route.methods and route.pattern.match(sample):
-            return route.admits
+            return target.admits and route.admits
     return target.admits
 
 

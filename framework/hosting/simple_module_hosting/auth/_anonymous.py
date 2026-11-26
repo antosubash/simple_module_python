@@ -22,4 +22,4 @@ async def demote_to_anonymous(request: HTTPConnection) -> None:
     await reresolve_tenant(request)
 
 
-__all__ = ["demote_to_anonymous", "forget_principal"]
+__all__ = ["demote_to_anonymous"]

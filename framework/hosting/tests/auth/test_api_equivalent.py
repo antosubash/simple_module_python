@@ -240,3 +240,13 @@ def test_converter_template_is_declared_without_the_converter():
     )
     _view(app, Depends(api_equivalent("POST", "/api/items/{item_id}")))
     assert view_route_offenders(app) == []
+
+
+def test_earlier_admitting_literal_does_not_vouch_for_a_refusing_int_target():
+    app = FastAPI()
+    app.post("/api/items/1", dependencies=[Depends(RequiresPermission(_PERM))])(lambda: None)
+    app.post("/api/items/{item_id:int}")(lambda item_id: None)  # target refuses tokens
+    _view(app, Depends(api_equivalent("POST", "/api/items/{item_id}")))
+    assert view_route_offenders(app) == [
+        "POST /things/{thing_id}: POST /api/items/{item_id} refuses API tokens"
+    ]
