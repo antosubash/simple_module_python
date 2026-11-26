@@ -444,5 +444,200 @@
     "last_sign_in": "Zuletzt angemeldet {when}",
     "never": "Noch nicht darüber angemeldet",
     "subject": "Subjekt"
+  },
+  "settings_form": {
+    "title": "Benutzer & Registrierung",
+    "description": "Registrierungsregeln, Sitzungs- und Token-Laufzeiten, Anmeldeschutz, Anmeldung über Drittanbieter und Demo-Konten.",
+    "groups": {
+      "demo_account": "Demo-Konto",
+      "google_oauth": "Google-Anmeldung",
+      "github_oauth": "GitHub-Anmeldung",
+      "oidc": "OpenID-Connect-Anmeldung",
+      "microsoft_oauth": "Microsoft-Anmeldung",
+      "oauth_provisioning": "Kontoerstellung über Anmeldeanbieter"
+    },
+    "fields": {
+      "allow_signup": {
+        "label": "Selbstregistrierung erlauben",
+        "help": "Besuchern erlauben, ein eigenes Konto zu registrieren."
+      },
+      "require_verification": {
+        "label": "E-Mail-Bestätigung verlangen",
+        "help": "Konten müssen ihre E-Mail-Adresse bestätigen, bevor sie sich mit Passwort anmelden können. Die Anmeldung über Drittanbieter folgt deren eigenen Regeln."
+      },
+      "signup_default_role": {
+        "label": "Standardrolle bei Registrierung",
+        "help": "Bestehende Rolle für Konten, die sich selbst registrieren. Leer: keine Rolle. Die Admin-Rolle ist nicht erlaubt."
+      },
+      "reset_password_token_lifetime_seconds": {
+        "label": "Gültigkeit des Passwort-Zurücksetzen-Links (Sekunden)",
+        "help": "Wie lange ein Link zum Zurücksetzen des Passworts gültig bleibt."
+      },
+      "verification_token_lifetime_seconds": {
+        "label": "Gültigkeit des Bestätigungslinks (Sekunden)",
+        "help": "Wie lange ein Link zur E-Mail-Bestätigung gültig bleibt."
+      },
+      "bearer_token_lifetime_seconds": {
+        "label": "Gültigkeit von Zugriffstokens (Sekunden)",
+        "help": "Wie lange ein Zugriffstoken für mobile und API-Clients gilt, bevor es erneuert werden muss."
+      },
+      "refresh_token_lifetime_seconds": {
+        "label": "Gültigkeit von Refresh-Tokens (Sekunden)",
+        "help": "Wie lange ein Refresh-Token zum Abrufen neuer Zugriffstokens verwendet werden kann."
+      },
+      "refresh_token_family_max_age_days": {
+        "label": "Maximales Anmeldealter (Tage)",
+        "help": "Wie lange eine Kette von Refresh-Tokens höchstens erneuert werden darf, bevor sich der Benutzer neu anmelden muss."
+      },
+      "cookie_name": {
+        "label": "Name des Sitzungs-Cookies",
+        "help": "Name des Cookies, das die Anmeldesitzung speichert."
+      },
+      "cookie_max_age_seconds": {
+        "label": "Sitzungsdauer (Sekunden)",
+        "help": "Wie lange eine normale Anmeldesitzung gültig bleibt."
+      },
+      "remember_me_max_age_seconds": {
+        "label": "Dauer von „Angemeldet bleiben“ (Sekunden)",
+        "help": "Wie lange eine Sitzung gilt, wenn der Benutzer „Angemeldet bleiben“ ankreuzt. Die Anmeldeseite zeigt die passende Anzahl Tage."
+      },
+      "session_version_cache_ttl_seconds": {
+        "label": "Cache für Sitzungsprüfung (Sekunden)",
+        "help": "Wie lange ein Server eine Sitzungsprüfung wiederverwendet, bevor er die Datenbank erneut fragt. Kleinere Werte erkennen eine widerrufene Sitzung auf anderen Servern schneller; 0 prüft bei jeder Anfrage."
+      },
+      "cookie_samesite": {
+        "label": "SameSite-Richtlinie des Cookies",
+        "help": "Ob das Sitzungs-Cookie bei Anfragen von anderen Websites mitgesendet wird: lax, strict oder none.",
+        "choices": {
+          "lax": "Lax",
+          "none": "Keine",
+          "strict": "Strikt"
+        }
+      },
+      "base_url": {
+        "label": "Basis-URL für Konto-Links",
+        "help": "Adresse, auf die Konto-E-Mails wie Bestätigungs- und Zurücksetzungslinks zeigen. Leer: die öffentliche Adresse der Website wird verwendet; ist auch diese leer, sind die Links relativ."
+      },
+      "mail_template_dirs": {
+        "label": "Eigene Ordner für E-Mail-Vorlagen",
+        "help": "Absolute Ordner, die zuerst nach Vorlagen für Bestätigungs-, Zurücksetzen- und Einladungs-E-Mails durchsucht werden. Relative oder fehlende Pfade werden ignoriert."
+      },
+      "login_rate_limit_failures": {
+        "label": "Fehlversuche pro Quelle",
+        "help": "Fehlgeschlagene Anmeldungen für einen Benutzernamen von einer IP-Adresse im Zeitfenster, bevor diese Quelle gedrosselt wird."
+      },
+      "login_rate_limit_window_seconds": {
+        "label": "Zeitfenster für Anmeldeversuche (Sekunden)",
+        "help": "Zeitraum, in dem fehlgeschlagene Anmeldungen gezählt werden."
+      },
+      "login_rate_limit_cooldown_seconds": {
+        "label": "Sperrdauer (Sekunden)",
+        "help": "Wie lange ein Konto nach zu vielen fehlgeschlagenen Anmeldungen gesperrt bleibt."
+      },
+      "login_lockout_account_failures": {
+        "label": "Fehlversuche bis zur Kontosperre",
+        "help": "Fehlgeschlagene Anmeldungen von beliebiger Stelle im Zeitfenster, die das Konto sperren."
+      },
+      "auth_rate_limit_attempts": {
+        "label": "Limit für Kontoaktionen",
+        "help": "Versuche pro IP-Adresse und Aktion im Zeitfenster für Kontoaktionen wie Registrierung, Passwort-Zurücksetzen, Bestätigung, Einladungen, Passwortänderung und Demo-Anmeldung. Jeder Serverprozess zählt für sich."
+      },
+      "auth_rate_limit_window_seconds": {
+        "label": "Zeitfenster für Kontoaktionen (Sekunden)",
+        "help": "Wie lange der Versuchszähler nach dem letzten Versuch erhalten bleibt. Jeder Versuch, auch ein abgelehnter, startet den Zeitraum neu."
+      },
+      "demo_mode": {
+        "label": "Demo-Anmeldung aktivieren",
+        "help": "Fügt auf der Anmeldeseite für jedes Demo-Konto eine Ein-Klick-Schaltfläche hinzu. Es wird kein Passwort an den Browser gesendet."
+      },
+      "demo_admin_email": {
+        "label": "E-Mail des Demo-Admins",
+        "help": "E-Mail-Adresse des Demo-Administratorkontos. Leer lassen, um nur das Benutzerkonto anzubieten."
+      },
+      "demo_user_email": {
+        "label": "E-Mail des Demo-Benutzers",
+        "help": "E-Mail-Adresse des Demo-Benutzerkontos. Leer lassen, um nur das Admin-Konto anzubieten."
+      },
+      "demo_admin_password": {
+        "label": "Passwort des Demo-Admins",
+        "help": "Passwort für ein neu angelegtes Demokonto. Leer erhält es ein Zufallspasswort und ist nur über seine Schaltfläche erreichbar. Späteres Leeren behält das bestehende Passwort. Nur setzen, wenn Sie die Zugangsdaten veröffentlichen."
+      },
+      "demo_user_password": {
+        "label": "Passwort des Demo-Benutzers",
+        "help": "Passwort für ein neu angelegtes Demokonto. Leer erhält es ein Zufallspasswort und ist nur über seine Schaltfläche erreichbar. Späteres Leeren behält das bestehende Passwort. Nur setzen, wenn Sie die Zugangsdaten veröffentlichen."
+      },
+      "demo_read_only": {
+        "label": "Demo-Sitzungen schreibgeschützt",
+        "help": "Jede Änderung aus einer Demo-Sitzung blockieren. Nur ausschalten, wenn die Datenbank verzichtbar ist, da ein beschreibbarer Admin-Demo-Zugang ein öffentlicher Administrator ist."
+      },
+      "oauth_google_client_id": {
+        "label": "Client-ID",
+        "help": "Client-ID Ihrer Google-OAuth-Anwendung."
+      },
+      "oauth_google_client_secret": {
+        "label": "Client-Secret",
+        "help": "Client-Secret Ihrer Google-OAuth-Anwendung. Nach dem Speichern wird es ausgeblendet."
+      },
+      "oauth_github_client_id": {
+        "label": "Client-ID",
+        "help": "Client-ID Ihrer GitHub-OAuth-Anwendung."
+      },
+      "oauth_github_client_secret": {
+        "label": "Client-Secret",
+        "help": "Client-Secret Ihrer GitHub-OAuth-Anwendung. Nach dem Speichern wird es ausgeblendet."
+      },
+      "oauth_oidc_client_id": {
+        "label": "Client-ID",
+        "help": "Beim OpenID-Connect-Anbieter registrierte Client-ID."
+      },
+      "oauth_oidc_client_secret": {
+        "label": "Client-Secret",
+        "help": "Client-Secret dieses Clients. Nach dem Speichern wird es ausgeblendet."
+      },
+      "oauth_oidc_discovery_url": {
+        "label": "Discovery-URL",
+        "help": "Adresse des Discovery-Dokuments des Anbieters. Funktioniert mit Keycloak, Authentik, Auth0, Zitadel und ähnlichen."
+      },
+      "oauth_oidc_display_name": {
+        "label": "Beschriftung der Schaltfläche",
+        "help": "Name, der auf der Anmelde-Schaltfläche angezeigt wird."
+      },
+      "oauth_microsoft_client_id": {
+        "label": "Client-ID",
+        "help": "Anwendungs-(Client-)ID Ihrer Microsoft-App-Registrierung."
+      },
+      "oauth_microsoft_client_secret": {
+        "label": "Client-Secret",
+        "help": "Client-Secret Ihrer Microsoft-App-Registrierung. Nach dem Speichern wird es ausgeblendet."
+      },
+      "oauth_microsoft_tenant": {
+        "label": "Tenant",
+        "help": "common für beliebige Konten, organizations nur für Arbeits- oder Schulkonten, oder eine Verzeichnis-ID, um eine einzelne Organisation zuzulassen."
+      },
+      "oauth_microsoft_trust_tenant_upn": {
+        "label": "Anmeldenamen von Mitgliedern als bestätigte E-Mail behandeln",
+        "help": "Den Anmeldenamen eines Mitglieds als bestätigte E-Mail-Adresse behandeln, sodass er mit einem eingeladenen oder bestätigten lokalen Konto verknüpft wird. Wirkt nur, wenn der Tenant eine Verzeichnis-ID ist. Gäste bleiben unbestätigt."
+      },
+      "oauth_microsoft_discovery_url": {
+        "label": "Discovery-URL überschreiben",
+        "help": "Nur für Entwicklung und Tests: Microsoft-Endpunkte von einem lokalen Anbieter beziehen. In anderen Umgebungen wird dies ignoriert."
+      },
+      "oauth_signup_providers": {
+        "label": "Anbieter, die Konten anlegen dürfen",
+        "help": "Anbieter, deren Benutzer bei der ersten Anmeldung ein Konto anlegen dürfen, auch wenn die Registrierung aus ist. Ihre E-Mail muss vom Anbieter bestätigt oder vertrauenswürdig sein, auch bei offener Registrierung. Zur Wahl: google, github, microsoft und oidc."
+      },
+      "oauth_signup_default_role": {
+        "label": "Standardrolle für diese Konten",
+        "help": "Rolle für auf diesem Weg angelegte Konten. Leer: keine Rolle, bis ein Admin eine zuweist. Die Admin-Rolle ist nicht erlaubt."
+      },
+      "oauth_trusted_email_domains": {
+        "label": "Vertrauenswürdige E-Mail-Domains",
+        "help": "E-Mail-Domains, für die ein Anbieter bürgen darf, z. B. microsoft: example.com. Nur exakte Domains. Verfügbar für microsoft und oidc; bei Microsoft nur wirksam, wenn der Mandant auf eine einzelne Mandanten-ID festgelegt ist (nicht common oder organizations)."
+      },
+      "oauth_sync_profile": {
+        "label": "Namen bei jeder Anmeldung aktualisieren",
+        "help": "Den vollständigen Namen des Kontos bei jeder Anmeldung vom Anbieter aktualisieren. Die E-Mail-Adresse wird nie geändert."
+      }
+    }
   }
 }

@@ -17,6 +17,8 @@ interface Props {
   pkg: string;
   /** Names of the health checks this module registered, e.g. `users.mailer`. */
   checks: string[];
+  /** The module's translated title; names the single check instead of its raw id. */
+  title?: string;
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props {
  * exercises the same checks the readiness probe runs, so a wrong host or a
  * bad key surfaces while the admin is still looking at the form.
  */
-export function TestConnectionButton({ pkg, checks }: Props) {
+export function TestConnectionButton({ pkg, checks, title }: Props) {
   const { t } = useT();
   const { ago } = useRelativeTime();
   const [busy, setBusy] = useState(false);
@@ -49,13 +51,14 @@ export function TestConnectionButton({ pkg, checks }: Props) {
     };
   }, [pkg]);
 
-  // "users.mailer" → "mailer". Naming the check is the difference between
-  // "Test connection" and knowing an SMTP dial is about to happen; with two
+  // Naming the check is the difference between "Test connection" and knowing
+  // an SMTP dial is about to happen. The module's translated title names it in
+  // the reader's language; without one, "users.mailer" → "mailer". With two
   // checks there is no single honest name, so the generic label wins.
   const label =
     checks.length === 1
       ? t(keys.settings.modules.test_connection, {
-          name: checks[0].split('.').pop() ?? checks[0],
+          name: title ?? checks[0].split('.').pop() ?? checks[0],
         })
       : t(keys.settings.modules.test_connection_generic);
 

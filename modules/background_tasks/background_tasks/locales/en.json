@@ -222,5 +222,152 @@
     "load_failed": "Failed to load log lines",
     "platform": "Platform"
   },
-  "permission_group": "Background tasks"
+  "permission_group": "Background tasks",
+  "settings_form": {
+    "title": "Background tasks",
+    "description": "How tasks are queued, run and tracked, and how long their records are kept.",
+    "groups": {
+      "celery": "Task runner",
+      "logs": "Retained logs",
+      "database": "Worker database"
+    },
+    "fields": {
+      "execution_tracking": {
+        "label": "Execution tracking",
+        "help": "Default for how much of each task run is recorded: everything, only final states, only failures (and revocations), or nothing. Individual tasks can override it. Changing it needs a restart."
+      },
+      "track_publish": {
+        "label": "Track publishing",
+        "help": "Record when a task is queued, not only when it runs. Applies to tasks with full tracking."
+      },
+      "outbox_mode": {
+        "label": "Event delivery mode",
+        "help": "Whether durable events are delivered by the task runner or inside the web process. When tasks run immediately, the web process always delivers them.",
+        "choices": {
+          "celery": "Task runner (Celery)",
+          "inprocess": "Inside the web process"
+        }
+      },
+      "outbox_max_attempts": {
+        "label": "Maximum delivery attempts",
+        "help": "Delivery attempts before a durable event is marked dead, from 1 to 100."
+      },
+      "outbox_sweep_interval_seconds": {
+        "label": "Event sweep interval (seconds)",
+        "help": "How often pending events are looked up for delivery."
+      },
+      "outbox_lease_seconds": {
+        "label": "Event claim lease (seconds)",
+        "help": "How long a claimed delivery may run before another worker can take it over."
+      },
+      "outbox_handler_timeout_seconds": {
+        "label": "Event handler timeout (seconds)",
+        "help": "How long a handler may run per attempt. Leave empty for the longest value the lease allows."
+      },
+      "log_sink_enabled": {
+        "label": "Keep logs in the database",
+        "help": "Store application and task log lines in the database. Needs a restart of the web app and workers."
+      },
+      "log_sink_level": {
+        "label": "Lowest log level kept",
+        "help": "Log lines below this level are dropped. One of DEBUG, INFO, WARNING, ERROR or CRITICAL."
+      },
+      "log_retention_days": {
+        "label": "Log retention (days)",
+        "help": "How long retained log lines are kept, from 1 to 3650 days."
+      },
+      "db_pool_size": {
+        "label": "Connection pool size",
+        "help": "Maximum number of database connections the task database pool keeps for reuse, per process. Not used with SQLite."
+      },
+      "db_max_overflow": {
+        "label": "Extra connections allowed",
+        "help": "Extra connections the task database pool may open per process when all regular ones are in use. Not used with SQLite."
+      },
+      "db_recycle": {
+        "label": "Connection recycle time (seconds)",
+        "help": "Connections older than this many seconds are replaced when next used. 0 replaces a connection every time it is taken from the pool."
+      },
+      "db_statement_timeout_ms": {
+        "label": "Statement timeout (ms)",
+        "help": "Longest a PostgreSQL statement from background tasks may run. Leave empty to use the app's own limit; 0 keeps whatever limit the database sets."
+      },
+      "broker_url": {
+        "label": "Broker URL",
+        "help": "Address of the message broker that queues tasks, usually Redis. Changing it needs a restart."
+      },
+      "result_backend": {
+        "label": "Result backend URL",
+        "help": "Address where task results are stored, usually Redis."
+      },
+      "task_default_queue": {
+        "label": "Default queue",
+        "help": "Queue that tasks without a specific route go to."
+      },
+      "task_routes_override": {
+        "label": "Task route overrides",
+        "help": "Send tasks to other queues without a code change. Enter JSON mapping a task name pattern to a queue."
+      },
+      "visibility_timeout_seconds": {
+        "label": "Visibility timeout (seconds)",
+        "help": "Redis broker only: tasks running longer than this are handed out again and may run twice. Leave empty for Redis's default of one hour."
+      },
+      "worker_max_tasks_per_child": {
+        "label": "Tasks per worker process",
+        "help": "Restart a worker process after it has run this many tasks. Leave empty for no limit."
+      },
+      "worker_max_memory_per_child_kb": {
+        "label": "Memory limit per worker process (KB)",
+        "help": "Replace a worker process after it finishes a task if it uses more memory than this. A running task is not interrupted. Leave empty for no limit."
+      },
+      "task_reject_on_worker_lost": {
+        "label": "Requeue tasks when a worker is lost",
+        "help": "Put a task back in the queue if its worker dies mid-run. It may then run more than once."
+      },
+      "task_soft_time_limit": {
+        "label": "Soft time limit (seconds)",
+        "help": "After this time a task is asked to stop gracefully and can clean up. If a hard limit is also set, this must be lower."
+      },
+      "task_time_limit": {
+        "label": "Hard time limit (seconds)",
+        "help": "After this time a task is stopped forcibly, on worker pools that support it. If a soft limit is also set, this must be higher."
+      },
+      "worker_concurrency": {
+        "label": "Worker concurrency",
+        "help": "How many tasks one worker runs at the same time. Leave empty for the default."
+      },
+      "broadcast_invalidations": {
+        "label": "Share cache invalidations between processes",
+        "help": "Lets every web process hear through Redis when another one clears a cache. Without it, and in standalone task workers, caches keep stale data until they expire."
+      },
+      "invalidation_channel": {
+        "label": "Invalidation channel",
+        "help": "Name of the channel cache invalidations travel on. Leave empty to derive it from the database."
+      },
+      "task_always_eager": {
+        "label": "Run tasks immediately",
+        "help": "Run tasks right away in the calling process instead of queueing them. Tasks sent by name still go to the queue. Meant for testing."
+      },
+      "task_eager_propagates": {
+        "label": "Raise errors from immediate tasks",
+        "help": "When tasks run immediately, let their errors surface to the caller."
+      },
+      "stuck_after_seconds": {
+        "label": "Stuck after (seconds)",
+        "help": "Default time without a heartbeat before a running task is marked as stuck. Individual tasks can set their own."
+      },
+      "stuck_sweep_interval_seconds": {
+        "label": "Stuck check interval (seconds)",
+        "help": "How often running tasks are checked for being stuck."
+      },
+      "purge_interval_seconds": {
+        "label": "Cleanup interval (seconds)",
+        "help": "How often expired task records, delivered event records and retained logs are cleaned up."
+      },
+      "retention_days": {
+        "label": "Task record retention (days)",
+        "help": "Age at which finished task records and delivered event records are cleaned up, from 1 to 3650 days."
+      }
+    }
+  }
 }

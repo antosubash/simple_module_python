@@ -50,7 +50,7 @@ describe('restart hint', () => {
     );
     expect(screen.queryByText('Requires restart')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('tenant_header'), { target: { value: 'X-Tenant' } });
+    fireEvent.change(screen.getByLabelText('Tenant header'), { target: { value: 'X-Tenant' } });
 
     expect(screen.getByText('Requires restart')).toBeVisible();
   });

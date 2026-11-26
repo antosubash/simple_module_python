@@ -76,6 +76,92 @@ export const keys = {
       files: 'file_storage.nav.files',
     },
     permission_group: 'file_storage.permission_group',
+    settings_form: {
+      description: 'file_storage.settings_form.description',
+      fields: {
+        allowed_content_types: {
+          help: 'file_storage.settings_form.fields.allowed_content_types.help',
+          label: 'file_storage.settings_form.fields.allowed_content_types.label',
+        },
+        backend: {
+          help: 'file_storage.settings_form.fields.backend.help',
+          label: 'file_storage.settings_form.fields.backend.label',
+        },
+        direct_upload_threshold_bytes: {
+          help: 'file_storage.settings_form.fields.direct_upload_threshold_bytes.help',
+          label: 'file_storage.settings_form.fields.direct_upload_threshold_bytes.label',
+        },
+        fs_root_path: {
+          help: 'file_storage.settings_form.fields.fs_root_path.help',
+          label: 'file_storage.settings_form.fields.fs_root_path.label',
+        },
+        max_direct_upload_bytes: {
+          help: 'file_storage.settings_form.fields.max_direct_upload_bytes.help',
+          label: 'file_storage.settings_form.fields.max_direct_upload_bytes.label',
+        },
+        max_file_size_bytes: {
+          help: 'file_storage.settings_form.fields.max_file_size_bytes.help',
+          label: 'file_storage.settings_form.fields.max_file_size_bytes.label',
+        },
+        multipart_part_size_bytes: {
+          help: 'file_storage.settings_form.fields.multipart_part_size_bytes.help',
+          label: 'file_storage.settings_form.fields.multipart_part_size_bytes.label',
+        },
+        public_files_cors: {
+          help: 'file_storage.settings_form.fields.public_files_cors.help',
+          label: 'file_storage.settings_form.fields.public_files_cors.label',
+        },
+        quota_bytes: {
+          help: 'file_storage.settings_form.fields.quota_bytes.help',
+          label: 'file_storage.settings_form.fields.quota_bytes.label',
+        },
+        s3_access_key_id: {
+          help: 'file_storage.settings_form.fields.s3_access_key_id.help',
+          label: 'file_storage.settings_form.fields.s3_access_key_id.label',
+        },
+        s3_bucket: {
+          help: 'file_storage.settings_form.fields.s3_bucket.help',
+          label: 'file_storage.settings_form.fields.s3_bucket.label',
+        },
+        s3_endpoint_url: {
+          help: 'file_storage.settings_form.fields.s3_endpoint_url.help',
+          label: 'file_storage.settings_form.fields.s3_endpoint_url.label',
+        },
+        s3_presign_ttl_seconds: {
+          help: 'file_storage.settings_form.fields.s3_presign_ttl_seconds.help',
+          label: 'file_storage.settings_form.fields.s3_presign_ttl_seconds.label',
+        },
+        s3_public_endpoint_url: {
+          help: 'file_storage.settings_form.fields.s3_public_endpoint_url.help',
+          label: 'file_storage.settings_form.fields.s3_public_endpoint_url.label',
+        },
+        s3_region: {
+          help: 'file_storage.settings_form.fields.s3_region.help',
+          label: 'file_storage.settings_form.fields.s3_region.label',
+        },
+        s3_secret_access_key: {
+          help: 'file_storage.settings_form.fields.s3_secret_access_key.help',
+          label: 'file_storage.settings_form.fields.s3_secret_access_key.label',
+        },
+        s3_signature_version: {
+          help: 'file_storage.settings_form.fields.s3_signature_version.help',
+          label: 'file_storage.settings_form.fields.s3_signature_version.label',
+        },
+        upload_session_retention_days: {
+          help: 'file_storage.settings_form.fields.upload_session_retention_days.help',
+          label: 'file_storage.settings_form.fields.upload_session_retention_days.label',
+        },
+        upload_session_ttl_seconds: {
+          help: 'file_storage.settings_form.fields.upload_session_ttl_seconds.help',
+          label: 'file_storage.settings_form.fields.upload_session_ttl_seconds.label',
+        },
+      },
+      groups: {
+        filesystem: 'file_storage.settings_form.groups.filesystem',
+        s3: 'file_storage.settings_form.groups.s3',
+      },
+      title: 'file_storage.settings_form.title',
+    },
     table: {
       actions: 'file_storage.table.actions',
       filename: 'file_storage.table.filename',
@@ -175,6 +261,48 @@ type ModuleTranslationResources = {
   readonly 'file_storage.filters.uploader_selected': '';
   readonly 'file_storage.nav.files': '';
   readonly 'file_storage.permission_group': '';
+  readonly 'file_storage.settings_form.description': '';
+  readonly 'file_storage.settings_form.fields.allowed_content_types.help': '';
+  readonly 'file_storage.settings_form.fields.allowed_content_types.label': '';
+  readonly 'file_storage.settings_form.fields.backend.help': '';
+  readonly 'file_storage.settings_form.fields.backend.label': '';
+  readonly 'file_storage.settings_form.fields.direct_upload_threshold_bytes.help': '';
+  readonly 'file_storage.settings_form.fields.direct_upload_threshold_bytes.label': '';
+  readonly 'file_storage.settings_form.fields.fs_root_path.help': '';
+  readonly 'file_storage.settings_form.fields.fs_root_path.label': '';
+  readonly 'file_storage.settings_form.fields.max_direct_upload_bytes.help': '';
+  readonly 'file_storage.settings_form.fields.max_direct_upload_bytes.label': '';
+  readonly 'file_storage.settings_form.fields.max_file_size_bytes.help': '';
+  readonly 'file_storage.settings_form.fields.max_file_size_bytes.label': '';
+  readonly 'file_storage.settings_form.fields.multipart_part_size_bytes.help': '';
+  readonly 'file_storage.settings_form.fields.multipart_part_size_bytes.label': '';
+  readonly 'file_storage.settings_form.fields.public_files_cors.help': '';
+  readonly 'file_storage.settings_form.fields.public_files_cors.label': '';
+  readonly 'file_storage.settings_form.fields.quota_bytes.help': '';
+  readonly 'file_storage.settings_form.fields.quota_bytes.label': '';
+  readonly 'file_storage.settings_form.fields.s3_access_key_id.help': '';
+  readonly 'file_storage.settings_form.fields.s3_access_key_id.label': '';
+  readonly 'file_storage.settings_form.fields.s3_bucket.help': '';
+  readonly 'file_storage.settings_form.fields.s3_bucket.label': '';
+  readonly 'file_storage.settings_form.fields.s3_endpoint_url.help': '';
+  readonly 'file_storage.settings_form.fields.s3_endpoint_url.label': '';
+  readonly 'file_storage.settings_form.fields.s3_presign_ttl_seconds.help': '';
+  readonly 'file_storage.settings_form.fields.s3_presign_ttl_seconds.label': '';
+  readonly 'file_storage.settings_form.fields.s3_public_endpoint_url.help': '';
+  readonly 'file_storage.settings_form.fields.s3_public_endpoint_url.label': '';
+  readonly 'file_storage.settings_form.fields.s3_region.help': '';
+  readonly 'file_storage.settings_form.fields.s3_region.label': '';
+  readonly 'file_storage.settings_form.fields.s3_secret_access_key.help': '';
+  readonly 'file_storage.settings_form.fields.s3_secret_access_key.label': '';
+  readonly 'file_storage.settings_form.fields.s3_signature_version.help': '';
+  readonly 'file_storage.settings_form.fields.s3_signature_version.label': '';
+  readonly 'file_storage.settings_form.fields.upload_session_retention_days.help': '';
+  readonly 'file_storage.settings_form.fields.upload_session_retention_days.label': '';
+  readonly 'file_storage.settings_form.fields.upload_session_ttl_seconds.help': '';
+  readonly 'file_storage.settings_form.fields.upload_session_ttl_seconds.label': '';
+  readonly 'file_storage.settings_form.groups.filesystem': '';
+  readonly 'file_storage.settings_form.groups.s3': '';
+  readonly 'file_storage.settings_form.title': '';
   readonly 'file_storage.table.actions': '';
   readonly 'file_storage.table.filename': '';
   readonly 'file_storage.table.public': '';

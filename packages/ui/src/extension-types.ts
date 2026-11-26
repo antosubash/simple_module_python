@@ -57,6 +57,10 @@ export interface SettingsFieldMeta {
   nullable?: boolean;
   /** Optional registered renderer name; unknown hints use built-in controls. */
   control?: string | null;
+  /** `Field(title=...)`: the label used when no `settings_form` locale key exists. */
+  title?: string | null;
+  /** The env var supplying the value, only when that exact variable is set. */
+  env_source_var?: string | null;
 }
 
 export interface SettingsFieldRendererProps {

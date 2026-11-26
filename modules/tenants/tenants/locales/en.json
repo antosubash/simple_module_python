@@ -161,5 +161,27 @@
     "toast_failed": "Could not save the setting",
     "toast_uploaded": "Image uploaded"
   },
-  "permission_group": "Tenants"
+  "permission_group": "Tenants",
+  "settings_form": {
+    "title": "Tenants",
+    "description": "How organisations are created and how invitations and subdomains work.",
+    "fields": {
+      "allow_self_service": {
+        "label": "Allow self-service organisations",
+        "help": "Any signed-in user may create an organisation. When off, only users allowed to manage organisations across the platform can."
+      },
+      "public_base_url": {
+        "label": "Public base URL",
+        "help": "Address invitation links are built on, for example https://app.example.com. If blank, the site's public address is used; if that is blank too, links are relative and invitation emails are not sent."
+      },
+      "subdomain_base": {
+        "label": "Subdomain base domain",
+        "help": "In multi-tenant mode, picks the tenant from the address: with example.com, acme.example.com opens the active tenant acme, also on public pages for visitors who are not members. API tokens keep their own tenant. Blank turns it off."
+      },
+      "invitation_ttl_hours": {
+        "label": "Invitation lifetime (hours)",
+        "help": "How long an invitation link stays valid, from 1 to 720 hours."
+      }
+    }
+  }
 }

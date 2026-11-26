@@ -83,6 +83,15 @@ class ModuleSettingField:
     """``None`` is a valid value; the editor sends it for an empty input."""
     control: str | None = None
     """Optional frontend renderer registered under this name."""
+    title: str | None = None
+    """``Field(title=...)``: the label when no ``settings_form`` locale key exists."""
+    env_source_var: str | None = None
+    """The env var that supplies the value, when that exact variable is set.
+
+    ``None`` when the value comes from elsewhere in the environment (a shared
+    ``SM_REDIS_URL`` feeding the Celery broker, a ``.env`` or secrets file), so
+    the editor never names a variable nobody set.
+    """
 
     @property
     def source(self) -> str:
@@ -192,6 +201,14 @@ def _field_view(
         input_type=input_type,
         nullable=nullable,
         control=control if isinstance(control := extra.get("control"), str) else None,
+        title=info.title or None,
+        # An aliased field may be read under another name, so only the
+        # conventional name is ever claimed, and only when nothing renames it.
+        env_source_var=(
+            live_env_var
+            if raw_env is not None and not (info.alias or info.validation_alias)
+            else None
+        ),
     )
 
 

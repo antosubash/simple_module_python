@@ -69,6 +69,16 @@ export const keys = {
       audit_log: 'audit_log.nav.audit_log',
     },
     permission_group: 'audit_log.permission_group',
+    settings_form: {
+      description: 'audit_log.settings_form.description',
+      fields: {
+        refuse_unaudited_dml: {
+          help: 'audit_log.settings_form.fields.refuse_unaudited_dml.help',
+          label: 'audit_log.settings_form.fields.refuse_unaudited_dml.label',
+        },
+      },
+      title: 'audit_log.settings_form.title',
+    },
     table: {
       action: 'audit_log.table.action',
       changes: 'audit_log.table.changes',
@@ -132,6 +142,10 @@ type ModuleTranslationResources = {
   readonly 'audit_log.filters.user_placeholder': '';
   readonly 'audit_log.nav.audit_log': '';
   readonly 'audit_log.permission_group': '';
+  readonly 'audit_log.settings_form.description': '';
+  readonly 'audit_log.settings_form.fields.refuse_unaudited_dml.help': '';
+  readonly 'audit_log.settings_form.fields.refuse_unaudited_dml.label': '';
+  readonly 'audit_log.settings_form.title': '';
   readonly 'audit_log.table.action': '';
   readonly 'audit_log.table.changes': '';
   readonly 'audit_log.table.entity': '';

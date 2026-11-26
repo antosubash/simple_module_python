@@ -98,6 +98,16 @@ export const keys = {
       description: 'api_tokens.revoke_all.description',
       title: 'api_tokens.revoke_all.title',
     },
+    settings_form: {
+      description: 'api_tokens.settings_form.description',
+      fields: {
+        max_lifetime_days: {
+          help: 'api_tokens.settings_form.fields.max_lifetime_days.help',
+          label: 'api_tokens.settings_form.fields.max_lifetime_days.label',
+        },
+      },
+      title: 'api_tokens.settings_form.title',
+    },
     status: {
       active: 'api_tokens.status.active',
       expired: 'api_tokens.status.expired',
@@ -184,6 +194,10 @@ type ModuleTranslationResources = {
   readonly 'api_tokens.revoke_all.confirm': '';
   readonly 'api_tokens.revoke_all.description': '';
   readonly 'api_tokens.revoke_all.title': '';
+  readonly 'api_tokens.settings_form.description': '';
+  readonly 'api_tokens.settings_form.fields.max_lifetime_days.help': '';
+  readonly 'api_tokens.settings_form.fields.max_lifetime_days.label': '';
+  readonly 'api_tokens.settings_form.title': '';
   readonly 'api_tokens.status.active': '';
   readonly 'api_tokens.status.expired': '';
   readonly 'api_tokens.status.revoked': '';

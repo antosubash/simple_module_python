@@ -32,5 +32,183 @@
     "title": "Administration",
     "description": "Manage users, access, appearance and system configuration.",
     "empty": "No admin tools are available to your account."
+  },
+  "settings_form": {
+    "title": "Application",
+    "description": "App-wide settings for tenancy, language, logging, security, request limits, the API and the database connection.",
+    "groups": {
+      "tenancy": "Tenancy",
+      "localization": "Localization",
+      "logging": "Logging",
+      "security": "Security",
+      "authentication": "Authentication",
+      "routing": "Routing",
+      "request_guards": "Request guards",
+      "cors": "CORS",
+      "api": "API",
+      "database": "Database"
+    },
+    "fields": {
+      "multi_tenant": {
+        "label": "Multi-tenant mode",
+        "help": "Serve several tenants from one installation. When off, requests use the default tenant if one is set."
+      },
+      "tenant_header": {
+        "label": "Tenant header",
+        "help": "Request header that selects the tenant in multi-tenant mode. Blank turns header selection off. An API token or tenant subdomain takes precedence."
+      },
+      "default_tenant": {
+        "label": "Default tenant",
+        "help": "Tenant that every request acts as when multi-tenant mode is off. Ignored when it is on."
+      },
+      "maintenance_mode": {
+        "label": "Maintenance mode",
+        "help": "Show a maintenance page instead of the app. Admins, public pages and health checks stay reachable. Takes effect without a restart."
+      },
+      "maintenance_message": {
+        "label": "Maintenance message",
+        "help": "Optional note shown on the maintenance page. Leave blank to show the standard text."
+      },
+      "i18n_default_locale": {
+        "label": "Default language",
+        "help": "Fallback language when neither the visitor's saved choice nor their browser matches a supported language. Must be one of the supported languages."
+      },
+      "i18n_supported_locales": {
+        "label": "Supported languages",
+        "help": "Language codes visitors can choose from, for example en or de."
+      },
+      "i18n_cookie_name": {
+        "label": "Language cookie name",
+        "help": "Name of the cookie that remembers a visitor's language."
+      },
+      "public_base_url": {
+        "label": "Public site address",
+        "help": "The site's public address, for example https://example.org. Turns relative canonical and sharing links into full ones and is the fallback for account and invitation links. If blank, relative canonical and sharing links are left out."
+      },
+      "log_level": {
+        "label": "Log level",
+        "help": "How much the application writes to its log, for example INFO or WARNING."
+      },
+      "log_format": {
+        "label": "Log format",
+        "help": "Whether log lines are written as structured JSON or as plain text.",
+        "choices": {
+          "json": "JSON",
+          "text": "Plain text"
+        }
+      },
+      "trusted_proxy": {
+        "label": "Trusted proxy",
+        "help": "Proxy servers whose forwarded address and protocol headers are trusted: * for any, or a comma-separated list of IP addresses or ranges. Leave blank when there is no proxy."
+      },
+      "session_cookie_secure": {
+        "label": "Secure session cookies",
+        "help": "Send session cookies over HTTPS only. Leave unset to turn it on everywhere except development and test environments."
+      },
+      "login_redirect_url": {
+        "label": "Page after sign-in",
+        "help": "Where users land after signing in. Must be a path on this site, such as /dashboard."
+      },
+      "auth_provider": {
+        "label": "Authentication provider",
+        "help": "Which sign-in module is active when several are installed, for example users or keycloak."
+      },
+      "auth_public_paths": {
+        "label": "Public path prefixes",
+        "help": "Path prefixes that can be opened without signing in. Use this only for routes no module covers."
+      },
+      "native_link_prefixes": {
+        "label": "Full-page link prefixes",
+        "help": "Path prefixes whose links open as a normal page load instead of an in-app navigation, for example /docs/."
+      },
+      "max_request_body_bytes": {
+        "label": "Maximum request size (bytes)",
+        "help": "Default size limit for request bodies; bigger requests are refused. Routes with their own limit, such as file uploads, keep it. 0 removes only this default."
+      },
+      "rate_limit_public": {
+        "label": "Anonymous rate limit",
+        "help": "Default limit per visitor address for anonymous requests to public routes, for example 120/minute. Leave blank or enter off to disable this default; routes with their own limit keep it."
+      },
+      "rate_limit_authenticated": {
+        "label": "Signed-in rate limit",
+        "help": "Optional request limit for signed-in users, in the same format. Counted per user, or per address when no user is known. Leave blank for no limit."
+      },
+      "forwarded_host_allowlist": {
+        "label": "Allowed forwarded hosts",
+        "help": "Host names a trusted proxy may pass on, such as example.com or *.example.com. Empty ignores the header. Needs a trusted proxy."
+      },
+      "cors_allow_origins": {
+        "label": "Allowed origins",
+        "help": "Websites the default API policy lets call the API from a browser. Empty turns that policy off; routes with their own policy keep it. * is not allowed while credentials are on."
+      },
+      "cors_allow_credentials": {
+        "label": "Allow credentials",
+        "help": "Let browsers send credentials such as cookies on cross-origin requests from allowed websites."
+      },
+      "cors_allow_methods": {
+        "label": "Allowed methods",
+        "help": "HTTP methods that cross-origin requests may use."
+      },
+      "cors_allow_headers": {
+        "label": "Allowed request headers",
+        "help": "Request headers that cross-origin requests may send."
+      },
+      "cors_expose_headers": {
+        "label": "Exposed response headers",
+        "help": "Response headers that browser scripts on other sites may read."
+      },
+      "cors_max_age": {
+        "label": "Preflight cache time (seconds)",
+        "help": "How long browsers may cache the answer to a cross-origin check."
+      },
+      "api_title": {
+        "label": "API title",
+        "help": "Title shown in the generated API documentation."
+      },
+      "api_version": {
+        "label": "API version",
+        "help": "Version shown in the API documentation. Defaults to the host application's version, or 0.0.0 when it is unknown."
+      },
+      "api_description": {
+        "label": "API description",
+        "help": "Short description shown in the API documentation."
+      },
+      "openapi_public": {
+        "label": "Publish API schema",
+        "help": "Serve the API schema to anyone outside development. It lists the documented API endpoints, so leave it off unless you want them public."
+      },
+      "db_pool_size": {
+        "label": "Connection pool size",
+        "help": "Maximum number of database connections kept for reuse. 0 means no limit. Not used with SQLite."
+      },
+      "db_max_overflow": {
+        "label": "Extra connections",
+        "help": "Extra connections allowed beyond the pool size during busy periods. -1 means no cap. Not used with SQLite."
+      },
+      "db_pool_pre_ping": {
+        "label": "Check connections before use",
+        "help": "Test each pooled connection before using it, so dropped connections are replaced."
+      },
+      "db_pool_recycle": {
+        "label": "Connection lifetime (seconds)",
+        "help": "Connections older than this are replaced the next time they are taken from the pool. -1 turns recycling off. Not used with SQLite."
+      },
+      "db_pool_timeout": {
+        "label": "Pool wait time (seconds)",
+        "help": "How long a request waits for a free connection before failing."
+      },
+      "db_connect_timeout": {
+        "label": "Connect timeout (seconds)",
+        "help": "How long to wait for a new database connection to open. PostgreSQL only."
+      },
+      "db_statement_timeout_ms": {
+        "label": "Statement timeout (milliseconds)",
+        "help": "Cancel PostgreSQL statements that run longer than this. 0 keeps whatever limit the database already sets."
+      },
+      "db_idle_in_tx_timeout_ms": {
+        "label": "Idle transaction timeout (milliseconds)",
+        "help": "Close PostgreSQL sessions that sit idle inside a transaction for longer than this. 0 keeps whatever limit the database already sets."
+      }
+    }
   }
 }

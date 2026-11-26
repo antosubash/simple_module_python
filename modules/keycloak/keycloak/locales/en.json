@@ -21,5 +21,43 @@
   },
   "nav": {
     "logout": "Logout"
+  },
+  "settings_form": {
+    "title": "Keycloak",
+    "description": "Connection to your Keycloak server and how its roles map to this app.",
+    "fields": {
+      "server_url": {
+        "label": "Server URL",
+        "help": "Base address of the Keycloak server. Changing it needs a restart."
+      },
+      "realm": {
+        "label": "Realm",
+        "help": "Name of the Keycloak realm users sign in to."
+      },
+      "client_id": {
+        "label": "Client ID",
+        "help": "ID of the client registered for this app in Keycloak."
+      },
+      "client_secret": {
+        "label": "Client secret",
+        "help": "Secret of that client. It is hidden once saved."
+      },
+      "trust_tenant_claim": {
+        "label": "Trust tenant claim in tokens",
+        "help": "Only turn on if users cannot influence the realm mapper that sets the tenant in their token. Otherwise a user could pick their own tenant."
+      },
+      "roles_claim_path": {
+        "label": "Roles claim path",
+        "help": "Where the list of roles sits inside the token, written as a dotted path."
+      },
+      "jwks_cache_ttl_seconds": {
+        "label": "Signing key cache lifetime (seconds)",
+        "help": "How long Keycloak's signing keys are reused before being fetched again. With 0 they are refetched on demand, at most every 30 seconds, and the last good set is kept if a fetch fails."
+      },
+      "role_mapping": {
+        "label": "Role mapping",
+        "help": "Maps Keycloak role names to this app's app-wide roles. Tenant roles come from memberships."
+      }
+    }
   }
 }

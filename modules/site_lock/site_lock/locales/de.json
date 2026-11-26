@@ -1,0 +1,20 @@
+{
+  "settings_form": {
+    "title": "Seitensperre",
+    "description": "Verlangt von Besuchern ein gemeinsames Passwort. Angemeldete Administratoren und Health-Checks kommen weiterhin durch.",
+    "fields": {
+      "enabled": {
+        "label": "Website sperren",
+        "help": "Besucher müssen das gemeinsame Passwort eingeben, bevor sie etwas sehen; angemeldete Administratoren und Health-Checks werden durchgelassen. Legen Sie zuerst ein Passwort fest."
+      },
+      "password": {
+        "label": "Passwort",
+        "help": "Das gemeinsame Passwort, das Besucher eingeben. Nach dem Speichern wird es ausgeblendet."
+      },
+      "message": {
+        "label": "Nachricht",
+        "help": "Text, der Besuchern auf der Sperrseite angezeigt wird. Optional."
+      }
+    }
+  }
+}
