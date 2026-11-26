@@ -77,6 +77,7 @@ class FakeKeyring:
 @pytest.fixture(autouse=True)
 def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     for var in ("SMDEV_ENV", "SMDEV_TOKEN"):
         monkeypatch.delenv(var, raising=False)
 

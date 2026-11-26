@@ -16,7 +16,7 @@ import httpx
 
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.http.client import ApiClient
-from simple_module_remote.http.errors import AUTH_STATUSES, ERROR_MIN
+from simple_module_remote.http.errors import AUTH_STATUSES, ERROR_MIN, SCHEMA_STALE_STATUSES
 from simple_module_remote.output.render import (
     OUTPUT_FORMATS,
     NoIdentifierError,
@@ -164,6 +164,8 @@ def print_error(ctx: RunContext, response: httpx.Response) -> None:
         say(ctx, REDIRECT_HINT)
     elif response.status_code in AUTH_STATUSES:
         _auth_hint(ctx, text)
+    elif response.status_code in SCHEMA_STALE_STATUSES and ctx.schema_hint:
+        say(ctx, ctx.schema_hint)
 
 
 def _write_file(response: httpx.Response, target: str) -> None:

@@ -13,6 +13,11 @@ def config_dir(cli: str) -> Path:
     return _base("XDG_CONFIG_HOME", ".config") / cli
 
 
+def cache_dir(cli: str) -> Path:
+    """Where *cli* caches downloaded data (the live schema): never credentials."""
+    return _base("XDG_CACHE_HOME", ".cache") / cli
+
+
 def env_prefix(cli: str) -> str:
     return cli.upper().replace("-", "_")
 

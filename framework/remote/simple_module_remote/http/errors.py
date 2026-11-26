@@ -8,6 +8,8 @@ EXIT_NOT_FOUND = 5
 EXIT_CONFLICT = 6
 
 AUTH_STATUSES = frozenset({401, 403})
+# A route or a body shape the server does not know: the CLI's schema may be stale.
+SCHEMA_STALE_STATUSES = frozenset({404, 422})
 _CONFLICT_STATUSES = frozenset({409, 412})
 _NOT_FOUND = 404
 _SERVER_MIN = 500

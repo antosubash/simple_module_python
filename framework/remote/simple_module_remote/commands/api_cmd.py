@@ -130,7 +130,7 @@ def _callback(**values: Any) -> None:
     for dest, param in param_map(op).items():
         found = [v for k, v in queries if k == param.name]
         values[dest] = tuple(found) if len(found) > 1 else found[0]
-    code = state.run(op, values)
+    code = state.run(op, values, generated=False)
     if code:
         ctx.exit(code)
 

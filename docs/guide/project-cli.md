@@ -143,8 +143,8 @@ a literal `@` or be the text `null` needs `--set-json`. Order: `--json`, `--file
 `--set-json`, `--set`. `--all` starts at page 1 (do not combine with `--page`).
 `smdev api METHOD /api/path [--query k=v ...]` calls any path;
 `smdev raw <group> <command>` is the same command tree as the top-level groups (kept for scripts
-that must not collide with future built-ins). `--schema bundled` is the only
-schema source today, and `smdev schema status` shows it.
+that must not collide with future built-ins). Which schema builds the commands
+is described in [Live schema](#live-schema).
 
 Exit codes: `0` success, `1` usage or local error, `2` other 4xx (also a leftover
 3xx), `3` 5xx or
@@ -187,6 +187,36 @@ environment is chosen explicitly (`--env` or `SMDEV_ENV`), so a stray variable
 can never be sent to the default environment. An environment made this way is
 not protected.
 
+## Live schema
+
+The commands come from the schema bundled with the CLI unless you sync the
+environment's own:
+
+```bash
+smdev --env staging schema sync      # or: smdev schema sync --env staging
+smdev --env staging schema status    # source, info.version, fingerprint, age
+```
+
+`schema sync` calls `GET /api/_meta/openapi` with your token (it needs the
+`host.openapi.read` permission: admins have it, and a scoped token for CI can be
+given it) and caches the answer in `~/.cache/smdev/<env>/` (`$XDG_CACHE_HOME`
+when set): `openapi.json` plus `meta.json` with the origin, the SHA-256
+fingerprint, the ETag and the fetch time. Both files are `0600` in `0700`
+directories and never hold the token. A second sync sends `If-None-Match`; a
+`304` keeps the cached schema and only updates the fetch time. A body that is
+not an OpenAPI object (or contains the token, or whose operation names collide)
+is refused and nothing is written.
+
+Each run picks the source before parsing its arguments: the live cache of the
+selected environment when it exists, was fetched from the environment's current
+URL and is intact; otherwise the bundled schema (`schema status` says why under
+`live:`). Pointing the environment at another URL therefore drops its cache until
+the next sync. `--schema live` insists on the cache and fails with exit code 1
+and a `schema sync` hint when it cannot be used (built-ins such as
+`schema sync` still run); `--schema bundled` ignores the cache. When a generated
+command from the bundled schema gets a 404 or 422, the error ends with a hint to
+run `schema sync`.
+
 ## Refreshing the bundled schema
 
 After an API change run `make cli-schema` and commit
@@ -197,7 +227,8 @@ the live app.
 ## Safety notes
 
 The config file (`config.toml`) holds no secrets and follows the umask; the
-credentials file is `0600` in a `0700` directory. Redirects the server sends are
+credentials file and the live schema cache are `0600` in `0700` directories,
+read without following symlinks and refused when another user can read them. Redirects the server sends are
 followed without the token unless they stay on the environment's origin under
 `/api/`; the tokenless follower refuses plain `http://` to non-loopback hosts,
 link-local and metadata addresses, and private or loopback addresses unless the
