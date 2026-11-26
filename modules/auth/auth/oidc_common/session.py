@@ -6,7 +6,7 @@ import json
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
@@ -23,9 +23,16 @@ from auth.core.constants import SESSION_AUTHORITY_KEY, SESSION_ID_KEY
 
 
 class SessionResolution:
-    """Resolve browser sessions through provider authority, renewal and tenant hooks."""
+    """Mixin resolving browser sessions through provider authority, renewal and tenant hooks."""
 
     _session_user_key: str
+
+    if TYPE_CHECKING:
+        # Type-only hooks must not shadow implementations in sibling renewal mixins.
+        def _accept_session(self, session: dict[str, Any]) -> bool: ...
+        async def _refresh_session(self, request: Request) -> UserContext | None: ...
+        def _trusted_tenant(self, value: Any) -> str | None: ...
+        def _without_tenant_roles(self, roles: list[str]) -> list[str]: ...
 
     def _session_needs_renewal(self, session: dict[str, Any]) -> bool:
         return session_has_expired(session)

@@ -95,7 +95,8 @@ to access tokens by default: configure an *Audience* protocol mapper that
 includes the client id in the access token's `aud`, or bearer requests are
 refused.
 
-The shared protocol implementation lives in `auth.oidc_common` (#741).
+The shared protocol implementation, including browser-session resolution,
+lives in `auth.oidc_common` (#741, #1169).
 Keycloak retains its discovery-free realm URLs, access-token identity and
 `realm_access.roles` mapping, tenant-claim trust setting and back-channel
 `revoke_session` logout. Existing routes, settings, `keycloak_user_cache`,

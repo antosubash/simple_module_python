@@ -18,12 +18,21 @@ Auth is **pluggable**: exactly one active module registers an `AuthProvider` imp
 `auth.oidc_common` holds the protocol pieces used by both `oidc` and
 `keycloak`: the single-flight JWKS cache and RS256 validator, refresh-token
 sealing and cookie-size guard, sign-in rotation and stale-state checks,
-per-session refresh renewal with a 30-second transient-failure cooldown, race-safe cache
-persistence with throttled activity writes, and the cache-backed directory.
+browser-session resolution, per-session refresh renewal with a 30-second
+transient-failure cooldown, race-safe cache persistence with throttled activity
+writes, and the cache-backed directory.
 It imports neither provider. Provider adapters retain their claim mapping,
 endpoint configuration, session keys and identity rules. Keycloak identifies
 cache rows by subject; OIDC uses issuer plus subject. Neither table changes
 and no migration is needed (#741).
+
+`auth.oidc_common.session.SessionResolution` supplies the browser-session
+resolution mixin (#1169). Providers supply authority acceptance, refresh and
+tenant-policy hooks plus their session user key; OIDC also overrides the renewal
+check to require an integer expiry. `resolve_session(request, renew=False)`
+validates locally without changing the session or contacting the IdP, including
+when logout captures the browser identity. This is an internal provider helper,
+not part of the `AuthProvider` protocol.
 
 ## Public contracts
 

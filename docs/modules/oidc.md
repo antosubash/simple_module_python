@@ -251,9 +251,10 @@ are unknown. No remote IdP account listing is performed.
 ## Shared protocol implementation
 
 OIDC and Keycloak use `auth.oidc_common` for JWT validation, refresh-token
-sealing, sign-in session rotation, renewal, cache persistence and user
-directories (#741). OIDC retains discovery, ID-token-based browser identity,
-per-purpose audiences and its API client allowlist. Its issuer/subject identity,
+sealing, sign-in session rotation, browser-session resolution, renewal, cache
+persistence and user directories (#741, #1169). OIDC retains discovery,
+ID-token-based browser identity, per-purpose audiences and its API client
+allowlist. Its issuer/subject identity,
 `oidc_user_cache` table, session keys and encryption key derivation are unchanged;
 no migration or session conversion is needed.
 
