@@ -64,6 +64,11 @@ class UsersModule(ModuleBase):
 
         registry.directory = UsersDirectory()
 
+    def doctor_diagnostics(self, database_url: str):
+        from users.core.diagnostics import account_email_diagnostics
+
+        return account_email_diagnostics(database_url, self.meta.name)
+
     def register_settings(self, app: FastAPI) -> None:
         from users.core.settings import UsersSettings
         from users.core.state import UsersState

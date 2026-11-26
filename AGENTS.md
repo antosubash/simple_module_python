@@ -202,7 +202,8 @@ available, before the outer middleware pipeline is finalized),
 then async `check_data_compatibility(db)` (read-only upgrade checks before
 settings hydration; an `error` refuses boot outside development), then async
 `on_startup` / `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
-`db_extensions()`, `template_dirs()`, `static_mounts()`, `spa_mounts()`.
+`db_extensions()`, `template_dirs()`, `static_mounts()`, `spa_mounts()`,
+`doctor_diagnostics(database_url)` (extra read-only `make doctor` findings).
 
 By default, `register_routes` includes `<package>.web.endpoints.{api,views}.router`
 when present; import failures inside existing endpoints still fail boot.

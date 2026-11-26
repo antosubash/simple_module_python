@@ -2,8 +2,43 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
+from fastapi import FastAPI, Request
+from simple_module_hosting.config.host_settings import HostSettings
+from users.mailer import mailer_delivers, request_mail_options
 from users.mailer.templated import TemplatedMailer
+
+
+def test_positional_only_origin_is_not_passed_as_a_keyword():
+    class CustomMailer(TemplatedMailer):
+        async def send_verification(self, email, token, link_origin=None, /):  # ty: ignore[incompatible-method-override]
+            pass
+
+    app = FastAPI()
+    app.state.host = SimpleNamespace(
+        settings=HostSettings(forwarded_host_allowlist=["app.example"])
+    )
+    request = Request(
+        {
+            "type": "http",
+            "app": app,
+            "scheme": "https",
+            "headers": [(b"host", b"app.example")],
+        }
+    )
+    assert request_mail_options(CustomMailer(base_url=""), request) == {}
+
+
+def test_custom_mailer_can_disable_delivery(captured_mail):
+    class CustomMailer(TemplatedMailer):
+        @property
+        def delivers_email(self) -> bool:
+            return False
+
+    mailer = CustomMailer(base_url="https://app.example")
+    assert not mailer_delivers(mailer)
 
 
 @pytest.mark.parametrize("url", ["http://localhost:8000", "https://app.example.com"])
@@ -67,3 +102,22 @@ async def test_default_app_name_when_no_provider(captured_mail):
     await TemplatedMailer(base_url="http://localhost:8000").send_verification("a@b.com", "tok")
 
     assert "SimpleModule" in captured_mail.messages[0].subject
+
+
+@pytest.mark.parametrize(
+    ("method", "arguments", "path"),
+    [
+        ("send_password_reset", (), "reset-password"),
+        ("send_verification", (), "verify"),
+        ("send_invite", ("Alice Admin",), "invite/accept"),
+    ],
+)
+async def test_request_origin_is_per_send(method, arguments, path, captured_mail, caplog):
+    mailer = TemplatedMailer(base_url="")
+    send = getattr(mailer, method)
+    await send("user@example.com", "token", *arguments, link_origin="https://app.example")
+    await send("user@example.com", "next-token", *arguments)
+
+    (message,) = captured_mail.messages
+    assert f"https://app.example/users/{path}?token=token" in message.text
+    assert "Account email skipped: configure host.public_base_url" in caplog.text
