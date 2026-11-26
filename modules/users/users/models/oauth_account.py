@@ -27,6 +27,9 @@ class OAuthAccount(Base, table=True):  # ty: ignore[unsupported-base]
     __audit_redact_fields__: ClassVar[set[str]] = {"refresh_token", "access_token"}
 
     __tablename__ = "users_oauth_account"
+    __table_args__ = (
+        sa.UniqueConstraint("oauth_name", "account_id", name="uq_users_oauth_account_identity"),
+    )
 
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,

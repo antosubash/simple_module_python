@@ -101,7 +101,19 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
         )
         if await self.session.scalar(conflict.limit(1)) is not None:
             raise OAuthAccountLinkedElsewhereError
-        return await super().add_oauth_account(user, create_dict)
+        try:
+            return await super().add_oauth_account(user, create_dict)
+        except IntegrityError:
+            # The upstream adapter commits; roll back its failed insert before
+            # checking whether another callback won the identity-link race.
+            await self.session.rollback()
+            identity = select(OAuthAccount.id).where(
+                OAuthAccount.oauth_name == create_dict["oauth_name"],
+                OAuthAccount.account_id == create_dict["account_id"],
+            )
+            if await self.session.scalar(identity.limit(1)) is not None:
+                raise OAuthAccountLinkedElsewhereError from None
+            raise
 
 
 def _begin_sqlite_link_transaction(connection):

@@ -578,6 +578,23 @@ ORDER BY u.email, oa.oauth_name;
 This reports duplicate provider links; it does not change data or enforce a
 uniqueness constraint.
 
+Each `(oauth_name, account_id)` identity can belong to only one OAuth link,
+across all local users (#1153). A concurrent attempt to add the same identity is
+refused with `OAUTH_ACCOUNT_LINKED_ELSEWHERE`, like other conflicting links.
+The same account ID at a different provider remains a separate identity.
+
+**Upgrade behaviour change:** revision `b1153e9c7b62` adds the database unique
+constraint. The Users data compatibility check (`SM033`,
+`users.unique_oauth_identity_v1`) reports every duplicate identity with the
+affected user emails, user IDs and link IDs; errors refuse boot outside
+development. No accounts or links are automatically merged or deleted.
+`SM010` checks migration state before `SM033`, so the migration also checks for
+duplicates before changing the table and fails with the same removal instructions.
+Before upgrading, use the previous app version's **Users → user → Edit → Linked
+sign-ins → Remove** to remove extra links, keeping one link per identity. Stop
+old workers and retry the migration. Hosts with their own migration histories
+must add the same constraint and resolve duplicate links first.
+
 ### Custom providers
 
 Modules that depend on Users can register a named factory through `users.contracts`.
