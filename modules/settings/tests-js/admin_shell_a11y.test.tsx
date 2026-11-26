@@ -9,6 +9,7 @@ vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   Link: ({ children, ...props }: React.ComponentProps<'a'>) => <a {...props}>{children}</a>,
   usePage: () => ({ url: '/admin/settings/', props: { menus: {}, auth: { user: null } } }),
+  router: { on: () => () => {}, replace: vi.fn(), reload: vi.fn() },
 }));
 
 beforeEach(() => {
