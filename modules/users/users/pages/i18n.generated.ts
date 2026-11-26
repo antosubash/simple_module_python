@@ -224,8 +224,15 @@ export const keys = {
       toast_copied: 'users.invite_results.toast_copied',
     },
     linked_sign_ins: {
+      confirm_body: 'users.linked_sign_ins.confirm_body',
+      confirm_title: 'users.linked_sign_ins.confirm_title',
+      duplicates: 'users.linked_sign_ins.duplicates',
+      last_link_warning: 'users.linked_sign_ins.last_link_warning',
       last_sign_in: 'users.linked_sign_ins.last_sign_in',
       never: 'users.linked_sign_ins.never',
+      remove: 'users.linked_sign_ins.remove',
+      remove_failed: 'users.linked_sign_ins.remove_failed',
+      removed: 'users.linked_sign_ins.removed',
       subject: 'users.linked_sign_ins.subject',
       title: 'users.linked_sign_ins.title',
     },
@@ -254,6 +261,7 @@ export const keys = {
       no_account: 'users.login.no_account',
       no_account_invite_only: 'users.login.no_account_invite_only',
       no_account_suffix: 'users.login.no_account_suffix',
+      oauth_account_linked_elsewhere: 'users.login.oauth_account_linked_elsewhere',
       oauth_account_not_verified: 'users.login.oauth_account_not_verified',
       oauth_signin_failed: 'users.login.oauth_signin_failed',
       oauth_signup_disabled: 'users.login.oauth_signup_disabled',
@@ -632,8 +640,15 @@ type ModuleTranslationResources = {
   readonly 'users.invite_results.retrying': '';
   readonly 'users.invite_results.title': '';
   readonly 'users.invite_results.toast_copied': '';
+  readonly 'users.linked_sign_ins.confirm_body': '';
+  readonly 'users.linked_sign_ins.confirm_title': '';
+  readonly 'users.linked_sign_ins.duplicates': '';
+  readonly 'users.linked_sign_ins.last_link_warning': '';
   readonly 'users.linked_sign_ins.last_sign_in': '';
   readonly 'users.linked_sign_ins.never': '';
+  readonly 'users.linked_sign_ins.remove': '';
+  readonly 'users.linked_sign_ins.remove_failed': '';
+  readonly 'users.linked_sign_ins.removed': '';
   readonly 'users.linked_sign_ins.subject': '';
   readonly 'users.linked_sign_ins.title': '';
   readonly 'users.login.aside_body': '';
@@ -660,6 +675,7 @@ type ModuleTranslationResources = {
   readonly 'users.login.no_account': '';
   readonly 'users.login.no_account_invite_only': '';
   readonly 'users.login.no_account_suffix': '';
+  readonly 'users.login.oauth_account_linked_elsewhere': '';
   readonly 'users.login.oauth_account_not_verified': '';
   readonly 'users.login.oauth_signin_failed': '';
   readonly 'users.login.oauth_signup_disabled': '';

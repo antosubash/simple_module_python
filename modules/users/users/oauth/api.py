@@ -31,7 +31,11 @@ from simple_module_hosting.auth.auth_policy import login_redirect_url
 from starlette.responses import RedirectResponse
 
 from users.core.constants import OAUTH_REGISTRATION_REQUEST_FLAG
-from users.oauth.errors import refuse_login
+from users.oauth.errors import (
+    OAUTH_ACCOUNT_LINKED_ELSEWHERE,
+    OAuthAccountLinkedElsewhereError,
+    refuse_login,
+)
 from users.oauth.profile import record_profile
 from users.web.deps import auth_backend, get_user_manager
 
@@ -186,6 +190,8 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         existing, linked = await _existing_account(
             user_manager, provider, account_id, account_email
         )
+        # A lost insert race rolls back the session and expires ORM attributes.
+        existing_user_id = existing.id if existing is not None else None
         # An OAuth sign-in is a signup when nobody holds this identity yet, and
         # with ``allow_signup`` off it must not be one: an operator enabling
         # SSO for staff would otherwise open signup to the provider's whole
@@ -212,6 +218,15 @@ def register_oauth_routes(api_router: APIRouter) -> None:
                 associate_by_email=email_verified,
                 is_verified_by_default=email_verified,
             )
+        except OAuthAccountLinkedElsewhereError:
+            # The local user id lets an operator find the account; no address or IdP id.
+            logger.warning(
+                "OAuth sign-in through %s refused: %s (user %s)",
+                provider,
+                OAUTH_ACCOUNT_LINKED_ELSEWHERE,
+                existing_user_id,
+            )
+            return refuse_login(request, OAUTH_ACCOUNT_LINKED_ELSEWHERE, status.HTTP_403_FORBIDDEN)
         except fu_exceptions.UserAlreadyExists:
             return refuse_login(request, "OAUTH_USER_ALREADY_EXISTS")
 

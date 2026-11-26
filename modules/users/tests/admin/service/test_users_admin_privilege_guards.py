@@ -1,14 +1,16 @@
 """Delegated user management must not grant access to stronger accounts (#624)."""
 
+import uuid
+
 import httpx
 import pytest
 from _users_admin_support import _build_service, _make_user
 from fastapi import FastAPI
-from simple_module_test import forge_session_cookie
+from simple_module_test import forge_session_cookie, inertia_page
 from sqlalchemy import select
 from users.core.errors import install_exception_handlers
 from users.core.exceptions import AdminAccountSafetyError, AdminPermissionError
-from users.models import Role, User, UserRole
+from users.models import OAuthAccount, Role, User, UserRole
 
 pytestmark = pytest.mark.anyio
 
@@ -81,7 +83,7 @@ async def test_delegate_cannot_grant_unheld_role(delegated_client, users_db, ope
 
 
 @pytest.mark.parametrize("kind", ["admin", "superuser", "powerful"])
-@pytest.mark.parametrize("operation", ["reset", "roles", "disable", "email", "delete"])
+@pytest.mark.parametrize("operation", ["reset", "roles", "disable", "email", "delete", "unlink"])
 async def test_delegate_cannot_control_privileged_target(
     delegated_client, users_db, kind, operation
 ):
@@ -101,12 +103,55 @@ async def test_delegate_cannot_control_privileged_target(
         response = await client.patch(f"{url}/disable")
     elif operation == "email":
         response = await client.patch(url, json={"email": "stolen@example.com"})
+    elif operation == "unlink":
+        link = OAuthAccount(
+            user_id=target.id,
+            oauth_name="oidc",
+            account_id="protected-identity",
+            account_email=target.email,
+            access_token="at",
+        )
+        users_db.add(link)
+        await users_db.commit()
+        page = inertia_page(await client.get(f"/admin/users/{target.id}"))
+        response = await client.delete(
+            f"/admin/users/{target.id}/linked-sign-ins/{link.id}",
+            headers={"X-CSRF-Token": page.props["csrfToken"]},
+        )
+        assert (
+            await users_db.execute(select(OAuthAccount).where(OAuthAccount.id == link.id))
+        ).scalar_one_or_none() is not None
     else:
         response = await client.delete(url)
     assert response.status_code == 403
     await users_db.refresh(target)
     assert target.email == "protected@example.com"
     assert target.is_active is True
+
+
+@pytest.mark.parametrize("missing", ["user", "link", "owner"])
+async def test_delegate_unlink_not_owned_is_404(delegated_client, users_db, missing):
+    client, actor_id = delegated_client
+    target = await _make_user(users_db, "protected@example.com", role_names=["admin"])
+    link = OAuthAccount(
+        user_id=actor_id,
+        oauth_name="oidc",
+        account_id="manager-identity",
+        account_email="manager@example.com",
+        access_token="at",
+    )
+    users_db.add(link)
+    await users_db.commit()
+    page = inertia_page(await client.get(f"/admin/users/{actor_id}"))
+    uid = uuid.uuid4() if missing == "user" else target.id
+    link_id = uuid.uuid4() if missing == "link" else link.id
+    response = await client.delete(
+        f"/admin/users/{uid}/linked-sign-ins/{link_id}",
+        headers={"X-CSRF-Token": page.props["csrfToken"]},
+    )
+    assert response.status_code == 404
+    await users_db.refresh(link)
+    assert link.user_id == actor_id
 
 
 async def test_delegate_can_manage_ordinary_user(delegated_client, users_db):

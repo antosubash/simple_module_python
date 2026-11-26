@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _string_or_empty(value: object) -> str:
+    return value if isinstance(value, str) else ""
+
+
 class KeycloakAuthProvider(CachePersistence, SessionRenewal):
     """OIDC auth provider backed by Keycloak."""
 
@@ -54,12 +58,19 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
                 return None
             return await self._resolve_bearer(request, credential)
 
+        return await self.resolve_session(request)
+
+    async def resolve_session(self, request: Request, *, renew: bool = True) -> UserContext | None:
+        """Validate the session; ``renew=False`` preserves it and never calls the IdP."""
         session = request.scope.get("session", {})
+        if not renew:
+            # Authority rejection must leave the original logout credentials available.
+            session = dict(session)
         if not self._accept_session(session):
             return None
         # Renew authority from the IdP at expiry, without interrupting the request.
         if session_has_expired(session):
-            return await self._refresh_session(request)
+            return await self._refresh_session(request) if renew else None
         ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
         if ctx is not None:
             # The cookie froze what was decided at login; re-decide with the
@@ -120,9 +131,10 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
         ]
         return UserContext(
             id=cache_id,
-            email=claims.get("email", ""),
+            email=_string_or_empty(claims.get("email")),
             email_verified=claims.get("email_verified") is True,
-            name=(claims.get("preferred_username") or claims.get("name", "")),
+            name=_string_or_empty(claims.get("preferred_username"))
+            or _string_or_empty(claims.get("name")),
             roles=self._without_tenant_roles(mapped),
             tenant_id=self._trusted_tenant(claims.get("tenant_id")),
         )

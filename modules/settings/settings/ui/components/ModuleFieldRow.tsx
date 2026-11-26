@@ -1,6 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { useId } from 'react';
 import { FieldInput, type FieldMeta } from './FieldInput';
-import { FieldSource } from './FieldSource';
+import { FieldSource, sourceShowsDescription } from './FieldSource';
 
 interface Props {
   field: FieldMeta;
@@ -33,19 +34,28 @@ export function ModuleFieldRow({
 }: Props) {
   const { t } = useT();
   const id = `field-${pkg}-${field.name}`;
-  // A bool's description is the trailing meta; repeating it here would print
-  // the same sentence twice on the same row.
-  const showDescription = field.description && field.type !== 'bool';
+  const descriptionId = useId();
+  const describedBy = field.description ? descriptionId : undefined;
+  // A bool's description is normally the trailing meta; repeating it here would
+  // print the same sentence twice. When the trailing column shows something
+  // else (a stored value, a secret), the description belongs here instead.
+  const showDescription = !!field.description && !sourceShowsDescription(field);
 
   return (
     // Query the editor card: two sidebars can leave little space at a wide viewport.
-    <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,140px)_minmax(180px,1fr)] @xl:grid-cols-[minmax(0,140px)_minmax(180px,1fr)_minmax(0,160px)] @xl:items-center">
+    <div
+      data-testid={`row-${id}`}
+      className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,140px)_minmax(180px,1fr)] @xl:grid-cols-[minmax(0,140px)_minmax(180px,1fr)_minmax(0,160px)] @xl:items-center"
+    >
       <div className="min-w-0">
         <label htmlFor={id} className="block [overflow-wrap:anywhere] text-[13px] font-medium">
           {field.name}
         </label>
         {showDescription && (
-          <p className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground">
+          <p
+            id={describedBy}
+            className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground"
+          >
             {field.description}
           </p>
         )}
@@ -61,12 +71,18 @@ export function ModuleFieldRow({
             so the server refuses edits to it; a disabled fieldset stops the form
             from collecting an edit that would 422 the whole save. */}
         <fieldset disabled={!!field.env_set} className="min-w-0 border-0 p-0">
-          <FieldInput id={id} field={field} value={value} onChange={onChange} />
+          <FieldInput
+            id={id}
+            aria-describedby={describedBy}
+            field={field}
+            value={value}
+            onChange={onChange}
+          />
         </fieldset>
       </div>
 
       <div className="min-w-0 [overflow-wrap:anywhere] @md:col-span-2 @xl:col-span-1 @xl:justify-self-start">
-        <FieldSource field={field} onReset={onReset} />
+        <FieldSource field={field} descriptionId={describedBy} onReset={onReset} />
       </div>
 
       {/* Its own grid row, spanning the control and trailing columns: inside

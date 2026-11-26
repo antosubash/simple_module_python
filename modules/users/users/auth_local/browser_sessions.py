@@ -1,11 +1,13 @@
 """Retire the current browser session and refresh the account's cached state."""
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from auth.contracts.events import session_logout_event
 from auth.core.constants import SESSION_ID_KEY
-from fastapi import Request
+from fastapi import BackgroundTasks, Request
 from simple_module_db.engine.callbacks import register_on_commit
 from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY, SESSION_SIGNATURE_MAX_AGE
 from sqlalchemy import delete
@@ -13,10 +15,13 @@ from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from users.accounts.provider import UsersAuthProvider
 from users.accounts.session_revocation import publish_revocation
 from users.accounts.token_storage import revoke_access_token
 from users.core.constants import SESSION_USER_ID_KEY
 from users.models import RevokedSession
+
+logger = logging.getLogger(__name__)
 
 
 def _insert(dialect: str) -> Any:
@@ -53,10 +58,23 @@ async def revoke_browser_session(request: Request, db: AsyncSession) -> None:
     register_on_commit(db, lambda: publish_revocation(request.app, uuid.UUID(user_id)))
 
 
-async def end_browser_session(request: Request, db: AsyncSession) -> str:
+async def end_browser_session(
+    request: Request, db: AsyncSession, background_tasks: BackgroundTasks
+) -> str:
     """Revoke the browser session and its access token; return the cookie name."""
+    event = None
+    try:
+        # The host's swappable AuthProvider need not expose Users session validation.
+        session_user = await UsersAuthProvider().resolve_session(request)
+        event = session_logout_event(session_user, local_account=True)
+    except Exception as exc:
+        # Event capture must not stop the browser's credentials being revoked.
+        logger.warning("Logout session validation failed (%s); skipping event", type(exc).__name__)
     await revoke_browser_session(request, db)
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name
     await revoke_access_token(db, request.cookies.get(cookie_name))
+    if event is not None:
+        # The response starts only after the request transaction finalizes.
+        background_tasks.add_task(request.app.state.sm.event_bus.publish, event)
     return cookie_name

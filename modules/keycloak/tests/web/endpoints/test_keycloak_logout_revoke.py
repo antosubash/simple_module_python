@@ -4,7 +4,9 @@ from types import SimpleNamespace
 from urllib.parse import parse_qs
 
 import httpx
+import pytest
 from keycloak.core.settings import KeycloakSettings
+from keycloak.core.state import KeycloakState
 from keycloak.identity.tokens import seal_refresh_token
 from keycloak.web.endpoints import views
 from starlette.requests import Request
@@ -18,11 +20,15 @@ def _request(headers=None):
     )
     app = SimpleNamespace(
         state=SimpleNamespace(
-            keycloak=SimpleNamespace(settings=settings),
+            keycloak=KeycloakState(settings=settings),
             sm=SimpleNamespace(settings=SimpleNamespace(secret_key="test-secret-key")),
         )
     )
-    session = {"keycloak_refresh_token": seal_refresh_token(app, "refresh-tok"), "user_ctx": {}}
+    session = {
+        "keycloak_refresh_token": seal_refresh_token(app, "refresh-tok"),
+        "user_ctx": {},
+        "expires_at": 4_102_444_800,
+    }
     return Request(
         {
             "type": "http",
@@ -91,3 +97,39 @@ async def test_logout_drops_shared_renewal_outcomes_before_clearing(httpx_mock, 
         ("keycloak_refresh_token", True)
     ]
     assert request.session == {}
+
+
+@pytest.mark.parametrize("email", ["signed-in@example.test", None])
+async def test_logout_publishes_after_local_and_back_channel_logout(httpx_mock, email):
+    from uuid import uuid4
+
+    from auth.contracts.schemas import UserContext
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.user_events import UserLoggedOut
+
+    httpx_mock.add_response(url=_LOGOUT, method="POST", status_code=204)
+    request = _request()
+    # A UUID-shaped IdP subject stays the original string, case included.
+    user_id = str(uuid4()).upper()
+    request.session["user_ctx"] = UserContext(
+        id=user_id, email=email, name="Signed in"
+    ).to_session_dict()
+    bus = request.app.state.sm.event_bus = EventBus()
+    observed = []
+
+    async def observe(event):
+        observed.append((event, dict(request.session), len(httpx_mock.get_requests())))
+
+    async def failing_handler(event):
+        raise RuntimeError("subscriber failed")
+
+    bus.subscribe(UserLoggedOut, observe)
+    bus.subscribe(UserLoggedOut, failing_handler)
+    response = await views.logout(request)
+    assert response.status_code == 303
+
+    async def send(message):
+        assert observed == []
+
+    await response(request.scope, request.receive, send)
+    assert observed == [(UserLoggedOut(user_id=user_id, email=email or ""), {}, 1)]

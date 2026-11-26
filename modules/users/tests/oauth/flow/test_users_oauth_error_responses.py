@@ -1,5 +1,6 @@
 """Exercise callback error responses without a database or provider network."""
 
+import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -48,7 +49,9 @@ async def test_oauth_callback_error_response(failure, detail, public_code, statu
     manager = AsyncMock()
     manager.get_by_oauth_account.side_effect = UserNotExists()
     if failure == "unverified":
-        manager.get_by_email.return_value = SimpleNamespace(is_verified=False, invited_at=None)
+        manager.get_by_email.return_value = SimpleNamespace(
+            id=uuid.uuid4(), is_verified=False, invited_at=None
+        )
     else:
         manager.get_by_email.side_effect = UserNotExists()
 

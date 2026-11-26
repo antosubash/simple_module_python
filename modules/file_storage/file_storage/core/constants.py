@@ -243,6 +243,7 @@ THUMBNAIL_CONTENT_TYPE: Final = "image/webp"
 # (decompression bomb) before Pillow ever decodes it.
 THUMBNAIL_MAX_PIXELS: Final = 25_000_000
 THUMBNAIL_MAX_SOURCE_BYTES: Final = 20 * 1024 * 1024
+THUMBNAIL_HEAD_PROBE_BYTES: Final = 64 * 1024
 THUMBNAIL_MAX_CONCURRENCY: Final = 2
 THUMBNAIL_MAX_AGE_SECONDS: Final = 86400
 
@@ -258,6 +259,9 @@ USER_ROLE: Final = "user"
 # CORS for anonymous public-file reads (#527). Range-capable so a cross-origin
 # <video>/PDF viewer can seek.
 PUBLIC_CORS_METHODS: Final = ("GET", "HEAD", "OPTIONS")
+# Anonymous reads of public files: HEAD must behave like GET for link checkers (#1131).
+HTTP_HEAD: Final = "HEAD"
+PUBLIC_READ_METHODS: Final = frozenset({"GET", HTTP_HEAD})
 PUBLIC_CORS_ALLOW_HEADERS: Final = ("Range", "If-Range", "If-None-Match")
 PUBLIC_CORS_EXPOSE_HEADERS: Final = ("Content-Range", "Accept-Ranges", "ETag", "Content-Length")
 

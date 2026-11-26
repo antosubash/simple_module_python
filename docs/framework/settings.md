@@ -221,6 +221,34 @@ from simple_module_db.queries.stored_settings import hydrate_settings_sync
 cfg = hydrate_settings_sync(OrdersSettings, session, "orders")
 ```
 
+### Persisting normalized strings
+
+The settings plugin's `apply_changes_and_reload` validates every save, but scalar
+fields normally store the submitted value. To store a validator-normalized plain
+string instead, opt in on that field with
+`json_schema_extra={"persist_normalized": True}`:
+
+```python
+from pydantic import Field, field_validator
+from simple_module_core.settings.settings_base import DbBackedSettings
+
+
+class EndpointSettings(DbBackedSettings):
+    base_url: str = Field(default="", json_schema_extra={"persist_normalized": True})
+
+    @field_validator("base_url")
+    @classmethod
+    def trim_base_url(cls, value: str) -> str:
+        return value.strip()
+```
+
+The marker defaults to off and applies only when the validated scalar value is
+exactly a `str`; it does not change secret or enum persistence. JSON fields keep
+their existing validated-value persistence. Saving a value equal to the field's
+default still clears its override. Leave the marker off for strings derived from
+other settings at runtime, so saving a blank input does not freeze a derived URL
+in the database. `tenants.subdomain_base` and `users.base_url` opt in.
+
 ### Why `app.state.<module_lower>`?
 
 - **Discoverable.** Every module follows the same pattern; diagnostics check for it (`SM012`).

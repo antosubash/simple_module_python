@@ -147,3 +147,38 @@ async def test_logout_broadcasts_after_record_is_durable(users_app, anon_client)
     assert (await anon_client.post("/api/users/auth/login", data=CREDENTIALS)).status_code == 204
     assert (await anon_client.post("/api/users/auth/logout")).status_code == 204
     assert len(messages) == 1
+
+
+@pytest.mark.parametrize(
+    ("path", "status"), [("/users/logout", 303), ("/api/users/auth/logout", 204)]
+)
+async def test_logout_publishes_authenticated_user_after_revocation(
+    users_app, anon_client, path, status
+):
+    from users.contracts.events import UserLoggedOut
+
+    user = await user_row(users_app, CREDENTIALS["username"])
+    observed = []
+    revoked_users = []
+
+    async def observe(event):
+        observed.append(event)
+        async with users_app.state.sm.db.session_factory() as db:
+            revoked_users.append((await db.execute(select(RevokedSession.user_id))).scalar_one())
+
+    async def failing_handler(event):
+        raise RuntimeError("subscriber failed")
+
+    bus = users_app.state.sm.event_bus
+    bus.subscribe(UserLoggedOut, observe)
+    bus.subscribe(UserLoggedOut, failing_handler)
+    anonymous_status = 302 if path == "/users/logout" else 204
+    assert (await anon_client.post(path)).status_code == anonymous_status
+    assert observed == []
+
+    assert (await anon_client.post("/api/users/auth/login", data=CREDENTIALS)).status_code == 204
+    assert (await anon_client.post(path)).status_code == status
+    assert observed == [UserLoggedOut(user_id=user.id, email=user.email)]
+    assert revoked_users == [user.id]
+    assert (await anon_client.post(path)).status_code == anonymous_status
+    assert len(observed) == 1

@@ -69,11 +69,11 @@ class TestCompressionMiddlewareOrder:
         than CorrelationId.
         """
         from simple_module_hosting.observability._observability import CorrelationIdMiddleware
-        from starlette.middleware.gzip import GZipMiddleware
+        from simple_module_hosting.pipeline.compression import HostGZipMiddleware
 
         classes = [m.cls for m in app.user_middleware]
-        assert GZipMiddleware in classes, "GZipMiddleware is not installed"
-        assert classes.index(GZipMiddleware) > classes.index(CorrelationIdMiddleware)
+        assert HostGZipMiddleware in classes, "GZipMiddleware is not installed"
+        assert classes.index(HostGZipMiddleware) > classes.index(CorrelationIdMiddleware)
 
 
 @pytest.mark.parametrize("encoding", ["gzip", "gzip, deflate", "gzip, deflate, br"])

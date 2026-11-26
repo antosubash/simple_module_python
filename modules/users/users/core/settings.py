@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AnyHttpUrl, Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings.settings_base import DbBackedSettings
 
@@ -83,8 +84,36 @@ class _UsersCoreSettings(DbBackedSettings):
 
     # Mail transport (SMTP, console) lives in the ``mail`` module.
     base_url: str = Field(
-        default="", description="Account link origin; blank inherits host.public_base_url."
+        default="",
+        description="Account link origin; blank inherits host.public_base_url.",
+        json_schema_extra={"persist_normalized": True},
     )
+
+    @field_validator("base_url")
+    @classmethod
+    def _check_base_url(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return value
+        message = (
+            "base_url must be an absolute http(s) URL without credentials "
+            "(e.g. https://example.com), or blank"
+        )
+        try:
+            parts = urlsplit(value)
+            if (
+                not parts.netloc
+                or parts.username is not None
+                or parts.password is not None
+                # URL parsers can silently repair controls and backslashes.
+                or any(c.isspace() or c == "\\" or ord(c) < 32 or ord(c) == 127 for c in value)
+            ):
+                raise ValueError(message)
+            AnyHttpUrl(value)
+        except ValueError as exc:
+            raise ValueError(message) from exc
+        return value
+
     mail_template_dirs: list[str] = Field(
         default_factory=list,
         description=(

@@ -220,6 +220,7 @@
     "resend_verification": "Bestätigungs-E-Mail erneut senden",
     "verification_resent": "Bestätigungs-E-Mail erneut gesendet. Bitte prüfen Sie Ihr Postfach.",
     "error_rate_limited": "Zu viele Versuche. Bitte versuchen Sie es in einigen Minuten erneut.",
+    "oauth_account_linked_elsewhere": "Die Single-Sign-on-Anmeldung ist fehlgeschlagen. Verwenden Sie eine andere Anmeldemethode oder wenden Sie sich an einen Administrator.",
     "oauth_account_not_verified": "Bestätigen Sie die E-Mail-Adresse Ihres bestehenden Kontos, bevor Sie Single Sign-on verknüpfen. Wenden Sie sich bei Bedarf an einen Administrator.",
     "oauth_signup_disabled": "Dieses Konto ist nicht registriert. Wenden Sie sich an einen Administrator, um Zugang zu erhalten.",
     "oauth_signin_failed": "Die Single-Sign-on-Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder verwenden Sie eine andere Anmeldemethode.",
@@ -431,6 +432,13 @@
   },
   "linked_sign_ins": {
     "title": "Verknüpfte Anmeldungen",
+    "remove": "Entfernen",
+    "confirm_title": "{provider}-Anmeldung entfernen?",
+    "confirm_body": "Dies entfernt nur diese verknüpfte Anmeldung. Benutzer, Rollen und bestehende Sitzungen bleiben erhalten. Eine spätere Anmeldung kann erneut eine Identität verknüpfen, wenn der Anbieter die übereinstimmende E-Mail-Adresse bestätigt.",
+    "last_link_warning": "Dies ist die letzte verknüpfte Anmeldung; um sich erneut anzumelden, benötigt der Benutzer daher eine Anbieteridentität mit einer bestätigten E-Mail-Adresse, die mit der dieses Kontos übereinstimmt, oder eine andere Anmeldemethode.",
+    "removed": "Anmeldung entfernt",
+    "remove_failed": "Anmeldung konnte nicht entfernt werden",
+    "duplicates": "Mehrere Identitäten desselben Anbieters sind verknüpft. Prüfen Sie die verknüpften Anmeldungen und entfernen Sie veraltete Identitäten.",
     "last_sign_in": "Zuletzt angemeldet {when}",
     "never": "Noch nicht darüber angemeldet",
     "subject": "Subjekt"

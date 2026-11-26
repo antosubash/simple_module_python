@@ -105,3 +105,7 @@ def sanitize_list_filters(
 
 UPGRADE_HASHED_BEARER_TOKENS = "users.hashed_bearer_tokens_v1"
 UPGRADE_UNIQUE_EMAILS = "users.unique_email_v1"
+UPGRADE_UNIQUE_OAUTH_IDENTITY = "users.unique_oauth_identity_v1"
+
+OAUTH_IDENTITY_CONSTRAINT_NAME = "uq_users_oauth_account_identity"
+DATA_COMPATIBILITY_REPORT_LIMIT = 20

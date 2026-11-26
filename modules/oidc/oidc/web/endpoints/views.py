@@ -2,12 +2,14 @@
 
 import logging
 
+from auth.oidc_common.logout import logout_event_for
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.auth_policy import login_redirect_url
 from simple_module_hosting.auth.csrf import require_browser_origin
 from simple_module_hosting.frontend.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.protocol.response import location
+from starlette.background import BackgroundTask
 from starlette.responses import RedirectResponse
 
 from oidc.core.constants import (
@@ -17,6 +19,7 @@ from oidc.core.constants import (
     SESSION_REFRESH_TOKEN_KEY,
 )
 from oidc.core.runtime import is_signed_in
+from oidc.identity.provider import OidcAuthProvider
 from oidc.identity.renewal import _KEYS
 from oidc.identity.tokens import open_refresh_token
 
@@ -40,6 +43,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
+    event = await logout_event_for(request, OidcAuthProvider)
     client = request.app.state.oidc.client
     if client is not None:
         try:
@@ -62,5 +66,9 @@ async def logout(request: Request):
         except Exception:
             logger.warning("OIDC logout unavailable; local session cleared")
     if is_inertia_request(request.scope):
-        return location(destination)
-    return RedirectResponse(destination, status_code=303)
+        response = location(destination)
+    else:
+        response = RedirectResponse(destination, status_code=303)
+    if event is not None:
+        response.background = BackgroundTask(request.app.state.sm.event_bus.publish, event)
+    return response

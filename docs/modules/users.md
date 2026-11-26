@@ -94,6 +94,7 @@ Admin (`users.manage`) — served from the module's `admin_view_prefix`, `/admin
 - `GET /admin/users/` → `Users/Users/Index`
 - `GET /admin/users/add` → `Users/Users/AddPeople` — one form for both flows; `?mode=create|invite` picks which
 - `GET /admin/users/{user_id}` → `Users/Users/Edit`
+- `DELETE /admin/users/{user_id}/linked-sign-ins/{oauth_account_id}` → 303 back to Edit; requires `users.manage` and the session CSRF token, removes only the owned OAuth link (404 otherwise)
 
 The separate Create and Invite pages merged into `AddPeople`. Their old paths survive as 307 redirects carrying the mode: `GET /admin/users/invite` → `/admin/users/add?mode=invite`, and `GET /admin/users/create` → `/admin/users/add?mode=create`.
 
@@ -122,6 +123,7 @@ from users.contracts.events import (
     UserCreated,
     UserDeleted,
     UserDisabled,
+    UserLoggedOut,
     RoleAssigned,
 )
 ```
@@ -133,7 +135,7 @@ from users.contracts.events import (
 | `UserDetailsUpdate` | Admin edit input: `email`, `full_name`. |
 | `UserListItem` | Admin list row; adds `is_external`, `created_at`, `roles`. |
 | `RoleListItem` | `id`, `name`, `description`, `user_count`. |
-| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
+| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `UserLoggedOut`, `RoleAssigned` | Events — see [Events](#events). |
 
 Other modules read accounts through the [user directory](/framework/user-directory),
 which this module installs as `users.core.directory.UsersDirectory` in
@@ -330,7 +332,18 @@ in worker threads so unrelated requests can continue during hashing (#737).
 | `UserCreated` | `user_id`, `email`, `created_by` | on admin create (`POST /api/users/admin`) |
 | `UserDeleted` | `user_id` | on admin delete; durable (outbox, or inline in the request transaction). Defined in `simple_module_core.user_events` so modules subscribe without depending on `users` |
 | `UserDisabled` | `user_id` | on admin disable |
+| `UserLoggedOut` | `user_id`, `email` | after validated browser-session logout through the browser or API endpoint, including sessions established through OAuth |
 | `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
+
+`UserLoggedOut` is an in-process event defined in `simple_module_core.user_events`
+and re-exported from `users.contracts.events`. Users validates the browser session
+independently of any Authorization bearer token. The event identifies the session's
+account even when the header identifies a different user; a bearer token without a
+valid browser session publishes no event. Users publishes the account ID as a UUID
+after the session revocation transaction finalizes. Subscriber
+failures are logged and logout still succeeds. Delivery is not exactly-once:
+two logout requests racing on the same session can each publish the event, so
+make subscribers idempotent (releasing a per-user reservation twice is harmless).
 
 Single admin create/invite publishes `UserCreated` / `UserInvited` through the
 transactional admin-event helper: durable handlers use the request transaction
@@ -548,6 +561,72 @@ Built-in provider keys (the `{provider}` URL segment):
 | Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs + disables rather than breaking boot |
 
 A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email` and `is_verified_by_default` both follow whether the provider proved the email; Microsoft never does unless the opt-in below is on); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
+
+When a provider verifies an email address, first sign-in can link its identity to
+an eligible local account with that address. If the account already has a
+different identity from the same provider, sign-in is refused with
+`OAUTH_ACCOUNT_LINKED_ELSEWHERE` and the existing links and roles are preserved.
+This applies to every provider, including custom ones. For example, reassigning
+an Entra UPN to a new directory user does not transfer access to the previous
+user's local account. The login page shows a generic failure, and the server logs
+the reason code and provider at warning level. For a legitimate reassignment,
+open **Users → the user → Linked sign-ins** in the admin area and use **Remove**
+on the old identity, then confirm. This removes only that link; the user, roles
+and existing sessions stay intact. The next sign-in can link the new identity
+when the provider proves the matching email address.
+Removing the last linked sign-in is allowed, but the confirmation warns that the
+user then needs a provider identity with a matching verified email address or
+another sign-in method to sign in again.
+
+The Edit page warns when a user has multiple links for the same provider. Review
+the identities and remove the obsolete links individually. To find existing
+cases before reviewing them in the admin UI, run this read-only query once:
+
+```sql
+SELECT u.id AS user_id, u.email, oa.oauth_name, COUNT(*) AS link_count
+FROM users_user AS u
+JOIN users_oauth_account AS oa ON oa.user_id = u.id
+GROUP BY u.id, u.email, oa.oauth_name
+HAVING COUNT(*) > 1
+ORDER BY u.email, oa.oauth_name;
+```
+
+This reports duplicate provider links; it does not change data or enforce a
+uniqueness constraint.
+
+Each `(oauth_name, account_id)` identity can belong to only one OAuth link,
+across all local users (#1153). A concurrent attempt to add the same identity is
+refused with `OAUTH_ACCOUNT_LINKED_ELSEWHERE`, like other conflicting links.
+The same account ID at a different provider remains a separate identity.
+
+**Upgrade behaviour change:** revision `b1153e9c7b62` adds the database unique
+constraint. The Users data compatibility check (`SM033`,
+`users.unique_oauth_identity_v1`) reports up to 20 conflicting links with the
+affected user emails, user IDs and link IDs and flags further conflicts; errors
+refuse boot outside development. No accounts or links are automatically merged or deleted.
+`SM010` checks migration state before `SM033`, so the migration also checks for
+duplicates before changing the table and fails with the same removal instructions.
+To find these duplicate identities before upgrading, run this read-only query.
+Unlike the per-user/provider query above, it also finds an identity linked once
+to each of several users:
+
+```sql
+SELECT oa.oauth_name, oa.account_id, oa.user_id, u.email, oa.id AS link_id
+FROM users_oauth_account AS oa
+LEFT JOIN users_user AS u ON u.id = oa.user_id
+WHERE (oa.oauth_name, oa.account_id) IN (
+    SELECT oauth_name, account_id
+    FROM users_oauth_account
+    GROUP BY oauth_name, account_id
+    HAVING COUNT(*) > 1
+)
+ORDER BY oa.oauth_name, oa.account_id, oa.user_id, oa.id;
+```
+
+Before upgrading, use the previous app version's **Users → user → Edit → Linked
+sign-ins → Remove** to remove extra links, keeping one link per identity. Stop
+old workers and retry the migration. Hosts with their own migration histories
+must add the same constraint and resolve duplicate links first.
 
 ### Custom providers
 

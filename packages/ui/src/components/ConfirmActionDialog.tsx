@@ -18,6 +18,9 @@ import { useEffect, useId, useState } from 'react';
 interface ConfirmActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Runs when the dialog closes. Call event.preventDefault() before restoring
+   *  focus yourself, for example when there is no Radix trigger. */
+  onCloseAutoFocus?: React.ComponentProps<typeof AlertDialogContent>['onCloseAutoFocus'];
   /** Tints the icon tile and picks the confirm button's variant. */
   tone?: 'destructive' | 'primary';
   icon: LucideIcon;
@@ -53,6 +56,7 @@ const TILE_TONE = {
 export function ConfirmActionDialog({
   open,
   onOpenChange,
+  onCloseAutoFocus,
   tone = 'destructive',
   icon: Icon,
   title,
@@ -78,7 +82,7 @@ export function ConfirmActionDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         {/* Not AlertDialogMedia: that slot is size-16 and row-spans beside the
             title on desktop, where the deck wants a 40px tile above it. */}
         <AlertDialogHeader className="place-items-start gap-2 text-left">

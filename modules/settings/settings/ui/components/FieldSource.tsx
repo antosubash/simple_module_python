@@ -6,6 +6,21 @@ function isBlank(value: unknown): boolean {
 }
 
 /**
+ * Whether the trailing column shows a toggle's description. A stored override
+ * or a secret takes that column over, so the row must print the description
+ * elsewhere: a description can carry a safety warning that matters most
+ * exactly when someone has changed the setting.
+ */
+export function sourceShowsDescription(field: FieldMeta): boolean {
+  return (
+    !field.db_override &&
+    !field.is_secret &&
+    (field.input_type ?? field.type) === 'bool' &&
+    !!field.description
+  );
+}
+
+/**
  * The trailing column of a settings row: where this value came from, and the
  * one action that applies to it.
  *
@@ -15,7 +30,15 @@ function isBlank(value: unknown): boolean {
  * Both produce the same support question — "I changed the setting and nothing happened" —
  * which this answers on the screen.
  */
-export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () => void }) {
+export function FieldSource({
+  field,
+  descriptionId,
+  onReset,
+}: {
+  field: FieldMeta;
+  descriptionId?: string;
+  onReset: () => void;
+}) {
   const { t } = useT();
 
   // Revert is gated on `db_override`, not on "differs from the default": a
@@ -46,8 +69,12 @@ export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () 
 
   // A toggle's env var name says nothing a reader wants; what the switch
   // currently means does.
-  if ((field.input_type ?? field.type) === 'bool' && field.description) {
-    return <span className="text-[11.5px] text-muted-foreground">{field.description}</span>;
+  if (sourceShowsDescription(field)) {
+    return (
+      <span id={descriptionId} className="text-[11.5px] text-muted-foreground">
+        {field.description}
+      </span>
+    );
   }
 
   // The default is only worth showing when the live value has moved away from

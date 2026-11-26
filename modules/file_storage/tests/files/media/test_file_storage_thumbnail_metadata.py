@@ -1,0 +1,160 @@
+"""Bounded cold-source probes and compatibility with older storage providers."""
+
+from __future__ import annotations
+
+import io
+from types import SimpleNamespace
+
+import pytest
+from file_storage.backends.filesystem import FilesystemBackend
+from file_storage.core import constants
+from file_storage.files import thumbnail_metadata, thumbnails
+from PIL import Image, WebPImagePlugin
+
+
+def _image(format, *, mode="RGB", **save_options):
+    output = io.BytesIO()
+    Image.new(mode, (40, 20)).save(output, format, **save_options)
+    return output.getvalue()
+
+
+_WEBP_CASES = [
+    pytest.param("RGB", False, b"VP8 ", 30, id="VP8"),
+    pytest.param("RGB", True, b"VP8L", 25, id="VP8L"),
+    pytest.param("RGBA", False, b"VP8X", 30, id="VP8X"),
+]
+
+
+@pytest.mark.parametrize(
+    "format,ctype",
+    [("PNG", "image/png"), ("JPEG", "image/jpeg"), ("GIF", "image/gif"), ("WEBP", "image/webp")],
+)
+async def test_cold_probe_reads_only_a_prefix_and_closes_stream(format, ctype, monkeypatch):
+    data = _image(format)
+    if format == "JPEG":
+        # Two legal APP2 segments put the dimensions beyond the probe budget.
+        metadata = (b"\xff\xe2\xff\xff" + b"x" * 65533) * 2
+        data = data[:2] + metadata + data[2:]
+    data += b"padding" * 20000
+    closed = []
+    reads = []
+
+    async def exists(key):
+        return key == "source"
+
+    async def get_range(key, start, end):
+        reads.append((key, start, end))
+
+        async def stream():
+            try:
+                yield data[start : end + 1]
+            finally:
+                closed.append(True)
+
+        return stream()
+
+    def unexpected_load(*args, **kwargs):
+        raise AssertionError("HEAD decoded pixels")
+
+    monkeypatch.setattr(Image.Image, "load", unexpected_load)
+    backend = SimpleNamespace(exists=exists, get_range=get_range)
+    size = await thumbnail_metadata.head_size(
+        backend, key="source", content_type=ctype, width=128, source_size=len(data)
+    )
+    assert size is None
+    assert reads == [("source", 0, 65535)]
+    assert closed == [True]
+
+
+@pytest.mark.parametrize("mode,lossless,chunk,header_size", _WEBP_CASES)
+@pytest.mark.parametrize("ctype", ["image/webp", "image/png"])
+def test_webp_probe_does_not_allocate_a_decoder_canvas(
+    monkeypatch, mode, lossless, chunk, header_size, ctype
+):
+    data = _image("WEBP", mode=mode, lossless=lossless)
+    assert data[12:16] == chunk
+    assert len(data) >= header_size
+
+    def unexpected_decoder(*args):
+        raise AssertionError("HEAD allocated a WebP decoder canvas")
+
+    monkeypatch.setattr(WebPImagePlugin._webp, "WebPAnimDecoder", unexpected_decoder)
+    if ctype == "image/webp":
+        thumbnail_metadata._check_header(data, ctype, False)
+        monkeypatch.setattr(constants, "THUMBNAIL_MAX_PIXELS", 40 * 20 - 1)
+        with pytest.raises(thumbnails.UnreadableImageError, match="pixel budget"):
+            thumbnail_metadata._check_header(data, ctype, False)
+    else:
+        with pytest.raises(thumbnails.UnreadableImageError, match="declared type"):
+            thumbnail_metadata._check_header(data, ctype, False)
+
+
+@pytest.mark.parametrize("mode,lossless,chunk,header_size", _WEBP_CASES)
+def test_webp_probe_rejects_truncated_headers(mode, lossless, chunk, header_size):
+    data = _image("WEBP", mode=mode, lossless=lossless)
+    assert data[12:16] == chunk
+    for length in range(header_size):
+        with pytest.raises(thumbnails.UnreadableImageError, match="invalid WebP header"):
+            thumbnail_metadata._check_header(data[:length], "image/webp", False)
+
+
+def test_partial_webp_probe_enforces_known_pixel_budget():
+    # VP8X stores width/height minus one in two little-endian 24-bit fields.
+    data = (
+        b"RIFF"
+        + (140000).to_bytes(4, "little")
+        + b"WEBPVP8X"
+        + (10).to_bytes(4, "little")
+        + b"\0" * 4
+        + (5999).to_bytes(3, "little")
+        + (4999).to_bytes(3, "little")
+    )
+    data += b"\0" * (constants.THUMBNAIL_HEAD_PROBE_BYTES - len(data))
+    with pytest.raises(thumbnails.UnreadableImageError, match="pixel budget"):
+        thumbnail_metadata._check_header(data, "image/webp", True)
+
+
+async def test_cached_probe_without_metadata_support_does_not_read_body(tmp_path):
+    backend = FilesystemBackend(tmp_path)
+
+    async def chunks():
+        yield b"cached thumbnail"
+
+    await backend.put(
+        thumbnails.variant_key("source", 128), chunks(), content_type="image/webp", size=16
+    )
+    legacy = SimpleNamespace(exists=backend.exists)
+    assert (
+        await thumbnail_metadata.head_size(
+            legacy, key="source", content_type="image/png", width=128, source_size=100
+        )
+        is None
+    )
+
+
+async def test_cold_probe_without_range_support_closes_stream():
+    closed = []
+
+    async def exists(key):
+        return key == "source"
+
+    async def get(key):
+        assert key == "source"
+
+        async def stream():
+            try:
+                yield _image("PNG") + b"padding" * 20000
+                raise AssertionError("HEAD kept reading past its probe budget")
+            finally:
+                closed.append(True)
+
+        return stream()
+
+    legacy = SimpleNamespace(exists=exists, get=get)
+    assert (
+        await thumbnail_metadata.head_size(
+            legacy, key="source", content_type="image/png", width=128, source_size=140000
+        )
+        is None
+    )
+    assert closed == [True]

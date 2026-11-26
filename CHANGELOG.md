@@ -16,12 +16,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `@simple-module-py/ui`: `useLeaveGuard` accepts an optional fourth `allowVisit` predicate to skip the Inertia leave prompt for visits that preserve unsaved fields; `ConfirmActionDialog` forwards `onCloseAutoFocus`; `SectionTitle` forwards `ref` and `tabIndex` to its heading (#1149).
+- Users admin: remove individual linked OAuth sign-ins with confirmation and audit capture; warn about duplicate links per provider and explain how to sign in again when removing the last link (#1149).
+
+- Users, Keycloak, and OIDC publish an in-process `UserLoggedOut` event after authenticated session logout (#1125).
 - Regression coverage for Docker runtime/Compose invariants, the documented temporary-database migration roundtrip, and shared pytest configuration (#1088, #1089, #1090).
 
 ### Changed
 
+- **Behaviour change:** tenant `subdomain_base` now trims whitespace, lowercases and validates hostnames (maximum 253 characters); user `base_url` trims whitespace and requires an absolute HTTP(S) URL without credentials. Empty values remain allowed. Previously accepted invalid values are now rejected on save with a field-level 422. Invalid stored values are logged and ignored during hydration, falling back to the empty default; the database rows are not deleted. Settings saves persist normalized strings for these two fields. The tenant invitation lifetime description now states the 1–720 hour range in English and German (#1157).
+- **Behaviour change:** Users refuses duplicate OAuth identities `(oauth_name, account_id)` with a database unique constraint (revision `b1153e9c7b62`, #1153). SM033 and the migration list every conflicting identity and affected user email/ID, directing administrators to remove extra links through the previous app version's admin user Edit page (Linked sign-ins → Remove). Errors refuse boot outside development; no links are removed automatically. Lost insert races return the existing `OAUTH_ACCOUNT_LINKED_ELSEWHERE` error.
+- **Behaviour change:** Users refuses duplicate OAuth identities `(oauth_name, account_id)` with a database unique constraint (revision `b1153e9c7b62`, #1153). SM033 and the migration list up to 20 conflicting links and affected user emails/IDs, flagging further conflicts and directing administrators to remove extra links through the previous app version's admin user Edit page (Linked sign-ins → Remove). Errors refuse boot outside development; no links are removed automatically. Lost insert races return the existing `OAUTH_ACCOUNT_LINKED_ELSEWHERE` error.
 - **Behaviour change:** account emails fall back to the resolved request origin when the host is allowlisted and both configured origins are blank. Non-loopback HTTP requires a trusted proxy peer (#1126).
-
 - **Behaviour change:** mail exposes DB-backed `smtp_tls_mode` (`auto`, `starttls`, `implicit`); `auto` retains implicit TLS on 465 and STARTTLS elsewhere. Deployments that previously used implicit TLS on custom ports must select `implicit`; `smtp_tls=false` disables TLS in every mode (#1099).
 - **Behaviour change:** worker images use a separate non-root runtime without build tools or uv; web and worker images copy only their runtime artifacts (#1088).
 
@@ -39,12 +45,26 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Security
 
+- **Behaviour change:** refuse OAuth sign-in by verified email when the local account already has a different identity from the same provider, preserving its existing links and roles (#1128). This applies to every provider, including GitHub and Google: a user who recreates their provider account is refused until the old link is removed. The refusal is logged at WARNING with the provider and local user id.
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
 - Validate incoming `X-Correlation-ID` headers in `CorrelationIdMiddleware` for bounded length and safe token characters (#1065).
 - Reject ASCII control characters in `file_storage` media types and `branding` image normalization, preserve validated MIME parameters while falling back safely on downloads, sanitize generated storage key suffixes, and enforce canonical `is_relative_to` confinement in `FilesystemBackend._resolve` (#1069).
 
 ### Fixed
 
+- **Behaviour change:** Keycloak and OIDC logout publish `UserLoggedOut` from the validated browser session even when an Authorization bearer token identifies the same or a different user. Identity capture uses local validation only and never renews tokens or calls the IdP; expired sessions publish no event, and cleanup revokes the original refresh token. Identity-capture failures are logged while logout cleanup continues (#1162).
+- Users admin: removing linked sign-ins preserves unsaved details without a leave prompt, restores keyboard focus without stealing it on later renders, scopes empty-card retention to the edited user, and refreshes stale links after a 404 removal response (#1149).
+- Keycloak user-cache writes tolerate malformed profile claims without losing the cached identity at sign-in. Missing or malformed emails preserve the last known address (empty for new identities); explicit null or empty `preferred_username` claims still clear the cached name (#1146).
+- Settings controls announce their field descriptions through `aria-describedby`, including boolean descriptions in the trailing column (#1138).
+- **Behaviour change:** Users logout publishes `UserLoggedOut` for the validated browser session even when an Authorization bearer token identifies the same or a different user. A bearer token without a valid browser session publishes no logout event. `session_logout_event` accepts the validated session `UserContext`; passing a `Request` positionally or through `request=` remains supported with a `DeprecationWarning` until removal in `0.0.52` (#1129).
+- **Behaviour change:** file_storage public-file `HEAD` answers from metadata on S3 instead of redirecting to a GET-signed URL (#1139). Thumbnail `HEAD` reads cached size metadata without buffering bytes and probes cold sources without decoding or generating a variant; unknown variant lengths are omitted (#1140).
+- During sign-in, bearer authentication, and session refresh, Keycloak principals default to an empty email when the email claim provides no string value and an empty name when neither `preferred_username` nor `name` provides a non-empty string (#1143).
+- core: `EventBus.publish` runs sync subscribers inside its isolation: a raising sync handler is logged and the remaining handlers still run, and a sync handler that returns `None` no longer breaks the dispatch (#1134).
+- Browser sessions now restore null email and name values as empty strings. Legacy session emails stored as `"None"` also restore as empty strings (#1133).
+- file_storage: `HEAD` on a public file URL (and its thumbnail) answers like `GET` without a body, instead of `401`, so link checkers and download tools see public files (#1131).
+- Skip host GZip compression for partial responses and already-compressed media types, preserving range headers and byte offsets (#1127).
+- Preserve a response’s own Referrer-Policy and omit the host default on 304 responses so caches retain the existing policy (#1061).
+- Settings descriptions for boolean fields remain visible when a stored override or secret hint occupies the trailing column (#1062).
 - Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
 - Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
 - Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).

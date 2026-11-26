@@ -50,6 +50,7 @@ _OWNER: dict[str, str] = {
     "e480d7dd348f": "users",  # OAuth link profile (#877)
     "f999a1b2c3d4": "file_storage",  # module-owned file policies (#999)
     "a1054e9c7b62": "users",  # unbounded OAuth tokens (#1054)
+    "b1153e9c7b62": "users",  # unique OAuth identities (#1153)
     "51b2058d8afd": "api_tokens",
     "168a2882f443": "keycloak",
     "f6a3b9d2e8c4": "keycloak",
@@ -76,7 +77,7 @@ _ROOTS = {
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
     "b8d4f2a6c901": "audit_log",
-    "a1054e9c7b62": "users",  # shared trunk: file_storage, api_tokens, background_tasks
+    "b1153e9c7b62": "users",  # shared trunk: file_storage, api_tokens, background_tasks
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
     "c9d2e4f6a810": "oidc",
@@ -130,6 +131,7 @@ _INHERITED_MISLABELS = {
     "e480d7dd348f": "api_tokens",
     "f999a1b2c3d4": "api_tokens",
     "a1054e9c7b62": "api_tokens",
+    "b1153e9c7b62": "api_tokens",
     "a626b1c8d023": "api_tokens",  # also inherits ``background_tasks``
     "51b2058d8afd": "api_tokens",  # ancestors of a labelled revision inherit its label too
 }
