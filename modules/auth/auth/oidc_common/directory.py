@@ -9,6 +9,7 @@ from typing import Any
 from simple_module_core.access.user_directory import (
     DirectoryStats,
     DirectoryUser,
+    EmailLookupUserDirectory,
     chunked,
     parse_user_ids,
 )
@@ -46,7 +47,7 @@ def _uuid_text_sqlite(element: Any, compiler: Any, **kw: Any) -> str:
     return " || '-' || ".join(f"substr({col}, {start}, {length})" for start, length in parts)
 
 
-class CacheDirectory:
+class CacheDirectory(EmailLookupUserDirectory):
     """Directory over the supplied provider cache model."""
 
     #: Cache rows are not an audited model with a screen of their own, so actor
@@ -79,6 +80,7 @@ class CacheDirectory:
         exclude_ids: Collection[str] = (),
         active_only: bool = False,
         exact_email: bool = False,
+        match_email: bool = True,
     ) -> list[DirectoryUser]:
         stmt = select(*self._columns).order_by(self.model.email)
         if exclude_ids:
@@ -88,7 +90,9 @@ class CacheDirectory:
             stmt = stmt.where(func.lower(self.model.email) == (term or "").strip().lower())
         elif term and term.strip():
             stmt = stmt.where(
-                name_or_email_contains(self.model.full_name, self.model.email, term.strip())
+                name_or_email_contains(
+                    self.model.full_name, self.model.email, term.strip(), match_email=match_email
+                )
             )
         rows = await search_rows(db, stmt, self.model.id, include_ids=include_ids, limit=limit)
         return [to_directory_user(row, str(row.id)) for row in rows]
