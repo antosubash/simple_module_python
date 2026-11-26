@@ -53,6 +53,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- `useLeaveGuard` now confirms browser Back/Forward with the same `window.confirm` prompt as link visits; cancelling keeps the current URL, history state and unsaved draft (#1174).
 - Audit log: index target-user history lookups by `(entity_type, entity_id)` to avoid scanning every entry of the same entity type (#1166; migration `819d8c5714a5`).
 - **Behaviour change:** Keycloak and OIDC logout publish `UserLoggedOut` from the validated browser session even when an Authorization bearer token identifies the same or a different user. Identity capture uses local validation only and never renews tokens or calls the IdP; expired sessions publish no event, and cleanup revokes the original refresh token. Identity-capture failures are logged while logout cleanup continues (#1162).
 - Users admin: keep Recent activity scoped to actions by the user, clarify its empty state, and always show separate links to all activity by the user and changes to the account (BUG-001, #1166).
