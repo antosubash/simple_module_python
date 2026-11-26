@@ -59,7 +59,8 @@ export function useDrawerA11y(
     }
     const opener = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const previousPriority = document.body.style.getPropertyPriority('overflow');
+    document.body.style.setProperty('overflow', 'hidden', previousPriority);
     const items = () =>
       drawer ? Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isFocusable) : [];
     items()[0]?.focus();
@@ -96,7 +97,7 @@ export function useDrawerA11y(
     return () => {
       unsubscribe();
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      document.body.style.setProperty('overflow', previousOverflow, previousPriority);
       if (opener?.isConnected) opener.focus();
     };
   }, [open, onClose, drawerRef, desktopQuery]);

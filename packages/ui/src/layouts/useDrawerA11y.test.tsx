@@ -197,12 +197,17 @@ describe('useDrawerA11y', () => {
     expect(media.queries.get('(min-width: 48rem)')?.listeners.size).toBe(0);
   });
 
-  it('restores the previous scroll style when an open drawer unmounts', () => {
-    installMatchMedia();
-    document.body.style.overflow = 'scroll';
-    const view = render(<Drawer desktopQuery="(min-width: 48rem)" />);
-    expect(document.body.style.overflow).toBe('hidden');
-    view.unmount();
-    expect(document.body.style.overflow).toBe('scroll');
-  });
+  it.each(['', 'important'])(
+    'preserves overflow priority "%s" while locking and restoring scrolling',
+    (priority) => {
+      installMatchMedia();
+      document.body.style.setProperty('overflow', 'scroll', priority);
+      const view = render(<Drawer desktopQuery="(min-width: 48rem)" />);
+      expect(document.body.style.overflow).toBe('hidden');
+      expect(document.body.style.getPropertyPriority('overflow')).toBe(priority);
+      view.unmount();
+      expect(document.body.style.overflow).toBe('scroll');
+      expect(document.body.style.getPropertyPriority('overflow')).toBe(priority);
+    },
+  );
 });
