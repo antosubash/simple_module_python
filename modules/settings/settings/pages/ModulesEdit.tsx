@@ -3,13 +3,13 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
-import { Input } from '@simple-module-py/ui/components/ui/input';
 import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import { ArrowRight, Box, Search, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Box, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ModuleForm, type ModuleView } from '../ui/components/ModuleForm';
-import { ROUTES } from './routes';
+import { ModuleNav } from '../ui/components/ModuleNav';
+import { settingsText, useLookup } from '../ui/utils/field-text';
 
 type Props = {
   modules: ModuleView[];
@@ -69,16 +69,34 @@ function ModulesEdit({ modules, testable = {} }: Props) {
     });
   }
 
+  const lookup = useLookup();
+  const titles = useMemo(
+    () =>
+      Object.fromEntries(visible.map((m) => [m.package, settingsText(m.package, lookup).title()])),
+    [visible, lookup],
+  );
   const filtered = useMemo(() => {
     if (!q) return visible;
     const query = q.toLowerCase();
-    return visible.filter(
-      (m) =>
-        m.module_name.toLowerCase().includes(query) ||
-        m.package.toLowerCase().includes(query) ||
-        m.fields.some((f) => f.name.toLowerCase().includes(query)),
-    );
-  }, [visible, q]);
+    const hit = (s: string) => s.toLowerCase().includes(query);
+    return visible.filter((m) => {
+      const text = settingsText(m.package, lookup);
+      return (
+        hit(titles[m.package] ?? '') ||
+        hit(m.package) ||
+        m.fields.some((f) => hit(f.name) || hit(text.label(f)))
+      );
+    });
+  }, [visible, q, lookup, titles]);
+
+  function pick(pkg: string, from: HTMLElement | null) {
+    if (pkg === selected) return;
+    if (dirty) {
+      returnFocus.current = from;
+      discarded.current = false;
+      setPending(pkg);
+    } else select(pkg);
+  }
 
   const current = visible.find((m) => m.package === selected);
 
@@ -93,92 +111,25 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           instead of scrolling itself. Below `lg` the two panes stack, so a
           390px screen never scrolls sideways. */}
       <div className="flex flex-col bg-background lg:min-h-[calc(100vh-var(--app-chrome-h))] lg:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-b border-border bg-secondary/40 p-3.5 max-lg:max-h-72 max-lg:overflow-y-auto lg:sticky lg:top-[var(--app-chrome-h)] lg:max-h-[calc(100vh-var(--app-chrome-h))] lg:w-[230px] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r lg:py-5">
-          <div className="relative mb-2">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              placeholder={t(keys.settings.modules.search_placeholder)}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="h-9 bg-card pl-9 text-[12.5px] max-lg:min-h-11 pointer-coarse:min-h-11"
-            />
-          </div>
-          <nav
-            aria-label={t(keys.settings.modules.navigation_label)}
-            className="flex flex-col gap-1 overflow-y-auto"
-          >
-            {filtered.map((m) => {
-              const isActive = m.package === selected;
-              const overridden = m.fields.filter((f) => f.db_override).length;
-              return (
-                <button
-                  key={m.package}
-                  type="button"
-                  onClick={(event) => {
-                    if (m.package === selected) return;
-                    if (dirty) {
-                      returnFocus.current = event.currentTarget;
-                      discarded.current = false;
-                      setPending(m.package);
-                    } else select(m.package);
-                  }}
-                  // `shrink-0`: inside a scrolling flex column the buttons
-                  // were shrinkable, so a long module list on a phone squashed
-                  // every row to a 5px sliver instead of scrolling.
-                  className={`flex shrink-0 flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors max-lg:min-h-11 ${
-                    isActive
-                      ? 'bg-primary-600/10 text-primary-700'
-                      : 'text-foreground hover:bg-card'
-                  }`}
-                >
-                  <code
-                    className={`truncate font-mono text-[13px] ${isActive ? 'font-medium' : ''}`}
-                  >
-                    {m.package}
-                  </code>
-                  <span
-                    className={`text-[11.5px] max-lg:text-xs ${isActive ? 'opacity-75' : 'text-muted-foreground'}`}
-                  >
-                    {t(keys.settings.modules.field_count, { count: m.fields.length })}
-                    {overridden > 0 && (
-                      <>
-                        <span aria-hidden="true"> · </span>
-                        {t(keys.settings.modules.overridden_count, { count: overridden })}
-                      </>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-            {filtered.length === 0 && visible.length > 0 && (
-              <p role="status" className="px-3 py-2 text-sm text-muted-foreground">
-                {t(keys.settings.modules.no_results)}
-              </p>
-            )}
-          </nav>
-          <div className="mt-auto border-t border-border pt-3.5 max-lg:mt-3.5">
-            <a
-              href={ROUTES.browse}
-              className="inline-flex items-center text-[12.5px] font-medium text-primary-700 hover:text-primary-800 max-lg:min-h-11 pointer-coarse:min-h-11"
-            >
-              {t(keys.settings.modules.browse_free_form_link)}
-            </a>
-          </div>
-        </aside>
+        <ModuleNav
+          modules={visible}
+          filtered={filtered}
+          titles={titles}
+          selected={selected}
+          query={q}
+          onQuery={setQ}
+          onPick={pick}
+        />
 
         {/* `pb-10` rather than a fade: the fields list ends on a full row with
             breathing room under it, not half a row cut off by the pane edge. */}
-        <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:px-8 lg:pb-10">
+        <div className="flex min-w-0 flex-1 flex-col px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7 lg:pb-8">
           {/* One h1 per screen (#422); the selected module's own heading in
               ModuleForm is an h2 beneath it. */}
           <h1
             ref={heading}
             tabIndex={-1}
-            className="mb-4 font-display text-[27px] font-bold tracking-[-0.02em]"
+            className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground max-lg:sr-only"
           >
             {t(keys.settings.modules.title)}
           </h1>
@@ -194,11 +145,13 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                   {t(keys.settings.modules.managed_title)}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {t(keys.settings.modules.managed_description, { module: current.module_name })}
+                  {t(keys.settings.modules.managed_description, {
+                    module: titles[current.package],
+                  })}
                 </p>
                 <Button asChild className="mt-2">
                   <Link href={current.manage_url}>
-                    {t(keys.settings.modules.managed_open, { module: current.module_name })}
+                    {t(keys.settings.modules.managed_open, { module: titles[current.package] })}
                     <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
                   </Link>
                 </Button>

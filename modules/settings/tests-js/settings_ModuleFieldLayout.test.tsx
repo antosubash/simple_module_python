@@ -32,7 +32,7 @@ test('the editor card supplies the field rows container width', () => {
       }}
     />,
   );
-  expect(container.querySelector('[data-slot="card"]')).toHaveClass('@container', 'min-w-0');
+  expect(container.querySelector('[data-slot="card"]')).toHaveClass('@container');
 });
 
 test('rows bound their tracks and wrap identifiers without viewport breakpoints', () => {
@@ -48,15 +48,26 @@ test('rows bound their tracks and wrap identifiers without viewport breakpoints'
     />,
   );
   const row = container.firstElementChild;
-  expect(row).toHaveClass(
-    'grid-cols-1',
-    '@md:grid-cols-[minmax(0,140px)_minmax(180px,1fr)]',
-    '@xl:grid-cols-[minmax(0,140px)_minmax(180px,1fr)_minmax(0,160px)]',
+  expect(row).toHaveClass('grid-cols-1', '@2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]');
+  expect(row?.className).not.toMatch(/(?:^|\s)(?:sm|md|lg|xl):/);
+  // The label is humanised, never the raw identifier, and still wraps.
+  const label = screen.getByText('Very long underscore separated setting name');
+  expect(label).toHaveClass('[overflow-wrap:anywhere]');
+  expect(label).toHaveAttribute('title', field.name);
+  expect(screen.queryByText(field.env_var)).not.toBeInTheDocument();
+  expect(screen.getByText('Invalid setting')).toHaveClass('@2xl:col-start-2');
+});
+
+test('an env-supplied field names its env var and lets it wrap', () => {
+  render(
+    <ModuleFieldRow
+      field={{ ...field, env_set: true }}
+      package="file_storage"
+      value=""
+      modified={false}
+      onChange={() => {}}
+      onReset={() => {}}
+    />,
   );
-  expect(row?.className).not.toMatch(/(?:^|\s)(?:sm|lg):/);
-  expect(screen.getByText(field.name)).toHaveClass('[overflow-wrap:anywhere]');
-  const source = screen.getByText(field.env_var);
-  expect(source).toHaveClass('[overflow-wrap:anywhere]');
-  expect(source.parentElement).toHaveClass('min-w-0', '@md:col-span-2', '@xl:col-span-1');
-  expect(screen.getByText('Invalid setting')).toHaveClass('@md:col-start-2', '@xl:col-span-2');
+  expect(screen.getByText(field.env_var)).toHaveClass('[overflow-wrap:anywhere]');
 });

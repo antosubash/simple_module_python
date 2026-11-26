@@ -63,20 +63,19 @@ export const keys = {
       back_link: 'settings.modules.back_link',
       browse_free_form_link: 'settings.modules.browse_free_form_link',
       browse_link: 'settings.modules.browse_link',
-      description: 'settings.modules.description',
+      default_value: 'settings.modules.default_value',
       empty_title: 'settings.modules.empty_title',
       env_var_hint: 'settings.modules.env_var_hint',
-      env_var_not_read_hint: 'settings.modules.env_var_not_read_hint',
       field_count: 'settings.modules.field_count',
       field_count_one: 'settings.modules.field_count_one',
       field_count_other: 'settings.modules.field_count_other',
       head_title: 'settings.modules.head_title',
-      heading_suffix: 'settings.modules.heading_suffix',
       last_test_failure: 'settings.modules.last_test_failure',
       last_test_success: 'settings.modules.last_test_success',
       managed_description: 'settings.modules.managed_description',
       managed_open: 'settings.modules.managed_open',
       managed_title: 'settings.modules.managed_title',
+      module_picker_label: 'settings.modules.module_picker_label',
       navigation_label: 'settings.modules.navigation_label',
       no_fields: 'settings.modules.no_fields',
       no_results: 'settings.modules.no_results',
@@ -88,6 +87,9 @@ export const keys = {
       secret_write_only: 'settings.modules.secret_write_only',
       source_db: 'settings.modules.source_db',
       source_db_ignored_for_env: 'settings.modules.source_db_ignored_for_env',
+      source_default: 'settings.modules.source_default',
+      source_env: 'settings.modules.source_env',
+      source_unsaved: 'settings.modules.source_unsaved',
       table: {
         default: 'settings.modules.table.default',
         description: 'settings.modules.table.description',
@@ -105,6 +107,7 @@ export const keys = {
       unsaved_count_other: 'settings.modules.unsaved_count_other',
     },
     modules_form: {
+      discard: 'settings.modules_form.discard',
       discard_changes: 'settings.modules_form.discard_changes',
       discard_title: 'settings.modules_form.discard_title',
       env_pinned: 'settings.modules_form.env_pinned',
@@ -217,19 +220,18 @@ type ModuleTranslationResources = {
   readonly 'settings.modules.back_link': '';
   readonly 'settings.modules.browse_free_form_link': '';
   readonly 'settings.modules.browse_link': '';
-  readonly 'settings.modules.description': '';
+  readonly 'settings.modules.default_value': '';
   readonly 'settings.modules.empty_title': '';
   readonly 'settings.modules.env_var_hint': '';
-  readonly 'settings.modules.env_var_not_read_hint': '';
   readonly 'settings.modules.field_count_one': '';
   readonly 'settings.modules.field_count_other': '';
   readonly 'settings.modules.head_title': '';
-  readonly 'settings.modules.heading_suffix': '';
   readonly 'settings.modules.last_test_failure': '';
   readonly 'settings.modules.last_test_success': '';
   readonly 'settings.modules.managed_description': '';
   readonly 'settings.modules.managed_open': '';
   readonly 'settings.modules.managed_title': '';
+  readonly 'settings.modules.module_picker_label': '';
   readonly 'settings.modules.navigation_label': '';
   readonly 'settings.modules.no_fields': '';
   readonly 'settings.modules.no_results': '';
@@ -240,6 +242,9 @@ type ModuleTranslationResources = {
   readonly 'settings.modules.secret_write_only': '';
   readonly 'settings.modules.source_db': '';
   readonly 'settings.modules.source_db_ignored_for_env': '';
+  readonly 'settings.modules.source_default': '';
+  readonly 'settings.modules.source_env': '';
+  readonly 'settings.modules.source_unsaved': '';
   readonly 'settings.modules.table.default': '';
   readonly 'settings.modules.table.description': '';
   readonly 'settings.modules.table.env_var': '';
@@ -252,6 +257,7 @@ type ModuleTranslationResources = {
   readonly 'settings.modules.title': '';
   readonly 'settings.modules.unsaved_count_one': '';
   readonly 'settings.modules.unsaved_count_other': '';
+  readonly 'settings.modules_form.discard': '';
   readonly 'settings.modules_form.discard_changes': '';
   readonly 'settings.modules_form.discard_title': '';
   readonly 'settings.modules_form.env_pinned': '';

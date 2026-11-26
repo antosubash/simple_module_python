@@ -88,12 +88,12 @@ afterEach(() => {
 test('opens a module URL and keeps the URL when switching and remounting', () => {
   window.history.replaceState({}, '', '/admin/settings/?module=mail');
   const { unmount } = render(<ModulesEdit modules={modules} />);
-  expect(screen.getByLabelText('sender')).toHaveValue('mail original');
-  fireEvent.click(screen.getByRole('button', { name: /users/ }));
+  expect(screen.getByLabelText('Sender')).toHaveValue('mail original');
+  fireEvent.click(screen.getByRole('button', { name: /Users/ }));
   expect(new URL(window.location.href).searchParams.get('module')).toBe('users');
   unmount();
   render(<ModulesEdit modules={modules} />);
-  expect(screen.getByLabelText('sender')).toHaveValue('users original');
+  expect(screen.getByLabelText('Sender')).toHaveValue('users original');
 });
 
 test('follows URLs restored by back/forward navigation', () => {
@@ -101,50 +101,50 @@ test('follows URLs restored by back/forward navigation', () => {
   act(() => {
     mocks.navigate?.({ detail: { page: { url: '/admin/settings/?module=mail' } } });
   });
-  expect(screen.getByLabelText('sender')).toHaveValue('mail original');
+  expect(screen.getByLabelText('Sender')).toHaveValue('mail original');
   act(() => {
     mocks.navigate?.({ detail: { page: { url: '/admin/settings/?module=users' } } });
   });
-  expect(screen.getByLabelText('sender')).toHaveValue('users original');
+  expect(screen.getByLabelText('Sender')).toHaveValue('users original');
 });
 
 test('falls back to a visible module for an unknown query', () => {
   window.history.replaceState({}, '', '/admin/settings/?module=missing');
   render(<ModulesEdit modules={modules} />);
-  expect(screen.getByLabelText('sender')).toHaveValue('users original');
+  expect(screen.getByLabelText('Sender')).toHaveValue('users original');
 });
 
 test('ignores a hidden module and preserves unrelated query parameters and fragments', () => {
   window.history.replaceState({}, '', '/admin/settings/?module=disabled&filter=active#fields');
   render(<ModulesEdit modules={[...modules, { ...moduleView('disabled'), fields: [] }]} />);
-  expect(screen.getByLabelText('sender')).toHaveValue('users original');
-  fireEvent.click(screen.getByRole('button', { name: /mail/ }));
+  expect(screen.getByLabelText('Sender')).toHaveValue('users original');
+  fireEvent.click(screen.getByRole('button', { name: /Mail/ }));
   expect(window.location.search).toBe('?module=mail&filter=active');
   expect(window.location.hash).toBe('#fields');
 });
 
 test('shows a no-results message without losing the selected draft', () => {
   render(<ModulesEdit modules={modules} />);
-  fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'draft' } });
+  fireEvent.change(screen.getByLabelText('Sender'), { target: { value: 'draft' } });
   fireEvent.change(screen.getByPlaceholderText('Search modules'), { target: { value: 'zzz' } });
   expect(screen.getByText('No matching modules')).toBeVisible();
-  expect(screen.getByLabelText('sender')).toHaveValue('draft');
+  expect(screen.getByLabelText('Sender')).toHaveValue('draft');
 });
 
 test('Cancel preserves a draft and focus; confirming switches module and URL', async () => {
   render(<ModulesEdit modules={modules} />);
-  fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'draft' } });
-  const mail = screen.getByRole('button', { name: /mail/ });
+  fireEvent.change(screen.getByLabelText('Sender'), { target: { value: 'draft' } });
+  const mail = screen.getByRole('button', { name: /Mail/ });
   mail.focus();
   fireEvent.click(mail);
   expect(screen.getByRole('alertdialog')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.getByLabelText('sender')).toHaveValue('draft');
+  expect(screen.getByLabelText('Sender')).toHaveValue('draft');
   expect(new URL(window.location.href).searchParams.get('module')).not.toBe('mail');
   await waitFor(() => expect(mail).toHaveFocus());
   fireEvent.click(mail);
   fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
-  expect(screen.getByLabelText('sender')).toHaveValue('mail original');
+  expect(screen.getByLabelText('Sender')).toHaveValue('mail original');
   expect(new URL(window.location.href).searchParams.get('module')).toBe('mail');
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveFocus());
@@ -153,7 +153,7 @@ test('Cancel preserves a draft and focus; confirming switches module and URL', a
 test('guards refresh and leaving, but allows only the draft-preserving Revert reload', () => {
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
   render(<ModulesEdit modules={modules} />);
-  fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'draft' } });
+  fireEvent.change(screen.getByLabelText('Sender'), { target: { value: 'draft' } });
   const unload = new Event('beforeunload', { cancelable: true });
   window.dispatchEvent(unload);
   expect(unload.defaultPrevented).toBe(true);
@@ -177,7 +177,7 @@ test('blocks rapid repeated saves until the request resolves and preserves edits
   );
   vi.stubGlobal('fetch', fetchMock);
   render(<ModulesEdit modules={modules} />);
-  const input = screen.getByLabelText('sender');
+  const input = screen.getByLabelText('Sender');
   fireEvent.change(input, { target: { value: 'first draft' } });
   const save = screen.getByRole('button', { name: 'Save' });
   act(() => {
@@ -207,7 +207,7 @@ test.each(['validation', 'network'])(
     vi.stubGlobal('fetch', fetchMock);
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<ModulesEdit modules={modules} />);
-    fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'draft' } });
+    fireEvent.change(screen.getByLabelText('Sender'), { target: { value: 'draft' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
@@ -217,9 +217,9 @@ test.each(['validation', 'network'])(
     const unload = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: /mail/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Mail/ }));
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('sender')).toHaveValue('mail original');
+    expect(screen.getByLabelText('Sender')).toHaveValue('mail original');
     expect(confirm).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   },

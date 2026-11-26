@@ -143,7 +143,7 @@ export function FieldInput({
         onChange={(e) =>
           onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
         }
-        className={`w-[120px] font-mono ${highlight}`}
+        className={`w-full max-w-[200px] tabular-nums ${highlight}`}
       />
     );
   }
@@ -173,7 +173,7 @@ export function FieldInput({
       onChange={(e) =>
         onChange(field.name, nullable && e.target.value === '' ? null : e.target.value)
       }
-      className={`font-mono ${highlight}`}
+      className={highlight}
     />
   );
 }
