@@ -63,7 +63,8 @@
     "no_changes": "keine Änderungen aufgezeichnet",
     "unresolved_user": "Kein passendes Konto für diese ID",
     "fields_set_one": "{count} Feld gesetzt",
-    "fields_set_other": "{count} Felder gesetzt"
+    "fields_set_other": "{count} Felder gesetzt",
+    "computed_value": "von der Datenbank berechnet"
   },
   "nav": {
     "audit_log": "Änderungsprotokoll"

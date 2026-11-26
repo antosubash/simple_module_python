@@ -97,6 +97,7 @@ export default {
     'audit_log.browse.no_match_description': '',
     'audit_log.browse.no_match_title': '',
     'audit_log.browse.title': '',
+    'audit_log.changes.computed_value': '',
     'audit_log.changes.fields_set': '',
     'audit_log.changes.fields_set_one': '',
     'audit_log.changes.fields_set_other': '',

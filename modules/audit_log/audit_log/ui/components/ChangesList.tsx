@@ -58,7 +58,7 @@ export function ChangesList({ action, changes }: ChangesListProps) {
       {visible.map((change) => (
         <span key={change.field}>
           <span className="text-foreground">{change.field}</span>{' '}
-          {formatChangePair(change.old, change.new)}
+          {formatChangePair(change.old, change.new, t(keys.audit_log.changes.computed_value))}
         </span>
       ))}
       {remaining > 0 && (

@@ -1,14 +1,40 @@
-"""Audit targets and ORM lifecycle regressions (#810, #811)."""
+"""Audit targets, key formatting and ORM lifecycle regressions (#810, #811, #1172)."""
 
 import logging
+import uuid
 
 import pytest
 from _audit_models import AuditTestItem, ExcludedModel, SoftDeleteItem
 from simple_module_core.runtime.correlation import correlation_id
+from simple_module_db.auditing import audit
 from simple_module_db.engine.writes import hard_delete
 from simple_module_db.models.listeners import current_user_id
 from sqlalchemy import bindparam, delete, select, update
 from sqlalchemy.orm import with_loader_criteria
+
+
+@pytest.mark.parametrize("size", [2, 3])
+def test_composite_uuid_audit_keys_roundtrip(size):
+    values = tuple(uuid.UUID(int=i + 1) for i in range(size))
+
+    assert audit.parse_uuid_pk(audit.format_pk(values)) == values
+    assert audit.parse_uuid_pk(audit.format_pk(values) + "junk") is None
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "bad",
+        "*",
+        "(UUID('bad'), UUID('bad'))",
+        "(1, 2)",
+        "('UUID(1)', 'UUID(2)')",
+        "(UUID('00000000-0000-0000-0000-000000000001'),)",
+        "__import__('os').getcwd()",
+    ],
+)
+def test_composite_uuid_audit_keys_reject_unsupported_representations(raw):
+    assert audit.parse_uuid_pk(raw) is None
 
 
 @pytest.mark.parametrize("operation", [update, delete], ids=["update", "delete"])

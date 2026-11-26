@@ -17,11 +17,14 @@ resolves the now-stable ``entity_id`` in ``after_flush_postexec``.
 
 from __future__ import annotations
 
+import re
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ClauseElement
 
 from simple_module_db.auditing.audit_redaction import redact_changes, redact_entity_id
 from simple_module_db.models.mixins import SoftDeleteMixin
@@ -68,11 +71,6 @@ class _PendingChange:
     correlation_id: str | None
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _is_excluded(obj: object) -> bool:
     """Return True if the model opts out of auditing entirely."""
     return getattr(obj, "__audit_exclude__", False) is True
@@ -84,11 +82,28 @@ def _excluded_fields(obj: object) -> frozenset[str]:
     return _EXCLUDED_MIXIN_FIELDS | per_model
 
 
+#: Recorded as the new value when an update assigns a SQL expression.
+COMPUTED_BY_DATABASE = "<computed by database>"
+
+_UUID_PK_PART = r"UUID\('([^']+)'\)"
+_UUID_COMPOSITE_PK = re.compile(rf"\({_UUID_PK_PART}(?:, {_UUID_PK_PART})+\)")
+
+
 def format_pk(values: tuple | list) -> str:
     """One primary-key rendering for ``entity_id``: bare value, or a tuple string."""
     if len(values) == 1:
         return str(values[0]) if values[0] is not None else ""
     return str(tuple(values))
+
+
+def parse_uuid_pk(value: str) -> tuple[uuid.UUID, ...] | None:
+    """Read composite UUID keys from ``format_pk``; unsupported ids return None."""
+    if _UUID_COMPOSITE_PK.fullmatch(value) is None:
+        return None
+    try:
+        return tuple(uuid.UUID(part) for part in re.findall(_UUID_PK_PART, value))
+    except ValueError:
+        return None
 
 
 def _entity_pk_str(obj: object) -> str:
@@ -130,13 +145,13 @@ def _column_diffs(obj: object, inspector: Any, excl: frozenset[str]) -> list[dic
             continue
         old_val = hist.deleted[0] if hist.deleted else None
         new_val = hist.added[0] if hist.added else None
-        changes.append({"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)})
+        # The expression is input to the database, not the value it will store:
+        # keep the field (a session_version bump is a revocation worth auditing)
+        # but record a marker instead of SQL text.
+        is_expression = isinstance(new_val, ClauseElement) or hasattr(new_val, "__clause_element__")
+        new = COMPUTED_BY_DATABASE if is_expression else _serialize(new_val)
+        changes.append({"field": col_name, "old": _serialize(old_val), "new": new})
     return redact_changes(type(obj), changes, obj)
-
-
-# ---------------------------------------------------------------------------
-# Two-phase capture
-# ---------------------------------------------------------------------------
 
 
 def snapshot_changes(
@@ -179,7 +194,10 @@ def snapshot_changes(
         for col_name in _column_names(obj):
             if col_name in excl or col_name in pk_cols:
                 continue
-            changes.append({"field": col_name, "new": _serialize(getattr(obj, col_name))})
+            value = getattr(obj, col_name)
+            if isinstance(value, ClauseElement) or hasattr(value, "__clause_element__"):
+                continue
+            changes.append({"field": col_name, "new": _serialize(value)})
         pending.append(
             _PendingChange(
                 obj_ref=obj,
@@ -260,11 +278,6 @@ def finalize_records(pending: list[_PendingChange]) -> list[AuditRecord]:
         )
         for p in pending
     ]
-
-
-# ---------------------------------------------------------------------------
-# Single-phase public API (used directly by tests / callers with stable PKs)
-# ---------------------------------------------------------------------------
 
 
 def collect_audit_records(
