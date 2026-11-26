@@ -247,6 +247,8 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
                   package={m.package}
                   value={values[f.name]}
                   modified={modifiedFields.has(f.name)}
+                  // Cancel must not restore a stale secret mask during a save.
+                  disabled={busy && f.is_secret}
                   error={errors[f.name]}
                   onReset={() => onReset(f.name)}
                   onChange={(name, v) => {

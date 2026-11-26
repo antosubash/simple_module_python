@@ -114,6 +114,15 @@ test('falls back to a visible module for an unknown query', () => {
   expect(screen.getByLabelText('sender')).toHaveValue('users original');
 });
 
+test('ignores a hidden module and preserves unrelated query parameters and fragments', () => {
+  window.history.replaceState({}, '', '/admin/settings/?module=disabled&filter=active#fields');
+  render(<ModulesEdit modules={[...modules, { ...moduleView('disabled'), fields: [] }]} />);
+  expect(screen.getByLabelText('sender')).toHaveValue('users original');
+  fireEvent.click(screen.getByRole('button', { name: /mail/ }));
+  expect(window.location.search).toBe('?module=mail&filter=active');
+  expect(window.location.hash).toBe('#fields');
+});
+
 test('shows a no-results message without losing the selected draft', () => {
   render(<ModulesEdit modules={modules} />);
   fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'draft' } });
@@ -183,3 +192,35 @@ test('blocks rapid repeated saves until the request resolves and preserves edits
   expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   expect(input).toHaveValue('later draft');
 });
+
+test.each(['validation', 'network'])(
+  'allows retry after a %s failure and removes the guard after saving',
+  async (failure) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    if (failure === 'network') fetchMock.mockRejectedValueOnce(new TypeError('Offline'));
+    else
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: [{ loc: ['sender'], msg: 'Rejected' }] }), {
+          status: 422,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<ModulesEdit modules={modules} />);
+    fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'draft' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
+    await waitFor(() => expect(mocks.before).toBeUndefined());
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: /mail/ }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('sender')).toHaveValue('mail original');
+    expect(confirm).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  },
+);

@@ -63,10 +63,25 @@ test.each<Partial<FieldMeta>>([
   expect(error.id).not.toBe('');
   expect(control).toHaveAttribute('aria-describedby', `${description.id} ${error.id}`);
   expect(control).toHaveAttribute('aria-invalid', 'true');
+  rerender(
+    <ExtensionsProvider registry={registry}>{row(overrides, 'Out of range')}</ExtensionsProvider>,
+  );
+  expect(screen.getByRole('alert')).toBe(error);
   rerender(<ExtensionsProvider registry={registry}>{row(overrides)}</ExtensionsProvider>);
   expect(control).not.toHaveAttribute('aria-invalid', 'true');
   expect(control).toHaveAttribute('aria-describedby', description.id);
 });
+
+test.each([false, true])(
+  'only describes mounted feedback without a description (error=%s)',
+  (hasError) => {
+    render(row({ description: '' }, hasError ? 'Rejected' : undefined));
+    const control = screen.getByLabelText('setting');
+    const ids = control.getAttribute('aria-describedby')?.split(' ') ?? [];
+    expect(ids).toHaveLength(hasError ? 1 : 0);
+    for (const id of ids) expect(document.getElementById(id)).toHaveTextContent('Rejected');
+  },
+);
 
 test('appends the JSON hint after description and server error, and removes it when valid', () => {
   render(row({ type: 'json', value: {} }, 'Rejected'));

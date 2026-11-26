@@ -9,6 +9,7 @@ interface Props {
   value: unknown;
   /** Dirty relative to the saved baseline, not to the default. */
   modified: boolean;
+  disabled?: boolean;
   error?: string;
   onChange: (name: string, value: unknown) => void;
   onReset: () => void;
@@ -28,6 +29,7 @@ export function ModuleFieldRow({
   package: pkg,
   value,
   modified,
+  disabled,
   error,
   onChange,
   onReset,
@@ -72,7 +74,7 @@ export function ModuleFieldRow({
         {/* An env-set field always wins over a stored value (env → DB → default),
             so the server refuses edits to it; a disabled fieldset stops the form
             from collecting an edit that would 422 the whole save. */}
-        <fieldset disabled={!!field.env_set} className="min-w-0 border-0 p-0">
+        <fieldset disabled={!!field.env_set || disabled} className="min-w-0 border-0 p-0">
           <FieldInput
             id={id}
             aria-describedby={describedBy}
