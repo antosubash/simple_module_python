@@ -846,6 +846,100 @@
         ]
       }
     },
+    "/api/settings/modules/testable": {
+      "get": {
+        "tags": [
+          "Settings",
+          "Settings Modules"
+        ],
+        "summary": "List Testable",
+        "description": "Package -> names of its connection checks (the view's ``testable`` prop).",
+        "operationId": "settings_list_testable",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object",
+                  "title": "Response Settings List Testable"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/settings/modules/{package}/test-connection": {
+      "post": {
+        "tags": [
+          "Settings",
+          "Settings Modules"
+        ],
+        "summary": "Test Module Connection",
+        "description": "Run a module's connection checks; same payload as the view route.",
+        "operationId": "settings_test_module_connection",
+        "parameters": [
+          {
+            "name": "package",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Package"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Settings Test Module Connection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/settings/modules/{package}": {
       "put": {
         "tags": [
