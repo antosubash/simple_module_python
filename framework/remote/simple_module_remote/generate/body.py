@@ -10,7 +10,7 @@ from typing import TextIO
 
 from simple_module_remote.generate.pairs import split_pair
 from simple_module_remote.output.reasons import os_reason
-from simple_module_remote.schema.loader import resolve_ref
+from simple_module_remote.schema.loader import resolve_ref, unwrap_nullable
 
 __all__ = ["BodyError", "build_json_body", "missing_required"]
 
@@ -63,26 +63,10 @@ def _property_schema(root: dict, schema: dict | None, parts: Sequence[str]) -> d
     return resolve_ref(root, current) if current is not None else None
 
 
-def _unwrap(schema: dict, root: dict) -> dict:
-    """The single non-null branch of an ``anyOf``/``oneOf`` (pydantic's ``X | None``)."""
-    for key in ("anyOf", "oneOf"):
-        branches = schema.get(key)
-        if not isinstance(branches, list):
-            continue
-        live = [
-            resolve_ref(root, b)
-            for b in branches
-            if isinstance(b, dict) and b.get("type") != "null"
-        ]
-        if len(live) == 1:
-            return live[0]
-    return schema
-
-
 def _type_of(schema: dict | None, root: dict) -> str | None:
     if not schema:
         return None
-    schema = _unwrap(schema, root)
+    schema = unwrap_nullable(root, schema)
     declared = schema.get("type")
     if isinstance(declared, list):
         declared = next((t for t in declared if t != "null"), None)

@@ -11,6 +11,7 @@ from simple_module_remote.config.credentials import (
     describe_tenant,
     is_single_tenant,
     login_hint,
+    tenant_matches,
     token_env_var,
     validate_token,
 )
@@ -41,9 +42,7 @@ def find_credential(
         return key, cred
     if tenant:
         plain = store.get(env.name)
-        if plain is not None and is_single_tenant(
-            {"tenant_id": plain.tenant_id, "tenant_slug": plain.tenant_slug}
-        ):
+        if plain is not None and is_single_tenant(plain.pins()):
             return env.name, plain
     return None
 
@@ -75,14 +74,9 @@ def resolve_credential(
             f"the stored token for {env.name!r} was issued for {cred.origin}, "
             f"but the environment now points at {env.origin}: run `{hint}`"
         )
-    pinned = {"tenant_id": cred.tenant_id, "tenant_slug": cred.tenant_slug}
+    pinned = cred.pins()
     single = is_single_tenant(pinned)
-    if (
-        tenant
-        and cred.tenant_id is not None
-        and not single
-        and tenant not in (cred.tenant_id, cred.tenant_slug)
-    ):
+    if tenant and cred.tenant_id is not None and not single and not tenant_matches(tenant, pinned):
         raise CredentialError(
             f"the stored token for {key!r} is pinned to tenant "
             f"{describe_tenant(cred.tenant_slug, cred.tenant_id)}, not {tenant!r}: run `{hint}`"

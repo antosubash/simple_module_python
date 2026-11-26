@@ -21,6 +21,26 @@ WHOAMI = {
     "tenant_id": "t-1",
     "roles": [],
 }
+
+
+@pytest.fixture
+def who():
+    """A whoami payload for a token pinned to tenant ``t-1``; keyword overrides vary it."""
+
+    def build(**overrides):
+        base = {
+            "id": "u",
+            "email": "a@b",
+            "auth_kind": "pat",
+            "scopes": None,
+            "tenant_id": "t-1",
+            "roles": [],
+        }
+        return {**base, **overrides}
+
+    return build
+
+
 WHOAMI_OP = {
     "get": {
         "tags": ["Meta"],

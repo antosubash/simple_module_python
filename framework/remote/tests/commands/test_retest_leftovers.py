@@ -1,19 +1,9 @@
 import httpx
 import pytest
 
-WHO = {
-    "id": "u",
-    "email": "a@b",
-    "auth_kind": "pat",
-    "scopes": None,
-    "tenant_id": "t-1",
-    "tenant_slug": "acme",
-    "roles": [],
-}
 
-
-def test_single_tenant_login_uses_the_plain_slot(make_cli, keyring_store, logged_in):
-    single = {**WHO, "tenant_id": "default", "tenant_slug": None}
+def test_single_tenant_login_uses_the_plain_slot(make_cli, keyring_store, logged_in, who):
+    single = who(tenant_id="default", tenant_slug=None)
     cli = make_cli(lambda r: httpx.Response(200, json=single))
     runner = logged_in(cli, login=False)
     login = runner.invoke(cli, ["--tenant", "foo", "login", "--token-stdin"], input="tok\n")
@@ -26,16 +16,16 @@ def test_single_tenant_login_uses_the_plain_slot(make_cli, keyring_store, logged
     assert keyring_store.creds == {}
 
 
-def test_doctor_tenant_line_shows_slug_and_id(make_cli, logged_in):
-    cli = make_cli(lambda r: httpx.Response(200, json=WHO))
+def test_doctor_tenant_line_shows_slug_and_id(make_cli, logged_in, who):
+    cli = make_cli(lambda r: httpx.Response(200, json=who(tenant_slug="acme")))
     runner = logged_in(cli, login=False)
     runner.invoke(cli, ["--tenant", "t-1", "login", "--token-stdin"], input="tok\n")
     out = runner.invoke(cli, ["--tenant", "t-1", "doctor"]).output
     assert "ok    tenant: token is pinned to acme (t-1)" in out
 
 
-def test_banner_names_the_tenant_by_slug_however_it_was_typed(make_cli, logged_in):
-    cli = make_cli(lambda r: httpx.Response(200, json=WHO))
+def test_banner_names_the_tenant_by_slug_however_it_was_typed(make_cli, logged_in, who):
+    cli = make_cli(lambda r: httpx.Response(200, json=who(tenant_slug="acme")))
     runner = logged_in(cli, login=False)
     runner.invoke(cli, ["--tenant", "t-1", "login", "--token-stdin"], input="tok\n")
     result = runner.invoke(

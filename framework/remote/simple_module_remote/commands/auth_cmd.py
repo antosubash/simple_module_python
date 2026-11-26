@@ -14,6 +14,7 @@ from simple_module_remote.config.credentials import (
     describe_tenant,
     is_single_tenant,
     login_hint,
+    pin_kwargs,
     tenant_matches,
     validate_token,
 )
@@ -103,16 +104,10 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
         )
     store = state.store()
     where = credential_key(env.name, None if single else wanted)  # the plain slot when ignored
-    pin_id, pin_slug = who.get("tenant_id"), who.get("tenant_slug")
     with state.guard():
         store.put(
             where,
-            StoredCredential(
-                candidate,
-                env.origin,
-                pin_id if isinstance(pin_id, str) else None,
-                pin_slug if isinstance(pin_slug, str) else None,
-            ),
+            StoredCredential(candidate, env.origin, **pin_kwargs(who)),
         )
     if store.using_fallback:
         click.echo("warning: no OS keyring; token stored in a 0600 file", err=True)

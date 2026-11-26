@@ -3,18 +3,9 @@ import sys
 
 import httpx
 
-WHO = {
-    "id": "u",
-    "email": "a@b",
-    "auth_kind": "pat",
-    "scopes": None,
-    "tenant_id": "t-1",
-    "roles": [],
-}
 
-
-def test_tenant_flag_is_ignored_with_a_note_on_a_single_tenant_server(make_cli, logged_in):
-    single = {**WHO, "tenant_id": "default"}
+def test_tenant_flag_is_ignored_with_a_note_on_a_single_tenant_server(make_cli, logged_in, who):
+    single = who(tenant_id="default")
     cli = make_cli(lambda r: httpx.Response(200, json=single))
     runner = logged_in(cli, login=False)
     result = runner.invoke(cli, ["--tenant", "foo", "login", "--token-stdin"], input="tok\n")

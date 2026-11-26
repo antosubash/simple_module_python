@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-__all__ = ["load_schema", "resolve_ref"]
+__all__ = ["load_schema", "resolve_ref", "unwrap_nullable"]
 
 
 def load_schema(path: Path) -> dict:
@@ -42,3 +42,15 @@ def resolve_ref(schema: dict, node: dict) -> dict:
             return {}
         current = target
     return current if isinstance(current, dict) else {}
+
+
+def unwrap_nullable(schema: dict, node: dict) -> dict:
+    """The single non-null branch of a nullable ``anyOf``/``oneOf``, resolved; else ``node``."""
+    for key in ("anyOf", "oneOf"):
+        branches = node.get(key)
+        if not isinstance(branches, list):
+            continue
+        live = [b for b in branches if isinstance(b, dict) and b.get("type") != "null"]
+        if len(live) == 1:
+            return resolve_ref(schema, live[0])
+    return node

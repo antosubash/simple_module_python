@@ -48,8 +48,7 @@ class StoredCredential:
         return f"StoredCredential(token={MASK!r}, origin={self.origin!r})"
 
     def pins(self) -> dict[str, str]:
-        found = {"tenant_id": self.tenant_id, "tenant_slug": self.tenant_slug}
-        return {k: v for k, v in found.items() if v is not None}
+        return {f: v for f in PIN_FIELDS if (v := getattr(self, f)) is not None}
 
 
 def validate_token(token: str, *, source: str) -> str:
@@ -93,7 +92,7 @@ def _keyring_usable() -> bool:
     return getattr(backend, "priority", 0) >= 1
 
 
-def _pin_kwargs(data: Mapping[str, object]) -> dict[str, str | None]:
+def pin_kwargs(data: Mapping[str, object]) -> dict[str, str | None]:
     return {f: v if isinstance(v := data.get(f), str) else None for f in PIN_FIELDS}
 
 
@@ -132,7 +131,7 @@ class CredentialStore:
                 if not found:
                     return None
                 return StoredCredential(
-                    found[TOKEN_FIELD], found[ORIGIN_FIELD], **_pin_kwargs(found)
+                    found[TOKEN_FIELD], found[ORIGIN_FIELD], **pin_kwargs(found)
                 )
             return self._keyring_get(key)
         except FileStoreError as exc:
@@ -151,7 +150,7 @@ class CredentialStore:
             raise CredentialError(f"stored credential {key!r} is corrupt; log in again") from None
         if not isinstance(token, str) or not isinstance(origin, str):
             raise CredentialError(f"stored credential {key!r} is corrupt; log in again")
-        return StoredCredential(token=token, origin=origin, **_pin_kwargs(data))
+        return StoredCredential(token=token, origin=origin, **pin_kwargs(data))
 
     def _index(self) -> list[str]:
         raw = self._require_backend().get_password(self._service, INDEX_KEY)

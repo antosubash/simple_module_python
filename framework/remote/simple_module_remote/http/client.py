@@ -30,6 +30,7 @@ TOO_MANY_REQUESTS = 429
 TIMEOUT_SECONDS = 30.0
 METADATA_HOSTS = frozenset({"metadata.google.internal", "metadata"})
 REDIRECTED_EXTENSION = "smr_redirected"
+INVALID_REDIRECT = "the server sent an invalid redirect URL"
 _STRIPPED_HEADERS = frozenset({"authorization", "cookie", "host", "user-agent"})
 
 
@@ -186,7 +187,7 @@ class ApiClient:
             raise ApiError(0, message=f"request failed: {type(exc).__name__}") from None
         except httpx.InvalidURL:
             # httpx parses a redirect's Location while sending, even with redirects off.
-            raise ApiError(0, message="the server sent an invalid redirect URL") from None
+            raise ApiError(0, message=INVALID_REDIRECT) from None
 
     def _unsafe_redirect(self, target: str) -> bool:
         """True for a target with userinfo (or unparsable) or one that carries the token."""
@@ -247,7 +248,7 @@ class ApiClient:
                 target = urljoin(str(current.url), location)
             except ValueError:
                 current.close()
-                raise ApiError(0, message="the server sent an invalid redirect URL") from None
+                raise ApiError(0, message=INVALID_REDIRECT) from None
             if not target.lower().startswith(("http://", "https://")):
                 current.close()
                 raise ApiError(0, message="redirect to an unsupported URL scheme")
@@ -265,7 +266,7 @@ class ApiClient:
             try:
                 hop = client.build_request("GET", target)
             except httpx.InvalidURL:
-                raise ApiError(0, message="the server sent an invalid redirect URL") from None
+                raise ApiError(0, message=INVALID_REDIRECT) from None
             current = self._send(client, hop, stream)
             if not keep_token:
                 current.extensions[REDIRECTED_EXTENSION] = True

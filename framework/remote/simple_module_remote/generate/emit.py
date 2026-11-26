@@ -49,19 +49,23 @@ def say_server(ctx: RunContext, text: str, *, limit: int | None = None) -> None:
     say(ctx, clean if limit is None else clean[:limit])
 
 
+def _media_type(response: httpx.Response) -> str:
+    return response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+
+
 def is_binary(response: httpx.Response) -> bool:
-    kind = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+    kind = _media_type(response)
     if not kind:
         return False
     return not (kind == "application/json" or kind.endswith("+json") or kind.startswith("text/"))
 
 
 def has_type(response: httpx.Response) -> bool:
-    return bool(response.headers.get("Content-Type", "").split(";", 1)[0].strip())
+    return bool(_media_type(response))
 
 
 def is_json(response: httpx.Response) -> bool:
-    kind = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+    kind = _media_type(response)
     return kind == "application/json" or kind.endswith("+json")
 
 
@@ -104,28 +108,23 @@ def _auth_hint(ctx: RunContext, text: str) -> None:
     detail = _detail(text)
     lowered = detail.lower()
     shown = ctx.redact(detail)[:ERROR_BODY_CHARS]  # redact the whole text, then cut
+    msg: str | None = None
     if "tenant" in lowered or "organisation" in lowered or "organization" in lowered:
-        say(
-            ctx,
-            f"hint: the server needs a tenant: {shown}; pass --tenant or use a token pinned to one",
+        msg = (
+            f"hint: the server needs a tenant: {shown}; pass --tenant or use a token pinned to one"
         )
     elif "permission" in lowered or "scope" in lowered:
-        say(
-            ctx,
-            "hint: the token lacks the permission named above; create one with the needed scopes",
-        )
+        msg = "hint: the token lacks the permission named above; create one with the needed scopes"
     elif "session" in lowered:
         cli = ctx.login_hint.split()[0] if ctx.login_hint else "the CLI"
-        say(
-            ctx,
-            f"hint: tokens cannot call this route; `{cli} api --session-only` lists such routes",
-        )
+        msg = f"hint: tokens cannot call this route; `{cli} api --session-only` lists such routes"
     elif ctx.login_hint:
-        say(
-            ctx,
+        msg = (
             f"hint: the token may be missing or expired; run `{ctx.login_hint}` "
-            "(or pipe it to --token-stdin)",
+            "(or pipe it to --token-stdin)"
         )
+    if msg is not None:
+        say(ctx, msg)
 
 
 def print_error(ctx: RunContext, response: httpx.Response) -> None:
