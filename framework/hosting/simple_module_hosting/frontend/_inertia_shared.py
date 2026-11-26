@@ -9,7 +9,11 @@ from collections.abc import Callable
 from typing import Any
 
 from simple_module_core.localization.i18n import Translator
-from simple_module_core.modules.app_state import get_inertia_shared_providers, get_services
+from simple_module_core.modules.app_state import (
+    get_host_services,
+    get_inertia_shared_providers,
+    get_services,
+)
 from simple_module_inertia import always, is_inertia_request
 from simple_module_inertia.rendering.props import Prop
 from starlette.datastructures import Headers
@@ -169,6 +173,11 @@ async def merge_shared_prop_providers(app: Any, request: Request, shared: dict) 
 
     # After the providers, so a module's own value (users) wins.
     shared.setdefault("homeUrl", default_home_url(app))
+    # Keep client-side titles and layouts named even without the branding module.
+    from simple_module_hosting.frontend._inertia_setup import branding_head
+
+    if "branding" not in shared and get_host_services(app) is not None:
+        shared["branding"] = {"appName": branding_head(request)["app_name"]}
     for key, provider in getattr(app.state, "inertia_shared_replacements", {}).items():
         if key not in shared:
             raise KeyError(f"No Inertia shared prop {key!r} to replace")

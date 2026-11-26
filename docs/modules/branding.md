@@ -4,6 +4,14 @@ White-labels the application. An administrator sets the **app name**, **logo** (
 
 Values persist in the shared [settings](/modules/settings) store (there is no branding table) and reach **every** Inertia page — authenticated *and* guest — through a registered shared-props provider, so the frontend can render the name, swap the logo/favicon, apply the brand colour, show the banner and set the footer links everywhere.
 
+An app can name itself before any administrator saves settings:
+`build_host_app(__file__, app_name="Acme")` (or `create_app(app_name="Acme")`)
+sets the default for branding, page titles, account emails and the API title.
+A stored `branding.app_name` always wins, even if it is `SimpleModule`;
+clearing that override restores the code default. With no argument, the
+default remains `SimpleModule`. See [host settings](/framework/settings) for
+API-title environment and DB precedence.
+
 ## ModuleMeta
 
 | Field | Value |

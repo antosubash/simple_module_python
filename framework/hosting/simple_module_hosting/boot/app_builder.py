@@ -53,7 +53,7 @@ from simple_module_hosting.boot._phase_helpers import (
 from simple_module_hosting.boot._project_root import resolve_project_root as _resolve_project_root
 from simple_module_hosting.boot._registrations import RequestRegistries, run_module_registrations
 from simple_module_hosting.boot.health import router as health_router
-from simple_module_hosting.config._preapp_config import merge_host_settings
+from simple_module_hosting.config._app_name import resolve_app_settings
 from simple_module_hosting.config._secret_key import assert_not_placeholder
 from simple_module_hosting.config._settings_registration import (
     check_settings_registration,
@@ -77,6 +77,7 @@ logger = logging.getLogger(__name__)
 def create_app(
     settings: Settings | None = None,
     *,
+    app_name: str | None = None,
     routers: Iterable[APIRouter] = (),
     database: DatabaseState | Callable[[Settings], DatabaseState] | None = None,
     customize: Callable[[FastAPI], None] | None = None,
@@ -106,16 +107,12 @@ def create_app(
     ``database`` supplies a state or a synchronous factory called once with
     resolved settings. Both are caller-owned: the caller disposes their engines,
     including after startup failure. Only the default engine is lifespan-owned.
+    ``app_name`` defaults the API title and application identity below env/DB values.
     """
     # ── Phase 0: Pre-app config read ───────────────────────
-    # Phases 1 and 8 below consume settings to build the module list, the
-    # i18n registry and the middleware stack. All three are constructed
-    # before the lifespan opens the DB, so the hydration that runs there
-    # cannot reach them — it can only swap what a request handler reads
-    # later. merge_host_settings folds DB-stored host overrides in first,
-    # under anything the environment sets. Without it, DB-backed host
-    # settings are silently inert at boot.
-    settings = settings or merge_host_settings()
+    # Discovery and middleware consume settings before lifespan hydration;
+    # merge env → DB → code defaults now, before building those structures.
+    settings = resolve_app_settings(settings, app_name)
     project_root = _resolve_project_root()
 
     assert_not_placeholder(settings)
