@@ -267,6 +267,7 @@ Trusted Publishing is tied to the GitHub repo, not any personal account — so b
 | PyPI | `simple_module_db` | [framework/db/](../framework/db/) |
 | PyPI | `simple_module_hosting` | [framework/hosting/](../framework/hosting/) — ships the `sm-host` CLI |
 | PyPI | `simple_module_inertia` | [framework/inertia/](../framework/inertia/) |
+| PyPI | `simple_module_remote` | [framework/remote/](../framework/remote/) — the engine behind generated project CLIs |
 | PyPI | `simple_module_test` | [framework/testing/](../framework/testing/) — pytest plugin |
 | PyPI | `simple_module_api_tokens` | [modules/api_tokens/](../modules/api_tokens/) |
 | PyPI | `simple_module_audit_log` | [modules/audit_log/](../modules/audit_log/) |

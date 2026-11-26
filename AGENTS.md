@@ -12,10 +12,10 @@ React pages. There is no host–module API boundary.
 
 Stack: Python 3.12 + FastAPI + SQLModel + Alembic; Inertia.js v3 + React +
 Tailwind 4 + Vite. `uv` workspaces for Python, `npm` workspaces for JS.
-Published as ~23 PyPI packages (`simple_module_*`) and 4 npm packages
+Published as ~24 PyPI packages (`simple_module_*`) and 4 npm packages
 (`@simple-module-py/*`) in lockstep (`docs/release.md`).
 
-Layout: `framework/{core,db,hosting,inertia,testing,cli}` (the framework),
+Layout: `framework/{core,db,hosting,inertia,testing,cli,remote}` (the framework),
 `modules/<name>` (plugin modules), `host/` (the dev host app and all Alembic
 migrations), `packages/{ui,i18n,tsconfig,vite-plugin}` (shared JS), `skills/` (agent skills
 shipped to users via `smpy skills add`), `.claude/skills/` (skills for this repo).
@@ -177,7 +177,7 @@ basenames. JS tests stay in `tests-js/`.
 
 **Framework layout.** Packages under `framework/` follow the same area layout
 and `tests/<area>/` mirroring rules (`host/tests/test_framework_layout.py`,
-`docs/framework-layout.md`). All six framework packages follow this layout,
+`docs/framework-layout.md`). All seven framework packages follow this layout,
 preserving top-level package exports and deprecated `sys.modules` alias shims
 (`host/tests/test_deprecation_expiry.py`).
 

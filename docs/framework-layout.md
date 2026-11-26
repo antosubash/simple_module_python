@@ -1,6 +1,6 @@
 # Framework layout
 
-Every package under `framework/` (`core`, `db`, `hosting`, `inertia`, `testing`, `cli`) follows this area layout alongside [Module layout](module-layout.md).
+Every package under `framework/` (`core`, `db`, `hosting`, `inertia`, `testing`, `cli`, `remote`) follows this area layout alongside [Module layout](module-layout.md).
 
 The goal is the same: find code by asking which subsystem owns it, while keeping top-level package imports (`simple_module_db`, `simple_module_core`, `simple_module_hosting`, `simple_module_inertia`, `simple_module_test`) and external submodule imports stable across a two-release deprecation window.
 
@@ -24,6 +24,7 @@ Only entries resolved by packaging metadata, CLI entry points, resource lookups,
 | `simple_module_db` | — | Everything groups into domain areas; `tenant_cleanup` handler keeps its wire name via explicit `subscribe_durable(..., name=...)` |
 | `simple_module_hosting` | `__main__.py`, `host_cli.py`, `admin_overview/`, `setup_wizard/`, `locales/`, `ui_locales/` | Host CLI entry point and discovery/package-data subpackages |
 | `simple_module_inertia` | — | Package root re-exports top-level public API; internals live in areas |
+| `simple_module_remote` | — | Everything groups into domain areas; the root `__init__.py` re-exports `build_cli` |
 | `simple_module_test` | `plugin.py` | `pytest11` entry point registered in `framework/testing/pyproject.toml` |
 | `simple_module_cli` | `cli.py`, `migration_recipes/`, `templates/`, `skills` | `smpy` / `simple-module` script entry point, `simple_module.data_upgrades` entry points, and package data |
 
@@ -53,7 +54,7 @@ Any old framework submodule path imported outside its owning package (in `module
 - Packages that depend on `simple_module_core` (`core`, `db`, `hosting`, `testing`) use `simple_module_core.runtime.deprecation.deprecated_module`.
 - Leaf packages (`inertia`, `cli`) keep zero dependency on `core` by emitting stdlib `DeprecationWarning` before aliasing `sys.modules[__name__]` and registering the expiry target via `deprecate(...)` in `_register_all()` of `host/tests/test_deprecation_expiry.py`.
 
-`host/tests/test_framework_layout.py` enforces this contract unconditionally for all six framework packages. `host/tests/test_deprecation_expiry.py` auto-discovers active framework alias shims and fails once the framework reaches `remove_in`.
+`host/tests/test_framework_layout.py` enforces this contract unconditionally for all seven framework packages. `host/tests/test_deprecation_expiry.py` auto-discovers active framework alias shims and fails once the framework reaches `remove_in`.
 
 ## Migration status
 
@@ -65,3 +66,4 @@ Any old framework submodule path imported outside its owning package (in `module
 | `db` | `simple_module_db` | 1 | 0 | follows this layout |
 | `hosting` | `simple_module_hosting` | 3 | 0 | follows this layout |
 | `testing` | `simple_module_test` | 2 | 0 | follows this layout |
+| `remote` | `simple_module_remote` | 0 | 0 | follows this layout |

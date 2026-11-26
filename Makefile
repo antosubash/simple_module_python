@@ -188,20 +188,24 @@ ci-i18n-fresh:
 		exit 1; \
 	fi
 
-# Same idea for the typed API client (#504): every module that opted in with a
-# committed <pkg>/pages/api.generated.ts must match what its routes emit now.
 # The smdev CLI ships the dev host's OpenAPI document; it must match the routes.
 CLI_SCHEMA = host_cli/smdev_cli/openapi.json
 
 cli-schema:
 	uv run smpy openapi export --out $(CLI_SCHEMA)
 
+# Compares content before/after regeneration (like ci-i18n-fresh), not `git diff`.
 ci-cli-schema-fresh:
-	@uv run smpy openapi export --out $(CLI_SCHEMA) || exit 1; \
-	git diff --exit-code -- $(CLI_SCHEMA) || { \
+	@before=$$(sha256sum $(CLI_SCHEMA) 2>/dev/null); \
+	uv run smpy openapi export --out $(CLI_SCHEMA) || exit 1; \
+	after=$$(sha256sum $(CLI_SCHEMA)); \
+	if [ "$$before" != "$$after" ]; then \
 		echo "$(CLI_SCHEMA) was stale and has been regenerated: run 'make cli-schema' and commit the result"; \
-		exit 1; }
+		exit 1; \
+	fi
 
+# Same idea for the typed API client (#504): every module that opted in with a
+# committed <pkg>/pages/api.generated.ts must match what its routes emit now.
 ci-api-types-fresh:
 	@before=$$(find modules -path '*/pages/api.generated.ts' -type f | sort | xargs -r cat | sha256sum); \
 	uv run --project host smpy openapi gen-types || exit 1; \

@@ -67,14 +67,15 @@ request, send nothing), `-o`/`--output`, `--columns`, `-q`, `--out FILE`, `--yes
 shows where the command schema comes from, and `smdev doctor` checks
 connectivity, credentials and schema.
 
-Exit codes: `0` success, `1` usage or local error, `2` other 4xx, `3` 5xx or
+Exit codes: `0` success, `1` usage or local error, `2` other 4xx (also a leftover
+3xx), `3` 5xx or
 network failure, `4` HTTP 401/403, `5` HTTP 404, `6` HTTP 409/412.
 
 ## Protected environments
 
 `--protected` makes a mutating call (or an operation marked `x-cli-confirm`)
-ask you to type the environment name first. Runs without a terminal on both
-stdin and stderr must pass `--yes`. Operations marked `x-cli-safe` (read-only
+ask you to type the environment name first. Unless both stdin and
+stderr are terminals, pass `--yes`. Operations marked `x-cli-safe` (read-only
 despite using POST) skip the prompt. `api METHOD PATH` takes the safe/confirm
 marks of the schema operation whose path template matches; an unmatched
 mutation is always confirmed. Re-running `env add` for an existing environment
