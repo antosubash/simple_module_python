@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Any
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
 from auth.oidc_common.claims import extract_nested as _extract_nested
+from auth.oidc_common.session import SessionResolution
 from auth.oidc_common.tenant import trusted_tenant, without_tenant_roles
-from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY, session_has_expired
+from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY
 from starlette.requests import Request
 
 from oidc.core.constants import LOGIN_PATH, LOGOUT_PATH, SESSION_USER_KEY
@@ -28,10 +29,11 @@ class IdentityUnavailableError(Exception):
     """The user cache could not record the signed-in identity."""
 
 
-class OidcAuthProvider(CachePersistence, SessionRenewal):
+class OidcAuthProvider(SessionResolution, CachePersistence, SessionRenewal):
     """Generic OIDC authentication with issuer-scoped identities."""
 
     name = "oidc"
+    _session_user_key = SESSION_USER_KEY
 
     def __init__(
         self, settings: OidcSettings | None = None, *, state: OidcState | None = None
@@ -60,25 +62,10 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
 
         return await self.resolve_session(request)
 
-    async def resolve_session(self, request: Request, *, renew: bool = True) -> UserContext | None:
-        """Validate the session; ``renew=False`` preserves it and never calls the IdP."""
-        session = request.scope.get("session", {})
-        if not renew:
-            # Authority rejection must leave the original logout credentials available.
-            session = dict(session)
-        if not self._accept_session(session):
-            return None
-        # Renew authority from the IdP at expiry, without interrupting the request.
-        if type(session.get(SESSION_EXPIRES_AT_KEY)) is not int or session_has_expired(session):
-            return await self._refresh_session(request) if renew else None
-        ctx = UserContext.from_session_dict(session.get(SESSION_USER_KEY))
-        if ctx is not None:
-            # The cookie froze what was decided at login; re-decide with the
-            # current settings, so turning trust_tenant_claim off takes effect
-            # on sessions that already exist.
-            ctx.tenant_id = self._trusted_tenant(ctx.tenant_id)
-            ctx.roles = self._without_tenant_roles(ctx.roles)
-        return ctx
+    def _session_needs_renewal(self, session: dict[str, Any]) -> bool:
+        return type(
+            session.get(SESSION_EXPIRES_AT_KEY)
+        ) is not int or super()._session_needs_renewal(session)
 
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return LOGIN_PATH

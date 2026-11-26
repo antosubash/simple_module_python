@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
 from auth.oidc_common.claims import extract_nested as _extract_nested
+from auth.oidc_common.session import SessionResolution
 from auth.oidc_common.tenant import trusted_tenant, without_tenant_roles
-from simple_module_hosting.pipeline.session import session_has_expired
 from starlette.requests import Request
 
-from keycloak.core.constants import SESSION_USER_KEY as _SESSION_USER_CTX_KEY
+from keycloak.core.constants import SESSION_USER_KEY
 from keycloak.identity.persistence import CachePersistence
 from keycloak.identity.renewal import SessionRenewal
 
@@ -28,10 +28,11 @@ def _string_or_empty(value: object) -> str:
     return value if isinstance(value, str) else ""
 
 
-class KeycloakAuthProvider(CachePersistence, SessionRenewal):
+class KeycloakAuthProvider(SessionResolution, CachePersistence, SessionRenewal):
     """OIDC auth provider backed by Keycloak."""
 
     name = "keycloak"
+    _session_user_key = SESSION_USER_KEY
 
     def __init__(
         self, settings: KeycloakSettings | None = None, *, state: KeycloakState | None = None
@@ -59,26 +60,6 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
             return await self._resolve_bearer(request, credential)
 
         return await self.resolve_session(request)
-
-    async def resolve_session(self, request: Request, *, renew: bool = True) -> UserContext | None:
-        """Validate the session; ``renew=False`` preserves it and never calls the IdP."""
-        session = request.scope.get("session", {})
-        if not renew:
-            # Authority rejection must leave the original logout credentials available.
-            session = dict(session)
-        if not self._accept_session(session):
-            return None
-        # Renew authority from the IdP at expiry, without interrupting the request.
-        if session_has_expired(session):
-            return await self._refresh_session(request) if renew else None
-        ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
-        if ctx is not None:
-            # The cookie froze what was decided at login; re-decide with the
-            # current settings, so turning trust_tenant_claim off takes effect
-            # on sessions that already exist.
-            ctx.tenant_id = self._trusted_tenant(ctx.tenant_id)
-            ctx.roles = self._without_tenant_roles(ctx.roles)
-        return ctx
 
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return "/keycloak/login"

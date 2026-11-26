@@ -1,4 +1,4 @@
-"""Shared sign-in rotation and callback transaction checks."""
+"""Shared session resolution, sign-in rotation and callback transaction checks."""
 
 import base64
 import hashlib
@@ -6,14 +6,49 @@ import json
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from fastapi import HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_hosting.auth.csrf import rotate_csrf_token
-from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
+from simple_module_hosting.pipeline.session import (
+    SESSION_EXPIRES_AT_KEY,
+    session_has_expired,
+    sign_in_preserved_keys,
+)
 from starlette.responses import RedirectResponse
 
+from auth.contracts.schemas import UserContext
 from auth.core.constants import SESSION_AUTHORITY_KEY, SESSION_ID_KEY
+
+
+class SessionResolution:
+    """Resolve browser sessions through provider authority, renewal and tenant hooks."""
+
+    _session_user_key: str
+
+    def _session_needs_renewal(self, session: dict[str, Any]) -> bool:
+        return session_has_expired(session)
+
+    async def resolve_session(self, request: Request, *, renew: bool = True) -> UserContext | None:
+        """Validate the session; ``renew=False`` preserves it and never calls the IdP."""
+        session = request.scope.get("session", {})
+        if not renew:
+            # Authority rejection must leave the original logout credentials available.
+            session = dict(session)
+        if not self._accept_session(session):
+            return None
+        # Renew authority from the IdP at expiry, without interrupting the request.
+        if self._session_needs_renewal(session):
+            return await self._refresh_session(request) if renew else None
+        ctx = UserContext.from_session_dict(session.get(self._session_user_key))
+        if ctx is not None:
+            # The cookie froze what was decided at login; re-decide with the
+            # current settings, so turning trust_tenant_claim off takes effect
+            # on sessions that already exist.
+            ctx.tenant_id = self._trusted_tenant(ctx.tenant_id)
+            ctx.roles = self._without_tenant_roles(ctx.roles)
+        return ctx
 
 
 @dataclass(frozen=True)
