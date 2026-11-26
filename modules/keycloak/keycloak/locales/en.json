@@ -56,7 +56,7 @@
       },
       "role_mapping": {
         "label": "Role mapping",
-        "help": "Maps Keycloak role names to this app's roles."
+        "help": "Maps Keycloak role names to this app's app-wide roles. Tenant roles come from memberships."
       }
     }
   }

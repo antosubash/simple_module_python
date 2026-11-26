@@ -57,7 +57,7 @@
       },
       "username_claim": {
         "label": "Username claim",
-        "help": "Token claim holding the username."
+        "help": "Token claim checked first for the name the app displays."
       },
       "email_claim": {
         "label": "Email claim",
@@ -65,7 +65,7 @@
       },
       "name_claim": {
         "label": "Display name claim",
-        "help": "Token claim holding the user's full name."
+        "help": "Token claim used for the displayed name when the username claim is missing or empty."
       },
       "roles_claim_path": {
         "label": "Roles claim path",
@@ -77,7 +77,7 @@
       },
       "role_mapping": {
         "label": "Role mapping",
-        "help": "Maps role names from the provider to this app's roles."
+        "help": "Maps role names from the provider to this app's app-wide roles. Tenant roles come from memberships."
       }
     }
   }

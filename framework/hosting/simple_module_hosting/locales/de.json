@@ -51,11 +51,11 @@
     "fields": {
       "multi_tenant": {
         "label": "Mandantenfähiger Betrieb",
-        "help": "Mehrere Mandanten in einer Installation bedienen. Ist die Option aus, handeln alle Anfragen für einen einzigen Mandanten."
+        "help": "Mehrere Mandanten aus einer Installation bedienen. Wenn aus, nutzen Anfragen den Standardmandanten, sofern einer festgelegt ist."
       },
       "tenant_header": {
         "label": "Mandanten-Header",
-        "help": "Name des Anfrage-Headers, der den Mandanten auswählt. Leer lassen, um die Standardermittlung zu verwenden."
+        "help": "Anfrage-Header, der im Mehrmandantenmodus den Mandanten wählt. Leer schaltet die Auswahl per Header aus. Ein API-Token oder eine Mandanten-Subdomain hat Vorrang."
       },
       "default_tenant": {
         "label": "Standardmandant",
@@ -71,7 +71,7 @@
       },
       "i18n_default_locale": {
         "label": "Standardsprache",
-        "help": "Sprache, die verwendet wird, wenn Besucher keine gewählt haben. Muss eine der unterstützten Sprachen sein."
+        "help": "Ersatzsprache, wenn weder die gespeicherte Wahl noch der Browser zu einer unterstützten Sprache passt. Muss eine der unterstützten Sprachen sein."
       },
       "i18n_supported_locales": {
         "label": "Unterstützte Sprachen",
@@ -83,7 +83,7 @@
       },
       "public_base_url": {
         "label": "Öffentliche Adresse der Website",
-        "help": "Die öffentliche Adresse der Website, zum Beispiel https://example.org. Wird für kanonische Links und Vorschauen beim Teilen verwendet. Leer lassen, um sie wegzulassen."
+        "help": "Die öffentliche Adresse der Website, z. B. https://example.org. Macht relative kanonische und Teilen-Links zu vollständigen und dient als Ersatz für Konto- und Einladungslinks. Leer: relative kanonische und Teilen-Links entfallen."
       },
       "log_level": {
         "label": "Protokollstufe",
@@ -127,7 +127,7 @@
       },
       "rate_limit_public": {
         "label": "Limit für anonyme Anfragen",
-        "help": "Erlaubte Anfragen pro Besucheradresse auf öffentlichen Routen, zum Beispiel 120/minute. Leer lassen oder off eingeben, um es zu deaktivieren."
+        "help": "Standardlimit pro Besucheradresse für anonyme Anfragen an öffentliche Routen, z. B. 120/minute. Leer lassen oder off eingeben, um diesen Standard abzuschalten; Routen mit eigenem Limit behalten es."
       },
       "rate_limit_authenticated": {
         "label": "Limit für angemeldete Benutzer",
@@ -139,11 +139,11 @@
       },
       "cors_allow_origins": {
         "label": "Erlaubte Ursprünge",
-        "help": "Websites, die die API aus einem Browser aufrufen dürfen. Leer erlaubt keine. * ist nicht erlaubt, solange Anmeldedaten aktiviert sind."
+        "help": "Websites, die laut Standard-API-Richtlinie die API aus dem Browser aufrufen dürfen. Leer schaltet diese Richtlinie ab; Routen mit eigener Richtlinie behalten sie. * ist nicht erlaubt, solange Anmeldedaten aktiv sind."
       },
       "cors_allow_credentials": {
         "label": "Anmeldedaten erlauben",
-        "help": "Ursprungsübergreifenden Anfragen erlauben, Cookies und Autorisierungs-Header zu senden."
+        "help": "Browser dürfen bei Cross-Origin-Anfragen von erlaubten Websites Anmeldedaten wie Cookies mitsenden."
       },
       "cors_allow_methods": {
         "label": "Erlaubte Methoden",
@@ -167,7 +167,7 @@
       },
       "api_version": {
         "label": "API-Version",
-        "help": "Version in der API-Dokumentation. Standardmäßig die Version der Anwendung selbst."
+        "help": "Version in der API-Dokumentation. Standard ist die Version der Host-Anwendung, oder 0.0.0, wenn sie unbekannt ist."
       },
       "api_description": {
         "label": "API-Beschreibung",
@@ -179,11 +179,11 @@
       },
       "db_pool_size": {
         "label": "Größe des Verbindungspools",
-        "help": "Anzahl der dauerhaft geöffneten Datenbankverbindungen."
+        "help": "Höchstzahl an Datenbankverbindungen, die zur Wiederverwendung gehalten werden. 0 bedeutet unbegrenzt. Wird bei SQLite nicht verwendet."
       },
       "db_max_overflow": {
         "label": "Zusätzliche Verbindungen",
-        "help": "Weitere Verbindungen über die Poolgröße hinaus, die bei hoher Last erlaubt sind."
+        "help": "Zusätzliche Verbindungen über die Poolgröße hinaus bei hoher Last. -1 bedeutet keine Obergrenze. Wird bei SQLite nicht verwendet."
       },
       "db_pool_pre_ping": {
         "label": "Verbindungen vor Nutzung prüfen",
@@ -191,7 +191,7 @@
       },
       "db_pool_recycle": {
         "label": "Lebensdauer der Verbindung (Sekunden)",
-        "help": "Ältere Verbindungen werden ersetzt."
+        "help": "Ältere Verbindungen werden bei der nächsten Entnahme aus dem Pool ersetzt. -1 schaltet das Ersetzen ab. Wird bei SQLite nicht verwendet."
       },
       "db_pool_timeout": {
         "label": "Wartezeit auf den Pool (Sekunden)",
@@ -203,11 +203,11 @@
       },
       "db_statement_timeout_ms": {
         "label": "Zeitlimit für Abfragen (Millisekunden)",
-        "help": "Abfragen abbrechen, die länger laufen. 0 bedeutet keine Begrenzung. Nur PostgreSQL."
+        "help": "PostgreSQL-Anweisungen abbrechen, die länger laufen. 0 behält das Limit bei, das die Datenbank bereits setzt."
       },
       "db_idle_in_tx_timeout_ms": {
         "label": "Zeitlimit für ruhende Transaktionen (Millisekunden)",
-        "help": "Sitzungen beenden, die länger untätig in einer Transaktion bleiben. 0 bedeutet keine Begrenzung. Nur PostgreSQL."
+        "help": "PostgreSQL-Sitzungen schließen, die länger untätig in einer Transaktion verharren. 0 behält das Limit bei, das die Datenbank bereits setzt."
       }
     }
   }

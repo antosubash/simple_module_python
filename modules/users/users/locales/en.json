@@ -462,7 +462,7 @@
       },
       "require_verification": {
         "label": "Require email verification",
-        "help": "New accounts must confirm their email address before they can sign in."
+        "help": "Accounts must confirm their email address before they can sign in with a password. Social sign-in follows the provider's own rules."
       },
       "signup_default_role": {
         "label": "Default role for sign-ups",
@@ -515,7 +515,7 @@
       },
       "base_url": {
         "label": "Account link base URL",
-        "help": "Address that account emails such as verification and reset links point to. If blank, the host's public URL is used."
+        "help": "Address that account emails such as verification and reset links point to. If blank, the site's public address is used; if that is blank too, links are relative."
       },
       "mail_template_dirs": {
         "label": "Custom email template folders",
@@ -539,11 +539,11 @@
       },
       "auth_rate_limit_attempts": {
         "label": "Account action limit",
-        "help": "Attempts per IP address within the window for registering, forgotten passwords, accepting invitations and verification requests."
+        "help": "Attempts per IP address and action within the window for account actions such as registering, password resets, verification, invitations, password changes and demo sign-in. Counted separately by each server process."
       },
       "auth_rate_limit_window_seconds": {
         "label": "Account action window (seconds)",
-        "help": "Period over which those attempts are counted."
+        "help": "How long the attempt count is kept after the latest attempt. Every attempt, even a refused one, starts the period again."
       },
       "demo_mode": {
         "label": "Enable demo sign-in",
@@ -623,7 +623,7 @@
       },
       "oauth_signup_providers": {
         "label": "Providers that may create accounts",
-        "help": "Providers whose users can create an account on first sign-in even when sign-up is off, if the provider confirmed their email. Choose from google, github, microsoft and oidc."
+        "help": "Providers whose users can create an account on first sign-in even when sign-up is off. Their email must be verified by the provider or trusted, also when sign-up is on. Choose from google, github, microsoft and oidc."
       },
       "oauth_signup_default_role": {
         "label": "Default role for these accounts",

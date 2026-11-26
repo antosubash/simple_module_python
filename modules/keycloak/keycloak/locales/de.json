@@ -56,7 +56,7 @@
       },
       "role_mapping": {
         "label": "Rollenzuordnung",
-        "help": "Ordnet Keycloak-Rollen den Rollen dieser Anwendung zu."
+        "help": "Ordnet Keycloak-Rollennamen den anwendungsweiten Rollen dieser App zu. Mandantenrollen kommen aus Mitgliedschaften."
       }
     }
   }

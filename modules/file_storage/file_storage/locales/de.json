@@ -133,7 +133,7 @@
       },
       "s3_access_key_id": {
         "label": "Zugriffsschlüssel-ID",
-        "help": "Zugriffsschlüssel für die Anmeldung am Bucket."
+        "help": "Zugangsschlüssel für die Anmeldung am Bucket. Zusammen mit dem geheimen Schlüssel setzen, oder beide leer lassen, um die Standard-AWS-Zugangsdaten des Servers zu verwenden."
       },
       "s3_secret_access_key": {
         "label": "Geheimer Zugriffsschlüssel",
@@ -149,7 +149,7 @@
       },
       "s3_signature_version": {
         "label": "Signaturversion",
-        "help": "Signaturverfahren für vorsignierte Links. s3v4 beibehalten; die ältere Version lehnen die meisten Anbieter ab."
+        "help": "Signaturverfahren für alle S3-Anfragen und vorsignierten Links. s3v4 beibehalten, außer ein älterer Speicherdienst braucht die alte Version."
       },
       "s3_presign_ttl_seconds": {
         "label": "Gültigkeit vorsignierter Links (Sekunden)",
@@ -165,7 +165,7 @@
       },
       "quota_bytes": {
         "label": "Speicherkontingent (Bytes)",
-        "help": "Gesamter Speicherplatz für gespeicherte Dateien und laufende Uploads. Leer lassen für unbegrenzt."
+        "help": "Erlaubter Speicher pro Mandant (bzw. für die eigenen Dateien der Plattform), einschließlich gespeicherter Dateien und laufender Uploads. Leer lassen für kein Limit."
       },
       "public_files_cors": {
         "label": "Seitenübergreifendes Lesen öffentlicher Dateien erlauben",
@@ -189,7 +189,7 @@
       },
       "upload_session_retention_days": {
         "label": "Aufbewahrung von Upload-Sitzungen (Tage)",
-        "help": "Wie lange Einträge abgeschlossener oder abgebrochener Upload-Sitzungen aufbewahrt werden."
+        "help": "Tage nach dem Ablauf einer Upload-Sitzung, bevor ihr Eintrag gelöscht wird."
       }
     }
   }

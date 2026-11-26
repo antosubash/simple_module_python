@@ -1,7 +1,7 @@
 {
   "settings_form": {
     "title": "Seitensperre",
-    "description": "Gemeinsames Passwort, das die gesamte Website vor Besuchern schützt.",
+    "description": "Verlangt von Besuchern ein gemeinsames Passwort. Angemeldete Administratoren und Health-Checks kommen weiterhin durch.",
     "fields": {
       "enabled": {
         "label": "Website sperren",

@@ -51,11 +51,11 @@
     "fields": {
       "multi_tenant": {
         "label": "Modo multiinquilino",
-        "help": "Atiende a varios inquilinos desde una misma instalación. Si está desactivado, todas las solicitudes actúan como un único inquilino."
+        "help": "Atiende a varios inquilinos desde una sola instalación. Si está desactivado, las solicitudes usan el inquilino predeterminado, si hay uno."
       },
       "tenant_header": {
         "label": "Encabezado del inquilino",
-        "help": "Nombre del encabezado de la solicitud que selecciona el inquilino. Déjelo vacío para usar la resolución predeterminada."
+        "help": "Cabecera de la solicitud que elige el inquilino en modo multiinquilino. Vacía desactiva la selección por cabecera. Un token de API o un subdominio de inquilino tiene prioridad."
       },
       "default_tenant": {
         "label": "Inquilino predeterminado",
@@ -71,7 +71,7 @@
       },
       "i18n_default_locale": {
         "label": "Idioma predeterminado",
-        "help": "Idioma que se usa cuando el visitante no ha elegido uno. Debe ser uno de los idiomas admitidos."
+        "help": "Idioma de reserva cuando ni la elección guardada del visitante ni su navegador coinciden con un idioma admitido. Debe ser uno de los idiomas admitidos."
       },
       "i18n_supported_locales": {
         "label": "Idiomas admitidos",
@@ -83,7 +83,7 @@
       },
       "public_base_url": {
         "label": "Dirección pública del sitio",
-        "help": "La dirección pública del sitio, por ejemplo https://example.org. Se usa para los enlaces canónicos y las vistas previas al compartir. Déjelo vacío para omitirlos."
+        "help": "La dirección pública del sitio, por ejemplo https://example.org. Convierte los enlaces canónicos y de compartir relativos en completos y sirve de respaldo para los enlaces de cuenta e invitación. Si está vacía, se omiten los enlaces canónicos y de compartir relativos."
       },
       "log_level": {
         "label": "Nivel de registro",
@@ -127,7 +127,7 @@
       },
       "rate_limit_public": {
         "label": "Límite para solicitudes anónimas",
-        "help": "Solicitudes permitidas por dirección de visitante en rutas públicas, por ejemplo 120/minute. Déjelo vacío o escriba off para desactivarlo."
+        "help": "Límite predeterminado por dirección de visitante para solicitudes anónimas a rutas públicas, por ejemplo 120/minute. Déjelo vacío o escriba off para desactivar este valor; las rutas con su propio límite lo conservan."
       },
       "rate_limit_authenticated": {
         "label": "Límite para usuarios con sesión",
@@ -139,11 +139,11 @@
       },
       "cors_allow_origins": {
         "label": "Orígenes permitidos",
-        "help": "Sitios web que pueden llamar a la API desde un navegador. Vacío no permite ninguno. * no se admite mientras las credenciales estén activadas."
+        "help": "Sitios web a los que la política de API predeterminada permite llamar a la API desde el navegador. Vacío desactiva esa política; las rutas con su propia política la conservan. * no se permite mientras las credenciales estén activadas."
       },
       "cors_allow_credentials": {
         "label": "Permitir credenciales",
-        "help": "Permite que las solicitudes de origen cruzado envíen cookies y encabezados de autorización."
+        "help": "Permite que los navegadores envíen credenciales, como cookies, en solicitudes de origen cruzado desde sitios permitidos."
       },
       "cors_allow_methods": {
         "label": "Métodos permitidos",
@@ -167,7 +167,7 @@
       },
       "api_version": {
         "label": "Versión de la API",
-        "help": "Versión que aparece en la documentación de la API. Por defecto, la versión de la propia aplicación."
+        "help": "Versión que se muestra en la documentación de la API. Por defecto, la versión de la aplicación anfitriona, o 0.0.0 si no se conoce."
       },
       "api_description": {
         "label": "Descripción de la API",
@@ -179,11 +179,11 @@
       },
       "db_pool_size": {
         "label": "Tamaño del grupo de conexiones",
-        "help": "Número de conexiones a la base de datos que se mantienen abiertas."
+        "help": "Número máximo de conexiones a la base de datos que se conservan para reutilizar. 0 significa sin límite. No se usa con SQLite."
       },
       "db_max_overflow": {
         "label": "Conexiones adicionales",
-        "help": "Conexiones extra permitidas por encima del tamaño del grupo en momentos de mucha carga."
+        "help": "Conexiones adicionales permitidas por encima del tamaño del pool en momentos de carga. -1 significa sin tope. No se usa con SQLite."
       },
       "db_pool_pre_ping": {
         "label": "Comprobar conexiones antes de usarlas",
@@ -191,7 +191,7 @@
       },
       "db_pool_recycle": {
         "label": "Vida útil de la conexión (segundos)",
-        "help": "Las conexiones más antiguas se reemplazan."
+        "help": "Las conexiones más antiguas se sustituyen la próxima vez que se toman del pool. -1 desactiva la sustitución. No se usa con SQLite."
       },
       "db_pool_timeout": {
         "label": "Espera en el grupo (segundos)",
@@ -203,11 +203,11 @@
       },
       "db_statement_timeout_ms": {
         "label": "Tiempo máximo de consulta (milisegundos)",
-        "help": "Cancela las consultas que duran más. Use 0 para no limitar. Solo PostgreSQL."
+        "help": "Cancela las sentencias de PostgreSQL que duren más que esto. 0 mantiene el límite que ya fije la base de datos."
       },
       "db_idle_in_tx_timeout_ms": {
         "label": "Tiempo máximo de transacción inactiva (milisegundos)",
-        "help": "Cierra las sesiones que permanecen inactivas dentro de una transacción más tiempo que este. Use 0 para no limitar. Solo PostgreSQL."
+        "help": "Cierra las sesiones de PostgreSQL que permanezcan inactivas dentro de una transacción más tiempo que esto. 0 mantiene el límite que ya fije la base de datos."
       }
     }
   }

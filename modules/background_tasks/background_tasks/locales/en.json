@@ -234,15 +234,15 @@
     "fields": {
       "execution_tracking": {
         "label": "Execution tracking",
-        "help": "How much of each task run is recorded: everything, only final states, only failures, or nothing. Changing it needs a restart."
+        "help": "Default for how much of each task run is recorded: everything, only final states, only failures (and revocations), or nothing. Individual tasks can override it. Changing it needs a restart."
       },
       "track_publish": {
         "label": "Track publishing",
-        "help": "Record when a task is queued, not only when it runs."
+        "help": "Record when a task is queued, not only when it runs. Applies to tasks with full tracking."
       },
       "outbox_mode": {
         "label": "Event delivery mode",
-        "help": "Whether durable events are delivered by the task runner or inside the web process.",
+        "help": "Whether durable events are delivered by the task runner or inside the web process. When tasks run immediately, the web process always delivers them.",
         "choices": {
           "celery": "Task runner (Celery)",
           "inprocess": "Inside the web process"
@@ -278,11 +278,11 @@
       },
       "db_pool_size": {
         "label": "Connection pool size",
-        "help": "Number of database connections each worker keeps open."
+        "help": "Maximum number of database connections the task database pool keeps for reuse, per process. Not used with SQLite."
       },
       "db_max_overflow": {
         "label": "Extra connections allowed",
-        "help": "Additional connections a worker may open when the pool is busy."
+        "help": "Extra connections the task database pool may open per process when all regular ones are in use. Not used with SQLite."
       },
       "db_recycle": {
         "label": "Connection recycle time (seconds)",
@@ -290,7 +290,7 @@
       },
       "db_statement_timeout_ms": {
         "label": "Statement timeout (ms)",
-        "help": "Longest a worker database statement may run. Leave empty to use the app's own limit."
+        "help": "Longest a PostgreSQL statement from background tasks may run. Leave empty to use the app's own limit; 0 keeps whatever limit the database sets."
       },
       "broker_url": {
         "label": "Broker URL",
@@ -318,7 +318,7 @@
       },
       "worker_max_memory_per_child_kb": {
         "label": "Memory limit per worker process (KB)",
-        "help": "Restart a worker process once it uses more memory than this. Leave empty for no limit."
+        "help": "Replace a worker process after it finishes a task if it uses more memory than this. A running task is not interrupted. Leave empty for no limit."
       },
       "task_reject_on_worker_lost": {
         "label": "Requeue tasks when a worker is lost",
@@ -326,11 +326,11 @@
       },
       "task_soft_time_limit": {
         "label": "Soft time limit (seconds)",
-        "help": "After this time a task is asked to stop gracefully. Must be lower than the hard limit."
+        "help": "After this time a task is asked to stop gracefully and can clean up. If a hard limit is also set, this must be lower."
       },
       "task_time_limit": {
         "label": "Hard time limit (seconds)",
-        "help": "After this time a task is stopped forcibly. Must be higher than the soft limit."
+        "help": "After this time a task is stopped forcibly, on worker pools that support it. If a soft limit is also set, this must be higher."
       },
       "worker_concurrency": {
         "label": "Worker concurrency",
@@ -338,7 +338,7 @@
       },
       "broadcast_invalidations": {
         "label": "Share cache invalidations between processes",
-        "help": "Lets every web and worker process hear when another one clears a cache. Without it, other processes keep stale data until their cache expires."
+        "help": "Lets every web process hear through Redis when another one clears a cache. Without it, and in standalone task workers, caches keep stale data until they expire."
       },
       "invalidation_channel": {
         "label": "Invalidation channel",
@@ -346,7 +346,7 @@
       },
       "task_always_eager": {
         "label": "Run tasks immediately",
-        "help": "Run tasks right away in the calling process instead of queueing them. Meant for testing."
+        "help": "Run tasks right away in the calling process instead of queueing them. Tasks sent by name still go to the queue. Meant for testing."
       },
       "task_eager_propagates": {
         "label": "Raise errors from immediate tasks",
@@ -354,7 +354,7 @@
       },
       "stuck_after_seconds": {
         "label": "Stuck after (seconds)",
-        "help": "A running task with no heartbeat for this long is marked as stuck."
+        "help": "Default time without a heartbeat before a running task is marked as stuck. Individual tasks can set their own."
       },
       "stuck_sweep_interval_seconds": {
         "label": "Stuck check interval (seconds)",
@@ -362,11 +362,11 @@
       },
       "purge_interval_seconds": {
         "label": "Cleanup interval (seconds)",
-        "help": "How often expired task records are deleted."
+        "help": "How often expired task records, delivered event records and retained logs are cleaned up."
       },
       "retention_days": {
         "label": "Task record retention (days)",
-        "help": "How long finished task execution records are kept, from 1 to 3650 days."
+        "help": "Age at which finished task records and delivered event records are cleaned up, from 1 to 3650 days."
       }
     }
   }

@@ -5,7 +5,7 @@
     "fields": {
       "backend": {
         "label": "Delivery method",
-        "help": "How mail is delivered. Console only logs messages and sends nothing.",
+        "help": "How mail is delivered. Console sends nothing and only logs the messages (the body only in development and testing).",
         "choices": {
           "console": "Console (log only)",
           "smtp": "SMTP"

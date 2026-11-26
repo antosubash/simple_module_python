@@ -5,7 +5,7 @@
     "fields": {
       "backend": {
         "label": "Versandart",
-        "help": "Wie E-Mails zugestellt werden. Bei Konsole werden Nachrichten nur protokolliert und nicht versendet.",
+        "help": "Wie E-Mails zugestellt werden. Konsole versendet nichts und protokolliert die Nachrichten nur (den Inhalt nur in Entwicklung und Tests).",
         "choices": {
           "console": "Konsole (nur Protokoll)",
           "smtp": "SMTP"

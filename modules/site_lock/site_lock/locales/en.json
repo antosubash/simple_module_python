@@ -1,7 +1,7 @@
 {
   "settings_form": {
     "title": "Site lock",
-    "description": "Shared-password gate that hides the whole site from visitors.",
+    "description": "Require a shared password from visitors. Signed-in admins and health checks still get through.",
     "fields": {
       "enabled": {
         "label": "Lock the site",

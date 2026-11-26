@@ -57,7 +57,7 @@
       },
       "username_claim": {
         "label": "Claim für den Benutzernamen",
-        "help": "Token-Claim mit dem Benutzernamen."
+        "help": "Token-Claim, der zuerst für den angezeigten Namen geprüft wird."
       },
       "email_claim": {
         "label": "Claim für die E-Mail-Adresse",
@@ -65,7 +65,7 @@
       },
       "name_claim": {
         "label": "Claim für den Anzeigenamen",
-        "help": "Token-Claim mit dem vollständigen Namen des Benutzers."
+        "help": "Token-Claim für den angezeigten Namen, wenn der Benutzername-Claim fehlt oder leer ist."
       },
       "roles_claim_path": {
         "label": "Pfad des Rollen-Claims",
@@ -77,7 +77,7 @@
       },
       "role_mapping": {
         "label": "Rollenzuordnung",
-        "help": "Ordnet Rollennamen des Anbieters den Rollen dieser Anwendung zu."
+        "help": "Ordnet Rollennamen des Anbieters den anwendungsweiten Rollen dieser App zu. Mandantenrollen kommen aus Mitgliedschaften."
       }
     }
   }

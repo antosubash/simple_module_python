@@ -462,7 +462,7 @@
       },
       "require_verification": {
         "label": "E-Mail-Bestätigung verlangen",
-        "help": "Neue Konten müssen ihre E-Mail-Adresse bestätigen, bevor sie sich anmelden können."
+        "help": "Konten müssen ihre E-Mail-Adresse bestätigen, bevor sie sich mit Passwort anmelden können. Die Anmeldung über Drittanbieter folgt deren eigenen Regeln."
       },
       "signup_default_role": {
         "label": "Standardrolle bei Registrierung",
@@ -515,7 +515,7 @@
       },
       "base_url": {
         "label": "Basis-URL für Konto-Links",
-        "help": "Adresse, auf die Konto-E-Mails wie Bestätigungs- und Zurücksetzen-Links verweisen. Leer: die öffentliche URL des Hosts."
+        "help": "Adresse, auf die Konto-E-Mails wie Bestätigungs- und Zurücksetzungslinks zeigen. Leer: die öffentliche Adresse der Website wird verwendet; ist auch diese leer, sind die Links relativ."
       },
       "mail_template_dirs": {
         "label": "Eigene Ordner für E-Mail-Vorlagen",
@@ -539,11 +539,11 @@
       },
       "auth_rate_limit_attempts": {
         "label": "Limit für Kontoaktionen",
-        "help": "Versuche pro IP-Adresse im Zeitfenster für Registrierung, vergessene Passwörter, Einladungsannahme und Bestätigungsanfragen."
+        "help": "Versuche pro IP-Adresse und Aktion im Zeitfenster für Kontoaktionen wie Registrierung, Passwort-Zurücksetzen, Bestätigung, Einladungen, Passwortänderung und Demo-Anmeldung. Jeder Serverprozess zählt für sich."
       },
       "auth_rate_limit_window_seconds": {
         "label": "Zeitfenster für Kontoaktionen (Sekunden)",
-        "help": "Zeitraum, in dem diese Versuche gezählt werden."
+        "help": "Wie lange der Versuchszähler nach dem letzten Versuch erhalten bleibt. Jeder Versuch, auch ein abgelehnter, startet den Zeitraum neu."
       },
       "demo_mode": {
         "label": "Demo-Anmeldung aktivieren",
@@ -623,7 +623,7 @@
       },
       "oauth_signup_providers": {
         "label": "Anbieter, die Konten anlegen dürfen",
-        "help": "Anbieter, deren Benutzer bei der ersten Anmeldung ein Konto anlegen können, auch wenn die Registrierung aus ist, sofern der Anbieter die E-Mail bestätigt hat. Möglich sind google, github, microsoft und oidc."
+        "help": "Anbieter, deren Benutzer bei der ersten Anmeldung ein Konto anlegen dürfen, auch wenn die Registrierung aus ist. Ihre E-Mail muss vom Anbieter bestätigt oder vertrauenswürdig sein, auch bei offener Registrierung. Zur Wahl: google, github, microsoft und oidc."
       },
       "oauth_signup_default_role": {
         "label": "Standardrolle für diese Konten",

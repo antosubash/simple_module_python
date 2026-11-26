@@ -133,7 +133,7 @@
       },
       "s3_access_key_id": {
         "label": "Access key ID",
-        "help": "Access key used to sign in to the bucket."
+        "help": "Access key used to sign in to the bucket. Set it together with the secret key, or leave both blank to use the server's default AWS credentials."
       },
       "s3_secret_access_key": {
         "label": "Secret access key",
@@ -149,7 +149,7 @@
       },
       "s3_signature_version": {
         "label": "Signature version",
-        "help": "Signing method for presigned links. Keep s3v4; most providers reject the older version."
+        "help": "Signing method for all S3 requests and presigned links. Keep s3v4 unless a legacy storage service needs the older version."
       },
       "s3_presign_ttl_seconds": {
         "label": "Presigned link lifetime (seconds)",
@@ -165,7 +165,7 @@
       },
       "quota_bytes": {
         "label": "Storage quota (bytes)",
-        "help": "Total storage allowed for stored files and uploads in progress. Leave empty for no limit."
+        "help": "Storage allowed per tenant (or for the platform's own files), counting stored files and uploads in progress. Leave empty for no limit."
       },
       "public_files_cors": {
         "label": "Allow cross-origin reads of public files",
@@ -189,7 +189,7 @@
       },
       "upload_session_retention_days": {
         "label": "Upload session retention (days)",
-        "help": "How long records of finished or aborted upload sessions are kept."
+        "help": "Days after an upload session expires before its record is deleted."
       }
     }
   }
