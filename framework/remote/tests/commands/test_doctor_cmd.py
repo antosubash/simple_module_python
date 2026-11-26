@@ -2,11 +2,9 @@ import httpx
 from click.testing import CliRunner
 
 
-def test_doctor_reports_failures(make_cli):
+def test_doctor_reports_failures(make_cli, logged_in):
     cli = make_cli(lambda r: httpx.Response(401, json={}))
-    runner = CliRunner()
-    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
-    runner.invoke(cli, ["env", "use", "dev"])
+    runner = logged_in(cli, login=False)
     result = runner.invoke(cli, ["doctor"])
     assert result.exit_code == 1
     assert "ok    environment" in result.output
@@ -21,12 +19,9 @@ def test_doctor_no_environment(make_cli):
     assert result.exit_code == 1 and "FAIL  environment" in result.output
 
 
-def test_doctor_all_ok(make_cli):
+def test_doctor_all_ok(make_cli, logged_in):
     cli = make_cli()
-    runner = CliRunner()
-    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
-    runner.invoke(cli, ["env", "use", "dev"])
-    runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
+    runner = logged_in(cli)
     result = runner.invoke(cli, ["doctor"])
     assert result.exit_code == 0, result.output
     assert "FAIL" not in result.output and "ok    whoami: ada@example.com" in result.output

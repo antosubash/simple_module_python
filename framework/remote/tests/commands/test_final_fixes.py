@@ -10,16 +10,7 @@ from click.testing import CliRunner
 TOKEN_HINT = "smdev --env dev login --token"
 
 
-def logged_in(cli, *, protected=False, extra=()):
-    runner = CliRunner()
-    args = ["env", "add", "dev", "--url", "http://localhost:8000", *extra]
-    runner.invoke(cli, args + (["--protected"] if protected else []))
-    runner.invoke(cli, ["env", "use", "dev"])
-    runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
-    return runner
-
-
-def test_invalid_output_format_sends_nothing(make_cli):
+def test_invalid_output_format_sends_nothing(make_cli, logged_in):
     cli = make_cli(lambda r: httpx.Response(200, json=[]))
     runner = logged_in(cli)
     before = len(cli.requests)
@@ -112,7 +103,7 @@ def risk_schema(clean_schema):
     return clean_schema
 
 
-def test_api_inherits_confirm_from_matched_operation(make_cli, risk_schema):
+def test_api_inherits_confirm_from_matched_operation(make_cli, risk_schema, logged_in):
     cli = make_cli(lambda r: httpx.Response(200, json={}), schema=risk_schema)
     runner = logged_in(cli, protected=True)
     before = len(cli.requests)
@@ -122,7 +113,7 @@ def test_api_inherits_confirm_from_matched_operation(make_cli, risk_schema):
     assert runner.invoke(cli, ["api", "GET", "/api/files/42/purge", "--yes"]).exit_code == 0
 
 
-def test_api_inherits_safe_from_matched_operation(make_cli, risk_schema):
+def test_api_inherits_safe_from_matched_operation(make_cli, risk_schema, logged_in):
     cli = make_cli(lambda r: httpx.Response(200, json={}), schema=risk_schema)
     runner = logged_in(cli, protected=True)
     assert runner.invoke(cli, ["api", "POST", "/api/jobs/7/poll", "--json", "{}"]).exit_code == 0
@@ -150,11 +141,9 @@ def test_login_unreachable_server_is_connection_failure(make_cli):
     assert "cannot reach dev" in result.output and "not accepted" not in result.output
 
 
-def test_login_usage_and_doctor_hints_say_token(make_cli):
+def test_login_usage_and_doctor_hints_say_token(make_cli, logged_in):
     cli = make_cli(lambda r: httpx.Response(401, json={}))
-    runner = CliRunner()
-    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
-    runner.invoke(cli, ["env", "use", "dev"])
+    runner = logged_in(cli, login=False)
     doctor = runner.invoke(cli, ["doctor"]).output
     assert f"fix: {TOKEN_HINT}" in doctor
     fresh = CliRunner().invoke(make_cli(), ["users", "list-users", "--page", "1"], env={})

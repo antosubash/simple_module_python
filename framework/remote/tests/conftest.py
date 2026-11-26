@@ -5,6 +5,7 @@ from pathlib import Path
 import httpx
 import keyring.backends.fail
 import pytest
+from click.testing import CliRunner
 from simple_module_remote import build_cli
 
 MINI = Path(__file__).parent / "generate" / "fixtures" / "mini_openapi.json"
@@ -102,3 +103,19 @@ def make_cli(clean_schema, keyring_store):
 @pytest.fixture
 def fail_keyring():
     return keyring.backends.fail.Keyring()
+
+
+@pytest.fixture
+def logged_in():
+    """``logged_in(cli, ...)``: a runner with env ``dev`` added and selected, then logged in."""
+
+    def factory(cli, *, protected=False, extra=(), login=True) -> CliRunner:
+        runner = CliRunner()
+        args = ["env", "add", "dev", "--url", "http://localhost:8000", *extra]
+        runner.invoke(cli, args + (["--protected"] if protected else []))
+        runner.invoke(cli, ["env", "use", "dev"])
+        if login:
+            runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
+        return runner
+
+    return factory

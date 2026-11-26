@@ -33,9 +33,9 @@ class FakeKeyring:
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CredentialStore:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fail_keyring) -> CredentialStore:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    return CredentialStore(CLI, backend=keyring.backends.fail.Keyring())
+    return CredentialStore(CLI, backend=fail_keyring)
 
 
 def test_credential_key() -> None:
@@ -137,11 +137,13 @@ def test_repr_never_contains_token() -> None:
     assert SECRET not in f"{cred!r}"
 
 
-def test_existing_loose_dir_is_tightened(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_existing_loose_dir_is_tightened(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fail_keyring
+) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     (tmp_path / CLI).mkdir(mode=0o755)
     (tmp_path / CLI).chmod(0o755)
-    store = CredentialStore(CLI, backend=keyring.backends.fail.Keyring())
+    store = CredentialStore(CLI, backend=fail_keyring)
     store.put("prod", StoredCredential(SECRET, ENV.origin))
     assert stat.S_IMODE((tmp_path / CLI).stat().st_mode) == 0o700
 
