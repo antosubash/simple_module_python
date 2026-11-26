@@ -61,13 +61,7 @@ def _collect_params(schema: dict, path_item: dict, op: dict) -> tuple[Param, ...
             merged[(loc, name)] = param
     params: list[Param] = []
     for (loc, name), p in merged.items():
-        location: Literal["path", "query"]
-        if loc == "path":
-            location = "path"
-        elif loc == "query":
-            location = "query"
-        else:
-            continue
+        location: Literal["path", "query"] = "path" if loc == "path" else "query"
         params.append(
             Param(
                 name=name,

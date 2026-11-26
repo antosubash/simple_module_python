@@ -15,6 +15,7 @@ from simple_module_remote.http.safety import validate_api_path, validate_base_ur
 
 REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 MAX_HOPS = 5
+MAX_RETRIES = 3
 MAX_WAIT_SECONDS = 30.0
 DEFAULT_RETRY_AFTER = 1.0
 TOO_MANY_REQUESTS = 429
@@ -42,12 +43,10 @@ class ApiClient:
         user_agent: str,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
-        max_retries: int = 3,
     ) -> None:
         self._base = validate_base_url(env.url).rstrip("/")
         self._sleep = sleep
-        self._max_retries = max_retries
-        self._user_agent = user_agent
+        self._max_retries = MAX_RETRIES
         headers = {"User-Agent": user_agent}
         if token:
             headers["Authorization"] = f"Bearer {token}"

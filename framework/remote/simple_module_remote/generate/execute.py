@@ -34,7 +34,7 @@ from simple_module_remote.http.errors import (
 )
 from simple_module_remote.output.sanitize import is_terminal
 
-__all__ = ["RunContext", "run_operation"]
+__all__ = ["run_operation"]
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 REDIRECT_MIN = 300

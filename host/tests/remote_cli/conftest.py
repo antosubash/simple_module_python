@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -114,9 +114,6 @@ class Smdev:
     loop: asyncio.AbstractEventLoop
     transport: LoopBridgeTransport
     keyring: FakeKeyring
-    tenant_id: str = ""
-    admin: Any = None
-    extra: dict[str, Any] = field(default_factory=dict)
 
     async def run(self, *args: str, input: str | None = None) -> Result:
         cli = make_cli(transport=self.transport, keyring_backend=self.keyring)

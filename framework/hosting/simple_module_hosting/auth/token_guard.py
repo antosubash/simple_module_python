@@ -36,7 +36,7 @@ identity provider's bearer token) is never affected.
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
+from collections.abc import Callable, Set
 from typing import Any
 
 from fastapi import HTTPException
@@ -142,7 +142,7 @@ def dependant_gate_kinds(dependant: Any) -> set[str]:
     return kinds
 
 
-def gate_kinds_admit_tokens(kinds: set[str]) -> bool:
+def gate_kinds_admit_tokens(kinds: Set[str]) -> bool:
     """Whether a route with these dependency gates admits API tokens."""
     if GATE_PAGE in kinds:
         return False

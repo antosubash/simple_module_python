@@ -6,7 +6,6 @@ import os
 import secrets
 import stat
 import tomllib
-from pathlib import Path
 
 import tomli_w
 
@@ -25,10 +24,6 @@ class FileStoreError(Exception):
 class FileStore:
     def __init__(self, cli: str) -> None:
         self._path = config_dir(cli) / CREDENTIALS_FILENAME
-
-    @property
-    def path(self) -> Path:
-        return self._path
 
     def _load(self) -> dict[str, dict[str, str]]:
         try:

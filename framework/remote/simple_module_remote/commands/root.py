@@ -22,7 +22,6 @@ from simple_module_remote.schema.loader import load_schema
 __all__ = ["build_cli"]
 
 SCHEMA_SOURCES = ("bundled",)
-USAGE_EXIT_CODE = 1
 LOGIN_COMMAND = "login"
 
 
@@ -45,8 +44,8 @@ class _RootGroup(click.Group):
     def _as_cli_error(exc: click.UsageError) -> CliError:
         if exc.ctx is not None and exc.ctx.command.name == LOGIN_COMMAND:
             # Arguments of `login` may be a token: never echo them back.
-            return CliError("invalid use of login: see `login --help`", USAGE_EXIT_CODE)
-        return CliError(f"{exc.format_message()} (see --help)", USAGE_EXIT_CODE)
+            return CliError("invalid use of login: see `login --help`")
+        return CliError(f"{exc.format_message()} (see --help)")
 
 
 def build_cli(
@@ -71,7 +70,7 @@ def build_cli(
         backend=keyring_backend,
     )
 
-    def root_callback(env: str | None, tenant: str | None, schema_source: str) -> None:
+    def root_callback(env: str | None, tenant: str | None) -> None:
         current = state_of(click.get_current_context())
         current.begin(env, tenant)
 
@@ -85,6 +84,7 @@ def build_cli(
                 ["--schema", "schema_source"],
                 type=click.Choice(SCHEMA_SOURCES),
                 default="bundled",
+                expose_value=False,
                 help="Command schema source.",
             ),
         ],

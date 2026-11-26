@@ -6,7 +6,8 @@ import click
 import httpx
 import pytest
 from simple_module_remote.config.environments import Environment
-from simple_module_remote.generate.execute import RunContext, run_operation
+from simple_module_remote.generate.context import RunContext
+from simple_module_remote.generate.execute import run_operation
 from simple_module_remote.generate.operations import Operation, Param
 from simple_module_remote.http.client import ApiClient
 

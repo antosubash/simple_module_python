@@ -56,7 +56,7 @@ class ApiOperation(NamedTuple):
 
     @property
     def admits_tokens(self) -> bool:
-        return gate_kinds_admit_tokens(set(self.gate_kinds))
+        return gate_kinds_admit_tokens(self.gate_kinds)
 
 
 def iter_api_operations(app: FastAPI) -> Iterator[ApiOperation]:
