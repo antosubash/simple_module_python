@@ -19,6 +19,7 @@ from typing import Any
 
 from auth.contracts.tokens import AUTH_KIND_SERVICE
 from simple_module_db import is_valid_tenant_id
+from simple_module_db.models.credential import current_auth_kind, current_token_id
 from simple_module_db.models.listeners import current_user_id
 from starlette.requests import Request
 
@@ -66,6 +67,8 @@ def _forget_principal(request: Request) -> None:
     request.state.user = None
     request.state.resolved_permissions = set()
     current_user_id.set(None)
+    current_auth_kind.set(None)
+    current_token_id.set(None)
 
 
 __all__ = ["pinned_token_tenant"]

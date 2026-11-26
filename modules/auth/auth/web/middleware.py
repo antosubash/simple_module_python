@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 from simple_module_core.modules.app_state import get_openapi_url
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_db.models.credential import current_auth_kind, current_token_id
 from simple_module_db.models.listeners import current_user_id
 from simple_module_hosting.frontend.inertia_deps import is_inertia_request
 from simple_module_hosting.pipeline.path_matching import matches_path, validated_prefixes
@@ -180,9 +181,13 @@ class AuthMiddleware:
                     await refusal(scope, receive, send)
                     return
             token = current_user_id.set(user_ctx.id)
+            kind_token = current_auth_kind.set(user_ctx.auth_kind)
+            token_id_token = current_token_id.set(user_ctx.token_id)
             try:
                 await self.app(scope, receive, send)
             finally:
+                current_token_id.reset(token_id_token)
+                current_auth_kind.reset(kind_token)
                 current_user_id.reset(token)
             return
 

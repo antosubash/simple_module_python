@@ -7764,6 +7764,28 @@
             ],
             "title": "Correlation Id"
           },
+          "auth_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Kind"
+          },
+          "token_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Id"
+          },
           "tenant_id": {
             "anyOf": [
               {

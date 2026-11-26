@@ -10,6 +10,7 @@ pinned.
 
 from __future__ import annotations
 
+from simple_module_db.models.credential import current_auth_kind, current_token_id
 from simple_module_db.models.listeners import current_user_id
 from starlette.requests import HTTPConnection
 
@@ -21,6 +22,8 @@ async def demote_to_anonymous(request: HTTPConnection) -> None:
     request.state.user = None
     request.state.resolved_permissions = set()
     current_user_id.set(None)
+    current_auth_kind.set(None)
+    current_token_id.set(None)
     await reresolve_tenant(request)
 
 

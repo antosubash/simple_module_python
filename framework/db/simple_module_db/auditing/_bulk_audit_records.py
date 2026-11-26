@@ -49,6 +49,7 @@ class _Ctx:
         self.changes = changes
         self.user_id = _current_user()
         self.correlation_id = correlation_id.get("") or None
+        self.auth_kind, self.token_id = _current_credential()
 
     def record(
         self,
@@ -67,7 +68,15 @@ class _Ctx:
             changes=self.changes if changes is None else changes,
             user_id=self.user_id,
             correlation_id=self.correlation_id,
+            auth_kind=self.auth_kind,
+            token_id=self.token_id,
         )
+
+
+def _current_credential() -> tuple[str | None, str | None]:
+    from simple_module_db.models.credential import current_auth_kind, current_token_id
+
+    return current_auth_kind.get(), current_token_id.get()
 
 
 def _current_user() -> str | None:
