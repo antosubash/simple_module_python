@@ -25,7 +25,7 @@ async def test_nothing_installed_is_also_healthy() -> None:
 
 
 @pytest.fixture
-def smtp_client(monkeypatch) -> MagicMock:
+def smtp_client(monkeypatch, smtp_socket) -> MagicMock:
     client = MagicMock()
     client.connect = AsyncMock()
     client.login = AsyncMock()

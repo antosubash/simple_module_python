@@ -56,6 +56,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Security
 
+- **Behaviour change:** SMTP delivery and mail **Test connection** refuse hosts with any link-local, metadata, unspecified, multicast or reserved/broadcast DNS answer. Connections use a vetted IP while preserving TLS hostname verification; loopback and private relays remain allowed (#1228).
 - **Behaviour change:** refuse OAuth sign-in by verified email when the local account already has a different identity from the same provider, preserving its existing links and roles (#1128). This applies to every provider, including GitHub and Google: a user who recreates their provider account is refused until the old link is removed. The refusal is logged at WARNING with the provider and local user id.
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
 - Validate incoming `X-Correlation-ID` headers in `CorrelationIdMiddleware` for bounded length and safe token characters (#1065).

@@ -11,6 +11,8 @@ from mail.core.settings import MailSettings
 from mail.delivery.sender import SmtpMailSender, build_sender
 from simple_module_core.mailer.mail import ConsoleMailSender, MailAttachment, MailMessage
 
+pytestmark = pytest.mark.usefixtures("smtp_socket")
+
 
 def test_defaults() -> None:
     s = MailSettings()
@@ -42,7 +44,7 @@ def _smtp() -> SmtpMailSender:
     return SmtpMailSender("smtp.test", 2525, "user", "pw", "from@test", True)
 
 
-async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
+async def test_send_builds_a_plain_text_message(monkeypatch, smtp_socket) -> None:
     send = AsyncMock()
     monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
 
@@ -58,7 +60,7 @@ async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
         "recipients": ["to@test"],
         "mail_options": [],
         "hostname": "smtp.test",
-        "port": 2525,
+        "sock": smtp_socket,
         "username": "user",
         "password": "pw",
         "use_tls": False,

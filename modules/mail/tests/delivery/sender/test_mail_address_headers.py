@@ -10,6 +10,8 @@ from aiosmtplib.response import SMTPResponse
 from mail.delivery.sender import SmtpMailSender
 from simple_module_core.mailer.mail import MailMessage
 
+pytestmark = pytest.mark.usefixtures("smtp_socket")
+
 
 @pytest.mark.parametrize("supported", [False, True])
 @pytest.mark.parametrize(

@@ -11,6 +11,8 @@ import pytest
 from mail.delivery.sender import SmtpMailSender
 from simple_module_core.mailer.mail import MailAttachment, MailMessage
 
+pytestmark = pytest.mark.usefixtures("smtp_socket")
+
 
 @pytest.mark.parametrize(
     "from_address, domain",
