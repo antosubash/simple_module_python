@@ -6,6 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.auth.resource_deps import resource_principal
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
@@ -48,7 +49,10 @@ async def admin_index(
 @router.post(
     "/{share_id}/revoke",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(api_equivalent("POST", "/api/sharing/admin/shares/{share_id}/revoke")),
+    ],
 )
 async def admin_revoke(
     share_id: uuid.UUID,

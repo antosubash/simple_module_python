@@ -9,6 +9,7 @@ frontend doesn't need separate routes per scope.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.i18n.i18n_deps import TranslatorDep
@@ -96,6 +97,7 @@ async def browse(
     response_model=None,
     dependencies=[
         Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(api_equivalent("PUT", "/api/feature_flags/{name}")),
         Depends(require_known_tenant),
     ],
 )
@@ -117,7 +119,10 @@ async def toggle_action(
 @router.post(
     "/{name}/clear",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(api_equivalent("DELETE", "/api/feature_flags/{name}")),
+    ],
 )
 async def clear_action(
     name: str,

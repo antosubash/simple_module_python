@@ -12,6 +12,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 from pydantic import ValidationError
 from simple_module_db.queries.pagination import clamp_page
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.frontend.inertia_utils import (
@@ -154,7 +155,10 @@ async def edit_view(
 @router.post(
     VIEW_STORE_PATH,
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.CREATE)),
+        Depends(api_equivalent("POST", "/api/settings/")),
+    ],
 )
 async def create_action(
     request: Request,
@@ -166,7 +170,10 @@ async def create_action(
 @router.put(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.EDIT)),
+        Depends(api_equivalent("PUT", "/api/settings/{setting_id}")),
+    ],
 )
 async def update_action(
     setting_id: int,
@@ -190,7 +197,10 @@ async def update_action(
 @router.delete(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.DELETE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.DELETE)),
+        Depends(api_equivalent("DELETE", "/api/settings/{setting_id}")),
+    ],
 )
 async def delete_action(
     setting_id: int,
@@ -244,7 +254,10 @@ async def modules_view(
     # server open outbound connections on demand (SMTP AUTH, S3) and hands the
     # raw failure text — hostnames, bucket names, auth errors — back to the
     # caller. Only someone allowed to change these settings should be able to.
-    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.EDIT)),
+        Depends(api_equivalent("POST", "/api/settings/modules/{package}/test-connection")),
+    ],
 )
 async def test_connection(package: str, request: Request) -> dict:
     """Run one module's health checks now and report each result.

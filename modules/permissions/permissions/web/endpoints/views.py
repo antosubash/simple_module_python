@@ -6,6 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import ValidationError
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.frontend.inertia_utils import (
@@ -84,7 +85,10 @@ async def edit_role(
 @router.put(
     "/roles/{role_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(api_equivalent("PUT", "/api/permissions/roles/{role_id}")),
+    ],
 )
 async def update_role(
     role_id: uuid.UUID,
@@ -138,7 +142,10 @@ async def edit_user(
 @router.put(
     "/users/{user_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(api_equivalent("PUT", "/api/permissions/users/{user_id}")),
+    ],
 )
 async def update_user(
     user_id: uuid.UUID,

@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.pagination import PageParams, clamp_page
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.csrf import RequiresCsrf
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
@@ -200,7 +201,11 @@ async def admin_edit_page(
 
 @router.delete(
     "/{user_id}/linked-sign-ins/{oauth_account_id}",
-    dependencies=[Depends(RequiresPermission(Permissions.MANAGE)), Depends(RequiresCsrf())],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(RequiresCsrf()),
+        Depends(api_equivalent("DELETE", "/api/users/admin/{user_id}/linked-sign-ins/{link_id}")),
+    ],
 )
 async def admin_unlink_sign_in(
     user_id: uuid.UUID,
