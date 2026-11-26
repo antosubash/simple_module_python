@@ -39,6 +39,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Behaviour change:** `smpy new --with` and the wizard offer all 17 published modules, including `oidc`, `audit_log`, `keycloak`, `mail`, `sharing`, `api_tokens` and `branding`; `full` includes them all. Catalog requirements now match each module's `depends_on`, so optional ordering dependencies are no longer added to the scaffold's direct dependency list; package dependencies can still install them transitively. Multiple installed auth providers use the existing `SM_AUTH_PROVIDER` selection (#1213).
 - **Behaviour change:** Settings API mutations (`POST /api/settings/`, `PUT`/`DELETE /api/settings/{setting_id}`, the system/tenant/user scoped `PUT`/`DELETE` routes, and `PUT`/`DELETE /api/settings/modules/...`) now also require `settings.view`, as the admin pages always did; a token or role holding only `settings.create`/`edit`/`delete` gets `403` (#1178)
 - **Behaviour change:** `background_tasks` supports `SM_BG_TASKS_BROKER_URL` and `SM_BG_TASKS_RESULT_BACKEND` as non-deprecated per-field overrides for separate Redis databases or other transports. Only an override equal to the configured `SM_REDIS_URL` logs a redundant-setting INFO hint; production localhost checks and env → DB → default precedence are preserved (#1214).
 - Keycloak and OIDC share internal browser-session resolution while preserving each provider's validation and renewal rules (#1169).

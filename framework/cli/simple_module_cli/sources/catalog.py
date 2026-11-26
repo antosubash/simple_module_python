@@ -1,7 +1,7 @@
 """Hardcoded catalog of installable SimpleModule modules.
 
 Each :class:`ModuleEntry` declares the PyPI package name, a human display
-name, transitive ``requires`` (other catalog keys), and an optional
+name, direct ``requires`` (other catalog keys), and an optional
 ``recipe`` key for post-scaffold actions handled by :mod:`.recipes`.
 
 :func:`expand_deps` takes a user-selected subset and returns a
@@ -35,7 +35,7 @@ CATALOG: dict[str, ModuleEntry] = {
         "permissions",
         "simple_module_permissions",
         "Permissions",
-        requires=("auth", "users"),
+        requires=("auth",),
     ),
     "tenants": ModuleEntry("tenants", "simple_module_tenants", "Tenants", requires=("auth",)),
     "dashboard": ModuleEntry("dashboard", "simple_module_dashboard", "Dashboard"),
@@ -45,20 +45,32 @@ CATALOG: dict[str, ModuleEntry] = {
         "file_storage",
         "simple_module_file_storage",
         "File Storage",
-        requires=("settings",),
     ),
     "background_tasks": ModuleEntry(
         "background_tasks",
         "simple_module_background_tasks",
         "Background Tasks",
-        requires=("settings",),
         recipe="background_tasks",
     ),
     "site_lock": ModuleEntry(
         "site_lock",
         "simple_module_site_lock",
         "Site Lock",
-        requires=("auth", "settings"),
+        requires=("auth",),
+    ),
+    "oidc": ModuleEntry("oidc", "simple_module_oidc", "OIDC", requires=("auth",)),
+    "audit_log": ModuleEntry("audit_log", "simple_module_audit_log", "Audit Log"),
+    "keycloak": ModuleEntry("keycloak", "simple_module_keycloak", "Keycloak", requires=("auth",)),
+    "mail": ModuleEntry("mail", "simple_module_mail", "Mail", requires=("settings",)),
+    "sharing": ModuleEntry("sharing", "simple_module_sharing", "Sharing"),
+    "api_tokens": ModuleEntry(
+        "api_tokens", "simple_module_api_tokens", "API Tokens", requires=("auth",)
+    ),
+    "branding": ModuleEntry(
+        "branding",
+        "simple_module_branding",
+        "Branding",
+        requires=("settings", "file_storage"),
     ),
 }
 
