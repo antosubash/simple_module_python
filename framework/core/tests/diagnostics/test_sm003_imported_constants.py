@@ -154,3 +154,16 @@ def test_source_symlink_loop_does_not_abort_diagnostics(tmp_path):
     results = _diagnostics(tmp_path)
 
     assert [(d.code, d.level) for d in results] == [("SM004", DiagnosticLevel.WARNING)]
+
+
+def test_non_inertia_render_calls_do_not_hide_unused_pages(tmp_path):
+    _source(tmp_path, "pages/Unused.tsx", "export default function Unused() {}")
+    _source(
+        tmp_path,
+        "module.py",
+        "def mail(template, context):\n    return template.render(context)\n",
+    )
+
+    results = {d.code: d for d in _diagnostics(tmp_path)}
+
+    assert results["SM003"].level == DiagnosticLevel.WARNING

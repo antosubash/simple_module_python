@@ -117,9 +117,15 @@ def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[st
         first = node.args[0]
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
             found.append(first.value)
-        elif isinstance(first, (ast.Name, ast.Attribute)):
-            found.append(consts.get(ast.unparse(first)))
-        else:
+            continue
+        resolved = (
+            consts.get(ast.unparse(first)) if isinstance(first, (ast.Name, ast.Attribute)) else None
+        )
+        if resolved is not None:
+            found.append(resolved)
+        elif "inertia" in ast.unparse(node.func.value).lower():
+            # Only an unresolved *Inertia* target makes the page check uncertain;
+            # template.render(context) and similar calls are not page renders.
             found.append(None)
     return found
 
