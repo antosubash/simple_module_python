@@ -64,7 +64,10 @@ uv run smpy new myapp --preset standard --with background_tasks,file_storage
 
 Required dependencies are resolved automatically: `users`, `oidc`, `keycloak`
 and `api_tokens` pull in `auth`; `mail` pulls in `settings`; `branding` pulls in
-`settings` and `file_storage`. Optional ordering dependencies are not added.
+`settings` and `file_storage`. Optional ordering dependencies are not added to
+the scaffold's direct dependency list, but package dependencies can still install
+them transitively. For example, `file_storage`, `background_tasks` and `site_lock`
+still install `settings` through their package dependencies.
 
 Multiple auth providers can be installed,
 but only one is active: the default is `users`. To activate an alternative added
