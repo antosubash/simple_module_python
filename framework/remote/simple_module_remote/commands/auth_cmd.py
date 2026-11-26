@@ -72,9 +72,7 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
         )
     store = state.store()
     with state.guard():
-        store.put(
-            credential_key(env.name, state.tenant(env)), StoredCredential(candidate, env.origin)
-        )
+        store.put(credential_key(env.name, wanted), StoredCredential(candidate, env.origin))
     if store.using_fallback:
         click.echo("warning: no OS keyring; token stored in a 0600 file", err=True)
     click.echo(f"logged in to {env.name} as {sanitize(str(who.get('email', 'unknown')))}")

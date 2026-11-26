@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import click
 
-from simple_module_remote.commands.runtime import CliError, state_of
+from simple_module_remote.commands.runtime import AppState, CliError, state_of
 from simple_module_remote.config.environments import (
+    Config,
     Environment,
     save_config,
     validate_env_name,
@@ -22,6 +23,13 @@ def _describe(env: Environment) -> str:
     if env.protected:
         extras.append("PROTECTED")
     return f"{env.name}  {env.url}" + (f"  [{', '.join(extras)}]" if extras else "")
+
+
+def _known(state: AppState, config: Config, name: str) -> Environment:
+    found = config.envs.get(name)
+    if found is None:
+        raise CliError(f"unknown environment {name!r}: run `{state.cli} env list`")
+    return found
 
 
 @click.group("env", help="Manage named environments.")
@@ -85,8 +93,7 @@ def add_env(
 def use_env(ctx: click.Context, name: str) -> None:
     state = state_of(ctx)
     config = state.config()
-    if name not in config.envs:
-        raise CliError(f"unknown environment {name!r}: run `{state.cli} env list`")
+    _known(state, config, name)
     config.current = name
     with state.guard():
         save_config(state.cli, config)
@@ -124,11 +131,7 @@ def show_env(ctx: click.Context, name: str | None) -> None:
     if name is None:
         env, _ = state.select()
     else:
-        config = state.config()
-        found = config.envs.get(name)
-        if found is None:
-            raise CliError(f"unknown environment {name!r}: run `{state.cli} env list`")
-        env = found
+        env = _known(state, state.config(), name)
     click.echo(f"name:      {env.name}")
     click.echo(f"url:       {env.url}")
     click.echo(f"tenant:    {env.tenant or '-'}")

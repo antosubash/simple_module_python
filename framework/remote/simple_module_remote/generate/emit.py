@@ -14,13 +14,13 @@ import httpx
 
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.http.client import ApiClient
+from simple_module_remote.http.errors import AUTH_STATUSES
 from simple_module_remote.output.render import OUTPUT_FORMATS, render
 from simple_module_remote.output.sanitize import sanitize_for
 
 __all__ = ["emit", "print_error", "render_values", "say"]
 
 ERROR_BODY_CHARS = 500
-AUTH_STATUSES = frozenset({401, 403})
 CHUNK = 64 * 1024
 FILE_MODE = 0o666
 REDIRECT_HINT = (

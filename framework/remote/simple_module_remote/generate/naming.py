@@ -13,19 +13,17 @@ RESERVED: frozenset[str] = frozenset(
 UNTAGGED_GROUP = "host"
 
 
-def _snake(name: str) -> str:
-    """Mirror the server's operationId module prefix (``FeatureFlags`` -> ``feature_flags``)."""
+def snake_name(name: str) -> str:
+    """Snake-case a name, mirroring the server's operationId module prefix.
+
+    ``FeatureFlags`` -> ``feature_flags``, ``X-Foo`` -> ``x_foo``.
+    """
     spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name)
     return re.sub(r"[^0-9a-zA-Z]+", "_", spaced).strip("_").lower()
 
 
 def _kebab(name: str) -> str:
-    return _snake(name).replace("_", "-")
-
-
-def snake_name(name: str) -> str:
-    """Public snake-case helper (``X-Foo`` -> ``x_foo``)."""
-    return _snake(name)
+    return snake_name(name).replace("_", "-")
 
 
 def group_name(tag: str | None) -> str:
@@ -52,7 +50,7 @@ def command_name(
         return override
     rest = operation_id
     if tag:
-        prefix = f"{_snake(tag)}_"
+        prefix = f"{snake_name(tag)}_"
         if rest.startswith(prefix) and len(rest) > len(prefix):
             rest = rest[len(prefix) :]
     return _kebab(rest) or _kebab(f"{method}_{path}") or "operation"

@@ -57,9 +57,7 @@ class CredentialStore:
         if backend is None:
             if _keyring_usable():
                 self._backend = keyring.get_keyring()
-        elif isinstance(backend, keyring.backends.fail.Keyring):
-            pass
-        else:
+        elif not isinstance(backend, keyring.backends.fail.Keyring):
             self._backend = backend
         if self._backend is None:
             self._file = FileStore(cli)
@@ -126,6 +124,11 @@ class CredentialStore:
             raise CredentialError("the OS keyring could not be updated") from None
 
 
+def token_env_var(cli: str) -> str:
+    """The environment variable that supplies a token for *cli*."""
+    return env_prefix(cli) + TOKEN_ENV_SUFFIX
+
+
 def login_hint(cli: str, env: Environment, tenant: str | None) -> str:
     """The command that stores a token; root options (--env, --tenant) precede the subcommand."""
     hint = f"{cli} --env {env.name}"
@@ -141,7 +144,7 @@ def resolve_token(
     cli: str,
     explicit: bool,
 ) -> str:
-    var = env_prefix(cli) + TOKEN_ENV_SUFFIX
+    var = token_env_var(cli)
     from_env = environ.get(var)
     if from_env:
         if explicit:

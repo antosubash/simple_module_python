@@ -18,7 +18,5 @@ def split_pair(item: str, flag: str, error: type[Exception]) -> tuple[str, str]:
     return key, value
 
 
-def split_pairs(
-    items: Iterable[Any] | None, flag: str, error: type[Exception] = click.UsageError
-) -> list[tuple[str, str]]:
-    return [split_pair(str(item), flag, error) for item in items or ()]
+def split_pairs(items: Iterable[Any] | None, flag: str) -> list[tuple[str, str]]:
+    return [split_pair(str(item), flag, click.UsageError) for item in items or ()]

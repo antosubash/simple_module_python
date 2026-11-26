@@ -7,7 +7,7 @@ EXIT_AUTH = 4
 EXIT_NOT_FOUND = 5
 EXIT_CONFLICT = 6
 
-_AUTH_STATUSES = frozenset({401, 403})
+AUTH_STATUSES = frozenset({401, 403})
 _CONFLICT_STATUSES = frozenset({409, 412})
 _NOT_FOUND = 404
 _SERVER_MIN = 500
@@ -35,7 +35,7 @@ class ApiError(Exception):
 
 
 def exit_code_for(status: int) -> int:
-    if status in _AUTH_STATUSES:
+    if status in AUTH_STATUSES:
         return EXIT_AUTH
     if status == _NOT_FOUND:
         return EXIT_NOT_FOUND

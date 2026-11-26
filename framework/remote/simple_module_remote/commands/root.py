@@ -13,7 +13,7 @@ from simple_module_remote.commands.auth_cmd import login, logout, whoami
 from simple_module_remote.commands.doctor_cmd import doctor
 from simple_module_remote.commands.env_cmd import env_group
 from simple_module_remote.commands.generated import operation_command
-from simple_module_remote.commands.runtime import AppState, CliError, state_of
+from simple_module_remote.commands.runtime import AppState, CliError
 from simple_module_remote.commands.schema_cmd import schema_group
 from simple_module_remote.config.credentials import KeyringBackend
 from simple_module_remote.generate.tree import build_groups
@@ -70,13 +70,9 @@ def build_cli(
         backend=keyring_backend,
     )
 
-    def root_callback(env: str | None, tenant: str | None) -> None:
-        current = state_of(click.get_current_context())
-        current.begin(env, tenant)
-
     root = _RootGroup(
         name,
-        callback=root_callback,
+        callback=state.begin,
         params=[
             click.Option(["--env", "-e", "env"], help="Environment to use."),
             click.Option(["--tenant", "tenant"], help="Tenant to act for."),

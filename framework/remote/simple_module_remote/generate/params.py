@@ -35,9 +35,13 @@ _SCALARS: dict[str, click.ParamType] = {
 }
 
 
+def _slug(param: Param) -> str:
+    return snake_name(param.name) or "param"
+
+
 def _dest(param: Param) -> str:
     prefix = "p" if param.location == "path" else "q"
-    return f"{prefix}_{snake_name(param.name) or 'param'}"
+    return f"{prefix}_{_slug(param)}"
 
 
 def _ordered(op: Operation) -> list[Param]:
@@ -68,7 +72,7 @@ def _value_type(schema: dict) -> click.ParamType:
 
 
 def _param_option(dest: str, param: Param) -> click.Parameter:
-    kebab = snake_name(param.name).replace("_", "-") or "param"
+    kebab = _slug(param).replace("_", "-")
     flag = f"--param-{kebab}" if kebab in RESERVED_OPTIONS else f"--{kebab}"
     schema = param.schema
     multiple = schema.get("type") == "array"
@@ -149,7 +153,7 @@ def click_params_for(op: Operation, *, list_returning: bool = False) -> list[cli
     mapping = param_map(op)
     for dest, param in mapping.items():
         if param.location == "path":
-            kebab = (snake_name(param.name) or "param").upper()
+            kebab = _slug(param).upper()
             params.append(
                 click.Argument([dest], type=_value_type(param.schema), metavar=kebab, required=True)
             )

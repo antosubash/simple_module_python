@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import click
 
-from simple_module_remote.commands.runtime import AppState, CliError, fetch_whoami, state_of
+from simple_module_remote.commands.runtime import (
+    WHOAMI_PATH,
+    AppState,
+    CliError,
+    fetch_whoami,
+    state_of,
+)
 from simple_module_remote.commands.schema_cmd import schema_info
-from simple_module_remote.config.credentials import TOKEN_ENV_SUFFIX, login_hint
+from simple_module_remote.config.credentials import login_hint, token_env_var
 from simple_module_remote.config.environments import Environment
-from simple_module_remote.config.paths import env_prefix
 from simple_module_remote.http.errors import ApiError, UnsafePathError
 from simple_module_remote.http.safety import validate_base_url
 from simple_module_remote.output.sanitize import sanitize
@@ -52,33 +57,31 @@ def _check_url(state: AppState, env: Environment, report: _Report) -> bool:
 def _check_reachable(state: AppState, env: Environment, report: _Report) -> None:
     try:
         with state.client(env, None) as client:
-            response = client.request("GET", "/api/_meta/whoami")
+            response = client.request("GET", WHOAMI_PATH)
         report.ok("reachable", f"server answered HTTP {response.status_code}")
     except ApiError as exc:
         report.fail("reachable", exc.message, "check the URL, your network and VPN")
 
 
 def _check_identity(state: AppState, env: Environment, explicit: bool, report: _Report) -> None:
+    wanted = state.tenant(env)
     try:
         token = state.token(env, explicit)
     except CliError as exc:
-        report.fail("credentials", exc.message, login_hint(state.cli, env, state.tenant(env)))
+        report.fail("credentials", exc.message, login_hint(state.cli, env, wanted))
         return
-    from_var = bool(state.environ.get(env_prefix(state.cli) + TOKEN_ENV_SUFFIX))
+    var = token_env_var(state.cli)
     report.ok(
         "credentials",
-        f"token from {env_prefix(state.cli)}{TOKEN_ENV_SUFFIX}"
-        if from_var
-        else "present and bound to this origin",
+        f"token from {var}" if state.environ.get(var) else "present and bound to this origin",
     )
     try:
         with state.client(env, token) as client:
             who = fetch_whoami(client)
     except ApiError as exc:
-        report.fail("whoami", exc.message, login_hint(state.cli, env, state.tenant(env)))
+        report.fail("whoami", exc.message, login_hint(state.cli, env, wanted))
         return
     report.ok("whoami", str(who.get("email")))
-    wanted = state.tenant(env)
     if wanted is None:
         report.ok("tenant", "no tenant selected")
     elif who.get("tenant_id") == wanted:

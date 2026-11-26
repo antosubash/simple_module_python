@@ -60,20 +60,15 @@ class FileStore:
         return out
 
     def _secure_dir(self) -> None:
-        try:
-            self._ensure_private_dir()
-        except OSError as exc:
-            raise FileStoreError(
-                f"cannot prepare {self._path.parent}: {exc.__class__.__name__}"
-            ) from None
-
-    def _ensure_private_dir(self) -> None:
         directory = self._path.parent
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        info = directory.stat()
-        if info.st_uid == os.getuid() and info.st_mode & LOOSE_MODE_MASK:
-            directory.chmod(0o700)
+        try:
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             info = directory.stat()
+            if info.st_uid == os.getuid() and info.st_mode & LOOSE_MODE_MASK:
+                directory.chmod(0o700)
+                info = directory.stat()
+        except OSError as exc:
+            raise FileStoreError(f"cannot prepare {directory}: {exc.__class__.__name__}") from None
         if info.st_mode & LOOSE_MODE_MASK:
             raise FileStoreError(f"refusing to write in {directory}: it is not private")
 

@@ -20,8 +20,8 @@ def confirm_protected(
     yes: bool,
     interactive: bool,
     prompt: Callable[[str], str],
-    method: str = "",
-    path: str = "",
+    method: str,
+    path: str,
 ) -> None:
     """Require typing the environment name before a risky call on a protected environment."""
     if not env.protected or not ((mutation and not op_safe) or op_confirm):
@@ -29,9 +29,9 @@ def confirm_protected(
     if yes:
         return
     if not interactive:
-        action = f"{method} {path}".strip() or "this command"
         raise click.UsageError(
-            f"environment {env.name!r} is protected: pass --yes to run {action} non-interactively"
+            f"environment {env.name!r} is protected: pass --yes to run {method} {path} "
+            "non-interactively"
         )
     answer = prompt(f'Type "{env.name}" to run {method} {path} on {env.name} ({env.url}):')
     if answer.strip() != env.name:
