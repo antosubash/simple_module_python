@@ -8,9 +8,10 @@ from fastapi import APIRouter, Depends, Request
 from simple_module_db.engine.deps import get_db
 from simple_module_hosting.auth.csrf import RequiresCsrf
 from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.rate_limit.rate_limit_deps import RateLimit
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from dashboard.core.constants import Permissions
+from dashboard.core.constants import DOCTOR_RERUN_RATE, Permissions
 from dashboard.web.stats import fetch_dashboard_stats
 
 router = APIRouter()
@@ -45,7 +46,11 @@ async def doctor_results(request: Request) -> dict:
 
 @router.post(
     "/doctor/rerun",
-    dependencies=[Depends(RequiresPermission(Permissions.DOCTOR)), Depends(RequiresCsrf())],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.DOCTOR)),
+        Depends(RequiresCsrf()),
+        Depends(RateLimit(DOCTOR_RERUN_RATE, key="user")),
+    ],
 )
 async def doctor_rerun(request: Request) -> dict:
     """Re-run the checks and return the fresh results (a no-op outside development)."""

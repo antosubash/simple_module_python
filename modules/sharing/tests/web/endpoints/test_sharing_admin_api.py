@@ -110,3 +110,33 @@ async def test_manage_only_pat_revokes_without_csrf(note_app, tenant_client):
         assert resp.status_code in (200, 204), resp.text
         async with _bearer(note_app, view_token) as bc:
             assert (await bc.get(LIST_URL)).json()["total"] == 0
+
+
+async def test_cookie_revoke_needs_csrf_token(note_app, tenant_client):
+    async with (
+        tenant_client(TenantRole.OWNER) as owner,
+        tenant_client(TenantRole.MEMBER, tenant_id=owner.tenant_id) as friend,
+    ):
+        await _share(note_app, owner, friend)
+        data, _ = await _admin(note_app, owner.tenant_id)
+        async with session_client(note_app, data) as client:
+            share_id = (await client.get(LIST_URL)).json()["items"][0]["id"]
+            url = f"{LIST_URL}/{share_id}/revoke"
+            refused = await client.post(url)
+            assert refused.status_code == 403
+            assert "X-CSRF-Token" in refused.json()["detail"]
+            ok = await client.post(url, headers={"X-CSRF-Token": CSRF})
+            assert ok.status_code in (200, 204), ok.text
+
+
+async def test_strict_tenancy_admin_without_active_tenant_gets_empty_page(note_app):
+    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
+    user_id = await make_admin(note_app, email)
+    data = {"user_id": user_id, "sm_csrf_token": CSRF}
+    async with session_client(note_app, data) as client:
+        resp = await client.get(LIST_URL)
+        page = await client.get("/admin/sharing/", headers=INERTIA)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert (body["items"], body["total"], body["page"]) == ([], 0, 1)
+    assert page.json()["props"]["tenant_required"] is True

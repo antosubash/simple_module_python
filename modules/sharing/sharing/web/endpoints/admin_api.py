@@ -11,28 +11,23 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 from simple_module_core.access.resources import ResourcePrincipal
-from simple_module_core.access.user_directory import get_user_directory
-from simple_module_db import paginate
-from simple_module_db.queries.pagination import Page
 from simple_module_hosting.auth.csrf import RequiresCsrf
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.auth.resource_deps import resource_principal
 from simple_module_hosting.frontend.pagination import PageParamsDep
-from sqlmodel import col, select
 
-from sharing.contracts.schemas import ShareOut
+from sharing.contracts.schemas import SharePage
 from sharing.core.constants import ADMIN_API_PATH, Permissions
 from sharing.core.service import SharingError
-from sharing.models import ResourceShare
 from sharing.web.deps import SharingServiceDep, http_error
-from sharing.web.present import present_shares
+from sharing.web.listing import list_admin_shares
 
 router = APIRouter(prefix=ADMIN_API_PATH)
 
 
 @router.get(
     "/shares",
-    response_model=Page[ShareOut],
+    response_model=SharePage,
     dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def admin_list_shares(
@@ -40,21 +35,14 @@ async def admin_list_shares(
     service: SharingServiceDep,
     params: PageParamsDep,
     who: ResourcePrincipal = Depends(resource_principal),
-) -> Page[ShareOut]:
-    stmt = select(ResourceShare).order_by(
-        col(ResourceShare.created_at).desc(), col(ResourceShare.id)
-    )
-    page = await paginate(service.db, stmt, params)
-    items = await present_shares(
-        get_user_directory(request.app),
-        service.db,
-        page.items,
-        service.audience,
-        who,
-        service.subject_registry(who),
-    )
-    return Page(
-        items=items, total=page.total, page=page.page, per_page=page.per_page, pages=page.pages
+) -> SharePage:
+    listing = await list_admin_shares(request, service, params, who)
+    return SharePage(
+        items=listing.shares,
+        total=listing.total,
+        page=listing.page,
+        per_page=params.per_page,
+        pages=listing.pages,
     )
 
 

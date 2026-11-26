@@ -4906,7 +4906,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page_ShareOut_"
+                  "$ref": "#/components/schemas/SharePage"
                 }
               }
             }
@@ -9424,40 +9424,6 @@
         "title": "OutboxStatus",
         "description": "Lifecycle of one (event, durable handler) delivery."
       },
-      "Page_ShareOut_": {
-        "properties": {
-          "items": {
-            "items": {},
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "page": {
-            "type": "integer",
-            "title": "Page"
-          },
-          "per_page": {
-            "type": "integer",
-            "title": "Per Page"
-          },
-          "pages": {
-            "type": "integer",
-            "title": "Pages"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "page",
-          "per_page",
-          "pages"
-        ],
-        "title": "Page[ShareOut]"
-      },
       "PartOut": {
         "properties": {
           "no": {
@@ -10242,6 +10208,42 @@
           "granted_by"
         ],
         "title": "ShareOut"
+      },
+      "SharePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShareOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "per_page",
+          "pages"
+        ],
+        "title": "SharePage"
       },
       "ShareSubjectType": {
         "properties": {

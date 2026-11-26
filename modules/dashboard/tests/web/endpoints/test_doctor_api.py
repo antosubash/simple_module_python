@@ -67,3 +67,40 @@ async def test_pat_without_doctor_scope_is_refused(app):
     async with _bearer(app, token) as bc:
         assert (await bc.get(_DOCTOR)).status_code == 403
         assert (await bc.post(f"{_DOCTOR}/rerun")).status_code == 403
+
+
+async def test_rerun_invokes_the_runner_and_returns_its_finding(app):
+    from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
+
+    finding = Diagnostic(
+        level=DiagnosticLevel.WARNING,
+        code="SM018",
+        message="fixture finding",
+        module_name="Fixture",
+    )
+    calls: list[int] = []
+
+    def runner() -> list[Diagnostic]:
+        calls.append(1)
+        return [finding]
+
+    app.state.sm.diagnostics.runner = runner
+    data = await _admin_data(app)
+    token = await _pat(app, data, [Permissions.DOCTOR])
+    async with _bearer(app, token) as bc:
+        resp = await bc.post(f"{_DOCTOR}/rerun")
+    assert resp.status_code == 200, resp.text
+    assert calls == [1]
+    inertia = next(c for c in resp.json()["checks"] if c["id"] == "inertia")
+    assert inertia["status"] == "warn"
+    assert [f["message"] for f in inertia["findings"]] == ["fixture finding"]
+
+
+async def test_cookie_session_rerun_needs_csrf_token(app):
+    data = await _admin_data(app)
+    async with session_client(app, data) as client:
+        refused = await client.post(f"{_DOCTOR}/rerun")
+        assert refused.status_code == 403
+        assert "X-CSRF-Token" in refused.json()["detail"]
+        ok = await client.post(f"{_DOCTOR}/rerun", headers={"X-CSRF-Token": CSRF})
+        assert ok.status_code == 200, ok.text

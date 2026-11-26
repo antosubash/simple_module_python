@@ -121,19 +121,6 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** Page[ShareOut] */
-        Page_ShareOut_: {
-            /** Items */
-            items: unknown[];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Per Page */
-            per_page: number;
-            /** Pages */
-            pages: number;
-        };
         /** ShareCandidate */
         ShareCandidate: {
             /** Id */
@@ -207,6 +194,19 @@ export interface components {
             expired: boolean;
             /** Created At */
             created_at?: string | null;
+        };
+        /** SharePage */
+        SharePage: {
+            /** Items */
+            items: components["schemas"]["ShareOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+            /** Pages */
+            pages: number;
         };
         /** ShareSubjectType */
         ShareSubjectType: {
@@ -415,7 +415,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_ShareOut_"];
+                    "application/json": components["schemas"]["SharePage"];
                 };
             };
             /** @description Validation Error */

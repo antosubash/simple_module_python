@@ -4,6 +4,7 @@ from simple_module_core.access.permissions import PermissionCatalogue
 from simple_module_core.runtime.deprecation import deprecate
 
 PERM_GROUP = "Dashboard"
+DOCTOR_RERUN_RATE = "6/minute"
 
 
 class Permissions(PermissionCatalogue, group=PERM_GROUP, label_key="dashboard.permission_group"):

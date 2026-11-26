@@ -15,7 +15,7 @@
 - Tokens are opt-in per route through `token_guard` gate marks (`GATE_PERMISSION`, `GATE_ALLOW` via `TokenAllowed()`, `GATE_AUTHENTICATED`, `GATE_PAGE`, `GATE_SESSION`). Never weaken `gate_kinds_admit_tokens`.
 - A token principal is one with `scopes is not None` (`token_guard.is_token_principal`); `auth_kind` is `pat` or `service` (`api_tokens/credentials/resolver.py`).
 - Framework must not import modules (SM009). No magic strings (named constants / `PermissionCatalogue`). 300-line cap per file. ty clean. Area layout and `tests/<area>/` mirroring.
-- Each new API endpoint calls the same service/helper as its view route, with the same permission, has no `RequiresCsrf`, and has a token test (PAT with the scope → 2xx, without → 403).
+- Each new API endpoint calls the same service/helper as its view route, with the same permission, mutations keep `RequiresCsrf` (token principals skip it since Task 1), and has a token test (PAT with the scope → 2xx, without → 403).
 - New migration on the `audit_log` branch: `down_revision = "819d8c5714a5"`, no branch label; update `host/tests/test_migration_graph.py` heads if it pins `819d8c5714a5`.
 - After any route change: `make cli-schema` (refresh `host_cli/smdev_cli/openapi.json`) and `make gen-api-types` if a module with `pages/api.generated.ts` changed a response shape.
 - Tests: targeted `uv run pytest <path>` while iterating; no full suite inside tasks.
