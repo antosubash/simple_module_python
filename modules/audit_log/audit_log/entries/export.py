@@ -39,6 +39,10 @@ CSV_COLUMNS = (
     # file by position (a spreadsheet macro, ``cut -d,``) predate the column
     # and must keep finding ``changes`` where it always was.
     "tenant_id",
+    # How the change was made (``session``, ``pat``, ``service``) and which API
+    # token made it, so an export tells CLI changes from browser ones (#1242).
+    "auth_kind",
+    "token_id",
 )
 CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 CSV_FILENAME = "audit-log.csv"
@@ -102,6 +106,8 @@ def _row(entry: AuditEntryRead, *, entity_label: str, actor: str) -> list[str]:
             actor,
             format_changes(entry.changes),
             entry.tenant_id or "",
+            entry.auth_kind or "",
+            entry.token_id or "",
         )
     ]
 

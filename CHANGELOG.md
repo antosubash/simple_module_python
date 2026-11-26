@@ -68,6 +68,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Project CLI engine (#1241): a 403 that explains a refused action no longer suggests logging in again; the `schema sync` hint appears only for a missing route (404 `Not Found`, 405) or a 422 for a missing or unknown field; `--help` lists a command's JSON body fields (`*` = required); the schema fingerprint hashes content, so the bundled and live copies of one schema match; `login` makes its environment current when none is.
+- Audit log CSV export adds `auth_kind` and `token_id` columns after `tenant_id` (#1242).
 - Admin shell: improve primary text/button contrast, close the mobile drawer on Inertia navigation, reserve sidebar footer space, enlarge narrow/coarse touch targets, fit feature flags at tablet widths, wrap long user headings, use consistent section headings, and label search fields and the drawer toggle (#1184).
 
 - **Behaviour change:** ORM audit capture records `<computed by database>` as the new value of a field updated with a SQL expression (for example a `session_version` bump) instead of the SQL text, so such updates stay on record; expression-valued fields on create are omitted. Role-assignment audit labels show `role · user email` for readers with `users.manage`, and the audit UI shows the marker as translated text (#1172).

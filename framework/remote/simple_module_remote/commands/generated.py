@@ -7,6 +7,7 @@ from typing import Any
 import click
 
 from simple_module_remote.commands.runtime import state_of
+from simple_module_remote.generate.body import body_field_summary
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.pagination import pagination_style
 from simple_module_remote.generate.params import (
@@ -39,6 +40,13 @@ def operation_command(op: Operation, root: dict) -> click.Command:
     route = sanitize(f"{op.method} {op.path}")
     summary = sanitize(op.summary)
     text = sanitize(op.description) or summary
+    fields = body_field_summary(op.body_schema, root) if op.body_kind == "json" else []
+    if fields:
+        listed = ", ".join(
+            f"{sanitize(name)}{'*' if required else ''} ({sanitize(kind)})"
+            for name, kind, required in fields
+        )
+        text += f"\n\nBody fields for --set (* required): {listed}"
     if not success_is_json(op, root):
         text += "\n\nThe response is not JSON: redirect stdout or use --out FILE."
     return click.Command(

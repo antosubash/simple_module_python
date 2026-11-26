@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 
 import click
 
@@ -38,8 +39,14 @@ HTTP_NOT_FOUND = 404
 _UNITS = ((86400, "d"), (3600, "h"), (60, "m"))
 
 
-def schema_fingerprint(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()[:FINGERPRINT_CHARS]
+def schema_fingerprint(root: dict) -> str:
+    """Hash of the document's content, not its bytes.
+
+    The same schema exported by ``smpy openapi export`` and served live differs in
+    whitespace and key order; both must show the same fingerprint (#1241).
+    """
+    canonical = json.dumps(root, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:FINGERPRINT_CHARS]
 
 
 def schema_info(root: dict) -> str:
@@ -70,12 +77,7 @@ def status(ctx: click.Context) -> None:
     click.echo(f"source:      {state.schema_source}")
     click.echo(f"path:        {state.schema_path}")
     click.echo(f"version:     {schema_info(state.root)}")
-    fingerprint = (
-        meta.fingerprint[:FINGERPRINT_CHARS]
-        if meta is not None
-        else schema_fingerprint(state.schema_path.read_bytes())
-    )
-    click.echo(f"fingerprint: {fingerprint}")
+    click.echo(f"fingerprint: {schema_fingerprint(state.root)}")
     if state.schema_source == SCHEMA_LIVE and meta is not None:
         click.echo(f"age:         {format_age(meta.age_seconds())} (fetched {meta.fetched_at})")
     elif state.schema_note:
@@ -125,13 +127,15 @@ def _sync(state: AppState, env: Environment, explicit: bool) -> str:
                 current = _cached_meta(store, env)
                 if current is None or current.fingerprint != previous.fingerprint:
                     raise SchemaCacheError("the cache changed during the sync; run it again")
-                meta = touch_in(store, previous)
-                return f"unchanged ({meta.fingerprint[:FINGERPRINT_CHARS]})"
+                touch_in(store, previous)
+                cached = load_from(store, env.name, env.url, env.origin)
+                shown = schema_fingerprint(cached.root) if cached else previous.fingerprint
+                return f"unchanged ({shown[:FINGERPRINT_CHARS]})"
             if fetched.status != HTTP_OK:
                 raise _refusal(state, env, fetched.status)
-            vet_schema(fetched.data, client)
-        meta = write_to(store, env.url, env.origin, fetched.data, fetched.etag)
-    return f"updated ({meta.fingerprint[:FINGERPRINT_CHARS]})"
+            root = vet_schema(fetched.data, client)
+        write_to(store, env.url, env.origin, fetched.data, fetched.etag)
+    return f"updated ({schema_fingerprint(root)})"
 
 
 @schema_group.command("sync", help=f"Fetch and cache the environment's schema ({OPENAPI_PATH}).")
