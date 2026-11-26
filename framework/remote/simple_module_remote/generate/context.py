@@ -30,5 +30,7 @@ class RunContext:
     interactive: bool = False
     login_hint: str = ""
     tenant: str | None = None
+    # The operation is known to refuse tokens (a session-only route reached through `api`).
+    session_only: bool = False
     # Strips the active token from server-derived text before it is shown (set per request).
     redact: Callable[[str], str] = _keep

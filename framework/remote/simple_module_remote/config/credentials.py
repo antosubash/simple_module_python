@@ -133,7 +133,10 @@ class CredentialStore:
             finally:
                 self._lock_depth -= 1
             return
-        fd = open_service_lock(self._service)
+        try:
+            fd = open_service_lock(self._service)
+        except FileStoreError as exc:
+            raise CredentialError(str(exc)) from None
         self._lock_depth += 1
         try:
             yield

@@ -30,14 +30,3 @@ def test_unknown_column_error_is_sanitised_and_redacted(execute_harness, make_op
     with pytest.raises(click.ClickException) as info:
         h.run(make_op(), output="table", columns="nope")
     assert TOKEN not in info.value.message and "‮" not in info.value.message
-
-
-def test_real_guard_refusal_text_is_a_session_only_hint(execute_harness, make_op):
-    detail = (
-        "API tokens cannot be used on this route. Use a signed-in session, or a route "
-        "gated by a permission the token is scoped to."
-    )
-    h = execute_harness(lambda r: httpx.Response(403, json={"detail": detail}))
-    h.ctx.login_hint = "smdev login --token"
-    assert h.run(make_op()) == 4
-    assert "--session-only" in h.err.getvalue() and "lacks the permission" not in h.err.getvalue()

@@ -63,7 +63,8 @@ def _synthetic(
         description="",
         safe=bool(matched) and all(op.safe for op in matched),
         confirm=any(op.confirm for op in matched),
-        token_capable=True,
+        # A path that only session-only schema operations match gets the session-only hint.
+        token_capable=not (matched and not any(op.token_capable for op in matched)),
     )
 
 

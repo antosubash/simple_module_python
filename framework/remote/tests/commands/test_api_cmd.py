@@ -172,3 +172,14 @@ def test_missing_body_file_names_file_and_reason(make_cli, logged_in, flag):
     result = runner.invoke(cli, ["file-storage", "put-raw", flag, "/nonexistent/part.bin", "--yes"])
     assert "/nonexistent/part.bin" in result.output and "no such file or directory" in result.output
     assert "FileNotFoundError" not in result.output
+
+
+def test_api_on_a_session_only_route_gives_the_session_hint_whatever_the_wording(
+    make_cli, logged_in
+):
+    cli = make_cli(lambda r: httpx.Response(403, json={"detail": "Permission required: x.y"}))
+    runner = logged_in(cli)
+    result = runner.invoke(cli, ["api", "GET", "/api/session"])  # a session-only schema route
+    assert result.exit_code == 4 and "--session-only" in result.output
+    other = runner.invoke(cli, ["api", "GET", "/api/unknown"])
+    assert "--session-only" not in other.output  # unmatched paths keep the wording rules

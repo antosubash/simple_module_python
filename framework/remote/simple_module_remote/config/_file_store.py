@@ -21,8 +21,11 @@ PIN_FIELDS = ("tenant_id", "tenant_slug")  # optional: the tenant the token was 
 LOOSE_MODE_MASK = 0o077
 
 
-def _lock_exclusive(fd: int) -> None:
-    """Block until ``fd`` holds an exclusive advisory lock.
+_LOCK_FAILED = "cannot lock the credential store"
+
+
+def _lock_exclusive(fd: int) -> bool:
+    """Block until ``fd`` holds an exclusive advisory lock; ``False`` when nothing can lock.
 
     ``fcntl`` is POSIX-only; where it is missing (Windows) updates are not serialized
     across processes, which is the documented fallback.
@@ -30,23 +33,36 @@ def _lock_exclusive(fd: int) -> None:
     try:
         import fcntl
     except ImportError:
-        return
+        return False
     fcntl.flock(fd, fcntl.LOCK_EX)
+    return True
 
 
 def open_service_lock(service: str) -> int | None:
-    """Open and exclusively lock the per-service keyring lock file; ``None`` without fcntl."""
+    """Open and exclusively lock the per-service keyring lock file.
+
+    ``None`` where locking is unavailable (no ``fcntl``). Where it is available, failing to
+    take the lock raises :class:`FileStoreError`: the caller must not write unserialised.
+    """
     try:
-        import fcntl
+        import fcntl  # noqa: F401  (only to know whether locking exists here)
     except ImportError:
         return None
     directory = config_dir(service)
     try:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         fd = os.open(directory / KEYRING_LOCK, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-        fcntl.flock(fd, fcntl.LOCK_EX)
-    except OSError:
-        return None  # an unwritable config dir must not block a login; best effort
+    except OSError as exc:
+        raise FileStoreError(
+            f"cannot lock the credential store: {exc.__class__.__name__}"
+        ) from None
+    try:
+        _lock_exclusive(fd)
+    except OSError as exc:
+        os.close(fd)
+        raise FileStoreError(
+            f"cannot lock the credential store: {exc.__class__.__name__}"
+        ) from None
     return fd
 
 

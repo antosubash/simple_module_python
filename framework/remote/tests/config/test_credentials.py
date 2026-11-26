@@ -84,8 +84,14 @@ def test_keyring_path_stores_json(
     assert store.get("prod") == StoredCredential(SECRET, ENV.origin)
     assert store.delete("prod") is True
     assert store.delete("prod") is False
-    # Only the (secret-free) lock file may appear: no credentials file for a keyring.
-    assert [p.name for p in (tmp_path / CLI).iterdir()] == ["keyring.lock"]
+    # No credentials file for a keyring; only the secret-free lock file, and only where
+    # fcntl exists (elsewhere locking is a documented no-op and nothing is created).
+    try:
+        import fcntl  # noqa: F401
+    except ImportError:
+        assert not (tmp_path / CLI).exists()
+    else:
+        assert [p.name for p in (tmp_path / CLI).iterdir()] == ["keyring.lock"]
 
 
 def test_origin_mismatch_refuses(store: CredentialStore) -> None:

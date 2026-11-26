@@ -278,6 +278,11 @@ def test_informational_status_is_a_failure_not_success(make_op):
     ("detail", "expect"),
     [
         ("API tokens can only be managed from a signed-in browser session", "--session-only"),
+        (  # the framework guard's real wording also names a permission and scopes
+            "API tokens cannot be used on this route. Use a signed-in session, or a route "
+            "gated by a permission the token is scoped to.",
+            "--session-only",
+        ),
         ("Permission required: sessions.view", "permission"),
         ("Permission required: file_storage.download", "permission"),
     ],

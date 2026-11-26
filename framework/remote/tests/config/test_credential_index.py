@@ -1,5 +1,6 @@
 import contextlib
 import json
+import os
 import threading
 
 import keyring.errors
@@ -56,6 +57,7 @@ def test_env_remove_prints_the_incomplete_removal_note_for_a_keyring(make_cli, k
 
 def test_a_second_store_waits_for_the_first_to_finish(keyring_store):
     """Two stores (standing in for two processes) on one backend are serialised."""
+    pytest.importorskip("fcntl")
     a = CredentialStore(CLI, backend=keyring_store)
     b = CredentialStore(CLI, backend=keyring_store)
     real_set = keyring_store.set_password
@@ -106,3 +108,17 @@ def test_env_remove_keeps_the_env_when_a_keyring_delete_fails(make_cli, keyring_
     result = runner.invoke(cli, ["env", "remove", "dev"])
     assert result.exit_code == 1 and "could not delete the stored login(s): dev" in result.output
     assert "dev" in runner.invoke(cli, ["env", "list"]).output  # kept: a retry is possible
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permissions")
+def test_an_unobtainable_lock_fails_closed(keyring_store, tmp_path):
+    pytest.importorskip("fcntl")
+    config = tmp_path / "config" / CLI
+    config.mkdir(parents=True)
+    config.chmod(0o500)  # the lock file cannot be created
+    try:
+        with pytest.raises(CredentialError, match="cannot lock"):
+            CredentialStore(CLI, backend=keyring_store).put("dev", StoredCredential("t", ORIGIN))
+    finally:
+        config.chmod(0o700)
+    assert keyring_store.creds == {}  # nothing was written unserialised

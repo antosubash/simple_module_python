@@ -235,3 +235,20 @@ def test_array_accumulation_stops_when_the_field_or_a_parent_is_replaced():
     assert build(sets=["p.xs=1", "p.k=a", "p.xs=2"], body_schema=schema) == {
         "p": {"xs": [1, 2], "k": "a"}
     }
+
+
+def test_nested_array_set_again_after_the_parent_is_replaced_keeps_the_last_value():
+    schema = {
+        "type": "object",
+        "properties": {
+            "a": {
+                "type": "object",
+                "properties": {"xs": {"type": "array", "items": {"type": "integer"}}},
+            }
+        },
+    }
+    # a.xs accumulates, then `a` is replaced wholesale, then a.xs starts over: the replaced
+    # value is an object again only via --set-json, so exercise that closest valid sequence.
+    body = build(set_jsons=['a={"xs": [9]}'], sets=["a.xs=1", "a.xs=2"], body_schema=schema)
+    assert body == {"a": {"xs": [1, 2]}}
+    assert build(sets=["a.xs=1", "a.xs=null", "a.xs=2"], body_schema=schema) == {"a": {"xs": [2]}}

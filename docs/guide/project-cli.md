@@ -66,7 +66,9 @@ uv run smdev whoami
 ```
 
 The token is verified against `GET /api/_meta/whoami` before anything is stored.
-It goes to the OS keyring, or to a `0600` file when none exists, and is bound to
+It goes to the OS keyring (guarded by a `keyring.lock` lock file with no secrets in
+the config directory, so concurrent logins do not lose entries), or to a `0600`
+file when none exists, and is bound to
 the environment's origin: if you later edit the environment URL, the stored
 token is refused and nothing is sent until you log in again. A token never
 travels in a URL, never follows a redirect to another origin, and is never
@@ -85,7 +87,9 @@ A token pinned to a tenant works for that tenant. `--tenant` takes the tenant's
 slug or its id (`whoami` shows both as `slug (id)`); use a separate `login` per
 tenant. The stored login remembers the tenant its token is pinned to and is
 refused for any other, banners read `[env/tenant]`, and `login`/`logout` name
-the environment and tenant they acted on. `env remove <name>` also deletes every
+the environment and tenant they acted on. Tenant ids and slugs the server reports
+must be short printable words without spaces or the token, or the identity is
+rejected. `env remove <name>` also deletes every
 stored login of that environment.
 
 ## Generated commands
@@ -111,7 +115,8 @@ every command (`--yes` only matters on a protected environment); body flags exis
 only on commands with a body: `--json`, `--file` (body, `-` for
 stdin), `--set key=value`, `--set-json key=<json>` (NaN, Infinity and numbers that overflow, like `1e999`, are
 refused); `--dry-run` prints the request and sends nothing. A body that is required but has only
-optional fields is sent as `{}` when no body flag is given. `-o id` and `-q`
+optional fields is sent as `{}` when no body flag is given, and a required raw body
+needs `--body-file`. `-o id` and `-q`
 print `id`, else `name`, `key`, `slug` or `email`, and fail with a hint to use
 `-o json` when a row has none (or the value holds control characters). Path
 arguments may not be empty. A non-JSON response (a download) is streamed to a
@@ -156,14 +161,12 @@ mutation is always confirmed. Re-running `env add` for an existing environment
 changes only the flags you pass (`--protected`/`--no-protected`, `--tenant`);
 `--url` is required only for a new environment. `env remove` of a name that a
 project default also defines resets it to the default. It deletes the
-environment's stored logins first; if the keyring refuses one, the environment is
-kept and the command fails so you can retry. A keyring cannot be listed, so
-logins for tenants the CLI never recorded may remain (the command says so);
-`logout` with `--tenant` removes one. A keyring login also takes a lock file
-(`keyring.lock`, no secrets) in the config directory so concurrent logins do not lose
-entries. A required raw body needs `--body-file`. Tenant ids and slugs the server
-reports must be short printable words without spaces or the token. Changing the URL or tenant warns
-that the stored login may no longer apply.
+environment's stored logins first and lists the keys it removed; if the keyring
+refuses one, the environment is kept and the command fails so you can retry. On a
+keyring (which cannot be listed) logins for tenants the CLI never recorded may remain
+and the command says so;
+`logout` with `--tenant` removes one. Changing the URL or tenant warns that the
+stored login may no longer apply.
 
 ## CI
 

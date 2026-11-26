@@ -128,7 +128,7 @@ def _auth_hint(ctx: RunContext, text: str) -> None:
         msg = (
             f"hint: the server needs a tenant: {shown}; pass --tenant or use a token pinned to one"
         )
-    elif _SESSION_ONLY.search(lowered):
+    elif ctx.session_only or _SESSION_ONLY.search(lowered):
         cli = ctx.login_hint.split()[0] if ctx.login_hint else "the CLI"
         msg = f"hint: tokens cannot call this route; `{cli} api --session-only` lists such routes"
     elif "permission" in lowered or "scope" in lowered:
