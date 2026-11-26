@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 from auth.oidc_common.session import pkce_challenge
 
 from users.oauth.identity import OAuthIdentity, text_or_none
+from users.oauth.oidc_retry import OidcDiscovery
 
 if TYPE_CHECKING:
     from httpx_oauth.oauth2 import BaseOAuth2
@@ -31,7 +32,7 @@ class OAuthProvider(NamedTuple):
 
     name: str
     display_name: str
-    client: BaseOAuth2
+    client: BaseOAuth2 | OidcDiscovery
     # Microsoft only: the operator trusts member UPNs of the pinned tenant (#873).
     trust_email: bool = False
     # Addresses on these domains count as proof for this provider (#878).
@@ -42,11 +43,18 @@ class OAuthProvider(NamedTuple):
         """Whether a login carries a PKCE verifier and an OIDC nonce (#876)."""
         return getattr(self.client, "uses_pkce", False) is True
 
+    async def resolve_client(self) -> BaseOAuth2:
+        """Discover a previously unavailable OIDC client, or reuse the built client."""
+        if isinstance(self.client, OidcDiscovery):
+            return await self.client.resolve()
+        return self.client
+
     async def authorization_url(self, callback: str, state: str, login: LoginSecrets | None) -> str:
         """The IdP URL to send the browser to, bound to this login's secrets."""
+        client = await self.resolve_client()
         if login is None:
-            return await self.client.get_authorization_url(callback, state)
-        return await self.client.get_authorization_url(
+            return await client.get_authorization_url(callback, state)
+        return await client.get_authorization_url(
             callback,
             state,
             code_challenge=pkce_challenge(login["verifier"]),
@@ -58,9 +66,10 @@ class OAuthProvider(NamedTuple):
         self, code: str, callback: str, login: LoginSecrets | None
     ) -> dict[str, Any]:
         """The token endpoint's response for this authorization code."""
+        client = await self.resolve_client()
         if login is None:
-            return await self.client.get_access_token(code, callback)
-        return await self.client.get_access_token(code, callback, code_verifier=login["verifier"])
+            return await client.get_access_token(code, callback)
+        return await client.get_access_token(code, callback, code_verifier=login["verifier"])
 
     async def get_identity(
         self, token: dict[str, Any], login: LoginSecrets | None = None
@@ -74,7 +83,8 @@ class OAuthProvider(NamedTuple):
         domains counts as proof too (#878).
         """
         if self.uses_pkce:
-            return await self.client.identity(
+            client = await self.resolve_client()
+            return await client.identity(
                 token,
                 login["nonce"] if login else None,
                 trust_email=self.trust_email,
@@ -84,8 +94,9 @@ class OAuthProvider(NamedTuple):
         return identity.trusting(self.trusted_domains)
 
     async def _profile_identity(self, access_token: str) -> OAuthIdentity:
+        client = await self.resolve_client()
         if self.name == "oidc":
-            profile = await self.client.get_profile(access_token)
+            profile = await client.get_profile(access_token)
             return OAuthIdentity(
                 str(profile["sub"]),
                 profile.get("email"),
@@ -96,16 +107,16 @@ class OAuthProvider(NamedTuple):
                 domain_trust_allowed=profile.get("email_verified") is not False,
             )
         if self.name == "google":
-            return _google_identity(await self.client.get_profile(access_token))
+            return _google_identity(await client.get_profile(access_token))
         if self.name != "github":
-            account_id, email = await self.client.get_id_email(access_token)
+            account_id, email = await client.get_id_email(access_token)
             return OAuthIdentity(account_id, email, False)
         # One /user request: ``get_id_email`` would fetch it again internally.
-        profile = await self.client.get_profile(access_token)
+        profile = await client.get_profile(access_token)
         account_id, email = str(profile["id"]), profile.get("email")
         if email is None:  # no public email: get_id_email falls back to /user/emails
-            account_id, email = await self.client.get_id_email(access_token)
-        verified = email is not None and await _github_verified(self.client, access_token, email)
+            account_id, email = await client.get_id_email(access_token)
+        verified = email is not None and await _github_verified(client, access_token, email)
         return OAuthIdentity(
             account_id,
             email,
