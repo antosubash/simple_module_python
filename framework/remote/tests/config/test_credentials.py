@@ -94,7 +94,7 @@ def test_origin_mismatch_refuses(store: CredentialStore) -> None:
     store.put("prod", StoredCredential(SECRET, "https://old.example.com"))
     with pytest.raises(CredentialError) as err:
         resolve_token(store, ENV, None, {}, CLI, explicit=False)
-    assert "smdev login --env prod" in str(err.value)
+    assert "smdev --env prod login" in str(err.value)
     assert SECRET not in str(err.value)
 
 
@@ -123,10 +123,10 @@ def test_env_prefix_for_dashed_cli(store: CredentialStore) -> None:
 def test_missing_names_login_command(store: CredentialStore) -> None:
     with pytest.raises(CredentialError) as err:
         resolve_token(store, ENV, "acme", {}, CLI, explicit=False)
-    assert "smdev login --env prod --tenant acme" in str(err.value)
+    assert "smdev --env prod --tenant acme login" in str(err.value)
     with pytest.raises(CredentialError) as err2:
         resolve_token(store, ENV, None, {}, CLI, explicit=False)
-    assert "smdev login --env prod`" in str(err2.value)
+    assert "smdev --env prod login`" in str(err2.value)
     assert "--tenant" not in str(err2.value)
 
 

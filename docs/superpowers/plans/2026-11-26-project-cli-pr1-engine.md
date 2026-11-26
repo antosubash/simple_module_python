@@ -60,17 +60,25 @@
 # test_openapi_token_flag.py
 async def test_operations_carry_token_flag(app):
     schema = app.openapi()
-    flags = {op["operationId"]: op["x-sm-token"]
-             for item in schema["paths"].values() for op in item.values() if isinstance(op, dict)}
+    flags = {
+        op["operationId"]: op["x-sm-token"]
+        for item in schema["paths"].values()
+        for op in item.values()
+        if isinstance(op, dict)
+    }
     assert flags["meta_whoami"] is True
-    assert flags["tenants_list_mine"] is False          # Authenticated() only, today
-    assert flags["users_list_users"] is True            # RequiresPermission
+    assert flags["tenants_list_mine"] is False  # Authenticated() only, today
+    assert flags["users_list_users"] is True  # RequiresPermission
     assert all(isinstance(v, bool) for v in flags.values())
+
 
 # test_whoami.py
 async def test_whoami_session(authenticated_client):
     body = (await authenticated_client.get("/api/_meta/whoami")).json()
-    assert body["email"] == "admin@test" and body["auth_kind"] == "session" and body["scopes"] is None
+    assert (
+        body["email"] == "admin@test" and body["auth_kind"] == "session" and body["scopes"] is None
+    )
+
 
 async def test_whoami_anonymous_401(client):
     assert (await client.get("/api/_meta/whoami")).status_code == 401

@@ -31,7 +31,7 @@ class _LoginCommand(click.Command):
         except click.UsageError:
             raise CliError(
                 "login takes no arguments and no token value: use --token (hidden prompt) "
-                "or --token-stdin"
+                "or --token-stdin (--env and --tenant go before the word login)"
             ) from None
 
 

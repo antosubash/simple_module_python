@@ -10,6 +10,7 @@ members = [
     "framework/*",
     "modules/*",
     "host",
+    "host_cli",
 ]
 
 [dependency-groups]

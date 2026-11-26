@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `simple_module_remote`: a client-only engine that generates a project CLI (environments, origin-bound credentials, guarded HTTP, generated commands) from an OpenAPI schema, and `smdev` (`host_cli/`), the dev host's CLI built on it with a bundled schema (`make cli-schema`, checked by `make ci-cli-schema-fresh`). See `docs/guide/project-cli.md` and `docs/framework/remote-cli.md`.
 - Hosting adds `x-sm-token` to each published OpenAPI operation and `GET /api/_meta/whoami` for signed-in callers, including API tokens.
 
 - Core audit-link registry: `AuditLink.for_model(..., user_id_field=...)` declares linked user ownership for target-user filtering; the link retains its model for live ownership lookups (#1166).

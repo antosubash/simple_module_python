@@ -14,6 +14,12 @@ It never imports the server framework: it talks to a running app over HTTP only.
 - Request safety rules: only `/api/` paths, no credentials in URLs, plain
   `http://` refused except for loopback hosts.
 
+- `build_cli(name, schema_path, defaults_path)`: a `click` group with `env`,
+  `login`, `logout`, `whoami`, `doctor`, `schema`, `api`, `raw` and one group per
+  OpenAPI tag, generated from operations marked `x-sm-token`.
+
+See `docs/framework/remote-cli.md` and `docs/guide/project-cli.md`.
+
 ## Install
 
 ```bash
@@ -27,9 +33,12 @@ entry point, naming the CLI so that config lives in `~/.config/<cli>/` and
 environment variables use the `<CLI>_` prefix.
 
 ```python
-from simple_module_remote.config.environments import load_config, select_env
+from pathlib import Path
 
-config = load_config("my-app", defaults_path=None)
-env, explicit = select_env(config, flag=None, environ={}, cli="my-app")
-print(env.origin)
+from simple_module_remote import build_cli
+
+main = build_cli("my-app", Path("openapi.json"), None, version="1.0")
+
+if __name__ == "__main__":
+    main()
 ```

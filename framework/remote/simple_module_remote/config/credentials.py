@@ -127,8 +127,10 @@ class CredentialStore:
 
 
 def _login_hint(cli: str, env: Environment, tenant: str | None) -> str:
-    hint = f"{cli} login --env {env.name}"
-    return f"{hint} --tenant {tenant}" if tenant else hint
+    # Root options (--env, --tenant) come before the subcommand.
+    hint = f"{cli} --env {env.name}"
+    hint = f"{hint} --tenant {tenant}" if tenant else hint
+    return f"{hint} login"
 
 
 def resolve_token(

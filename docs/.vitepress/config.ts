@@ -95,6 +95,7 @@ export default defineConfig({
             { text: "Upgrading a host", link: "/guide/upgrading" },
             { text: "Your first module", link: "/guide/first-module" },
             { text: "OpenAPI & clients", link: "/guide/openapi-clients" },
+            { text: "Project CLI (smdev)", link: "/guide/project-cli" },
           ],
         },
         {
@@ -139,6 +140,7 @@ export default defineConfig({
             { text: "Multi-tenancy", link: "/framework/multi-tenancy" },
             { text: "Internationalization", link: "/framework/i18n" },
             { text: "Retained logging", link: "/framework/logging" },
+            { text: "Remote CLI engine", link: "/framework/remote-cli" },
           ],
         },
       ],
