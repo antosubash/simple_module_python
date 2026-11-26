@@ -109,7 +109,7 @@ export function ModuleFieldRow({
       data-testid={`row-${id}`}
       data-modified={modified || undefined}
       className={`grid grid-cols-1 gap-x-8 gap-y-3 px-4 py-4 transition-colors @lg:px-6 ${
-        switchRow ? '' : '@2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]'
+        switchRow ? '' : '@xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]'
       } ${modified ? 'bg-amber-50/70 dark:bg-amber-400/5' : ''}`}
     >
       <div className="flex min-w-0 items-start gap-4">
@@ -152,7 +152,7 @@ export function ModuleFieldRow({
           role="alert"
           data-testid={`field-error-${field.name}`}
           className={`min-w-0 [overflow-wrap:anywhere] text-xs text-destructive ${
-            switchRow ? '' : '@2xl:col-start-2'
+            switchRow ? '' : '@xl:col-start-2'
           }`}
         >
           {error}

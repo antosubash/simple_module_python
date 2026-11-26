@@ -48,14 +48,14 @@ test('rows bound their tracks and wrap identifiers without viewport breakpoints'
     />,
   );
   const row = container.firstElementChild;
-  expect(row).toHaveClass('grid-cols-1', '@2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]');
+  expect(row).toHaveClass('grid-cols-1', '@xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]');
   expect(row?.className).not.toMatch(/(?:^|\s)(?:sm|md|lg|xl):/);
   // The label is humanised, never the raw identifier, and still wraps.
   const label = screen.getByText('Very long underscore separated setting name');
   expect(label).toHaveClass('[overflow-wrap:anywhere]');
   expect(label).toHaveAttribute('title', field.name);
   expect(screen.queryByText(field.env_var)).not.toBeInTheDocument();
-  expect(screen.getByText('Invalid setting')).toHaveClass('@2xl:col-start-2');
+  expect(screen.getByText('Invalid setting')).toHaveClass('@xl:col-start-2');
 });
 
 test('an env-supplied field names its env var and lets it wrap', () => {

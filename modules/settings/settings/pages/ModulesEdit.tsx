@@ -75,11 +75,17 @@ function ModulesEdit({ modules, testable = {} }: Props) {
       Object.fromEntries(visible.map((m) => [m.package, settingsText(m.package, lookup).title()])),
     [visible, lookup],
   );
+  // Listed by what the reader sees, not by package name.
+  const sorted = useMemo(
+    () =>
+      [...visible].sort((a, b) => (titles[a.package] ?? '').localeCompare(titles[b.package] ?? '')),
+    [visible, titles],
+  );
   const filtered = useMemo(() => {
-    if (!q) return visible;
+    if (!q) return sorted;
     const query = q.toLowerCase();
     const hit = (s: string) => s.toLowerCase().includes(query);
-    return visible.filter((m) => {
+    return sorted.filter((m) => {
       const text = settingsText(m.package, lookup);
       return (
         hit(titles[m.package] ?? '') ||
@@ -87,7 +93,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
         m.fields.some((f) => hit(f.name) || hit(text.label(f)))
       );
     });
-  }, [visible, q, lookup, titles]);
+  }, [sorted, q, lookup, titles]);
 
   function pick(pkg: string, from: HTMLElement | null) {
     if (pkg === selected) return;
@@ -112,7 +118,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           390px screen never scrolls sideways. */}
       <div className="flex flex-col bg-background lg:min-h-[calc(100vh-var(--app-chrome-h))] lg:flex-row">
         <ModuleNav
-          modules={visible}
+          modules={sorted}
           filtered={filtered}
           titles={titles}
           selected={selected}
