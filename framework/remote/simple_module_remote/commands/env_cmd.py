@@ -75,6 +75,7 @@ def add_env(
             validate_tenant(tenant)
     config = state.config()
     existing = config.envs.get(name)
+    url_given = url is not None
     if url is None:
         if existing is None:
             raise CliError(f"--url is required to add the new environment {name!r}")
@@ -84,7 +85,8 @@ def add_env(
     )
     # Only what was passed changes; the rest comes from the existing (or default) environment.
     overrides = dict(config.overrides.get(name, {}))
-    overrides["url"] = url
+    if url_given or existing is None:  # an inherited url stays inherited, not copied
+        overrides["url"] = url
     if tenant is not None:
         overrides["tenant"] = tenant
     if protected is not None:

@@ -97,7 +97,11 @@ def _build(name: str, table: dict[str, object], base: Environment | None) -> Env
     protected = table.get("protected", base.protected if base else False)
     if not isinstance(protected, bool):
         raise ConfigError(f"environment {name!r}: 'protected' must be true or false")
-    return Environment(name=name, url=normalize_url(url), tenant=tenant, protected=protected)
+    try:
+        checked = validate_base_url(url)  # the string as written, before normalising strips parts
+    except UnsafePathError as exc:
+        raise ConfigError(f"environment {name!r}: {exc}") from None
+    return Environment(name=name, url=normalize_url(checked), tenant=tenant, protected=protected)
 
 
 def user_config_path(cli: str) -> Path:

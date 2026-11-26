@@ -122,5 +122,7 @@ def prepare_request(
                 f"--body-file: cannot read {values['body_file']}: {os_reason(exc)}"
             ) from None
         prep.headers["Content-Type"] = values.get("content_type") or DEFAULT_CONTENT_TYPE
+    elif op.body_kind == "raw" and op.body_required:
+        raise click.UsageError("this command needs a request body: pass --body-file FILE")
     validate_api_path(prep.path)
     return prep

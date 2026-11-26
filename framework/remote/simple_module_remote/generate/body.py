@@ -86,7 +86,10 @@ def _coerce(raw: str, key: str, schema: dict | None, root: dict) -> object:
     except ValueError:
         raise BodyError(f"--set {key}: expected {kind}, got {raw!r}") from None
     if kind == "array":
-        return [raw]  # one element; use --set-json for several
+        # One element, coerced by the items schema; repeat --set to add more (or --set-json).
+        items = unwrap_nullable(root, schema).get("items") if schema else None
+        element = resolve_ref(root, items) if isinstance(items, dict) else None
+        return [_coerce(raw, key, element, root)]
     if kind == "boolean":
         lowered = raw.strip().lower()
         if lowered in _TRUE:
@@ -95,6 +98,13 @@ def _coerce(raw: str, key: str, schema: dict | None, root: dict) -> object:
             return False
         raise BodyError(f"--set {key}: expected boolean (true/false), got {raw!r}")
     return raw
+
+
+def _existing(body: dict, key: str) -> list:
+    node: object = body
+    for part in key.split("."):
+        node = node[part] if isinstance(node, dict) else {}
+    return node if isinstance(node, list) else []
 
 
 def _assign(target: dict, key: str, value: object, flag: str) -> None:
@@ -156,10 +166,17 @@ def build_json_body(
         for item in set_jsons:
             key, raw = split_pair(item, "--set-json", BodyError)
             _assign(body, key, _parse_json(raw, f"--set-json {key}"), "--set-json")
+        arrays: set[str] = set()
         for item in sets:
             key, raw = split_pair(item, "--set", BodyError)
             schema = _property_schema(root, body_schema, key.split("."))
-            _assign(body, key, _set_value(raw, key, stdin, schema, root), "--set")
+            value = _set_value(raw, key, stdin, schema, root)
+            if _type_of(schema, root) == "array" and isinstance(value, list):
+                if key in arrays:
+                    _existing(body, key).extend(value)  # a repeated --set adds an element
+                    continue
+                arrays.add(key)
+            _assign(body, key, value, "--set")
     return body
 
 

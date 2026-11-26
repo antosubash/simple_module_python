@@ -206,3 +206,14 @@ def test_overflowing_number_literals_are_rejected(literal, tmp_path):
         build(file_arg=str(f))
     with pytest.raises(BodyError, match="--set ratio"):
         build(sets=[f"ratio={literal.strip('[]')}"])
+
+
+def test_repeated_set_on_an_array_field_accumulates_coerced_elements():
+    schema = {
+        "type": "object",
+        "properties": {"ids": {"type": "array", "items": {"type": "integer"}}},
+    }
+    assert build(sets=["ids=1", "ids=2", "ids=3"], body_schema=schema) == {"ids": [1, 2, 3]}
+    assert build(sets=["ids=7"], body_schema=schema) == {"ids": [7]}
+    with pytest.raises(BodyError, match="expected integer"):
+        build(sets=["ids=x"], body_schema=schema)

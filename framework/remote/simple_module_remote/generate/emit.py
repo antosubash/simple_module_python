@@ -229,6 +229,9 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
     if response.status_code == 204:
         say(ctx, "done (204 No Content)")
         return 0
+    non_json = has_type(response) and not is_json(response)
+    if non_json and not out:
+        _refuse_render_flags(values)
     if is_binary(response) and not out:
         if ctx.is_tty or not _write_stdout_bytes(ctx, response):
             kind = response.headers.get("Content-Type", "binary")
@@ -239,9 +242,6 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
         _write_file(response, out)
         say(ctx, f"wrote {out}")
         return 0
-    non_json = has_type(response) and not is_json(response)
-    if non_json:
-        _refuse_render_flags(values)
     streamable = not ctx.is_tty and non_json
     # A pipe gets a non-JSON body chunk by chunk; a terminal needs it sanitized instead.
     if streamable and _write_stdout_bytes(ctx, response):
@@ -256,6 +256,7 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
     try:
         data: Any = json.loads(body)
     except ValueError:
+        _refuse_render_flags(values)  # identifiers/columns cannot come from a body that is not JSON
         text = body.decode(response.charset_encoding or "utf-8", errors="replace")
         ctx.stdout.write(sanitize_for(ctx.stdout, text))
         return 0

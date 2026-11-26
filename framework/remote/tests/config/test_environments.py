@@ -153,3 +153,26 @@ def test_url_variable_obeys_the_origin_rules(url: str) -> None:
 def test_unknown_env_hint_mentions_the_url_variable() -> None:
     with pytest.raises(ConfigError, match="SMDEV_URL"):
         select_env(Config(), "nope", {}, CLI)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:pw@app.example",
+        "https://app.example/?a=1",
+        "https://app.example/#f",
+        "http://app.example",
+    ],
+)
+@pytest.mark.parametrize("where", ["user", "defaults"])
+def test_config_urls_are_validated_before_being_normalised(
+    xdg: Path, tmp_path: Path, url: str, where: str
+) -> None:
+    text = f'[env.prod]\nurl = "{url}"\n'
+    if where == "user":
+        _write(xdg / "config.toml", text)
+        defaults = None
+    else:
+        defaults = _write(tmp_path / "defaults.toml", text)
+    with pytest.raises(ConfigError, match="prod"):
+        load_config(CLI, defaults)

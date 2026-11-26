@@ -208,3 +208,15 @@ def test_remove_says_reset_for_a_project_default_and_warns_about_current(make_cl
     result = runner.invoke(cli, ["env", "remove", "local"])
     assert "reset environment local to the project default" in result.output
     assert "no environment is selected now" in result.output
+
+
+def test_flag_only_update_of_a_bundled_env_does_not_copy_its_url(make_cli, tmp_path, xdg_config):
+    defaults = tmp_path / "defaults.toml"
+    defaults.write_text('[env.local]\nurl = "http://localhost:8000"\n')
+    cli = make_cli()
+    cli.context_settings["obj"].defaults_path = defaults
+    result = CliRunner().invoke(cli, ["env", "add", "local", "--protected"])
+    assert result.exit_code == 0, result.output
+    saved = (xdg_config / "config.toml").read_text()
+    assert "protected = true" in saved and "url" not in saved
+    assert "PROTECTED" in CliRunner().invoke(cli, ["env", "list"]).output

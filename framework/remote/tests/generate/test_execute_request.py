@@ -53,3 +53,11 @@ def test_multipart_missing_required_field_is_reported_before_sending(
     dry = execute_harness(json_ok({}))
     dry.run(op, dry_run=True, uploads=(f"file={f}",))
     assert "filename logo.png, 3 bytes" in dry.out.getvalue()
+
+
+def test_required_raw_body_without_body_file_is_refused_before_sending(execute_harness, make_op):
+    op = make_op(method="PUT", body_kind="raw", body_required=True)
+    h = execute_harness(lambda r: pytest.fail("sent"))
+    with pytest.raises(click.UsageError, match="--body-file"):
+        h.run(op)
+    assert h.requests == []
