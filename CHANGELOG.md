@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Hosting adds `x-sm-token` to each published OpenAPI operation and `GET /api/_meta/whoami` for signed-in callers, including API tokens.
+
 - Core audit-link registry: `AuditLink.for_model(..., user_id_field=...)` declares linked user ownership for target-user filtering; the link retains its model for live ownership lookups (#1166).
 - `@simple-module-py/ui`: `useLeaveGuard` accepts an optional fourth `allowVisit` predicate to skip the Inertia leave prompt for visits that preserve unsaved fields; `ConfirmActionDialog` forwards `onCloseAutoFocus`; `SectionTitle` forwards `ref` and `tabIndex` to its heading (#1149).
 - Users admin: remove individual linked OAuth sign-ins with confirmation and audit capture; warn about duplicate links per provider and explain how to sign in again when removing the last link (#1149).

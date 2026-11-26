@@ -142,6 +142,15 @@ def dependant_gate_kinds(dependant: Any) -> set[str]:
     return kinds
 
 
+def gate_kinds_admit_tokens(kinds: set[str]) -> bool:
+    """Whether a route with these dependency gates admits API tokens."""
+    if GATE_PAGE in kinds:
+        return False
+    if GATE_ALLOW in kinds:
+        return True
+    return GATE_PERMISSION in kinds
+
+
 def route_admits_tokens(route: Any) -> bool:
     """Whether *route* (the matched ``APIRoute``) may serve a token principal.
 
@@ -154,14 +163,7 @@ def route_admits_tokens(route: Any) -> bool:
     dependant = getattr(route, "dependant", None)
     if dependant is None:
         return False
-    kinds: set[str] = set()
-    _gate_kinds(dependant, kinds, set())
-    if GATE_PAGE in kinds:
-        admits = False  # a page wins over an explicit opt-in
-    elif GATE_ALLOW in kinds:
-        admits = True
-    else:
-        admits = GATE_PERMISSION in kinds
+    admits = gate_kinds_admit_tokens(dependant_gate_kinds(dependant))
     with contextlib.suppress(AttributeError, TypeError):  # a slotted/frozen route
         setattr(route, _POLICY_ATTR, admits)
     return admits
@@ -248,6 +250,7 @@ __all__ = [
     "TokenAllowed",
     "dependant_gate_kinds",
     "effective_route",
+    "gate_kinds_admit_tokens",
     "is_token_principal",
     "mark_token_gate",
     "page_route",

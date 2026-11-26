@@ -99,7 +99,7 @@ def _security_schemes() -> dict:
 
 
 def add_security(app: FastAPI, schema: dict) -> None:
-    """Declare the two schemes and set ``security`` on every operation.
+    """Declare the two schemes and set ``security`` and ``x-sm-token`` per operation.
 
     ``[]`` marks an operation anonymous callers reach (OpenAPI's way of
     overriding a global requirement); every other one accepts either scheme.
@@ -116,6 +116,7 @@ def add_security(app: FastAPI, schema: dict) -> None:
             operation = item.get(method.lower())
             if not isinstance(operation, dict):
                 continue
+            operation["x-sm-token"] = op.admits_tokens
             operation["security"] = (
                 []
                 if is_public_operation(app, method, op.path)

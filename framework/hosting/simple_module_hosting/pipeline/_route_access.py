@@ -29,6 +29,7 @@ from simple_module_hosting.auth.token_guard import (
     GATE_AUTHENTICATED,
     GATE_PERMISSION,
     dependant_gate_kinds,
+    gate_kinds_admit_tokens,
 )
 from simple_module_hosting.pipeline.public_access import is_public
 
@@ -53,6 +54,10 @@ class ApiOperation(NamedTuple):
     methods: frozenset[str]
     gate_kinds: frozenset[str]
 
+    @property
+    def admits_tokens(self) -> bool:
+        return gate_kinds_admit_tokens(set(self.gate_kinds))
+
 
 def iter_api_operations(app: FastAPI) -> Iterator[ApiOperation]:
     """Each ``/api/`` route with a dependency tree (plain Starlette routes have none)."""
@@ -61,7 +66,7 @@ def iter_api_operations(app: FastAPI) -> Iterator[ApiOperation]:
         dependant = getattr(ctx, "dependant", None)
         if not path or not path.startswith(API_PREFIX) or dependant is None:
             continue
-        methods = frozenset(m.upper() for m in (ctx.methods or ()) if m.upper() != "HEAD")
+        methods = frozenset(m.upper() for m in (ctx.methods or ()))
         yield ApiOperation(path, methods, frozenset(dependant_gate_kinds(dependant)))
 
 
@@ -83,7 +88,7 @@ def check_unguarded_api_routes(app: FastAPI) -> list[Diagnostic]:
         if op.gate_kinds & _GUARD_KINDS:
             continue
         for method in sorted(op.methods):
-            if is_public_operation(app, method, op.path):
+            if method == "HEAD" or is_public_operation(app, method, op.path):
                 continue
             found.append(_unguarded(method, op.path))
     return found
