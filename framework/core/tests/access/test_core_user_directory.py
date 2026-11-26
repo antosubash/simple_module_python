@@ -16,6 +16,7 @@ from simple_module_core.access.user_directory import (
     GET_MANY_CHUNK,
     DirectoryStats,
     DirectoryUser,
+    EmailLookupUserDirectory,
     NullUserDirectory,
     UserDirectory,
     chunked,
@@ -77,9 +78,19 @@ class TestNullUserDirectory:
 
     def test_satisfies_the_protocol(self):
         assert isinstance(NullUserDirectory(), UserDirectory)
+        assert isinstance(NullUserDirectory(), EmailLookupUserDirectory)
+
+    async def test_name_only_search_and_find_by_email_know_nobody(self):
+        directory = NullUserDirectory()
+        assert await directory.search(None, "ada", limit=10, match_email=False) == []
+        assert await directory.find_by_email(None, "ada@example.com") is None
 
 
 class TestRegistration:
+    def test_legacy_structural_directory_still_satisfies_the_protocol(self):
+        assert isinstance(_FakeDirectory([]), UserDirectory)
+        assert not isinstance(_FakeDirectory([]), EmailLookupUserDirectory)
+
     def test_without_a_provider_the_null_directory_answers(self):
         assert isinstance(get_user_directory(_app()), NullUserDirectory)
 

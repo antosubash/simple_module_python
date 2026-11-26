@@ -18,6 +18,7 @@ from simple_module_core.access.role_directory import DirectoryRole
 from simple_module_core.access.user_directory import (
     DirectoryStats,
     DirectoryUser,
+    EmailLookupUserDirectory,
     chunked,
     parse_user_ids,
 )
@@ -48,7 +49,7 @@ def _is_usable(row: Any) -> bool:
     return bool(row.is_active) and row.disabled_at is None
 
 
-class UsersDirectory:
+class UsersDirectory(EmailLookupUserDirectory):
     """Directory over the local ``users_user`` table."""
 
     editable = True
@@ -109,6 +110,7 @@ class UsersDirectory:
         exclude_ids: Collection[str] = (),
         active_only: bool = False,
         exact_email: bool = False,
+        match_email: bool = True,
     ) -> list[DirectoryUser]:
         stmt = select(*_COLUMNS).order_by(User.email)
         if exclude_ids:
@@ -118,7 +120,11 @@ class UsersDirectory:
         if exact_email:
             stmt = stmt.where(func.lower(User.email) == (term or "").strip().lower())
         elif term and term.strip():
-            stmt = stmt.where(name_or_email_contains(User.full_name, User.email, term.strip()))
+            stmt = stmt.where(
+                name_or_email_contains(
+                    User.full_name, User.email, term.strip(), match_email=match_email
+                )
+            )
         rows = await search_rows(db, stmt, User.id, include_ids=include_ids, limit=limit)
         return [to_directory_user(row, str(row.id), is_active=_is_usable(row)) for row in rows]
 
