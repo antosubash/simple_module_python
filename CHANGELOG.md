@@ -65,6 +65,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- **Behaviour change:** Doctor resolves imported page constants and module aliases, including relative imports within the scanned package. Unresolved render targets downgrade SM003 to informational findings instead of false unused-page warnings; SM004 still warns about resolved targets with missing pages (#1219).
 - Admin shell: improve primary text/button contrast, close the mobile drawer on Inertia navigation, reserve sidebar footer space, enlarge narrow/coarse touch targets, fit feature flags at tablet widths, wrap long user headings, use consistent section headings, and label search fields and the drawer toggle (#1184).
 
 - **Behaviour change:** ORM audit capture records `<computed by database>` as the new value of a field updated with a SQL expression (for example a `session_version` bump) instead of the SQL text, so such updates stay on record; expression-valued fields on create are omitted. Role-assignment audit labels show `role · user email` for readers with `users.manage`, and the audit UI shows the marker as translated text (#1172).
