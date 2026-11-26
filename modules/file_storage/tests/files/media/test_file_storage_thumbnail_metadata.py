@@ -12,10 +12,17 @@ from file_storage.files import thumbnail_metadata, thumbnails
 from PIL import Image, WebPImagePlugin
 
 
-def _image(format):
+def _image(format, *, mode="RGB", **save_options):
     output = io.BytesIO()
-    Image.new("RGB", (40, 20)).save(output, format)
+    Image.new(mode, (40, 20)).save(output, format, **save_options)
     return output.getvalue()
+
+
+_WEBP_CASES = [
+    pytest.param("RGB", False, b"VP8 ", 30, id="VP8"),
+    pytest.param("RGB", True, b"VP8L", 25, id="VP8L"),
+    pytest.param("RGBA", False, b"VP8X", 30, id="VP8X"),
+]
 
 
 @pytest.mark.parametrize(
@@ -59,12 +66,14 @@ async def test_cold_probe_reads_only_a_prefix_and_closes_stream(format, ctype, m
     assert closed == [True]
 
 
-@pytest.mark.parametrize("mode,lossless", [("RGB", False), ("RGB", True), ("RGBA", False)])
+@pytest.mark.parametrize("mode,lossless,chunk,header_size", _WEBP_CASES)
 @pytest.mark.parametrize("ctype", ["image/webp", "image/png"])
-def test_webp_probe_does_not_allocate_a_decoder_canvas(monkeypatch, mode, lossless, ctype):
-    output = io.BytesIO()
-    Image.new(mode, (40, 20)).save(output, "WEBP", lossless=lossless)
-    data = output.getvalue()
+def test_webp_probe_does_not_allocate_a_decoder_canvas(
+    monkeypatch, mode, lossless, chunk, header_size, ctype
+):
+    data = _image("WEBP", mode=mode, lossless=lossless)
+    assert data[12:16] == chunk
+    assert len(data) >= header_size
 
     def unexpected_decoder(*args):
         raise AssertionError("HEAD allocated a WebP decoder canvas")
@@ -72,9 +81,21 @@ def test_webp_probe_does_not_allocate_a_decoder_canvas(monkeypatch, mode, lossle
     monkeypatch.setattr(WebPImagePlugin._webp, "WebPAnimDecoder", unexpected_decoder)
     if ctype == "image/webp":
         thumbnail_metadata._check_header(data, ctype, False)
+        monkeypatch.setattr(constants, "THUMBNAIL_MAX_PIXELS", 40 * 20 - 1)
+        with pytest.raises(thumbnails.UnreadableImageError, match="pixel budget"):
+            thumbnail_metadata._check_header(data, ctype, False)
     else:
         with pytest.raises(thumbnails.UnreadableImageError, match="declared type"):
             thumbnail_metadata._check_header(data, ctype, False)
+
+
+@pytest.mark.parametrize("mode,lossless,chunk,header_size", _WEBP_CASES)
+def test_webp_probe_rejects_truncated_headers(mode, lossless, chunk, header_size):
+    data = _image("WEBP", mode=mode, lossless=lossless)
+    assert data[12:16] == chunk
+    for length in range(header_size):
+        with pytest.raises(thumbnails.UnreadableImageError, match="invalid WebP header"):
+            thumbnail_metadata._check_header(data[:length], "image/webp", False)
 
 
 def test_partial_webp_probe_enforces_known_pixel_budget():

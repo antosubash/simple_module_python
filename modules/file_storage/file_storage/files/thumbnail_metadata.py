@@ -26,7 +26,11 @@ _HEADER_PREFIXES = {
 async def head_size_for_file(
     service: FileStorageService, row: StoredFile, width: int
 ) -> int | None:
-    """Release the read connection using the GET thumbnail path's mechanism."""
+    """Return the cached thumbnail size, or probe a cold source and return ``None``.
+
+    Release the read connection before backend I/O, as GET does. ``width`` must
+    already be snapped with :func:`thumbnails.snap_width`.
+    """
     await service._release_connection(row)
     return await head_size(
         service.backend,
@@ -40,7 +44,7 @@ async def head_size_for_file(
 async def head_size(
     backend: StorageBackend, *, key: str, content_type: str, width: int, source_size: int
 ) -> int | None:
-    """Return the cached variant's size, or validate a cold source without rendering."""
+    """Return the cached size, or check a cold source's bounded header prefix."""
     if not thumbnails.is_thumbnailable(content_type):
         raise thumbnails.NotAnImageError(content_type)
     cached_key = thumbnails.variant_key(key, width)
@@ -105,16 +109,23 @@ def _check_header(data: bytes, content_type: str, partial: bool) -> None:
 
 def _check_webp_header(data: bytes) -> None:
     # Pillow's WebP opener allocates a decoder canvas even without load().
+    # Its dimension-only helper is private; keep this probe independent of it.
+    # RIFF: 4-byte tag, 4-byte size, 4-byte WEBP tag, then an 8-byte chunk header.
+    # The first chunk's payload therefore starts at byte 20.
     if not (data.startswith(b"RIFF") and data[8:12] == b"WEBP"):
         raise thumbnails.UnreadableImageError("invalid WebP header")
     chunk = data[12:16]
     if chunk == b"VP8 " and len(data) >= 30 and data[23:26] == b"\x9d\x01\x2a":
+        # 3-byte frame tag + 3-byte keyframe sync code + two 16-bit dimensions.
+        # Each dimension uses 14 bits; the high two bits encode scaling.
         width = int.from_bytes(data[26:28], "little") & 0x3FFF
         height = int.from_bytes(data[28:30], "little") & 0x3FFF
     elif chunk == b"VP8X" and len(data) >= 30 and data[16:20] == b"\x0a\0\0\0":
+        # 10-byte payload: flags/reserved (4), then 24-bit width/height minus one.
         width = int.from_bytes(data[24:27], "little") + 1
         height = int.from_bytes(data[27:30], "little") + 1
     elif chunk == b"VP8L" and len(data) >= 25 and data[20] == 0x2F:
+        # 0x2F signature + 32 packed bits: width-1 (14), height-1 (14), flags (4).
         bits = int.from_bytes(data[21:25], "little")
         width, height = (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
     else:
