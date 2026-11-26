@@ -18,6 +18,7 @@ from fastapi_users_db_sqlalchemy.generics import GUID
 from simple_module_db.models.types import AwareDateTime
 from sqlmodel import Field
 
+from users.core.constants import OAUTH_IDENTITY_CONSTRAINT_NAME
 from users.models._base import Base
 
 
@@ -27,6 +28,9 @@ class OAuthAccount(Base, table=True):  # ty: ignore[unsupported-base]
     __audit_redact_fields__: ClassVar[set[str]] = {"refresh_token", "access_token"}
 
     __tablename__ = "users_oauth_account"
+    __table_args__ = (
+        sa.UniqueConstraint("oauth_name", "account_id", name=OAUTH_IDENTITY_CONSTRAINT_NAME),
+    )
 
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,

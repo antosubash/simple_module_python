@@ -190,6 +190,8 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         existing, linked = await _existing_account(
             user_manager, provider, account_id, account_email
         )
+        # A lost insert race rolls back the session and expires ORM attributes.
+        existing_user_id = existing.id if existing is not None else None
         # An OAuth sign-in is a signup when nobody holds this identity yet, and
         # with ``allow_signup`` off it must not be one: an operator enabling
         # SSO for staff would otherwise open signup to the provider's whole
@@ -222,7 +224,7 @@ def register_oauth_routes(api_router: APIRouter) -> None:
                 "OAuth sign-in through %s refused: %s (user %s)",
                 provider,
                 OAUTH_ACCOUNT_LINKED_ELSEWHERE,
-                existing.id if existing is not None else None,
+                existing_user_id,
             )
             return refuse_login(request, OAUTH_ACCOUNT_LINKED_ELSEWHERE, status.HTTP_403_FORBIDDEN)
         except fu_exceptions.UserAlreadyExists:

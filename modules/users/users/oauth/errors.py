@@ -9,7 +9,7 @@ OAUTH_ACCOUNT_LINKED_ELSEWHERE = "OAUTH_ACCOUNT_LINKED_ELSEWHERE"
 
 
 class OAuthAccountLinkedElsewhereError(Exception):
-    """The local account already has a different identity for this provider."""
+    """The provider identity or local account already has a conflicting link."""
 
 
 _PUBLIC_CODES = {
