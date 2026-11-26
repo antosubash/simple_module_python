@@ -315,12 +315,15 @@ in worker threads so unrelated requests can continue during hashing (#737).
 | `UserCreated` | `user_id`, `email`, `created_by` | on admin create (`POST /api/users/admin`) |
 | `UserDeleted` | `user_id` | on admin delete; durable (outbox, or inline in the request transaction). Defined in `simple_module_core.user_events` so modules subscribe without depending on `users` |
 | `UserDisabled` | `user_id` | on admin disable |
-| `UserLoggedOut` | `user_id`, `email` | after authenticated browser or API session logout, including sessions established through OAuth |
+| `UserLoggedOut` | `user_id`, `email` | after validated browser-session logout through the browser or API endpoint, including sessions established through OAuth |
 | `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
 
 `UserLoggedOut` is an in-process event defined in `simple_module_core.user_events`
-and re-exported from `users.contracts.events`. Users publishes the account ID
-as a UUID after the session revocation transaction finalizes. Subscriber
+and re-exported from `users.contracts.events`. Users validates the browser session
+independently of any Authorization bearer token. The event identifies the session's
+account even when the header identifies a different user; a bearer token without a
+valid browser session publishes no event. Users publishes the account ID as a UUID
+after the session revocation transaction finalizes. Subscriber
 failures are logged and logout still succeeds. Delivery is not exactly-once:
 two logout requests racing on the same session can each publish the event, so
 make subscribers idempotent (releasing a per-user reservation twice is harmless).

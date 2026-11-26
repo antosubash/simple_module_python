@@ -1,5 +1,6 @@
 """Retire the current browser session and refresh the account's cached state."""
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -19,6 +20,8 @@ from users.accounts.session_revocation import publish_revocation
 from users.accounts.token_storage import revoke_access_token
 from users.core.constants import SESSION_USER_ID_KEY
 from users.models import RevokedSession
+
+logger = logging.getLogger(__name__)
 
 
 def _insert(dialect: str) -> Any:
@@ -59,9 +62,14 @@ async def end_browser_session(
     request: Request, db: AsyncSession, background_tasks: BackgroundTasks
 ) -> str:
     """Revoke the browser session and its access token; return the cookie name."""
-    provider: UsersAuthProvider = request.app.state.auth.auth_provider
-    session_user = await provider.resolve_session(request)
-    event = session_logout_event(session_user, local_account=True)
+    event = None
+    try:
+        # The host's swappable AuthProvider need not expose Users session validation.
+        session_user = await UsersAuthProvider().resolve_session(request)
+        event = session_logout_event(session_user, local_account=True)
+    except Exception as exc:
+        # Event capture must not stop the browser's credentials being revoked.
+        logger.warning("Logout session validation failed (%s); skipping event", type(exc).__name__)
     await revoke_browser_session(request, db)
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name

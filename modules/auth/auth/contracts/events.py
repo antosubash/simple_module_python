@@ -22,6 +22,5 @@ def session_logout_event(user: UserContext | None, *, local_account: bool) -> Us
     if local_account:
         with suppress(ValueError):
             user_id = UUID(user.id)
-    # Session deserialization stringifies a null Keycloak email.
     email = user.email if isinstance(user.email, str) and user.email != "None" else ""
     return UserLoggedOut(user_id=user_id, email=email)

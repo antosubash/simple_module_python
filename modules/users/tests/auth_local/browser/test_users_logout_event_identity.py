@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from _users_app_builders import _make_standard_user, user_row
@@ -9,6 +10,7 @@ from auth.core.constants import SESSION_ID_KEY
 from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY
 from simple_module_test import forge_session_cookie
 from sqlalchemy import select
+from users.accounts.provider import UsersAuthProvider
 from users.contracts.events import UserLoggedOut
 from users.core.constants import SESSION_USER_ID_KEY
 from users.models import RevokedSession
@@ -18,7 +20,10 @@ CREDENTIALS = {"username": "admin@example.com", "password": "AdminPass1!"}
 
 @pytest.mark.parametrize("path", ["/users/logout", "/api/users/auth/logout"])
 @pytest.mark.parametrize("bearer_user", [None, "same", "different"])
-async def test_logout_event_names_session_user(users_app, anon_client, path, bearer_user):
+@pytest.mark.parametrize("wrapped_provider", [False, True])
+async def test_logout_event_names_session_user(
+    users_app, anon_client, monkeypatch, path, bearer_user, wrapped_provider
+):
     session_user = await user_row(users_app, CREDENTIALS["username"])
     headers = {}
     if bearer_user is not None:
@@ -37,6 +42,20 @@ async def test_logout_event_names_session_user(users_app, anon_client, path, bea
     # Exercise the session without relying on the separate access-token cookie.
     anon_client.cookies.clear()
     anon_client.cookies.set("session", cookie)
+    if wrapped_provider:
+        provider = users_app.state.auth.auth_provider
+        # A host wrapper need only implement the public AuthProvider protocol.
+        monkeypatch.setattr(
+            users_app.state.auth,
+            "auth_provider",
+            SimpleNamespace(
+                name=provider.name,
+                resolve_user=provider.resolve_user,
+                get_login_url=provider.get_login_url,
+                get_logout_url=provider.get_logout_url,
+                is_bearer_request=provider.is_bearer_request,
+            ),
+        )
     observed = []
 
     async def observe(event):
@@ -103,3 +122,38 @@ async def test_logout_without_valid_session_publishes_nothing(
     assert response.status_code == (303 if path == "/users/logout" else 204)
     assert observed == []
     assert (await anon_client.get("/api/users/me", headers=headers)).status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/users/logout", "/api/users/auth/logout"])
+async def test_logout_still_revokes_when_session_validation_raises(
+    users_app, anon_client, monkeypatch, path
+):
+    user = await user_row(users_app, CREDENTIALS["username"])
+    token = await anon_client.post(
+        "/api/users/auth/token", json={"email": user.email, "password": CREDENTIALS["password"]}
+    )
+    assert token.status_code == 200
+    headers = {"Authorization": f"Bearer {token.json()['access_token']}"}
+    assert (await anon_client.post("/api/users/auth/login", data=CREDENTIALS)).status_code == 204
+    cookie = anon_client.cookies.get("session")
+    anon_client.cookies.clear()
+    anon_client.cookies.set("session", cookie)
+    observed = []
+
+    async def observe(event):
+        observed.append(event)
+
+    async def unavailable(self, request):
+        raise RuntimeError("Session validation unavailable")
+
+    users_app.state.sm.event_bus.subscribe(UserLoggedOut, observe)
+    with monkeypatch.context() as patch:
+        patch.setattr(UsersAuthProvider, "resolve_session", unavailable)
+        response = await anon_client.post(path, headers=headers)
+    assert response.status_code == (303 if path == "/users/logout" else 204)
+    assert observed == []
+    async with users_app.state.sm.db.session_factory() as db:
+        assert (await db.execute(select(RevokedSession.user_id))).scalar_one() == user.id
+    anon_client.cookies.clear()
+    anon_client.cookies.set("session", cookie)
+    assert (await anon_client.get("/api/users/me")).status_code == 401
