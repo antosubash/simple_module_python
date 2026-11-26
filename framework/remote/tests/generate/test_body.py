@@ -159,10 +159,10 @@ def test_set_rejects_non_finite_number(raw):
 @pytest.mark.parametrize("literal", ["NaN", "Infinity", "-Infinity"])
 def test_non_finite_numbers_are_rejected_naming_the_flag(literal, tmp_path):
     with pytest.raises(BodyError, match=r"--json: invalid JSON"):
-        build(json_arg='{"ratio": %s}' % literal)
+        build(json_arg=f'{{"ratio": {literal}}}')
     with pytest.raises(BodyError, match=r"--set-json ratio: invalid JSON"):
         build(set_jsons=[f"ratio={literal}"])
     f = tmp_path / "b.json"
-    f.write_text('{"ratio": %s}' % literal)
+    f.write_text(f'{{"ratio": {literal}}}')
     with pytest.raises(BodyError, match=r"--file: invalid JSON"):
         build(file_arg=str(f))

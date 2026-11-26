@@ -83,7 +83,10 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
     except CliError as exc:
         var = token_env_var(state.cli)
         if state.environ.get(var) and not explicit:
-            fix = f"pass --env {env.name} or set {env_var_name(state.cli)}={env.name} so {var} is used"
+            fix = (
+                f"pass --env {env.name} or set {env_var_name(state.cli)}={env.name} "
+                f"so {var} is used"
+            )
         else:
             fix = (
                 f"create a token at {env.url.rstrip('/')}/api-tokens/, then "

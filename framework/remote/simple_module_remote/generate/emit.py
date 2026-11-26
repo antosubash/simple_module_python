@@ -188,10 +188,10 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
         _write_file(response, out)
         say(ctx, f"wrote {out}")
         return 0
-    if not ctx.is_tty and has_type(response) and not is_json(response):
-        # A pipe gets a non-JSON body chunk by chunk; a terminal needs it sanitized instead.
-        if _write_stdout_bytes(ctx, response):
-            return 0
+    streamable = not ctx.is_tty and has_type(response) and not is_json(response)
+    # A pipe gets a non-JSON body chunk by chunk; a terminal needs it sanitized instead.
+    if streamable and _write_stdout_bytes(ctx, response):
+        return 0
     try:
         body = _read_capped(response)
     except _TooLargeError:
