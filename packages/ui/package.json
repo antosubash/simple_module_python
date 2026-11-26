@@ -62,6 +62,8 @@
   },
   "files": [
     "src",
+    "!src/**/*.test.*",
+    "!src/**/*TestUtils.ts",
     "README.md"
   ],
   "publishConfig": {

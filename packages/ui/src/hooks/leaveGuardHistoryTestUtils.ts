@@ -1,4 +1,27 @@
+import { createRef } from 'react';
 import { vi } from 'vitest';
+import { useLeaveGuard } from './useLeaveGuard';
+
+export const MESSAGE = 'You have unsaved changes.';
+
+export function Harness({
+  dirty,
+  saving,
+  allowVisit,
+}: {
+  dirty: boolean;
+  saving: { current: boolean };
+  allowVisit?: Parameters<typeof useLeaveGuard>[3];
+}) {
+  useLeaveGuard(dirty, MESSAGE, saving, allowVisit);
+  return null;
+}
+
+export function saveFlag(value = false) {
+  const ref = createRef<boolean>() as { current: boolean };
+  ref.current = value;
+  return ref;
+}
 
 // Deterministic same-document history: go is asynchronous, push truncates the
 // forward stack, and replace overwrites the whole state just as Inertia does.

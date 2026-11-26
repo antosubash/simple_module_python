@@ -3,6 +3,9 @@ import { router } from '@inertiajs/react';
 import { type RefObject, useEffect, useRef } from 'react';
 import { trackLeaveGuardHistory } from './leaveGuardHistory';
 
+let dirtyGuards = 0;
+let originalScrollRestoration: History['scrollRestoration'];
+
 /**
  * Warn before leaving a page with unsaved changes.
  *
@@ -50,8 +53,10 @@ export function useLeaveGuard(
     const updates = ['inertia:navigate', 'inertia:clientVisit'];
     for (const event of updates) document.addEventListener(event, clearApproval);
     // Suppress native scroll restoration on the rejected and return traversals.
-    const scrollRestoration = window.history.scrollRestoration;
-    window.history.scrollRestoration = 'manual';
+    if (dirtyGuards++ === 0) {
+      originalScrollRestoration = window.history.scrollRestoration;
+      window.history.scrollRestoration = 'manual';
+    }
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     const stopListening = router.on('before', ({ detail: { visit } }) => {
@@ -70,7 +75,7 @@ export function useLeaveGuard(
     });
     return () => {
       clearApproval();
-      window.history.scrollRestoration = scrollRestoration;
+      if (--dirtyGuards === 0) window.history.scrollRestoration = originalScrollRestoration;
       for (const event of updates) document.removeEventListener(event, clearApproval);
       window.removeEventListener('beforeunload', warn);
       stopListening();

@@ -1,15 +1,9 @@
-/**
- * The unsaved-changes guard both page suites stub out.
- *
- * `UserEdit.test.tsx` and its sibling mock `router` as `{ on: () => () => {} }`,
- * so the prompt and its escape hatch were never exercised — and the escape
- * hatch is the load-bearing half: the page's own save is an Inertia visit too,
- * and prompting on it would ask "discard your changes?" while saving them.
- */
+/** Inertia visits and full-page unloads must warn without interrupting the page's own save. */
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render } from '@testing-library/react';
-import { createRef } from 'react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { Harness, installHistory, MESSAGE, saveFlag } from './leaveGuardHistoryTestUtils';
 
 const handlers: Array<(event: { detail: { visit: { prefetch: boolean } } }) => boolean> = [];
 const stopListening = vi.fn();
@@ -26,29 +20,6 @@ vi.mock('@inertiajs/react', () => ({
   },
 }));
 
-const { useLeaveGuard } = await import('./useLeaveGuard');
-
-const MESSAGE = 'You have unsaved changes.';
-
-function Harness({
-  dirty,
-  saving,
-  allowVisit,
-}: {
-  dirty: boolean;
-  saving: { current: boolean };
-  allowVisit?: Parameters<typeof useLeaveGuard>[3];
-}) {
-  useLeaveGuard(dirty, MESSAGE, saving, allowVisit);
-  return null;
-}
-
-function saveFlag(value = false) {
-  const ref = createRef<boolean>() as { current: boolean };
-  ref.current = value;
-  return ref;
-}
-
 let confirm: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -60,6 +31,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -142,4 +114,118 @@ test('allowVisit still exempts only matching link visits', () => {
   allowVisit.mockReturnValue(false);
   expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(false);
   expect(confirm).toHaveBeenCalledWith(MESSAGE);
+});
+
+test('a dirty guard still blocks Back when an earlier guard is clean', async () => {
+  const history = installHistory();
+  render(<Harness dirty={false} saving={saveFlag()} />);
+  render(<Harness dirty={true} saving={saveFlag()} />);
+  window.history.pushState({ page: 'a' }, '', '/a');
+  window.history.pushState({ page: 'b' }, '', '/b');
+  confirm.mockReturnValue(false);
+  window.history.back();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(confirm).toHaveBeenCalledTimes(1);
+  expect(history.position).toBe(2);
+  expect(window.location.pathname).toBe('/b');
+});
+
+test.each([0, 1])('history wrappers are released in unmount order %s', (first) => {
+  installHistory();
+  const push = window.history.pushState;
+  const replace = window.history.replaceState;
+  const views = [
+    render(<Harness dirty={false} saving={saveFlag()} />),
+    render(<Harness dirty={false} saving={saveFlag()} />),
+  ];
+  views[first].unmount();
+  views[1 - first].unmount();
+  expect(window.history.pushState).toBe(push);
+  expect(window.history.replaceState).toBe(replace);
+});
+
+test.each([0, 1])('scroll restoration lasts until the final dirty guard: %s', (first) => {
+  window.history.scrollRestoration = 'auto';
+  const views = [
+    render(<Harness dirty={true} saving={saveFlag()} />),
+    render(<Harness dirty={true} saving={saveFlag()} />),
+  ];
+  views[first].unmount();
+  expect(window.history.scrollRestoration).toBe('manual');
+  views[1 - first].unmount();
+  expect(window.history.scrollRestoration).toBe('auto');
+});
+
+test.each([{ state: null }, { state: ['value'] }, { state: new Date('2026-01-01') }])(
+  'other libraries retain non-record history state: %j',
+  ({ state }) => {
+    installHistory();
+    render(<Harness dirty={false} saving={saveFlag()} />);
+    window.history.pushState(state, '', '/other');
+    expect(window.history.state).toEqual(state);
+    window.history.replaceState(state, '', '/other');
+    expect(window.history.state).toEqual(state);
+  },
+);
+
+test('a later library wrapper survives cleanup and no longer stamps guard state', () => {
+  installHistory();
+  const view = render(<Harness dirty={false} saving={saveFlag()} />);
+  const push = window.history.pushState;
+  const replace = window.history.replaceState;
+  const foreignPush: History['pushState'] = (state, title, url) =>
+    push.call(window.history, state, title, url);
+  const foreignReplace: History['replaceState'] = (state, title, url) =>
+    replace.call(window.history, state, title, url);
+  window.history.pushState = foreignPush;
+  window.history.replaceState = foreignReplace;
+  try {
+    view.unmount();
+    expect(window.history.pushState).toBe(foreignPush);
+    expect(window.history.replaceState).toBe(foreignReplace);
+    window.history.pushState({ owner: 'library' }, '', '/other');
+    expect(window.history.state).toEqual({ owner: 'library' });
+    window.history.replaceState({ owner: 'library' }, '', '/other');
+    expect(window.history.state).toEqual({ owner: 'library' });
+  } finally {
+    window.history.pushState = push;
+    window.history.replaceState = replace;
+  }
+});
+
+test('SSR renders the hook without accessing window', () => {
+  vi.stubGlobal('window', undefined);
+  expect(renderToString(<Harness dirty={true} saving={saveFlag()} />)).toBe('');
+});
+
+test('an event at the current entry never calls go(0)', () => {
+  installHistory();
+  render(<Harness dirty={true} saving={saveFlag()} />);
+  window.history.replaceState({ page: 'current' }, '', '/current');
+  confirm.mockReturnValue(false);
+  window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(window.history.go).not.toHaveBeenCalled();
+});
+
+test('a queued remember write during Cancel does not relabel the rejected entry', async () => {
+  const history = installHistory();
+  render(<Harness dirty={true} saving={saveFlag()} />);
+  window.history.replaceState({ page: 'a' }, '', '/a');
+  window.history.pushState({ page: 'b' }, '', '/b');
+  window.history.pushState({ page: 'c' }, '', '/c');
+  confirm.mockReturnValue(false).mockImplementationOnce(() => {
+    queueMicrotask(() => window.history.replaceState({ page: 'b', remembered: 'draft' }, ''));
+    return false;
+  });
+  window.history.back();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(history.position).toBe(2);
+  window.history.back();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(confirm).toHaveBeenCalledTimes(2);
+  expect(history.position).toBe(2);
 });

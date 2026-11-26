@@ -5,9 +5,28 @@ const POSITION = '__simpleModuleLeaveGuard';
 const newGroup = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 type NavigationWindow = Window & { navigation?: { currentEntry?: { index: number } } };
+type Approve = (canCancel: boolean) => boolean;
+const guards = new Set<{ approve: Approve }>();
+let stopTracking: (() => void) | undefined;
 
 /** Track while mounted, including clean renders, so later dirty traversals can return exactly. */
-export function trackLeaveGuardHistory(approve: (canCancel: boolean) => boolean) {
+export function trackLeaveGuardHistory(approve: Approve) {
+  const registration = { approve };
+  // All guards share coordinates and one capture listener, regardless of unmount order.
+  stopTracking ??= observeHistory((canCancel) =>
+    [...guards].every((guard) => guard.approve(canCancel)),
+  );
+  guards.add(registration);
+  return () => {
+    if (!guards.delete(registration)) return;
+    if (guards.size === 0) {
+      stopTracking?.();
+      stopTracking = undefined;
+    }
+  };
+}
+
+function observeHistory(approve: Approve) {
   const history = window.history;
   const push = history.pushState;
   const replace = history.replaceState;
@@ -30,10 +49,17 @@ export function trackLeaveGuardHistory(approve: (canCancel: boolean) => boolean)
     }
     return undefined;
   };
-  const stamp = (state: unknown, position: number) => ({
-    ...(state && typeof state === 'object' ? state : {}),
-    [POSITION]: { group, index: position },
-  });
+  const stamp = (state: unknown, position: number) => {
+    // Preserve other libraries' null, primitive, array and built-in state values.
+    if (
+      !state ||
+      typeof state !== 'object' ||
+      (Object.getPrototypeOf(state) !== Object.prototype && Object.getPrototypeOf(state) !== null)
+    ) {
+      return state;
+    }
+    return { ...state, [POSITION]: { group, index: position } };
+  };
   replace.call(history, stamp(history.state, index), '');
   index = navigationIndex() ?? index;
 
@@ -46,11 +72,18 @@ export function trackLeaveGuardHistory(approve: (canCancel: boolean) => boolean)
     return index;
   };
   const wrappedReplace: History['replaceState'] = function (this: History, state, title, url) {
+    if (disposed) return replace.call(this, state, title, url);
+    if (returning) {
+      // Queued remember/scroll writes still belong to the rejected entry until go returns.
+      const target = navigationIndex() ?? readIndex(history.state);
+      return replace.call(this, target === undefined ? state : stamp(state, target), title, url);
+    }
     // Inertia replaces the entire object for remember/scroll, without events.
     replace.call(this, stamp(state, ensureIndex()), title, url);
     currentUrl = window.location.href;
   };
   const wrappedPush: History['pushState'] = function (this: History, state, title, url) {
+    if (disposed) return push.call(this, state, title, url);
     const next = ensureIndex() + 1;
     push.call(this, stamp(state, next), title, url);
     index = navigationIndex() ?? next;

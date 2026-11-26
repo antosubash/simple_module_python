@@ -1,15 +1,10 @@
-/**
- * The unsaved-changes guard both page suites stub out.
- *
- * `UserEdit.test.tsx` and its sibling mock `router` as `{ on: () => () => {} }`,
- * so the prompt and its escape hatch were never exercised — and the escape
- * hatch is the load-bearing half: the page's own save is an Inertia visit too,
- * and prompting on it would ask "discard your changes?" while saving them.
- */
+/** Browser history traversal must preserve the live form when leaving is cancelled. */
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { createRef, StrictMode } from 'react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { Harness, installHistory, saveFlag } from './leaveGuardHistoryTestUtils';
+import type { useLeaveGuard } from './useLeaveGuard';
 
 const handlers: Array<(event: { detail: { visit: { prefetch: boolean } } }) => boolean> = [];
 const stopListening = vi.fn();
@@ -25,31 +20,6 @@ vi.mock('@inertiajs/react', () => ({
     },
   },
 }));
-
-const { useLeaveGuard } = await import('./useLeaveGuard');
-
-import { installHistory } from './leaveGuardHistoryTestUtils';
-
-const MESSAGE = 'You have unsaved changes.';
-
-function Harness({
-  dirty,
-  saving,
-  allowVisit,
-}: {
-  dirty: boolean;
-  saving: { current: boolean };
-  allowVisit?: Parameters<typeof useLeaveGuard>[3];
-}) {
-  useLeaveGuard(dirty, MESSAGE, saving, allowVisit);
-  return null;
-}
-
-function saveFlag(value = false) {
-  const ref = createRef<boolean>() as { current: boolean };
-  ref.current = value;
-  return ref;
-}
 
 let confirm: ReturnType<typeof vi.fn>;
 
