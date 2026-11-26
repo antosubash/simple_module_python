@@ -78,9 +78,9 @@ async def _serve_public(
 ) -> Response:
     row = await _public_row(service, file_id, request, t)
     if request.method == constants.HTTP_HEAD:
-        active = is_active_content(row.content_type)
-        if active or not service.backend.supports_presigned_url:
-            return await _public_file_head(service, row, request, t, active=active)
+        return await _public_file_head(
+            service, row, request, t, active=is_active_content(row.content_type)
+        )
     return await public_file_response(service, row, request, t)
 
 
