@@ -13,6 +13,7 @@ from simple_module_remote.generate.params import (
     click_params_for,
     json_response_schema,
     returns_list,
+    success_is_json,
 )
 from simple_module_remote.output.sanitize import sanitize
 
@@ -37,6 +38,8 @@ def operation_command(op: Operation, root: dict) -> click.Command:
 
     summary = sanitize(op.summary)
     text = sanitize(op.description) or summary
+    if not success_is_json(op, root):
+        text += "\n\nThe response is not JSON: redirect stdout or use --out FILE."
     return click.Command(
         op.name,
         params=params,

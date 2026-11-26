@@ -7,8 +7,8 @@ import json
 import os
 import sys
 from collections.abc import Generator
-from pathlib import Path
 from contextlib import ExitStack, contextmanager
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 

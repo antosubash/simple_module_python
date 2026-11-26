@@ -6,12 +6,14 @@ from collections.abc import Callable
 
 import click
 
+from simple_module_remote.generate.naming import group_name
 from simple_module_remote.generate.operations import (
     Operation,
     cli_operations,
     find_collisions,
     parse_operations,
 )
+from simple_module_remote.output.sanitize import sanitize
 
 __all__ = ["TreeError", "build_groups", "session_only_operations"]
 
@@ -39,8 +41,19 @@ def build_groups(
             f"{group} {name}".strip() + f" ({', '.join(ids)})" for group, name, ids in collisions
         )
         raise TreeError(f"command name collisions in the schema: {detail}")
+    described = {
+        group_name(t["name"]): str(t["description"])
+        for t in schema.get("tags") or []
+        if isinstance(t, dict) and isinstance(t.get("name"), str) and t.get("description")
+    }
     groups: dict[str, click.Group] = {}
     for op in ops:
-        group = groups.setdefault(op.group, click.Group(op.group))
+        group = groups.setdefault(
+            op.group,
+            click.Group(
+                op.group,
+                help=sanitize(described.get(op.group, f"Commands for the {op.group} API.")),
+            ),
+        )
         group.add_command(factory(op, schema))
     return [groups[name] for name in sorted(groups)]

@@ -51,6 +51,18 @@ class Operation:
     body_required: bool = False
 
 
+def _non_null(schema: dict, node: dict) -> dict:
+    """The single non-null branch of a nullable ``anyOf``/``oneOf``, resolved; else ``node``."""
+    for key in ("anyOf", "oneOf"):
+        branches = node.get(key)
+        if not isinstance(branches, list):
+            continue
+        live = [b for b in branches if isinstance(b, dict) and b.get("type") != "null"]
+        if len(live) == 1:
+            return resolve_ref(schema, live[0])
+    return node
+
+
 def _collect_params(schema: dict, path_item: dict, op: dict) -> tuple[Param, ...]:
     merged: dict[tuple[str, str], dict] = {}
     for raw in [*path_item.get("parameters", []), *op.get("parameters", [])]:
@@ -68,7 +80,7 @@ def _collect_params(schema: dict, path_item: dict, op: dict) -> tuple[Param, ...
                 name=name,
                 location=location,
                 required=bool(p.get("required", False)) or location == "path",
-                schema=resolve_ref(schema, p.get("schema") or {}),
+                schema=_non_null(schema, resolve_ref(schema, p.get("schema") or {})),
                 description=str(p.get("description") or ""),
             )
         )

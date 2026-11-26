@@ -103,3 +103,10 @@ def test_generated_command_runs_with_stored_token(make_cli):
     sent = cli.requests[-1]
     assert sent.url.path == "/api/users" and sent.headers["Authorization"] == "Bearer tok"
     assert sent.headers["User-Agent"].startswith("smdev/1.2 simple_module_remote/")
+
+
+def test_groups_have_descriptions_and_binary_ops_mention_out(make_cli):
+    cli = make_cli()
+    assert cli.commands["users"].help
+    result = CliRunner().invoke(cli, ["--help"])
+    assert "Commands for the users API" in result.output

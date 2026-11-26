@@ -79,3 +79,30 @@ def test_collision_reported():
 def test_reserved_group_reported():
     found = find_collisions(parse_operations(load_schema(FIXTURE)))
     assert ("env", "", ["env_show"]) in found
+
+
+def test_nullable_enum_query_param_becomes_a_choice():
+    from simple_module_remote.generate.params import click_params_for
+
+    schema = {
+        "components": {"schemas": {"Status": {"type": "string", "enum": ["ok", "failed"]}}},
+        "paths": {
+            "/api/x": {
+                "get": {
+                    "x-sm-token": True,
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "in": "query",
+                            "schema": {
+                                "anyOf": [{"$ref": "#/components/schemas/Status"}, {"type": "null"}]
+                            },
+                        }
+                    ],
+                }
+            }
+        },
+    }
+    (op,) = parse_operations(schema)
+    option = next(p for p in click_params_for(op) if p.name == "q_status")
+    assert list(option.type.choices) == ["ok", "failed"]
