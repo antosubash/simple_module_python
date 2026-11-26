@@ -69,7 +69,10 @@ export function FieldSource({
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      <Badge variant="secondary" className={cn('font-semibold', TONES[tone])}>
+      <Badge
+        variant="secondary"
+        className={cn('max-w-full shrink font-semibold whitespace-normal', TONES[tone])}
+      >
         {t(sourceKey)}
       </Badge>
       {field.env_source_var && (

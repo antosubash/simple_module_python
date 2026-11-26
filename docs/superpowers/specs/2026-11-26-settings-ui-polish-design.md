@@ -143,12 +143,13 @@ Desktop (lg+)                                   Phone (<lg)
 
 ### Guard test
 
-`modules/settings/tests/...` boots the test app, collects module settings
-views, and asserts that for every module without `manage_url`, every field
-has `settings_form.fields.<name>.label` and every group has a
-`settings_form.groups.<slug>` key in the module's `en.json`, and that the module
-has `settings_form.title`. Locale parity is already enforced by the
-untranslated/locale checks.
+`modules/settings/tests/module_settings/fields/test_settings_field_translations.py`
+imports every bundled `modules/*/*/core/settings.py`, collects its
+`BaseSettings` subclasses, adds the framework `HostSettings` (checked against
+the `hosting` catalog), and asserts that `en.json` has `settings_form.title`,
+every field `label`, every declared group and every plain-token choice label.
+Modules with their own settings page are listed in `OWN_PAGE` (branding) and
+need only the title. German parity is enforced by `scripts/check_locales.py`.
 
 ## Decisions made
 

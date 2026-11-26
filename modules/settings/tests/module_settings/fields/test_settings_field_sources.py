@@ -193,3 +193,15 @@ def test_env_source_var_names_only_a_variable_that_is_set(monkeypatch):
     broker = _field_view("broker", settings, "SM_DEMOX_", env_supplied=supplied)
     assert host.env_source_var == "SM_DEMOX_HOST"
     assert broker.env_set and broker.env_source_var is None
+
+
+def test_an_aliased_field_never_claims_the_conventional_variable(monkeypatch):
+    from pydantic import Field
+
+    class AliasSettings(BaseSettings):
+        model_config = SettingsConfigDict(env_prefix="SM_DEMOY_")
+        host: str = Field(default="", validation_alias="DEMOY_REAL_HOST")
+
+    monkeypatch.setenv("SM_DEMOY_HOST", "unused")
+    view = _field_view("host", AliasSettings(), "SM_DEMOY_", env_supplied=frozenset({"host"}))
+    assert view.env_source_var is None

@@ -63,7 +63,7 @@
       },
       "maintenance_mode": {
         "label": "Wartungsmodus",
-        "help": "Zeigt allen außer Administratoren eine Wartungsseite statt der Anwendung. Wirkt ohne Neustart."
+        "help": "Zeigt eine Wartungsseite statt der Anwendung. Administratoren, öffentliche Seiten und Health-Checks bleiben erreichbar. Wirkt ohne Neustart."
       },
       "maintenance_message": {
         "label": "Wartungshinweis",
@@ -175,7 +175,7 @@
       },
       "openapi_public": {
         "label": "API-Schema veröffentlichen",
-        "help": "Das API-Schema außerhalb der Entwicklung für alle bereitstellen. Es listet jeden Endpunkt auf, daher nur aktivieren, wenn das öffentlich sein soll."
+        "help": "Das API-Schema außerhalb der Entwicklung für alle bereitstellen. Es listet die dokumentierten API-Endpunkte auf, daher nur aktivieren, wenn diese öffentlich sein sollen."
       },
       "db_pool_size": {
         "label": "Größe des Verbindungspools",

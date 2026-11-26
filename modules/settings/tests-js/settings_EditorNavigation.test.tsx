@@ -37,6 +37,7 @@ configureI18n({
     'settings.modules_form.discard_changes': 'Discard changes',
     'settings.modules_form.leave_warning': 'You have unsaved changes. Discard them?',
     'settings.form.cancel_button': 'Cancel',
+    'settings.modules.module_picker_label': 'Module',
   },
 });
 function moduleView(pkg: string): ModuleView {
@@ -224,3 +225,26 @@ test.each(['validation', 'network'])(
     expect(fetchMock).toHaveBeenCalledTimes(2);
   },
 );
+
+// The phone picker is a Radix Select: opened from the keyboard, it lists the
+// modules as options, and choosing one runs the same discard guard as the rail.
+function pickOnPhone(name: string) {
+  const trigger = screen.getByRole('combobox', { name: 'Module' });
+  fireEvent.keyDown(trigger, { key: 'Enter' });
+  fireEvent.keyDown(screen.getByRole('option', { name }), { key: 'Enter' });
+}
+
+test('the phone module picker goes through the same discard guard', () => {
+  Element.prototype.scrollIntoView ??= () => {};
+  Element.prototype.hasPointerCapture ??= () => false;
+  render(<ModulesEdit modules={modules} />);
+  fireEvent.change(screen.getByLabelText('Sender'), { target: { value: 'draft' } });
+  pickOnPhone('Mail');
+  expect(screen.getByRole('alertdialog')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByLabelText('Sender')).toHaveValue('draft');
+  pickOnPhone('Mail');
+  fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+  expect(screen.getByLabelText('Sender')).toHaveValue('mail original');
+  expect(new URL(window.location.href).searchParams.get('module')).toBe('mail');
+});

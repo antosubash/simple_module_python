@@ -202,7 +202,13 @@ def _field_view(
         nullable=nullable,
         control=control if isinstance(control := extra.get("control"), str) else None,
         title=info.title or None,
-        env_source_var=live_env_var if raw_env is not None else None,
+        # An aliased field may be read under another name, so only the
+        # conventional name is ever claimed, and only when nothing renames it.
+        env_source_var=(
+            live_env_var
+            if raw_env is not None and not (info.alias or info.validation_alias)
+            else None
+        ),
     )
 
 

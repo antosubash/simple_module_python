@@ -5,7 +5,7 @@
     "fields": {
       "enabled": {
         "label": "Website sperren",
-        "help": "Besucher müssen das gemeinsame Passwort eingeben, bevor sie etwas sehen. Legen Sie zuerst ein Passwort fest."
+        "help": "Besucher müssen das gemeinsame Passwort eingeben, bevor sie etwas sehen; angemeldete Administratoren und Health-Checks werden durchgelassen. Legen Sie zuerst ein Passwort fest."
       },
       "password": {
         "label": "Passwort",

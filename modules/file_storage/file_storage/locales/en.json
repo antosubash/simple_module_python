@@ -161,7 +161,7 @@
       },
       "allowed_content_types": {
         "label": "Allowed file types",
-        "help": "List of permitted MIME types. Leave empty to allow any type."
+        "help": "List of permitted MIME types. Reset to default (no list) to allow any type; an empty list [] rejects every upload."
       },
       "quota_bytes": {
         "label": "Storage quota (bytes)",
@@ -173,7 +173,7 @@
       },
       "direct_upload_threshold_bytes": {
         "label": "Resumable upload threshold (bytes)",
-        "help": "Files larger than this are uploaded in parts through a resumable session."
+        "help": "Files larger than this are uploaded in parts through a resumable session, when the storage backend supports direct uploads; otherwise they use a regular upload."
       },
       "max_direct_upload_bytes": {
         "label": "Maximum resumable upload size (bytes)",

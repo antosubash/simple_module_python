@@ -161,7 +161,7 @@
       },
       "allowed_content_types": {
         "label": "Erlaubte Dateitypen",
-        "help": "Liste zulässiger MIME-Typen. Leer lassen, um jeden Typ zu erlauben."
+        "help": "Liste zulässiger MIME-Typen. Auf Standard zurücksetzen (keine Liste), um jeden Typ zu erlauben; eine leere Liste [] lehnt jeden Upload ab."
       },
       "quota_bytes": {
         "label": "Speicherkontingent (Bytes)",
@@ -173,7 +173,7 @@
       },
       "direct_upload_threshold_bytes": {
         "label": "Schwelle für fortsetzbare Uploads (Bytes)",
-        "help": "Größere Dateien werden in Teilen über eine fortsetzbare Sitzung hochgeladen."
+        "help": "Größere Dateien werden in Teilen über eine fortsetzbare Sitzung hochgeladen, sofern das Speicher-Backend direkte Uploads unterstützt; sonst als normaler Upload."
       },
       "max_direct_upload_bytes": {
         "label": "Maximale Größe fortsetzbarer Uploads (Bytes)",

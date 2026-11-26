@@ -63,7 +63,7 @@
       },
       "maintenance_mode": {
         "label": "Maintenance mode",
-        "help": "Show everyone except admins a maintenance page instead of the app. Takes effect without a restart."
+        "help": "Show a maintenance page instead of the app. Admins, public pages and health checks stay reachable. Takes effect without a restart."
       },
       "maintenance_message": {
         "label": "Maintenance message",
@@ -175,7 +175,7 @@
       },
       "openapi_public": {
         "label": "Publish API schema",
-        "help": "Serve the API schema to anyone outside development. It lists every endpoint, so leave it off unless you want that public."
+        "help": "Serve the API schema to anyone outside development. It lists the documented API endpoints, so leave it off unless you want them public."
       },
       "db_pool_size": {
         "label": "Connection pool size",

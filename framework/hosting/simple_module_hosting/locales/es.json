@@ -63,7 +63,7 @@
       },
       "maintenance_mode": {
         "label": "Modo de mantenimiento",
-        "help": "Muestra una página de mantenimiento a todos menos a los administradores. Se aplica sin reiniciar."
+        "help": "Muestra una página de mantenimiento en lugar de la aplicación. Los administradores, las páginas públicas y las comprobaciones de estado siguen accesibles. Se aplica sin reiniciar."
       },
       "maintenance_message": {
         "label": "Mensaje de mantenimiento",
@@ -175,7 +175,7 @@
       },
       "openapi_public": {
         "label": "Publicar el esquema de la API",
-        "help": "Ofrece el esquema de la API a cualquiera fuera del desarrollo. Enumera todos los endpoints, así que déjelo desactivado salvo que quiera hacerlo público."
+        "help": "Ofrece el esquema de la API a cualquiera fuera del desarrollo. Enumera los endpoints documentados de la API, así que déjelo desactivado salvo que quiera hacerlos públicos."
       },
       "db_pool_size": {
         "label": "Tamaño del grupo de conexiones",

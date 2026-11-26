@@ -5,7 +5,7 @@
     "fields": {
       "enabled": {
         "label": "Lock the site",
-        "help": "Visitors must enter the shared password before seeing anything. Set a password first."
+        "help": "Visitors must enter the shared password before seeing anything; signed-in admins and health checks pass through. Set a password first."
       },
       "password": {
         "label": "Password",

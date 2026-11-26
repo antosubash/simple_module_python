@@ -7,7 +7,7 @@ Design: `docs/superpowers/specs/2026-11-26-settings-ui-polish-design.md`.
 - `modules/settings/settings/module_settings/{discovery,props}.py`: add `title`
   (pydantic `FieldInfo.title` or `None`) to the field view and the serialized prop.
 - Test first: serialized props carry `title`.
-- Guard test `modules/settings/tests/module_settings/test_field_translations.py`:
+- Guard test `modules/settings/tests/module_settings/fields/test_settings_field_translations.py`:
   for every bundled module whose `core/settings.py` defines a
   `DbBackedSettings` subclass, its `locales/en.json` has
   `settings_form.title`, and (unless the module has its own settings page)
