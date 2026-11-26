@@ -86,6 +86,19 @@ class TestNullUserDirectory:
         assert await directory.find_by_email(None, "ada@example.com") is None
 
 
+async def test_default_email_lookup_trims_for_third_party_providers():
+    user = DirectoryUser("ada", "Ada@Example.com")
+
+    class Directory(NullUserDirectory):
+        async def search(self, db, term, *, limit, exact_email=False):
+            return [user] if exact_email and term.lower() == user.email.lower() else []
+
+    directory = Directory()
+    assert await directory.find_by_email(None, " ADA@EXAMPLE.COM ") == user
+    assert await directory.find_by_email(None, "missing@example.com") is None
+    assert await directory.find_by_email(None, " ") is None
+
+
 class TestRegistration:
     def test_legacy_structural_directory_still_satisfies_the_protocol(self):
         assert isinstance(_FakeDirectory([]), UserDirectory)

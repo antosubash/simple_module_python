@@ -132,7 +132,8 @@ class EmailLookupUserDirectory(UserDirectory, Protocol):
 
     async def find_by_email(self, db: Any, email: str) -> DirectoryUser | None:
         """Find one case-insensitive exact email in the directory's usual scope."""
-        if not email.strip():
+        email = email.strip()
+        if not email:
             return None
         found = await self.search(db, email, limit=1, exact_email=True)
         return found[0] if found else None

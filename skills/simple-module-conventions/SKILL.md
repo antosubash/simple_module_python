@@ -136,6 +136,15 @@ Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()
 
 Which module holds the accounts depends on the auth provider (`users`, `oidc` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.access.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
 
+For name-only substring search, use `search(db, term, limit=20, match_email=False)`;
+filters apply before the limit, and nameless users do not match through email.
+Blank terms still list users. Built-in directories also support `find_by_email(db, email)`
+for case-insensitive exact lookup, including inactive accounts. For an unknown provider,
+check `isinstance(directory, EmailLookupUserDirectory)` (from the same core module)
+before calling it, or use `search(db, email, limit=1, exact_email=True)`.
+Third-party providers must accept `match_email` to support name-only search.
+See `docs/framework/user-directory.md` for the full contract.
+
 For role catalogs and membership, use `get_role_directory(app)` from
 `simple_module_core.access.role_directory`: `list_roles(db)` returns name/label/description
 and an optional local UUID; `user_roles(db, user_id)` returns names or `None`
