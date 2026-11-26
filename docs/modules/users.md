@@ -585,11 +585,28 @@ The same account ID at a different provider remains a separate identity.
 
 **Upgrade behaviour change:** revision `b1153e9c7b62` adds the database unique
 constraint. The Users data compatibility check (`SM033`,
-`users.unique_oauth_identity_v1`) reports every duplicate identity with the
-affected user emails, user IDs and link IDs; errors refuse boot outside
-development. No accounts or links are automatically merged or deleted.
+`users.unique_oauth_identity_v1`) reports up to 20 conflicting links with the
+affected user emails, user IDs and link IDs and flags further conflicts; errors
+refuse boot outside development. No accounts or links are automatically merged or deleted.
 `SM010` checks migration state before `SM033`, so the migration also checks for
 duplicates before changing the table and fails with the same removal instructions.
+To find these duplicate identities before upgrading, run this read-only query.
+Unlike the per-user/provider query above, it also finds an identity linked once
+to each of several users:
+
+```sql
+SELECT oa.oauth_name, oa.account_id, oa.user_id, u.email, oa.id AS link_id
+FROM users_oauth_account AS oa
+LEFT JOIN users_user AS u ON u.id = oa.user_id
+WHERE (oa.oauth_name, oa.account_id) IN (
+    SELECT oauth_name, account_id
+    FROM users_oauth_account
+    GROUP BY oauth_name, account_id
+    HAVING COUNT(*) > 1
+)
+ORDER BY oa.oauth_name, oa.account_id, oa.user_id, oa.id;
+```
+
 Before upgrading, use the previous app version's **Users → user → Edit → Linked
 sign-ins → Remove** to remove extra links, keeping one link per identity. Stop
 old workers and retry the migration. Hosts with their own migration histories

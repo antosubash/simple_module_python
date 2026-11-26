@@ -83,3 +83,34 @@ def test_oauth_identity_migration_refuses_duplicates_or_roundtrips(duplicate_own
                 )
     finally:
         engine.dispose()
+
+
+def test_migration_duplicate_report_is_bounded():
+    engine = sa.create_engine("sqlite://")
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("CREATE TABLE users_user (id TEXT, email TEXT)"))
+            conn.execute(sa.text("INSERT INTO users_user VALUES ('u', 'alice@example.com')"))
+            conn.execute(
+                sa.text(
+                    "CREATE TABLE users_oauth_account "
+                    "(id TEXT, user_id TEXT, oauth_name TEXT, account_id TEXT)"
+                )
+            )
+            conn.execute(
+                sa.text("INSERT INTO users_oauth_account VALUES (:id, 'u', 'github', 'subject')"),
+                [{"id": f"link-{index:02}"} for index in range(100)],
+            )
+            with (
+                Operations.context(MigrationContext.configure(conn)),
+                pytest.raises(RuntimeError) as error,
+            ):
+                _migration().upgrade()
+            message = str(error.value)
+            assert message.count("(user ") == 20
+            assert "more" in message.lower()
+            assert "link-19" in message and "link-20" not in message
+            assert conn.scalar(sa.text("SELECT count(*) FROM users_oauth_account")) == 100
+            assert not sa.inspect(conn).get_unique_constraints("users_oauth_account")
+    finally:
+        engine.dispose()

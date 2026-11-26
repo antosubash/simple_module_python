@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
@@ -103,17 +104,28 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
             raise OAuthAccountLinkedElsewhereError
         try:
             return await super().add_oauth_account(user, create_dict)
-        except IntegrityError:
-            # The upstream adapter commits; roll back its failed insert before
-            # checking whether another callback won the identity-link race.
+        except IntegrityError as exc:
+            # The upstream adapter commits; recover the failed transaction even
+            # when an unrelated constraint error must propagate.
             await self.session.rollback()
-            identity = select(OAuthAccount.id).where(
-                OAuthAccount.oauth_name == create_dict["oauth_name"],
-                OAuthAccount.account_id == create_dict["account_id"],
-            )
-            if await self.session.scalar(identity.limit(1)) is not None:
+            if _is_oauth_identity_conflict(exc):
                 raise OAuthAccountLinkedElsewhereError from None
             raise
+
+
+def _is_oauth_identity_conflict(exc: IntegrityError) -> bool:
+    original = exc.orig
+    if getattr(original, "sqlite_errorcode", None) == sqlite3.SQLITE_CONSTRAINT_UNIQUE:
+        return str(original) == (
+            "UNIQUE constraint failed: users_oauth_account.oauth_name, "
+            "users_oauth_account.account_id"
+        )
+    # psycopg exposes diag; SQLAlchemy's asyncpg adapter chains the driver error.
+    diagnostic = getattr(original, "diag", None) or getattr(original, "__cause__", None)
+    sqlstate = getattr(original, "sqlstate", None) or getattr(original, "pgcode", None)
+    return sqlstate == "23505" and (
+        getattr(diagnostic, "constraint_name", None) == "uq_users_oauth_account_identity"
+    )
 
 
 def _begin_sqlite_link_transaction(connection):

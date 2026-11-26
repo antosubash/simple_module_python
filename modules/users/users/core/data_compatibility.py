@@ -1,7 +1,7 @@
 """Read-only checks for ambiguous identities and legacy bearer credentials."""
 
 from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
-from sqlalchemy import String, column, func, inspect, or_, select, table, tuple_
+from sqlalchemy import Select, String, column, func, inspect, or_, select, table, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.core.constants import (
@@ -25,24 +25,29 @@ async def check_data_compatibility(db: AsyncSession) -> list[DataCompatibilityIs
     return issues + await _oauth_conflicts(db) + await _token_compatibility(db)
 
 
-async def _oauth_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
-    connection = await db.connection()
-    if not await connection.run_sync(lambda sync: inspect(sync).has_table("users_oauth_account")):
-        return []
+def oauth_identity_conflicts_query() -> Select:
+    """Build the schema-independent preflight shared by SM033 and the migration."""
     links = table(
         "users_oauth_account", *(column(c) for c in ("id", "user_id", "oauth_name", "account_id"))
     )
     users = table("users_user", column("id"), column("email"))
     identity = (links.c.oauth_name, links.c.account_id)
     duplicates = select(*identity).group_by(*identity).having(func.count() > 1)
-    rows = await db.execute(
+    return (
         select(*identity, links.c.user_id, users.c.email, links.c.id)
         .select_from(links.outerjoin(users, users.c.id == links.c.user_id))
         .where(tuple_(*identity).in_(duplicates))
         .order_by(*identity, links.c.user_id, links.c.id)
     )
+
+
+async def _oauth_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
+    connection = await db.connection()
+    if not await connection.run_sync(lambda sync: inspect(sync).has_table("users_oauth_account")):
+        return []
+    rows = (await db.execute(oauth_identity_conflicts_query().limit(_SHOWN_CONFLICTS + 1))).all()
     conflicts: dict[tuple[str, str], list[str]] = {}
-    for provider, account_id, user_id, email, link_id in rows:
+    for provider, account_id, user_id, email, link_id in rows[:_SHOWN_CONFLICTS]:
         conflicts.setdefault((provider, account_id), []).append(
             f"{email!r} (user {user_id}, link {link_id})"
         )
@@ -56,6 +61,12 @@ async def _oauth_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
             + "\n".join(
                 f"({provider!r}, {account_id!r}): " + "; ".join(owners)
                 for (provider, account_id), owners in conflicts.items()
+            )
+            + (
+                f"\nMore conflicting links exist; showing the first {_SHOWN_CONFLICTS}. "
+                "Resolve them and rerun to list more."
+                if len(rows) > _SHOWN_CONFLICTS
+                else ""
             ),
             remediation_text=(
                 "Before upgrading, open each affected user's admin Edit page in the previous "

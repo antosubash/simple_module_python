@@ -1,13 +1,24 @@
 """Legacy duplicate OAuth identities must be listed without changing links (#1153)."""
 
+from types import SimpleNamespace
+
 import pytest
 import sqlalchemy as sa
+from simple_module_hosting.boot.data_compatibility import (
+    DataCompatibilityError,
+)
+from simple_module_hosting.boot.data_compatibility import (
+    check_data_compatibility as check_boot_compatibility,
+)
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from users.module import UsersModule
 
 
 @pytest.mark.parametrize("duplicates", [False, True])
-async def test_oauth_identity_compatibility_lists_every_conflict(duplicates):
+@pytest.mark.parametrize("environment", ["testing", "development"])
+async def test_oauth_identity_compatibility_bounds_listed_conflicts(
+    duplicates, environment, caplog
+):
     engine = create_async_engine("sqlite+aiosqlite://")
     try:
         async with engine.begin() as conn:
@@ -24,7 +35,7 @@ async def test_oauth_identity_compatibility_lists_every_conflict(duplicates):
                     "(id TEXT, user_id TEXT, oauth_name TEXT, account_id TEXT)"
                 )
             )
-            # More than the email check's display cap: no OAuth conflict may be hidden.
+            # More than the display cap: report a bounded sample and flag truncation.
             for index in range(21):
                 for owner in ["a", "b"] if duplicates else ["a"]:
                     await conn.execute(
@@ -33,14 +44,14 @@ async def test_oauth_identity_compatibility_lists_every_conflict(duplicates):
                             "id": f"link-{index}-{owner}",
                             "user": f"user-{owner}",
                             "name": "microsoft",
-                            "sub": f"subject-{index}",
+                            "sub": f"subject-{index:02}",
                         },
                     )
             # The same account_id at another provider is a different identity.
             await conn.execute(
                 sa.text(
                     "INSERT INTO users_oauth_account VALUES "
-                    "('other', 'user-b', 'github', 'subject-0')"
+                    "('other', 'user-b', 'github', 'subject-00')"
                 )
             )
         async with async_sessionmaker(engine)() as db:
@@ -51,8 +62,9 @@ async def test_oauth_identity_compatibility_lists_every_conflict(duplicates):
                 remediation = "\n".join(issue.remediation_text or "" for issue in issues)
                 assert all(issue.severity == "error" for issue in issues)
                 assert all(issue.upgrade_id == "users.unique_oauth_identity_v1" for issue in issues)
-                for index in range(21):
-                    assert f"subject-{index!s}" in report
+                assert report.count("(user ") == 20
+                assert "subject-00" in report and "subject-10" not in report
+                assert "more" in report.lower()
                 for value in (
                     "microsoft",
                     "alice@example.com",
@@ -67,6 +79,21 @@ async def test_oauth_identity_compatibility_lists_every_conflict(duplicates):
             assert await db.scalar(sa.text("SELECT count(*) FROM users_oauth_account")) == (
                 43 if duplicates else 22
             )
+        app = SimpleNamespace(
+            state=SimpleNamespace(
+                sm=SimpleNamespace(
+                    settings=SimpleNamespace(environment=environment),
+                    db=SimpleNamespace(session_factory=async_sessionmaker(engine)),
+                )
+            )
+        )
+        if duplicates and environment != "development":
+            with pytest.raises(DataCompatibilityError, match=r"users[.]unique_oauth_identity_v1"):
+                await check_boot_compatibility(app, [UsersModule()])
+        else:
+            await check_boot_compatibility(app, [UsersModule()])
+        if duplicates:
+            assert "alice@example.com" in caplog.text and "bob@example.com" in caplog.text
     finally:
         await engine.dispose()
 

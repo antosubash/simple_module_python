@@ -7,8 +7,8 @@ Create Date: 2026-11-26 07:08:21.880485
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
+from users.core.data_compatibility import oauth_identity_conflicts_query
 
 # revision identifiers, used by Alembic.
 revision: str = "b1153e9c7b62"
@@ -16,25 +16,22 @@ down_revision: str | None = "a1054e9c7b62"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+_SHOWN_CONFLICTS = 20
+
 
 def upgrade() -> None:
-    links = sa.table(
-        "users_oauth_account",
-        *(sa.column(c) for c in ("id", "user_id", "oauth_name", "account_id")),
-    )
-    users = sa.table("users_user", sa.column("id"), sa.column("email"))
-    identity = (links.c.oauth_name, links.c.account_id)
-    duplicates = sa.select(*identity).group_by(*identity).having(sa.func.count() > 1)
-    conflicts = op.get_bind().execute(
-        sa.select(*identity, links.c.user_id, users.c.email, links.c.id)
-        .select_from(links.outerjoin(users, users.c.id == links.c.user_id))
-        .where(sa.tuple_(*identity).in_(duplicates))
-        .order_by(*identity, links.c.user_id, links.c.id)
+    conflicts = (
+        op.get_bind().execute(oauth_identity_conflicts_query().limit(_SHOWN_CONFLICTS + 1)).all()
     )
     listed = [
         f"({provider!r}, {account_id!r}): {email!r} (user {user_id}, link {link_id})"
-        for provider, account_id, user_id, email, link_id in conflicts
+        for provider, account_id, user_id, email, link_id in conflicts[:_SHOWN_CONFLICTS]
     ]
+    if len(conflicts) > _SHOWN_CONFLICTS:
+        listed.append(
+            f"More conflicting links exist; showing the first {_SHOWN_CONFLICTS}. "
+            "Resolve them and rerun to list more."
+        )
     if listed:
         # SM010 runs before SM033 on an upgrade: refuse with remediation before DDL.
         raise RuntimeError(
