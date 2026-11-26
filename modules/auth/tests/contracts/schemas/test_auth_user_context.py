@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from auth.contracts.schemas import UserContext
 
 
@@ -149,18 +150,57 @@ class TestUserContextTokenFields:
         assert ctx is not None
         assert (ctx.auth_kind, ctx.scopes) == ("session", None)
 
-    async def test_token_fields_round_trip_and_empty_scopes_stay_capped(self):
+    async def test_token_context_writes_no_token_identity(self):
+        """The session boundary never carries a credential (#1178)."""
         for scopes in (["x.read"], []):
             ctx = UserContext(
-                id="1", email="", name="A", auth_kind="pat", scopes=scopes, token_id="t-1"
+                id="1",
+                email="",
+                name="A",
+                auth_kind="pat",
+                scopes=scopes,
+                required_permission="api_tokens.use",
+                token_id="t-1",
             )
-            back = UserContext.from_session_dict(ctx.to_session_dict())
-            assert back == ctx
-            assert back is not None and back.is_scoped
+            payload = ctx.to_session_dict()
+            for key in ("auth_kind", "scopes", "required_permission", "token_id"):
+                assert key not in payload
+            back = UserContext.from_session_dict(payload)
+            assert back is not None
+            assert (back.auth_kind, back.scopes, back.required_permission, back.token_id) == (
+                "session",
+                None,
+                None,
+                None,
+            )
+            assert not back.is_scoped
 
-    async def test_malformed_scopes_reject_the_payload(self):
+    @pytest.mark.parametrize("kind", ["pat", "service", "bearer"])
+    async def test_token_shaped_payload_restores_as_plain_session(self, kind):
+        payload = {
+            "id": "svc:1",
+            "email": "",
+            "name": "A",
+            "roles": ["user"],
+            "auth_kind": kind,
+            "scopes": ["x.read"],
+            "required_permission": "api_tokens.use",
+            "token_id": "t-1",
+        }
+        ctx = UserContext.from_session_dict(payload)
+        assert ctx is not None
+        assert (ctx.auth_kind, ctx.scopes, ctx.required_permission, ctx.token_id) == (
+            "session",
+            None,
+            None,
+            None,
+        )
+        assert ctx.roles == ["user"]
+
+    async def test_malformed_scopes_are_ignored(self):
         payload = {"id": "1", "email": "a@b.com", "name": "A", "scopes": "x.read"}
-        assert UserContext.from_session_dict(payload) is None
+        ctx = UserContext.from_session_dict(payload)
+        assert ctx is not None and ctx.scopes is None
 
 
 class TestUserContextSession:
