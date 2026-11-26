@@ -17,14 +17,19 @@ from starlette.requests import HTTPConnection
 from simple_module_hosting.pipeline._tenant import reresolve_tenant
 
 
-async def demote_to_anonymous(request: HTTPConnection) -> None:
-    """Drop the principal and re-run tenant resolution as anonymous."""
+def forget_principal(request: HTTPConnection) -> None:
+    """Drop the principal, its permissions and audit identity (tenant untouched)."""
     request.state.user = None
     request.state.resolved_permissions = set()
     current_user_id.set(None)
     current_auth_kind.set(None)
     current_token_id.set(None)
+
+
+async def demote_to_anonymous(request: HTTPConnection) -> None:
+    """Drop the principal and re-run tenant resolution as anonymous."""
+    forget_principal(request)
     await reresolve_tenant(request)
 
 
-__all__ = ["demote_to_anonymous"]
+__all__ = ["demote_to_anonymous", "forget_principal"]

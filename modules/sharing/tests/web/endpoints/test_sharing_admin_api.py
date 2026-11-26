@@ -5,12 +5,11 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF, admin_session, bearer_client, make_admin, pat_for  # ty: ignore[import-not-found]
 from _sharing_support import NOTE_TYPE, SharingTestNote, create_note_table, register_note_type
 from sharing.core.constants import Permissions
 from simple_module_core.access.tenancy import TenantRole
 from simple_module_test.web.tenant_client import session_client
-from tenants.core.constants import SESSION_ACTIVE_TENANT
 
 LIST_URL = "/api/sharing/admin/shares"
 INERTIA = {"X-Inertia": "true", "Accept": "application/json"}
@@ -35,26 +34,14 @@ async def _share(app, owner, friend) -> None:
     assert resp.status_code == 201, resp.text
 
 
-async def _admin(app, tenant_id: str) -> tuple[dict, str]:
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    await join_tenant(app, user_id, email, tenant_id)
-    return {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}, email
-
-
-async def _pat(app, data: dict, scopes: list[str]) -> str:
-    async with session_client(app, data) as c:
-        return (await create_pat(c, scopes))["token"]
-
-
 async def test_view_pat_lists_shares_like_the_page(note_app, tenant_client):
     async with (
         tenant_client(TenantRole.OWNER) as owner,
         tenant_client(TenantRole.MEMBER, tenant_id=owner.tenant_id) as friend,
     ):
         await _share(note_app, owner, friend)
-        data, _ = await _admin(note_app, owner.tenant_id)
-        token = await _pat(note_app, data, [Permissions.VIEW])
+        data = await admin_session(note_app, owner.tenant_id)
+        token = await pat_for(note_app, data, [Permissions.VIEW])
         async with bearer_client(note_app, token) as bc:
             resp = await bc.get(LIST_URL, params={"per_page": 10})
         assert resp.status_code == 200, resp.text
@@ -74,9 +61,9 @@ async def test_view_pat_cannot_revoke_and_share_pat_cannot_list(note_app, tenant
         tenant_client(TenantRole.MEMBER, tenant_id=owner.tenant_id) as friend,
     ):
         await _share(note_app, owner, friend)
-        data, _ = await _admin(note_app, owner.tenant_id)
-        view_token = await _pat(note_app, data, [Permissions.VIEW])
-        share_token = await _pat(note_app, data, [Permissions.SHARE])
+        data = await admin_session(note_app, owner.tenant_id)
+        view_token = await pat_for(note_app, data, [Permissions.VIEW])
+        share_token = await pat_for(note_app, data, [Permissions.SHARE])
         async with bearer_client(note_app, view_token) as bc:
             items = (await bc.get(LIST_URL)).json()["items"]
             denied = await bc.post(f"{LIST_URL}/{items[0]['id']}/revoke")
@@ -91,9 +78,9 @@ async def test_manage_only_pat_revokes_without_csrf(note_app, tenant_client):
         tenant_client(TenantRole.MEMBER, tenant_id=owner.tenant_id) as friend,
     ):
         await _share(note_app, owner, friend)
-        data, _ = await _admin(note_app, owner.tenant_id)
-        view_token = await _pat(note_app, data, [Permissions.VIEW])
-        manage_token = await _pat(note_app, data, [Permissions.MANAGE])
+        data = await admin_session(note_app, owner.tenant_id)
+        view_token = await pat_for(note_app, data, [Permissions.VIEW])
+        manage_token = await pat_for(note_app, data, [Permissions.MANAGE])
         async with bearer_client(note_app, view_token) as bc:
             share_id = (await bc.get(LIST_URL)).json()["items"][0]["id"]
         async with bearer_client(note_app, manage_token) as bc:
@@ -109,7 +96,7 @@ async def test_cookie_revoke_needs_csrf_token(note_app, tenant_client):
         tenant_client(TenantRole.MEMBER, tenant_id=owner.tenant_id) as friend,
     ):
         await _share(note_app, owner, friend)
-        data, _ = await _admin(note_app, owner.tenant_id)
+        data = await admin_session(note_app, owner.tenant_id)
         async with session_client(note_app, data) as client:
             share_id = (await client.get(LIST_URL)).json()["items"][0]["id"]
             url = f"{LIST_URL}/{share_id}/revoke"

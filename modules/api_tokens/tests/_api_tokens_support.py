@@ -62,6 +62,24 @@ async def create_pat(client: httpx.AsyncClient, scopes: list[str], *, days: int 
     return resp.json()
 
 
+async def admin_session(app: Any, tenant_id: str | None = None) -> dict[str, str]:
+    """A new admin who owns a tenant (or *tenant_id*): the data for ``session_client``."""
+    from tenants.core.constants import SESSION_ACTIVE_TENANT
+
+    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
+    user_id = await make_admin(app, email)
+    tenant_id = await join_tenant(app, user_id, email, tenant_id)
+    return {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
+
+
+async def pat_for(app: Any, session: dict[str, str], scopes: list[str]) -> str:
+    """Mint a personal token for the signed-in *session* and return its secret."""
+    from simple_module_test.web.tenant_client import session_client
+
+    async with session_client(app, session) as client:
+        return (await create_pat(client, scopes))["token"]
+
+
 async def create_service_key(
     client: httpx.AsyncClient,
     *,

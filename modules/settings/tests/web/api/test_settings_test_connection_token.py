@@ -2,31 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
-
-from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import admin_session, bearer_client, pat_for  # ty: ignore[import-not-found]
 from settings.core.constants import Permissions
-from simple_module_test.web.tenant_client import session_client
-from tenants.core.constants import SESSION_ACTIVE_TENANT
 
 _BASE = "/api/settings/modules"
 _INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 
 
-async def _owner(app) -> dict[str, str]:
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    tenant_id = await join_tenant(app, user_id, email)
-    return {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
-
-
-async def _pat_for(app, owner: dict[str, str], scopes: list[str]) -> str:
-    async with session_client(app, owner) as c:
-        return (await create_pat(c, scopes))["token"]
-
-
 async def _pat(app, scopes: list[str]) -> str:
-    return await _pat_for(app, await _owner(app), scopes)
+    return await pat_for(app, await admin_session(app), scopes)
 
 
 async def test_testable_via_pat_matches_view_prop(app, authenticated_client):
@@ -71,9 +55,9 @@ async def test_unknown_package_is_404(app):
 
 
 async def test_rate_limit_is_per_user_not_per_ip_or_token(app):
-    owner = await _owner(app)
-    token = await _pat_for(app, owner, [Permissions.VIEW, Permissions.EDIT])
-    sibling = await _pat_for(app, owner, [Permissions.VIEW, Permissions.EDIT])
+    owner = await admin_session(app)
+    token = await pat_for(app, owner, [Permissions.VIEW, Permissions.EDIT])
+    sibling = await pat_for(app, owner, [Permissions.VIEW, Permissions.EDIT])
     other = await _pat(app, [Permissions.VIEW, Permissions.EDIT])
     async with bearer_client(app, token) as bc:
         codes = [(await bc.post(f"{_BASE}/mail/test-connection")).status_code for _ in range(11)]

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import uuid
-
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF, admin_session, create_pat  # ty: ignore[import-not-found]
 from audit_log.models import AuditEntry
 from background_tasks.models import TaskExecution
 from simple_module_db import all_tenants, tenant_context
@@ -12,7 +10,7 @@ from simple_module_db.models.credential import current_auth_kind, current_token_
 from simple_module_test.web.tenant_client import session_client
 from sqlalchemy import update
 from sqlmodel import col, select
-from tenants.core.constants import SESSION_ACTIVE_TENANT, Permissions
+from tenants.core.constants import Permissions
 
 _URL = "/api/tenants/"
 
@@ -24,18 +22,10 @@ async def _tenant_rows(app, name: str) -> list[AuditEntry]:
     return [r for r in rows if any(c.get("new") == name for c in r.changes)]
 
 
-async def _admin(app) -> tuple[str, str]:
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    return user_id, await join_tenant(app, user_id, email)
-
-
 async def test_pat_mutation_records_pat_and_token_id(app):
     import httpx
 
-    user_id, tenant_id = await _admin(app)
-    data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
-    async with session_client(app, data) as c:
+    async with session_client(app, await admin_session(app)) as c:
         body = await create_pat(c, [Permissions.PLATFORM_MANAGE])
     app.state.tenants.settings.allow_self_service = False
     async with httpx.AsyncClient(
@@ -52,8 +42,7 @@ async def test_pat_mutation_records_pat_and_token_id(app):
 
 
 async def test_session_mutation_records_session_without_token(app):
-    user_id, tenant_id = await _admin(app)
-    data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
+    data = await admin_session(app)
     app.state.tenants.settings.allow_self_service = True
     async with session_client(app, data) as c:
         resp = await c.post(_URL, json={"name": "Attr Session"}, headers={"X-CSRF-Token": CSRF})

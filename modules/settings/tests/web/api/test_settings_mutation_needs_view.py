@@ -7,25 +7,16 @@ the same: a token scoped to the mutation grant alone gets ``403``.
 
 from __future__ import annotations
 
-import uuid
-
-from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import admin_session, bearer_client, pat_for  # ty: ignore[import-not-found]
 from settings.core.constants import Permissions
 from simple_module_core.settings.module_settings import module_settings_registry
-from simple_module_test.web.tenant_client import session_client
-from tenants.core.constants import SESSION_ACTIVE_TENANT
 
 _BASE = "/api/settings"
 _MODULE = "mail"
 
 
 async def _pat(app, scopes: list[str]) -> str:
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    tenant_id = await join_tenant(app, user_id, email)
-    owner = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
-    async with session_client(app, owner) as c:
-        return (await create_pat(c, scopes))["token"]
+    return await pat_for(app, await admin_session(app), scopes)
 
 
 async def _create(app, key: str) -> int:

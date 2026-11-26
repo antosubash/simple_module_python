@@ -7,17 +7,13 @@ tokens through ``host.openapi.read``, is never anonymous (not even with
 
 from __future__ import annotations
 
-import uuid
-
 import httpx
 import pytest
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import admin_session, pat_for  # ty: ignore[import-not-found]
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from simple_module_core.access.permissions import PermissionRegistry
 from simple_module_hosting.auth.host_permissions import HostPermissions
 from simple_module_hosting.auth.meta_openapi import META_OPENAPI_PATH
-from simple_module_test.web.tenant_client import session_client
-from tenants.core.constants import SESSION_ACTIVE_TENANT
 
 
 @pytest.fixture
@@ -33,12 +29,7 @@ def _client(app, **headers: str) -> httpx.AsyncClient:
 
 
 async def _pat(app, scopes: list[str]) -> str:
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    tenant_id = await join_tenant(app, user_id, email)
-    data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
-    async with session_client(app, data) as c:
-        return (await create_pat(c, scopes))["token"]
+    return await pat_for(app, await admin_session(app), scopes)
 
 
 def test_permission_is_registered_on_the_app(app):

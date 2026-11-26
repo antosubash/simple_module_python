@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-import uuid
-
-from _api_tokens_support import CSRF, bearer_client, create_pat  # ty: ignore[import-not-found]
+from _api_tokens_support import (  # ty: ignore[import-not-found]
+    admin_session,
+    bearer_client,
+    join_tenant,
+    pat_for,
+)
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from simple_module_test.web.tenant_client import session_client
 from tenants.core.constants import SESSION_ACTIVE_TENANT, Permissions
@@ -13,15 +16,8 @@ _URL = "/api/tenants/"
 
 
 async def _admin_pat(app, scopes: list[str]) -> tuple[str, str, str]:
-    from _api_tokens_support import join_tenant, make_admin  # ty: ignore[import-not-found]
-
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    tenant_id = await join_tenant(app, user_id, email)
-    data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
-    async with session_client(app, data) as c:
-        body = await create_pat(c, scopes)
-    return user_id, body["token"], tenant_id
+    data = await admin_session(app)
+    return data["user_id"], await pat_for(app, data, scopes), data[SESSION_ACTIVE_TENANT]
 
 
 async def test_pat_lists_only_its_pinned_tenant(app, user_client):
@@ -29,8 +25,6 @@ async def test_pat_lists_only_its_pinned_tenant(app, user_client):
         foreign = await client.post(_URL, json={"name": "Theirs"})
         assert foreign.status_code == 201, foreign.text
     user_id, token, pinned = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
-    from _api_tokens_support import join_tenant  # ty: ignore[import-not-found]
-
     # The owner also belongs to a second tenant the token is not pinned to.
     second = await join_tenant(app, user_id, "adm2@example.com")
     async with bearer_client(app, token) as bc:
@@ -101,12 +95,8 @@ async def test_pat_cannot_suspend_its_own_tenant(app):
 
 
 async def test_session_admin_suspend_unchanged(app):
-    from _api_tokens_support import join_tenant, make_admin  # ty: ignore[import-not-found]
-
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    tenant_id = await join_tenant(app, user_id, email)
-    data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
+    data = await admin_session(app)
+    tenant_id = data[SESSION_ACTIVE_TENANT]
     async with session_client(app, data) as c:
         resp = await c.post(f"/api/tenants/admin/{tenant_id}/suspend")
     assert resp.status_code != 409, resp.text

@@ -2,27 +2,12 @@
 
 from __future__ import annotations
 
-import uuid
-
-from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF, admin_session, bearer_client, pat_for  # ty: ignore[import-not-found]
 from dashboard.core.constants import Permissions
 from simple_module_test.web.tenant_client import session_client
-from tenants.core.constants import SESSION_ACTIVE_TENANT
 
 _DOCTOR = "/api/dashboard/doctor"
 _INERTIA = {"X-Inertia": "true", "Accept": "application/json"}
-
-
-async def _admin_data(app) -> dict:
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    tenant_id = await join_tenant(app, user_id, email)
-    return {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
-
-
-async def _pat(app, data: dict, scopes: list[str]) -> str:
-    async with session_client(app, data) as c:
-        return (await create_pat(c, scopes))["token"]
 
 
 def test_permission_registered_and_not_mapped_to_tenant_roles(app):
@@ -35,8 +20,8 @@ def test_permission_registered_and_not_mapped_to_tenant_roles(app):
 
 
 async def test_doctor_pat_reads_same_keys_as_the_view_and_reruns(app):
-    data = await _admin_data(app)
-    token = await _pat(app, data, [Permissions.DOCTOR])
+    data = await admin_session(app)
+    token = await pat_for(app, data, [Permissions.DOCTOR])
     async with bearer_client(app, token) as bc:
         resp = await bc.get(_DOCTOR)
         assert resp.status_code == 200, resp.text
@@ -53,8 +38,8 @@ async def test_doctor_pat_reads_same_keys_as_the_view_and_reruns(app):
 
 
 async def test_pat_without_doctor_scope_is_refused(app):
-    data = await _admin_data(app)
-    token = await _pat(app, data, [Permissions.VIEW])
+    data = await admin_session(app)
+    token = await pat_for(app, data, [Permissions.VIEW])
     async with bearer_client(app, token) as bc:
         assert (await bc.get(_DOCTOR)).status_code == 403
         assert (await bc.post(f"{_DOCTOR}/rerun")).status_code == 403
@@ -76,8 +61,8 @@ async def test_rerun_invokes_the_runner_and_returns_its_finding(app):
         return [finding]
 
     app.state.sm.diagnostics.runner = runner
-    data = await _admin_data(app)
-    token = await _pat(app, data, [Permissions.DOCTOR])
+    data = await admin_session(app)
+    token = await pat_for(app, data, [Permissions.DOCTOR])
     async with bearer_client(app, token) as bc:
         resp = await bc.post(f"{_DOCTOR}/rerun")
     assert resp.status_code == 200, resp.text
@@ -88,7 +73,7 @@ async def test_rerun_invokes_the_runner_and_returns_its_finding(app):
 
 
 async def test_cookie_session_rerun_needs_csrf_token(app):
-    data = await _admin_data(app)
+    data = await admin_session(app)
     async with session_client(app, data) as client:
         refused = await client.post(f"{_DOCTOR}/rerun")
         assert refused.status_code == 403

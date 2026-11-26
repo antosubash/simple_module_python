@@ -5,10 +5,9 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import admin_session, bearer_client, make_admin, pat_for  # ty: ignore[import-not-found]
 from _users_admin_support import _make_user
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
-from simple_module_test.web.tenant_client import session_client
 from users.core.constants import Permissions
 from users.models import OAuthAccount
 
@@ -16,12 +15,7 @@ _BASE = "/api/users/admin"
 
 
 async def _pat(app, scopes: list[str]) -> str:
-    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
-    user_id = await make_admin(app, email)
-    tenant_id = await join_tenant(app, user_id, email)
-    data = {"user_id": user_id, "active_tenant_id": tenant_id, "sm_csrf_token": CSRF}
-    async with session_client(app, data) as c:
-        return (await create_pat(c, scopes))["token"]
+    return await pat_for(app, await admin_session(app), scopes)
 
 
 async def _user_with_links(app, count: int, *, admin: bool = False) -> tuple[str, list[str]]:
