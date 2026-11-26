@@ -25,7 +25,7 @@ _TABLE = "audit_log_audit_entry"
 
 def upgrade() -> None:
     with op.batch_alter_table(_TABLE) as batch:
-        batch.add_column(sa.Column("auth_kind", sa.String(length=32), nullable=True))
+        batch.add_column(sa.Column("auth_kind", sa.String(length=16), nullable=True))
         batch.add_column(sa.Column("token_id", sa.String(length=64), nullable=True))
 
 

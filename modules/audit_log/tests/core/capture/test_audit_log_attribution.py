@@ -6,10 +6,11 @@ import uuid
 
 from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin
 from audit_log.models import AuditEntry
-from simple_module_db.auditing._bulk_audit_records import ACTION_BULK_UPDATED
-from simple_module_db.auditing.bulk_audit import record_bulk_audit
+from background_tasks.models import TaskExecution
+from simple_module_db import all_tenants, tenant_context
 from simple_module_db.models.credential import current_auth_kind, current_token_id
 from simple_module_test.web.tenant_client import session_client
+from sqlalchemy import update
 from sqlmodel import col, select
 from tenants.core.constants import SESSION_ACTIVE_TENANT, Permissions
 
@@ -63,19 +64,30 @@ async def test_session_mutation_records_session_without_token(app):
     assert {r.token_id for r in rows} == {None}
 
 
-async def test_bulk_record_carries_credential(app):
+async def test_bulk_statement_carries_credential(app):
+    async with app.state.sm.db.session_factory() as session:
+        row = TaskExecution(task_name="attr.bulk")
+        session.add(row)
+        await session.commit()
+        entity_id = str(row.id)
     kind = current_auth_kind.set("service")
     tok = current_token_id.set("tok-1")
     try:
         async with app.state.sm.db.session_factory() as session:
-            record_bulk_audit(session, "AttrBulk", ACTION_BULK_UPDATED, ["1"], {"x": 1})
-            await session.commit()
+            with tenant_context("tenant-a"):
+                await session.execute(update(TaskExecution).values(worker="w-attr"))
+                await session.commit()
     finally:
         current_token_id.reset(tok)
         current_auth_kind.reset(kind)
     async with app.state.sm.db.session_factory() as session:
-        stmt = select(AuditEntry).where(col(AuditEntry.entity_type) == "AttrBulk")
-        rows = (await session.execute(stmt)).scalars().all()
+        with all_tenants():
+            stmt = select(AuditEntry).where(
+                col(AuditEntry.entity_type) == TaskExecution.__name__,
+                col(AuditEntry.action) == "bulk_updated",
+                col(AuditEntry.entity_id) == entity_id,
+            )
+            rows = (await session.execute(stmt)).scalars().all()
     assert [(r.auth_kind, r.token_id) for r in rows] == [("service", "tok-1")]
 
 
