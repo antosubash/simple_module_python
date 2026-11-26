@@ -24,6 +24,7 @@ from simple_module_remote.config.environments import (
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.tree import TreeError, build_groups
 from simple_module_remote.generate.trust import hint_index, trusted_hints
+from simple_module_remote.generate.validate import schema_problems
 from simple_module_remote.output.sanitize import sanitize
 from simple_module_remote.schema.cache import CacheMeta, SchemaCacheError, load_cached
 
@@ -98,6 +99,12 @@ class SchemaChoice:
 
 
 Factory = Callable[[Operation, dict], click.Command]
+
+
+class MalformedSchemaError(Exception):
+    """A cached document whose structures commands would trip over."""
+
+
 # What a malformed live document can raise while its tree is built.
 MALFORMED = (RecursionError, TypeError, ValueError, KeyError, AttributeError, IndexError)
 
@@ -134,11 +141,16 @@ def choose_schema(
         cached = load_cached(cli, env.name, env.url, env.origin)
         if cached is None:
             raise SchemaCacheError(f"no live schema cached for {env.name!r}")
+        problems = schema_problems(cached.root)
+        if problems:
+            raise MalformedSchemaError("; ".join(problems))
         groups = build_groups(cached.root, _trusting(factory, bundled.root))
     except (SchemaCacheError, TreeError) as exc:
         return _fallback(bundled, f"{sanitize(str(exc))}: run {sync}", selected, flags.schema)
-    except MALFORMED as exc:
-        note = f"the cached schema for {env.name!r} is malformed ({type(exc).__name__}): run {sync}"
+    except (*MALFORMED, MalformedSchemaError) as exc:
+        why = str(exc) if isinstance(exc, MalformedSchemaError) else type(exc).__name__
+        note = sanitize(f"the cached schema for {env.name!r} is malformed ({why}): run {sync}")
+        note = " ".join(note.split())  # one line on stderr
         click.echo(f"{cli}: using the bundled schema: {note}", err=True)
         return _fallback(bundled, note, selected, flags.schema)
     return SchemaChoice(

@@ -16,9 +16,10 @@ from simple_module_remote.generate.pairs import split_pairs
 from simple_module_remote.generate.params import param_map
 from simple_module_remote.http.safety import validate_api_path
 from simple_module_remote.output.reasons import os_reason
+from simple_module_remote.output.sanitize import sanitize
 from simple_module_remote.schema.loader import resolve_ref
 
-__all__ = ["Prepared", "prepare_request"]
+__all__ = ["Prepared", "field_list", "prepare_request"]
 
 DEFAULT_CONTENT_TYPE = "application/octet-stream"
 
@@ -32,6 +33,11 @@ class Prepared:
     data: dict[str, str] | None = None
     content: bytes | None = None
     headers: dict[str, str] = field(default_factory=dict)
+
+
+def field_list(names: list[str]) -> str:
+    """Server-supplied field names for an error line: plain when printable, else escaped."""
+    return ", ".join(n if n.isprintable() and sanitize(n) == n else ascii(n) for n in names)
 
 
 def _query_value(value: Any) -> Any:
@@ -66,7 +72,7 @@ def _json_body(op: Operation, values: dict[str, Any], root: dict, stdin: TextIO)
         raise click.UsageError(str(exc)) from None
     missing = missing_required(body if isinstance(body, dict) else {}, op.body_schema, root)
     if missing and (body is None or isinstance(body, dict)):
-        raise click.UsageError(f"missing required body fields: {', '.join(missing)}")
+        raise click.UsageError(f"missing required body fields: {field_list(missing)}")
     if body is None and op.body_required:
         return _empty_body(op, root)
     return body
@@ -91,7 +97,7 @@ def _multipart(
     missing = missing_required(dict.fromkeys(given), op.body_schema, root)
     if missing:
         raise click.UsageError(
-            f"missing required form fields: {', '.join(missing)} (use --upload field=path "
+            f"missing required form fields: {field_list(missing)} (use --upload field=path "
             "or --set field=value)"
         )
 

@@ -223,3 +223,39 @@ class _Harness:
 @pytest.fixture
 def execute_harness():
     return _Harness
+
+
+LIVE_TOKEN = "smpat_trust_boundary_secret_9876543210"
+LIVE_WHOAMI = {"id": "u", "email": "a@b", "auth_kind": "pat", "scopes": None,
+               "tenant_id": None, "roles": []}  # fmt: skip
+
+
+@pytest.fixture
+def live(clean_schema):
+    """The bundled test schema, to be changed by each test into a 'live' one."""
+    return json.loads(clean_schema.read_text())
+
+
+@pytest.fixture
+def run_live(make_cli, logged_in):
+    """``run_live(doc, *args, protected=False)``: sync ``doc`` as the live schema, then run args."""
+
+    def factory(doc, *args, protected=False, response=None, sync=True):
+        seen: list[httpx.Request] = []
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            seen.append(req)
+            if req.url.path == "/api/_meta/openapi":
+                return response if response is not None else httpx.Response(200, json=doc)
+            if req.url.path == "/api/_meta/whoami":
+                return httpx.Response(200, json=LIVE_WHOAMI)
+            return httpx.Response(404, json={"detail": "Not Found"})
+
+        cli = make_cli(handler)
+        runner = logged_in(cli, protected=protected, login=False)
+        runner.invoke(make_cli(), ["login", "--token-stdin"], input=f"{LIVE_TOKEN}\n")
+        synced = runner.invoke(cli, ["schema", "sync"]) if sync else None
+        result = runner.invoke(cli, list(args)) if args else None
+        return synced, result, seen, runner, cli
+
+    return factory

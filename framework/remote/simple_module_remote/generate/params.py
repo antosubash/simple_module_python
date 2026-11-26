@@ -75,8 +75,8 @@ def param_map(op: Operation) -> dict[str, Param]:
 def _value_type(schema: dict) -> click.ParamType:
     enum = schema.get("enum")
     choices = [str(e) for e in enum] if isinstance(enum, list) else []
-    # Choices are printed in help and errors: server text with controls is not offered.
-    if choices and all(sanitize(c) == c for c in choices):
+    # Choices are printed in help and errors: only single-line printable text is offered.
+    if choices and all(c.isprintable() and sanitize(c) == c for c in choices):
         return click.Choice(choices)
     kind = schema.get("type")
     return _SCALARS.get(kind, click.STRING) if isinstance(kind, str) else click.STRING

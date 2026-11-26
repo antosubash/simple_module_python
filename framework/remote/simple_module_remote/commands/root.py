@@ -79,9 +79,9 @@ class _RootGroup(click.Group):
     @staticmethod
     def _with_defaults(ctx: click.Context, flags: RootFlags) -> RootFlags:
         """Fill flags absent from the arguments from a wrapper's ``default_map``."""
-        defaults = ctx.default_map or {}
-        env = flags.env if flags.env is not None else defaults.get(ENV_PARAM)
-        schema = flags.schema if flags.schema is not None else defaults.get(SCHEMA_PARAM)
+        # Click's own lookup: a callable default is called, as click will when parsing.
+        env = flags.env if flags.env is not None else ctx.lookup_default(ENV_PARAM)
+        schema = flags.schema if flags.schema is not None else ctx.lookup_default(SCHEMA_PARAM)
         return RootFlags(
             env if isinstance(env, str) else None,
             schema if isinstance(schema, str) else None,

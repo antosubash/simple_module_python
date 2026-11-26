@@ -5,11 +5,15 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import NamedTuple
 
+import httpx
+
 from simple_module_remote.commands.generated import operation_command
 from simple_module_remote.commands.schema_source import MALFORMED
 from simple_module_remote.generate.operations import invalid_cli_names
 from simple_module_remote.generate.tree import TreeError, build_groups
+from simple_module_remote.generate.validate import schema_problems
 from simple_module_remote.http.client import ApiClient
+from simple_module_remote.http.errors import ApiError
 from simple_module_remote.output.sanitize import sanitize
 from simple_module_remote.schema.cache import MAX_SCHEMA_BYTES, SchemaCacheError, parse_schema
 
@@ -18,6 +22,7 @@ __all__ = ["OPENAPI_PATH", "Fetched", "fetch_schema", "vet_schema"]
 OPENAPI_PATH = "/api/_meta/openapi"
 MAX_ETAG_CHARS = 256
 CHUNK = 64 * 1024
+IDENTITY = "identity"
 HTTP_OK = 200
 
 
@@ -40,21 +45,29 @@ def _safe_etag(value: str | None, client: ApiClient) -> str | None:
 def fetch_schema(client: ApiClient, headers: dict[str, str]) -> Fetched:
     """``GET`` the schema without following redirects, reading at most the byte budget.
 
-    The budget applies to the decoded body, so a compressed answer cannot inflate past it.
+    The body is requested uncompressed and a compressed answer is refused, so the budget
+    bounds what is held in memory. Transport failures while reading raise ``ApiError(0)``.
     """
-    with client.stream("GET", OPENAPI_PATH, headers=headers, follow=False) as response:
-        if response.status_code != HTTP_OK:
-            return Fetched(response.status_code, b"", None)
-        declared = response.headers.get("Content-Length", "")
-        if declared.isascii() and declared.isdigit() and int(declared) > MAX_SCHEMA_BYTES:
-            raise _too_large()
-        chunks, size = [], 0
-        for chunk in response.iter_bytes(CHUNK):
-            size += len(chunk)
-            if size > MAX_SCHEMA_BYTES:
+    wanted = {**headers, "Accept-Encoding": IDENTITY}
+    try:
+        with client.stream("GET", OPENAPI_PATH, headers=wanted, follow=False) as response:
+            if response.status_code != HTTP_OK:
+                return Fetched(response.status_code, b"", None)
+            encoding = response.headers.get("Content-Encoding", IDENTITY).strip().lower()
+            if encoding not in ("", IDENTITY):
+                raise SchemaCacheError("the server compressed the schema; refusing to inflate it")
+            declared = response.headers.get("Content-Length", "")
+            if declared.isascii() and declared.isdigit() and int(declared) > MAX_SCHEMA_BYTES:
                 raise _too_large()
-            chunks.append(chunk)
-        etag = _safe_etag(response.headers.get("ETag"), client)
+            chunks, size = [], 0
+            for chunk in response.iter_bytes(CHUNK):  # no Content-Encoding: nothing decoded
+                size += len(chunk)
+                if size > MAX_SCHEMA_BYTES:
+                    raise _too_large()
+                chunks.append(chunk)
+            etag = _safe_etag(response.headers.get("ETag"), client)
+    except (httpx.HTTPError, httpx.StreamError) as exc:
+        raise ApiError(0, message=f"reading the schema failed: {type(exc).__name__}") from None
     return Fetched(HTTP_OK, b"".join(chunks), etag)
 
 
@@ -98,6 +111,9 @@ def vet_schema(data: bytes, client: ApiClient) -> dict:
     bad = invalid_cli_names(root)
     if bad:
         raise SchemaCacheError(f"invalid x-cli-name values: {', '.join(bad[:5])}")
+    problems = schema_problems(root)
+    if problems:
+        raise SchemaCacheError(sanitize(f"the schema is unusable: {'; '.join(problems)}"))
     try:
         build_groups(root, operation_command)
     except TreeError as exc:

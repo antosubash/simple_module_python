@@ -13,6 +13,7 @@ from simple_module_remote.generate.operations import Operation, Param, parse_ope
 from simple_module_remote.generate.pairs import split_pairs
 from simple_module_remote.generate.params import PATH_VAR, click_params_for, param_map
 from simple_module_remote.generate.tree import session_only_operations
+from simple_module_remote.generate.trust import route_key
 from simple_module_remote.http.errors import UnsafePathError
 from simple_module_remote.http.safety import validate_api_path
 from simple_module_remote.output.sanitize import sanitize
@@ -44,6 +45,11 @@ def _synthetic(
     # Risk comes from the endpoint the server will route to: match the decoded path.
     matched = _matching(root, method, unquote(path)) if root else []
     vouched = _matching(trusted, method, unquote(path)) if trusted is not None else matched
+    templates = {route_key(op.method, op.path) for op in matched}
+    # A waiver needs one unambiguous route that both schemas agree on.
+    waivable = len(templates) == 1 and templates == {
+        route_key(op.method, op.path) for op in vouched
+    }
     names: dict[str, int] = {}
     for key, _ in queries:
         names[key] = names.get(key, 0) + 1
@@ -68,7 +74,7 @@ def _synthetic(
         body_schema=None,
         summary="",
         description="",
-        safe=bool(vouched) and all(op.safe for op in vouched),
+        safe=waivable and bool(vouched) and all(op.safe for op in vouched),
         confirm=any(op.confirm for op in (*matched, *vouched)),
         # A path that only session-only schema operations match gets the session-only hint.
         token_capable=not (matched and not any(op.token_capable for op in matched)),

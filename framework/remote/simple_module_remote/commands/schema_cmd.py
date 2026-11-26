@@ -106,7 +106,9 @@ def _sync(state: AppState, env: Environment, explicit: bool) -> str:
             try:
                 fetched = fetch_schema(client, headers)
             except ApiError as exc:
-                raise CliError(f"schema sync failed: {exc.message}", exit_code_for(0)) from None
+                raise CliError(
+                    sanitize(f"schema sync failed: {exc.message}"), exit_code_for(0)
+                ) from None
             if fetched.status == HTTP_NOT_MODIFIED and previous is not None:
                 current = _cached_meta(store, env)
                 if current is None or current.fingerprint != previous.fingerprint:
@@ -126,6 +128,11 @@ def _sync(state: AppState, env: Environment, explicit: bool) -> str:
 def sync(ctx: click.Context, env_name: str | None) -> None:
     state = state_of(ctx)
     if env_name is not None:
+        if state.flag_env is not None and state.flag_env != env_name:
+            raise CliError(
+                f"conflicting environments: --env {state.flag_env} before the command and "
+                f"--env {env_name} after it; pass one"
+            )
         with state.guard():
             state.flag_env = validate_env_name(env_name)
     env, explicit = state.select()
