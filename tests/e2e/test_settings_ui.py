@@ -66,7 +66,8 @@ def test_bool_description_stays_while_stored_value_overrides(
     page: Page, e2e_username: str, e2e_password: str
 ) -> None:
     """A toggle's description stays on its row once a stored value overrides
-    it (#1062): the trailing column switches to the stored-value text."""
+    it (#1062): the trailing column switches to the stored-value text. In
+    either position the switch announces it as its description (#1138)."""
     page.goto("/")
     _login(page, e2e_username, e2e_password)
     page.goto("/admin/settings/")
@@ -78,6 +79,8 @@ def test_bool_description_stays_while_stored_value_overrides(
     revert = row.get_by_role("button", name="Revert", exact=True)
     expect(revert).to_have_count(0)
     expect(description).to_be_visible()
+    described = re.compile(r"^Let any origin read public files cross-origin")
+    expect(toggle).to_have_accessible_description(described)
 
     toggle.click()
     save = page.get_by_role("button", name="Save")
@@ -86,8 +89,10 @@ def test_bool_description_stays_while_stored_value_overrides(
     try:
         expect(save).to_be_disabled()
         expect(description).to_be_visible()
+        expect(toggle).to_have_accessible_description(described)
     finally:
         # Remove the stored value even when the regression assertion fails.
         revert.click()
         expect(revert).to_have_count(0)
     expect(description).to_be_visible()
+    expect(toggle).to_have_accessible_description(described)

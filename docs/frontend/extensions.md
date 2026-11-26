@@ -121,9 +121,10 @@ Register its renderer through the same frontend entry:
 ```tsx
 import type { SettingsFieldRendererProps } from '@simple-module-py/ui/extensions';
 
-function DateInput({ field, value, onChange, id }: SettingsFieldRendererProps) {
+function DateInput({ field, value, onChange, id, ...props }: SettingsFieldRendererProps) {
   return (
     <input
+      {...props}
       id={id}
       type="date"
       value={String(value ?? '')}
@@ -138,8 +139,10 @@ export function register(registry: ExtensionRegistry) {
 ```
 
 Renderers receive the whole field metadata, the current draft value, the label's
-input `id`, and `onChange(name, value)`. Preserve nullable semantics, choices,
-override highlighting and accessible labels as appropriate for the control.
+input `id`, the optional `aria-describedby` description reference, and
+`onChange(name, value)`. Forward `id` and `aria-describedby` to the control so
+its label and field description remain accessible. Preserve nullable semantics,
+choices and override highlighting as appropriate for the control.
 Secret fields keep the existing masked input until the user chooses to set a
 new value; then a custom renderer can edit that new draft. Missing or unknown
 control hints use the built-in controls.

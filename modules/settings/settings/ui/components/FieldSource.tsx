@@ -30,7 +30,15 @@ export function sourceShowsDescription(field: FieldMeta): boolean {
  * Both produce the same support question — "I changed the setting and nothing happened" —
  * which this answers on the screen.
  */
-export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () => void }) {
+export function FieldSource({
+  field,
+  descriptionId,
+  onReset,
+}: {
+  field: FieldMeta;
+  descriptionId?: string;
+  onReset: () => void;
+}) {
   const { t } = useT();
 
   // Revert is gated on `db_override`, not on "differs from the default": a
@@ -62,7 +70,11 @@ export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () 
   // A toggle's env var name says nothing a reader wants; what the switch
   // currently means does.
   if (sourceShowsDescription(field)) {
-    return <span className="text-[11.5px] text-muted-foreground">{field.description}</span>;
+    return (
+      <span id={descriptionId} className="text-[11.5px] text-muted-foreground">
+        {field.description}
+      </span>
+    );
   }
 
   // The default is only worth showing when the live value has moved away from

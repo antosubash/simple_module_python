@@ -24,7 +24,7 @@ type Props = SettingsFieldRendererProps;
 /** A stored override is the one thing on this screen someone put there. */
 const OVERRIDDEN = 'border-primary ring-[3px] ring-primary/10';
 
-export function FieldInput({ field, onChange, value, id }: Props) {
+export function FieldInput({ field, onChange, value, id, 'aria-describedby': describedBy }: Props) {
   const registry = useExtensions();
   const { t } = useT();
   const [revealed, setRevealed] = useState(false);
@@ -46,6 +46,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
             name for anyone listening to it. */}
         <input
           id={id}
+          aria-describedby={describedBy}
           type="password"
           value="••••••••••"
           readOnly
@@ -69,7 +70,13 @@ export function FieldInput({ field, onChange, value, id }: Props) {
   if (Renderer) {
     return (
       <Suspense fallback={null}>
-        <Renderer field={field} value={value} onChange={onChange} id={id} />
+        <Renderer
+          field={field}
+          value={value}
+          onChange={onChange}
+          id={id}
+          aria-describedby={describedBy}
+        />
       </Suspense>
     );
   }
@@ -82,7 +89,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
         value={current}
         onValueChange={(next) => onChange(field.name, next === UNSET ? null : next === 'true')}
       >
-        <SelectTrigger id={id} className={`w-[160px] ${highlight}`}>
+        <SelectTrigger id={id} aria-describedby={describedBy} className={`w-[160px] ${highlight}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -98,6 +105,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     return (
       <Switch
         id={id}
+        aria-describedby={describedBy}
         checked={!!value}
         onCheckedChange={(next) => onChange(field.name, next)}
         className={highlight}
@@ -110,7 +118,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     // feedback on a typo a 422 after Save.
     return (
       <Select value={String(value ?? '')} onValueChange={(next) => onChange(field.name, next)}>
-        <SelectTrigger id={id} className={`w-full ${highlight}`}>
+        <SelectTrigger id={id} aria-describedby={describedBy} className={`w-full ${highlight}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -128,6 +136,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     return (
       <Input
         id={id}
+        aria-describedby={describedBy}
         type="number"
         step={kind === 'int' ? '1' : 'any'}
         value={String(value ?? '')}
@@ -143,6 +152,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     return (
       <JsonInput
         id={id}
+        aria-describedby={describedBy}
         name={field.name}
         value={value}
         nullable={nullable}
@@ -155,6 +165,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
   return (
     <Input
       id={id}
+      aria-describedby={describedBy}
       type="text"
       value={String(value ?? '')}
       onChange={(e) =>
