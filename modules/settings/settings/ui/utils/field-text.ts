@@ -59,20 +59,38 @@ export type SettingsText = {
   label: (field: FieldLike) => string;
   help: (field: FieldLike) => string | undefined;
   group: (group: string) => string;
+  /** A select option's label: `fields.<name>.choices.<value>`, else the value. */
+  choice: (field: FieldLike, value: string) => string;
 };
+
+/**
+ * Packages whose settings text ships in another catalog. Host settings are the
+ * framework's own fields, so their labels come with `simple_module_hosting`
+ * (namespace `hosting`) and reach every app; an app may still override them
+ * under its own `host.settings_form.*` keys.
+ */
+const FALLBACK_NAMESPACE: Record<string, string> = { host: 'hosting' };
 
 /**
  * Text for one module's settings, from `<package>.settings_form.*` locale keys,
  * falling back to what the server declared and then to a humanised identifier.
  */
 export function settingsText(pkg: string, lookup: Lookup): SettingsText {
-  const get = (suffix: string) => lookup(`${pkg}.settings_form.${suffix}`) || undefined;
+  const fallback = FALLBACK_NAMESPACE[pkg];
+  const get = (suffix: string) =>
+    lookup(`${pkg}.settings_form.${suffix}`) ||
+    (fallback ? lookup(`${fallback}.settings_form.${suffix}`) : undefined) ||
+    undefined;
   return {
     title: () => get('title') ?? humanize(pkg),
     description: () => get('description'),
     label: (f) => get(`fields.${f.name}.label`) ?? (f.title || humanize(f.name)),
     help: (f) => get(`fields.${f.name}.help`) ?? (f.description || undefined),
     group: (g) => get(`groups.${groupSlug(g)}`) ?? g,
+    // Only plain tokens are key segments; a dotted value would split the key.
+    choice: (f, value) =>
+      (/^[A-Za-z0-9_-]+$/.test(value) ? get(`fields.${f.name}.choices.${value}`) : undefined) ??
+      value,
   };
 }
 

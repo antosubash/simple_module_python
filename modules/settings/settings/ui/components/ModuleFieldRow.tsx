@@ -78,6 +78,7 @@ export function ModuleFieldRow({
         field={field}
         value={value}
         onChange={onChange}
+        choiceLabel={(choice) => text.choice(field, choice)}
       />
     </fieldset>
   );

@@ -63,3 +63,29 @@ test('useSettingsText reads the active catalog', () => {
   expect(result.current.label({ name: 'subdomain_base' })).toBe('Subdomain base');
   expect(result.current.label({ name: 'invitation_ttl_hours' })).toBe('Invitation TTL hours');
 });
+
+describe('choices and catalogs', () => {
+  test('a choice label comes from the field key, else the raw value', () => {
+    const text = settingsText('mail', (key) =>
+      key === 'mail.settings_form.fields.backend.choices.console'
+        ? 'Console (log only)'
+        : undefined,
+    );
+    expect(text.choice({ name: 'backend' }, 'console')).toBe('Console (log only)');
+    expect(text.choice({ name: 'backend' }, 'smtp')).toBe('smtp');
+    // A dotted value is never used as a key segment.
+    expect(text.choice({ name: 'backend' }, 'a.b')).toBe('a.b');
+  });
+
+  test('host settings read the framework hosting catalog, and the app may override it', () => {
+    const catalog: Record<string, string> = {
+      'hosting.settings_form.title': 'Application',
+      'hosting.settings_form.fields.app_name.label': 'App name',
+      'host.settings_form.fields.app_name.label': 'Site name',
+    };
+    const text = settingsText('host', (key) => catalog[key]);
+    expect(text.title()).toBe('Application');
+    expect(text.label({ name: 'app_name' })).toBe('Site name');
+    expect(settingsText('mail', (key) => catalog[key]).title()).toBe('Mail');
+  });
+});
