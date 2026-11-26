@@ -11,7 +11,6 @@ vi.mock('@inertiajs/react', () => ({
 }));
 vi.mock('./AdminSectionLink', () => ({ AdminSectionLink: () => <a href="/admin">admin</a> }));
 
-import { TooltipProvider } from '../components/ui/tooltip';
 import { SidebarNav } from './SidebarNav';
 import { DEFAULT_SIDEBAR_THEME } from './sidebar-theme';
 
@@ -24,17 +23,15 @@ const items: MenuItem[] = [
 
 function renderNav(props: Partial<React.ComponentProps<typeof SidebarNav>> = {}) {
   return render(
-    <TooltipProvider>
-      <SidebarNav
-        menuItems={items}
-        adminItems={[]}
-        active={items[1]}
-        theme={theme}
-        showAdminLink={false}
-        onNavigate={() => {}}
-        {...props}
-      />
-    </TooltipProvider>,
+    <SidebarNav
+      menuItems={items}
+      adminItems={[]}
+      active={items[1]}
+      theme={theme}
+      showAdminLink={false}
+      onNavigate={() => {}}
+      {...props}
+    />,
   );
 }
 
@@ -55,18 +52,16 @@ describe('SidebarNav', () => {
     const { rerender } = renderNav();
     expect(screen.queryByRole('link', { name: 'admin' })).toBeNull();
     rerender(
-      <TooltipProvider>
-        <SidebarNav
-          menuItems={items}
-          adminItems={[]}
-          active={null}
-          theme={theme}
-          showAdminLink
-          onNavigate={() => {}}
-        >
-          <span>slot</span>
-        </SidebarNav>
-      </TooltipProvider>,
+      <SidebarNav
+        menuItems={items}
+        adminItems={[]}
+        active={null}
+        theme={theme}
+        showAdminLink
+        onNavigate={() => {}}
+      >
+        <span>slot</span>
+      </SidebarNav>,
     );
     expect(screen.getByRole('link', { name: 'admin' })).toBeVisible();
     expect(screen.getByText('slot')).toBeVisible();

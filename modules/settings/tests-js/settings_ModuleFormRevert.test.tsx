@@ -151,6 +151,7 @@ test('revert right after a save shows the live default and hides Revert', async 
   fireEvent.change(input, { target: { value: 'custom' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   const revert = await screen.findByRole('button', { name: 'Revert sender' });
+  revert.focus();
   fireEvent.click(revert);
   await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();

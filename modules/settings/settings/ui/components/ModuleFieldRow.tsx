@@ -47,7 +47,8 @@ export function ModuleFieldRow({
   const showDescription = !!field.description && !sourceShowsDescription(field);
   // Revert is shown only while `db_override` is set, so a successful revert
   // unmounts the focused button and drops focus to the page. Move it to the
-  // field once that has rendered; a failed revert keeps the button focused.
+  // field once that has rendered. A failed revert keeps the button (a 422
+  // moves focus to the first invalid field instead, in ModuleForm).
   const refocusAfterRevert = useRef(false);
   const revertInFlight = useRef(false);
   useEffect(() => {
