@@ -1,10 +1,12 @@
 import { configureI18n } from '@simple-module-py/i18n';
 import { ExtensionRegistry, ExtensionsProvider } from '@simple-module-py/ui/extensions';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 import type { FieldMeta } from '../settings/ui/components/FieldInput';
 import { ModuleFieldRow } from '../settings/ui/components/ModuleFieldRow';
+import { ModuleForm } from '../settings/ui/components/ModuleForm';
 
+vi.mock('@inertiajs/react', () => ({ router: { reload: vi.fn() } }));
 configureI18n({ locale: 'en', messages: { 'settings.modules_form.invalid_json': 'Invalid JSON' } });
 const field: FieldMeta = {
   name: 'setting',
@@ -97,4 +99,33 @@ test('appends the JSON hint after description and server error, and removes it w
   expect(screen.queryByText('Invalid JSON')).not.toBeInTheDocument();
   expect(control).toHaveAttribute('aria-describedby', `${description.id} ${error.id}`);
   expect(control).toHaveAttribute('aria-invalid', 'true');
+});
+
+test('a rejected save focuses the first invalid field and editing clears its error', async () => {
+  const detail = [{ loc: ['setting'], msg: 'Out of range' }];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail }), { status: 422 })),
+  );
+  const fields = [{ ...field, name: 'first' }, field];
+  render(
+    <ModuleForm
+      module={{
+        package: 'test',
+        module_name: 'Test',
+        env_prefix: 'SM_TEST_',
+        class_name: 'TestSettings',
+        fields,
+      }}
+    />,
+  );
+  const control = screen.getByLabelText('setting');
+  fireEvent.change(control, { target: { value: 'bad' } });
+  fireEvent.click(screen.getByRole('button', { name: /save/i }));
+  await waitFor(() => expect(control).toHaveAttribute('aria-invalid', 'true'));
+  expect(control).toHaveFocus();
+  fireEvent.change(control, { target: { value: 'better' } });
+  expect(control).not.toHaveAttribute('aria-invalid', 'true');
+  expect(screen.queryByText('Out of range')).not.toBeInTheDocument();
+  vi.unstubAllGlobals();
 });

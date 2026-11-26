@@ -60,7 +60,7 @@ test('new secrets stay hidden, toggle visibility, and Cancel restores the unchan
   expect(screen.getByLabelText('password')).toHaveValue('');
 });
 
-test('Cancel cannot restore the old mask while a new secret is being saved', async () => {
+test('a saved secret returns to its mask and an empty draft is never sent', async () => {
   let resolve!: (response: Response) => void;
   const fetchMock = vi.fn(
     (_request: Request) =>
@@ -79,20 +79,21 @@ test('Cancel cannot restore the old mask while a new secret is being saved', asy
   expect(screen.getByLabelText('password')).toBeDisabled();
   act(() => cancel.click());
   await act(async () => resolve(new Response('{}', { status: 200 })));
-  expect(cancel).toBeEnabled();
-  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-  fireEvent.click(cancel);
   expect(screen.getByLabelText('password')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('password')).toHaveValue('••••••••••');
+  expect(screen.queryByDisplayValue('new-secret')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   const request = fetchMock.mock.calls[0]?.[0] as Request | undefined;
   expect(await request?.json()).toEqual({ password: 'new-secret' });
-  fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
   fireEvent.change(screen.getByLabelText('password'), { target: { value: 'second-secret' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   expect(screen.getByLabelText('password')).toBeDisabled();
   await act(async () => resolve(new Response('{}', { status: 200 })));
-  expect(screen.getByLabelText('password')).toBeEnabled();
+  expect(screen.getByLabelText('password')).toHaveAttribute('readonly');
   expect(await fetchMock.mock.calls[1]?.[0].json()).toEqual({ password: 'second-secret' });
 });
 
@@ -125,11 +126,10 @@ test.each(['validation', 'server', 'network'])(
     for (const id of ids) expect(document.getElementById(id)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(control).toBeEnabled());
+    await waitFor(() => expect(screen.getByLabelText('password')).toHaveAttribute('readonly'));
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
-    expect(control).toHaveAccessibleDescription('Mail password');
-    expect(control).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('password')).toHaveAccessibleDescription('Mail password');
+    expect(screen.getByLabelText('password')).not.toHaveAttribute('aria-invalid', 'true');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     for (const [request] of fetchMock.mock.calls) {
       expect(await (request as Request).json()).toEqual({ password: 'new-secret' });
