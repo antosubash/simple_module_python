@@ -93,6 +93,13 @@ still succeeds.
 An explicitly stored users origin, including the old localhost default, keeps
 winning: clear it to inherit the host.
 
+The module overrides `users.base_url` and `tenants.public_base_url` accept blank
+or an absolute HTTP(S) URL without credentials, query strings or fragments, up to
+2,083 characters after trimming surrounding whitespace. Path prefixes are preserved. Saves persist the
+trimmed strings; invalid values return a field-level 422. Invalid stored module
+overrides are logged and ignored during hydration, falling back to the blank
+default (and thus inheriting the host); their database rows are retained.
+
 `host.session_cookie_secure` controls both session and users auth cookies.
 Unset means Secure outside development/testing and HTTP-compatible within them;
 changing it needs a restart. `host.login_redirect_url` is the live post-login
@@ -234,7 +241,8 @@ exactly a `str`; it does not change secret or enum persistence. JSON fields keep
 their existing validated-value persistence. Saving a value equal to the field's
 default still clears its override. Leave the marker off for strings derived from
 other settings at runtime, so saving a blank input does not freeze a derived URL
-in the database. `tenants.subdomain_base` and `users.base_url` opt in.
+in the database. `tenants.subdomain_base`, `tenants.public_base_url` and
+`users.base_url` opt in.
 
 ### Why `app.state.<module_lower>`?
 

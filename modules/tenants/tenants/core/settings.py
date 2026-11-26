@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationError, ValidatorFunctionWrapHandler, field_validator
 from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.settings.url_validation import validate_http_base_url
 
 
 class TenantsSettings(DbBackedSettings):
@@ -17,11 +18,18 @@ class TenantsSettings(DbBackedSettings):
     )
     public_base_url: str = Field(
         default="",
+        json_schema_extra={"persist_normalized": True},
         description=(
             "Origin invitation links are built on, e.g. https://app.example.com. "
             "Empty: inherit host.public_base_url; if both are blank, links are root-relative."
         ),
     )
+
+    @field_validator("public_base_url")
+    @classmethod
+    def _check_public_base_url(cls, value: str) -> str:
+        return validate_http_base_url(value, "public_base_url")
+
     subdomain_base: str = Field(
         default="",
         json_schema_extra={"persist_normalized": True},
@@ -53,8 +61,17 @@ class TenantsSettings(DbBackedSettings):
         default=72,
         ge=1,
         le=24 * 30,
-        description=(
-            "How long an invitation link stays valid (1-720 hours). "
-            "Gültigkeitsdauer eines Einladungslinks (1-720 Stunden)."
-        ),
+        description="How long an invitation link stays valid (1-720 hours).",
     )
+
+    @field_validator("invitation_ttl_hours", mode="wrap")
+    @classmethod
+    def _check_invitation_ttl_hours(
+        cls, value: object, handler: ValidatorFunctionWrapHandler
+    ) -> int:
+        try:
+            return handler(value)
+        except ValidationError as exc:
+            raise ValueError(
+                "invitation_ttl_hours must be a whole number of hours between 1 and 720"
+            ) from exc

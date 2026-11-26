@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import logging
 from typing import Literal
-from urllib.parse import urlsplit
 
-from pydantic import AnyHttpUrl, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.settings.url_validation import validate_http_base_url
 
 from users.accounts.session_version_cache import SESSION_VERSION_TTL_SECONDS
 from users.core._signup_role import _validate_signup_role
@@ -92,27 +92,7 @@ class _UsersCoreSettings(DbBackedSettings):
     @field_validator("base_url")
     @classmethod
     def _check_base_url(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            return value
-        message = (
-            "base_url must be an absolute http(s) URL without credentials "
-            "(e.g. https://example.com), or blank"
-        )
-        try:
-            parts = urlsplit(value)
-            if (
-                not parts.netloc
-                or parts.username is not None
-                or parts.password is not None
-                # URL parsers can silently repair controls and backslashes.
-                or any(c.isspace() or c == "\\" or ord(c) < 32 or ord(c) == 127 for c in value)
-            ):
-                raise ValueError(message)
-            AnyHttpUrl(value)
-        except ValueError as exc:
-            raise ValueError(message) from exc
-        return value
+        return validate_http_base_url(value, "base_url")
 
     mail_template_dirs: list[str] = Field(
         default_factory=list,
