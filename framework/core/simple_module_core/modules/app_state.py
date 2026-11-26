@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from simple_module_inertia import Inertia
     from starlette.requests import Request
 
-    from simple_module_core.access.tenancy import TenantExists, TenantMembers
+    from simple_module_core.access.tenancy import TenantExists, TenantMembers, TenantSlug
     from simple_module_core.modules.module import ModuleBase
     from simple_module_core.modules.services import Services
     from simple_module_core.web.body_limits import BodyLimitRegistry
@@ -165,6 +165,14 @@ def get_tenant_exists(app: Any) -> TenantExists | None:
     Returns None when absent.
     """
     return getattr(app.state, "tenant_exists", None)
+
+
+def get_tenant_slug(app: Any) -> TenantSlug | None:
+    """The tenants module installs the tenant-slug lookup callback.
+
+    Returns None when absent.
+    """
+    return getattr(app.state, "tenant_slug", None)
 
 
 def get_tenant_members(app: Any) -> TenantMembers | None:

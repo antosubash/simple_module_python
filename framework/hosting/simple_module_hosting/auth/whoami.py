@@ -1,6 +1,7 @@
 """Return the authenticated principal's identity to API clients."""
 
 from fastapi import APIRouter, Depends, Request
+from simple_module_core.access.tenancy import tenant_slug
 from sqlmodel import SQLModel
 
 from simple_module_hosting.auth.token_guard import Authenticated, TokenAllowed
@@ -15,6 +16,7 @@ class WhoAmI(SQLModel):
     auth_kind: str
     scopes: list[str] | None
     tenant_id: str | None
+    tenant_slug: str | None = None
     roles: list[str]
 
 
@@ -22,6 +24,7 @@ class WhoAmI(SQLModel):
 async def whoami(request: Request) -> WhoAmI:
     """Identify the credential and principal authenticated for this request."""
     user = request.state.user
+    slug = await tenant_slug(request.app, user.tenant_id) if user.tenant_id else None
     return WhoAmI(
         id=user.id,
         email=user.email,
@@ -29,5 +32,6 @@ async def whoami(request: Request) -> WhoAmI:
         auth_kind=user.auth_kind,
         scopes=user.scopes,
         tenant_id=user.tenant_id,
+        tenant_slug=slug,
         roles=user.roles,
     )

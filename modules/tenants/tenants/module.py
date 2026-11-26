@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from fastapi import APIRouter, FastAPI
     from simple_module_core.access.permissions import PermissionRegistry
-    from simple_module_core.access.tenancy import TenantExists, TenantMembers
+    from simple_module_core.access.tenancy import TenantExists, TenantMembers, TenantSlug
     from simple_module_core.eventing.events import EventBus
     from simple_module_core.eventing.invalidation import InvalidationBus
 
@@ -39,6 +39,18 @@ def _tenant_exists(app: FastAPI) -> TenantExists:
             return await db.get(Tenant, tenant_id) is not None
 
     return exists
+
+
+def _tenant_slug(app: FastAPI) -> TenantSlug:
+    """The ``app.state.tenant_slug`` callable core's ``tenant_slug()`` reads."""
+    from tenants.models import Tenant
+
+    async def slug(tenant_id: str) -> str | None:
+        async with app.state.sm.db.session_factory() as db:
+            tenant = await db.get(Tenant, tenant_id)
+            return tenant.slug if tenant is not None else None
+
+    return slug
 
 
 def _tenant_members() -> TenantMembers:
@@ -120,6 +132,7 @@ class TenantsModule(ModuleBase):
         )
         app.state.tenant_resolver = resolve_tenant
         app.state.tenant_exists = _tenant_exists(app)
+        app.state.tenant_slug = _tenant_slug(app)
         app.state.tenant_members = _tenant_members()
         register_inertia_shared_provider(app, tenant_shared_props)
 
