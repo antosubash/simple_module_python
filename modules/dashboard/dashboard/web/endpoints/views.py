@@ -11,6 +11,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.access.permissions import grants, is_admin_principal
 from simple_module_db.engine.deps import get_db
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import resolved_permissions_for
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.i18n.i18n_deps import TranslatorDep
@@ -77,7 +78,11 @@ async def doctor(request: Request, inertia: InertiaDep) -> InertiaResponse:
     return await inertia.render(_PAGE_DOCTOR, props)
 
 
-@admin_router.post("/rerun", response_model=None)
+@admin_router.post(
+    "/rerun",
+    response_model=None,
+    dependencies=[Depends(api_equivalent("POST", "/api/dashboard/doctor/rerun"))],
+)
 async def rerun_diagnostics(request: Request) -> RedirectResponse:
     """Re-run the checks and come back to the page.
 

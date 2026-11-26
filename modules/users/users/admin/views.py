@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.pagination import PageParams, clamp_page
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.csrf import RequiresCsrf
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
@@ -17,11 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
 from users.admin.linked_sign_ins import linked_sign_ins_for
+from users.admin.presenters import roles_payload
 from users.admin.recent_activity import recent_activity_for
 from users.admin.service import UserService
 from users.core.constants import Permissions, sanitize_list_filters
 from users.core.exceptions import UserNotFoundError
-from users.core.roles_cache import get_roles_cache
 from users.mailer import mailer_delivers
 from users.web.deps import get_user_service
 
@@ -34,11 +35,6 @@ _PAGE_ADMIN_EDIT = "Users/Users/Edit"
 _SECONDS_PER_DAY = 60 * 60 * 24
 _MAILER_SMTP = "smtp"
 _MAILER_CONSOLE = "console"
-
-
-async def _roles_payload(app) -> list[dict[str, str]]:
-    """Shape roles-cache entries for Inertia props."""
-    return [{"id": r.id, "name": r.name} for r in await get_roles_cache(app)]
 
 
 @router.get(
@@ -127,7 +123,7 @@ async def admin_add_people_page(
     return await inertia.render(
         _PAGE_ADMIN_ADD,
         {
-            "roles": await _roles_payload(request.app),
+            "roles": await roles_payload(request.app),
             # Drives the copy-link panel: when nothing can be delivered, the
             # invite mode has to hand the link back instead.
             "mailer_delivers": delivers,
@@ -191,7 +187,7 @@ async def admin_edit_page(
         _PAGE_ADMIN_EDIT,
         {
             "user": user_item.model_dump(mode="json"),
-            "roles": await _roles_payload(request.app),
+            "roles": await roles_payload(request.app),
             "has_permissions_module": has_permissions,
             # ``None`` when the audit_log module is not installed — the card
             # is then absent rather than empty, which is the honest rendering
@@ -205,7 +201,11 @@ async def admin_edit_page(
 
 @router.delete(
     "/{user_id}/linked-sign-ins/{oauth_account_id}",
-    dependencies=[Depends(RequiresPermission(Permissions.MANAGE)), Depends(RequiresCsrf())],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(RequiresCsrf()),
+        Depends(api_equivalent("DELETE", "/api/users/admin/{user_id}/linked-sign-ins/{link_id}")),
+    ],
 )
 async def admin_unlink_sign_in(
     user_id: uuid.UUID,

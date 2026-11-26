@@ -2,7 +2,9 @@
 
 from simple_module_hosting.boot.host import build_host_app
 
-app = build_host_app(__file__, routers=("host.routes:router",))
+from host.routes import HOST_ROUTERS
+
+app = build_host_app(__file__, routers=HOST_ROUTERS)
 
 from simple_module_core.web.menu import MenuItem, MenuSection  # noqa: E402
 

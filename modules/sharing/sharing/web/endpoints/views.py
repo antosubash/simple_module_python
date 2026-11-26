@@ -6,21 +6,18 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 from simple_module_core.access.resources import ResourcePrincipal
-from simple_module_core.access.user_directory import get_user_directory
-from simple_module_db import TenantIsolationError, paginate
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.auth.resource_deps import resource_principal
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.frontend.pagination import LenientPageParamsDep
 from simple_module_inertia import InertiaResponse
-from sqlmodel import col, select
 from starlette.responses import RedirectResponse
 
 from sharing.core.constants import ADMIN_URL, PAGE_ADMIN, Permissions
 from sharing.core.service import SharingError
-from sharing.models import ResourceShare
 from sharing.web.deps import SharingServiceDep, http_error
-from sharing.web.present import present_shares
+from sharing.web.listing import list_admin_shares
 
 router = APIRouter()
 
@@ -33,23 +30,9 @@ async def admin_index(
     params: LenientPageParamsDep,
     who: ResourcePrincipal = Depends(resource_principal),
 ) -> InertiaResponse:
-    stmt = select(ResourceShare).order_by(
-        col(ResourceShare.created_at).desc(), col(ResourceShare.id)
-    )
-    try:
-        page = await paginate(service.db, stmt, params)
-        shares = await present_shares(
-            get_user_directory(request.app),
-            service.db,
-            page.items,
-            service.audience,
-            who,
-            service.subject_registry(who),
-        )
-        total, served, tenant_required = page.total, page.page, False
-    except TenantIsolationError:
-        # Strict tenancy with no active tenant: nothing to list.
-        shares, total, served, tenant_required = [], 0, 1, True
+    listing = await list_admin_shares(request, service, params, who)
+    shares, total, served = listing.shares, listing.total, listing.page
+    tenant_required = listing.tenant_required
     return await inertia.render(
         PAGE_ADMIN,
         {
@@ -66,7 +49,10 @@ async def admin_index(
 @router.post(
     "/{share_id}/revoke",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.MANAGE)),
+        Depends(api_equivalent("POST", "/api/sharing/admin/shares/{share_id}/revoke")),
+    ],
 )
 async def admin_revoke(
     share_id: uuid.UUID,

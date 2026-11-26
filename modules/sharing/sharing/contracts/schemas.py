@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 
 from simple_module_core.access.resources import ACTION_VIEW
+from simple_module_db import Page
 from sqlmodel import Field, SQLModel
 
 from sharing.core.constants import (
@@ -54,3 +55,8 @@ class ShareOut(SQLModel):
     expires_at: datetime | None = None
     expired: bool = False
     created_at: datetime | None = None
+
+
+class SharePage(Page[ShareOut]):
+    # SQLModel needs a concrete field annotation to retain item types in OpenAPI.
+    items: list[ShareOut]

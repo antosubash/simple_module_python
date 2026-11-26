@@ -9,11 +9,10 @@ strings below match what ``pages/*.tsx`` declare.
 
 from __future__ import annotations
 
-import asyncio
-
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import ValidationError
 from simple_module_db.queries.pagination import clamp_page
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.frontend.inertia_utils import (
@@ -49,8 +48,8 @@ from settings.core.constants import (
 from settings.core.exceptions import InternalKeyError
 from settings.core.service import SettingService
 from settings.core.tenant_scope import tenant_update_error
+from settings.module_settings.connection import run_connection_test
 from settings.module_settings.discovery import (
-    _package_of,
     collect_module_settings,
     overrides_by_package,
 )
@@ -156,7 +155,10 @@ async def edit_view(
 @router.post(
     VIEW_STORE_PATH,
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.CREATE)),
+        Depends(api_equivalent("POST", "/api/settings/")),
+    ],
 )
 async def create_action(
     request: Request,
@@ -168,7 +170,10 @@ async def create_action(
 @router.put(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.EDIT)),
+        Depends(api_equivalent("PUT", "/api/settings/{setting_id}")),
+    ],
 )
 async def update_action(
     setting_id: int,
@@ -192,7 +197,10 @@ async def update_action(
 @router.delete(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.DELETE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.DELETE)),
+        Depends(api_equivalent("DELETE", "/api/settings/{setting_id}")),
+    ],
 )
 async def delete_action(
     setting_id: int,
@@ -246,7 +254,10 @@ async def modules_view(
     # server open outbound connections on demand (SMTP AUTH, S3) and hands the
     # raw failure text — hostnames, bucket names, auth errors — back to the
     # caller. Only someone allowed to change these settings should be able to.
-    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.EDIT)),
+        Depends(api_equivalent("POST", "/api/settings/modules/{package}/test-connection")),
+    ],
 )
 async def test_connection(package: str, request: Request) -> dict:
     """Run one module's health checks now and report each result.
@@ -255,32 +266,4 @@ async def test_connection(package: str, request: Request) -> dict:
     testing a connection expects to read the failure, not to get an error
     status with the reason buried.
     """
-    modules = getattr(request.app.state.sm, "modules", ())
-    owner = next((m for m in modules if _package_of(m) == package), None)
-    if owner is None:
-        raise HTTPException(status_code=404, detail=f"Unknown module package: {package}")
-
-    checks = [
-        c for c in request.app.state.sm.health_registry.all_checks if c.module == owner.meta.name
-    ]
-    if not checks:
-        raise HTTPException(status_code=404, detail=f"{owner.meta.name} has no connection to test")
-
-    # Run independently of one another — a module can register several checks
-    # (e.g. SMTP + primary storage + backup storage), and sequentially awaiting
-    # each one would block the request for the sum of their latencies instead
-    # of the slowest one, the same reasoning dashboard.web.stats._run_health_checks
-    # already applies to probe checks.
-    async def _run_one(check) -> dict:
-        try:
-            outcome = await check.check()
-            return {
-                "name": check.name,
-                "status": outcome.status.value,
-                "detail": outcome.detail or "",
-            }
-        except Exception as exc:
-            return {"name": check.name, "status": "unhealthy", "detail": str(exc)}
-
-    results = await asyncio.gather(*[_run_one(c) for c in checks])
-    return {"module": owner.meta.name, "checks": results}
+    return await run_connection_test(request.app, package)

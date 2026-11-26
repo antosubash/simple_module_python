@@ -7,9 +7,10 @@ a same-origin Referer (falls back to ``/`` for off-origin or missing).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from starlette.responses import RedirectResponse
 
+from simple_module_hosting.auth.api_equivalent import EXEMPT_LOCALE, api_exempt
 from simple_module_hosting.pipeline.redirects import safe_referer_or_root
 
 router = APIRouter()
@@ -17,7 +18,9 @@ router = APIRouter()
 _ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
 
 
-@router.post("/i18n/set-locale", response_model=None)
+@router.post(
+    "/i18n/set-locale", response_model=None, dependencies=[Depends(api_exempt(EXEMPT_LOCALE))]
+)
 async def set_locale(request: Request, locale: str = Form(...)) -> RedirectResponse:
     """Persist the user's locale choice in a long-lived cookie.
 

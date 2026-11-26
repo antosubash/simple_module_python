@@ -57,6 +57,10 @@ class UserContext:
     # permissions; when missing, the request runs as anonymous (401 on gated
     # routes). ``None`` (a session, a service key) requires nothing.
     required_permission: str | None = None
+    # The ``api_tokens`` row id of the credential behind a ``"pat"`` /
+    # ``"service"`` principal, so audit records can name the token. ``None``
+    # for every other kind of sign-in.
+    token_id: str | None = None
 
     # Providers must explicitly attest ownership of the principal's email.
     email_verified: bool = False
@@ -98,7 +102,12 @@ class UserContext:
 
         The inverse of :meth:`from_session_dict`. Adding a new field to
         ``UserContext`` requires updating both methods here — not the
-        AuthMiddleware cache helper, which stays schema-agnostic."""
+        AuthMiddleware cache helper, which stays schema-agnostic.
+
+        A session is a browser sign-in, never a credential: token identity
+        (``auth_kind``, ``scopes``, ``required_permission``, ``token_id``) is
+        never written, so whatever principal is cached, the cookie restores a
+        plain session principal."""
         return {
             "id": self.id,
             "email": self.email,
@@ -107,15 +116,17 @@ class UserContext:
             "roles": list(self.roles),
             "tenant_id": self.tenant_id,
             "permissions": list(self.permissions),
-            "auth_kind": self.auth_kind,
-            "scopes": list(self.scopes) if self.scopes is not None else None,
-            "required_permission": self.required_permission,
         }
 
     @classmethod
     def from_session_dict(cls, payload: Any) -> UserContext | None:
         """Rebuild from :meth:`to_session_dict` output. Returns ``None`` on any
-        shape mismatch so callers can fall through to a fresh DB load."""
+        shape mismatch so callers can fall through to a fresh DB load.
+
+        Always a plain session principal: token-identity keys in the payload
+        (a cookie written by an older release, or a hand-built dict) are
+        ignored, so a session can never restore as a scoped or token principal
+        — which would, for instance, earn it the ``RequiresCsrf`` token skip."""
         if not isinstance(payload, dict):
             return None
         try:
@@ -131,9 +142,7 @@ class UserContext:
                 tenant_id=payload.get("tenant_id"),
                 # Absent on cookies written before the field existed.
                 permissions=list(payload.get("permissions") or []),
-                auth_kind=str(payload.get("auth_kind") or AUTH_KIND_SESSION),
-                scopes=_scopes_from(payload.get("scopes")),
-                required_permission=payload.get("required_permission") or None,
+                auth_kind=AUTH_KIND_SESSION,
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -150,12 +159,3 @@ class UserContext:
 
     def has_any_role(self, roles: list[str]) -> bool:
         return bool(set(self.roles) & set(roles))
-
-
-def _scopes_from(raw: Any) -> list[str] | None:
-    """``None`` stays ``None`` (uncapped); anything else must be a list."""
-    if raw is None:
-        return None
-    if not isinstance(raw, list):
-        raise TypeError("scopes must be a list")
-    return [str(s) for s in raw]

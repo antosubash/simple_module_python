@@ -13,6 +13,7 @@ export function useTenantErrors() {
 
   const messages: Record<string, string> = {
     slug_taken: t(keys.tenants.errors.slug_taken),
+    cannot_suspend_own_tenant: t(keys.tenants.errors.cannot_suspend_own_tenant),
     self_service_disabled: t(keys.tenants.errors.self_service_disabled),
     tenant_suspended: t(keys.tenants.errors.tenant_suspended),
     not_found: t(keys.tenants.errors.not_found),

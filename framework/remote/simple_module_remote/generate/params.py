@@ -10,6 +10,7 @@ from click.core import ParameterSource
 from simple_module_remote.generate.naming import kebab_name, snake_name
 from simple_module_remote.generate.operations import Operation, Param, is_json_media
 from simple_module_remote.output.render import OUTPUT_FORMATS
+from simple_module_remote.output.sanitize import sanitize
 from simple_module_remote.schema.loader import resolve_ref
 
 __all__ = [
@@ -73,8 +74,10 @@ def param_map(op: Operation) -> dict[str, Param]:
 
 def _value_type(schema: dict) -> click.ParamType:
     enum = schema.get("enum")
-    if isinstance(enum, list) and enum:
-        return click.Choice([str(e) for e in enum])
+    choices = [str(e) for e in enum] if isinstance(enum, list) else []
+    # Choices are printed in help and errors: only single-line printable text is offered.
+    if choices and all(c.isprintable() and sanitize(c) == c for c in choices):
+        return click.Choice(choices)
     kind = schema.get("type")
     return _SCALARS.get(kind, click.STRING) if isinstance(kind, str) else click.STRING
 

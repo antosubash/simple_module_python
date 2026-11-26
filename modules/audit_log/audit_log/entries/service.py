@@ -28,6 +28,8 @@ _READ_COLUMNS = (
     AuditEntry.changes,
     AuditEntry.user_id,
     AuditEntry.correlation_id,
+    AuditEntry.auth_kind,
+    AuditEntry.token_id,
     AuditEntry.tenant_id,
     AuditEntry.created_at,
 )

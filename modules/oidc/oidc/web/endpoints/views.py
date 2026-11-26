@@ -5,6 +5,7 @@ import logging
 from auth.oidc_common.logout import logout_event_for
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
+from simple_module_hosting.auth.api_equivalent import EXEMPT_LOGOUT, api_exempt
 from simple_module_hosting.auth.auth_policy import login_redirect_url
 from simple_module_hosting.auth.csrf import require_browser_origin
 from simple_module_hosting.frontend.inertia_deps import InertiaDep, is_inertia_request
@@ -41,7 +42,10 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
     return await inertia.render(_PAGE_LOGGED_OUT)
 
 
-@router.post("/logout", dependencies=[Depends(require_browser_origin)])
+@router.post(
+    "/logout",
+    dependencies=[Depends(require_browser_origin), Depends(api_exempt(EXEMPT_LOGOUT))],
+)
 async def logout(request: Request):
     event = await logout_event_for(request, OidcAuthProvider)
     client = request.app.state.oidc.client
