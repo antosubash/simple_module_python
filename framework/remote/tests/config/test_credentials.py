@@ -1,6 +1,8 @@
 import fcntl
+import importlib
 import os
 import stat
+import sys
 import threading
 from pathlib import Path
 
@@ -229,7 +231,7 @@ def test_fallback_updates_hold_an_exclusive_lock(
         assert held["locked"], "read-modify-write ran without the cross-process lock"
         return real_load(self)
 
-    monkeypatch.setattr("simple_module_remote.config._file_store.fcntl.flock", flock)
+    monkeypatch.setattr(fcntl, "flock", flock)
     monkeypatch.setattr(FileStore, "_load", load)
     store.put("a", StoredCredential(SECRET, ENV.origin))
     assert store.delete("a") is True
@@ -255,3 +257,12 @@ def test_fallback_update_waits_for_another_holder(store: CredentialStore, tmp_pa
         os.close(fd)
     thread.join(timeout=5)
     assert done.is_set() and store.get("b") is not None
+
+
+def test_fallback_store_works_without_fcntl(
+    store: CredentialStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(sys.modules, "fcntl", None)  # `import fcntl` now raises ImportError
+    importlib.reload(importlib.import_module("simple_module_remote.config._file_store"))
+    store.put("a", StoredCredential(SECRET, ENV.origin))
+    assert store.get("a") == StoredCredential(SECRET, ENV.origin)

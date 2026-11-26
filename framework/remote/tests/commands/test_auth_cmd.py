@@ -3,6 +3,14 @@ import pytest
 from click.testing import CliRunner
 
 SECRET = "pat-secret-123"
+WHO = {
+    "id": "u",
+    "email": "a@b",
+    "auth_kind": "pat",
+    "scopes": None,
+    "tenant_id": None,
+    "roles": [],
+}
 
 
 def test_login_token_stdin_stores_origin_bound(make_cli, keyring_store, logged_in):
@@ -144,7 +152,19 @@ def test_login_refuses_a_redirected_identity_check(make_cli, keyring_store, logg
     assert len(cli.requests) == 1
 
 
-@pytest.mark.parametrize("body", [{"ok": True}, {"id": "u", "email": "a@b"}, {"id": 1}, []])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"ok": True},
+        {"id": "u", "email": "a@b"},
+        {"id": 1},
+        [],
+        {**WHO, "scopes": "all"},
+        {**WHO, "scopes": [1]},
+        {**WHO, "tenant_id": 5},
+        {**WHO, "roles": "admin"},
+    ],
+)
 def test_login_refuses_a_reply_that_is_not_an_identity(make_cli, keyring_store, logged_in, body):
     cli = make_cli(lambda r: httpx.Response(200, json=body))
     runner = logged_in(cli, login=False)

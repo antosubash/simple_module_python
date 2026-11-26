@@ -12,6 +12,7 @@ _CONFLICT_STATUSES = frozenset({409, 412})
 _NOT_FOUND = 404
 _SERVER_MIN = 500
 ERROR_MIN = 400
+OK_MIN = 200
 REDIRECT_MIN = 300
 
 
@@ -42,6 +43,11 @@ def exit_code_for(status: int) -> int:
         return EXIT_NOT_FOUND
     if status in _CONFLICT_STATUSES:
         return EXIT_CONFLICT
-    if status >= _SERVER_MIN or status < ERROR_MIN:
+    if status == 0 or status >= _SERVER_MIN:
         return EXIT_SERVER_ERROR
+    if status < OK_MIN or REDIRECT_MIN <= status < ERROR_MIN:
+        # A 1xx or a leftover 3xx: the request itself has to change, the server did not fail.
+        return EXIT_CLIENT_ERROR
+    if status < REDIRECT_MIN:
+        return EXIT_SERVER_ERROR  # a 2xx that could not be used (malformed success body)
     return EXIT_CLIENT_ERROR

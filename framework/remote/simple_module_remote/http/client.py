@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from types import TracebackType
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
 import httpx
 
@@ -154,6 +154,7 @@ class ApiClient:
                 )  # fmt: skip
             except httpx.InvalidURL:
                 raise UnsafePathError("the request URL is not valid") from None
+            validate_request_url(self._base, str(request.url), allow_query=True)
             response = self._send(self._client, request, stream)
             if response.status_code != TOO_MANY_REQUESTS or attempts >= MAX_RETRIES:
                 break
@@ -189,6 +190,10 @@ class ApiClient:
             try:
                 has_userinfo = "@" in urlsplit(target).netloc
             except ValueError:
+                has_userinfo = True
+            if self._token and any(
+                self._token in text for text in (target, unquote(target), unquote(unquote(target)))
+            ):
                 has_userinfo = True
             if has_userinfo:
                 current.close()

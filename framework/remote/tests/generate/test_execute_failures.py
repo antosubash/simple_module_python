@@ -6,6 +6,7 @@ import httpx
 import pytest
 from simple_module_remote.config.environments import Environment
 from simple_module_remote.generate.context import RunContext
+from simple_module_remote.generate.emit import ERROR_BODY_CHARS
 from simple_module_remote.generate.execute import run_operation
 from simple_module_remote.generate.operations import Param
 from simple_module_remote.http.client import ApiClient
@@ -214,3 +215,33 @@ def test_reflected_token_is_redacted_from_diagnostics(make_op):
         run_operation(ctx, make_op(method="POST", safe=True), {})
         shown = ctx.stderr.getvalue()
         assert REFLECTED not in shown and "[redacted]" in shown
+
+
+def test_token_straddling_the_truncation_cut_does_not_leak(make_op):
+    body = "x" * (ERROR_BODY_CHARS - 5) + REFLECTED + "tail"
+    ctx = ctx_for(lambda r: httpx.Response(500, text=body), token=REFLECTED)
+    run_operation(ctx, make_op(), {})
+    assert REFLECTED[:4] not in ctx.stderr.getvalue().replace("[redacted]", "")
+    paged = ctx_for(lambda r: httpx.Response(200, text=body), token=REFLECTED)
+    run_operation(paged, make_op(params=PAGING), {"all_pages": True})
+    assert REFLECTED[:4] not in paged.stderr.getvalue().replace("[redacted]", "")
+
+
+def test_reflected_token_in_content_type_is_redacted(make_op):
+    kind = f"application/x-{REFLECTED}"
+    ctx = ctx_for(
+        lambda r: httpx.Response(200, headers={"Content-Type": kind}, content=b"\x00"),
+        tty=True,
+        token=REFLECTED,
+    )
+    assert run_operation(ctx, make_op(), {}) == 1
+    assert REFLECTED not in ctx.stderr.getvalue()
+
+
+@pytest.mark.parametrize("flag", [{"all_pages": True}, {"limit": 3}])
+def test_all_or_limit_with_out_is_refused_before_sending(make_op, tmp_path, flag):
+    sent = []
+    ctx = ctx_for(lambda r: sent.append(r) or httpx.Response(200, json=[]))
+    with pytest.raises(click.UsageError):
+        run_operation(ctx, make_op(params=PAGING), {"out": str(tmp_path / "f"), **flag})
+    assert sent == []

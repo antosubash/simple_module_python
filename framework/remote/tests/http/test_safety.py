@@ -1,3 +1,4 @@
+import httpx
 import pytest
 from simple_module_remote.http.errors import UnsafePathError
 from simple_module_remote.http.safety import (
@@ -78,3 +79,18 @@ def test_request_url_must_stay_under_base_api() -> None:
     ):
         with pytest.raises(UnsafePathError):
             validate_request_url(base, bad)
+
+
+@pytest.mark.parametrize("url", ["https://h/a/../b", "https://h/a/%2e%2e/b", "https://h/./x"])
+def test_base_url_with_dot_segments_refused(url: str) -> None:
+    with pytest.raises(UnsafePathError):
+        validate_base_url(url)
+
+
+def test_built_url_check_allows_query_and_default_port() -> None:
+    ok = validate_request_url("https://h:443/app", "https://h/app/api/x?a=1", allow_query=True)
+    assert ok.endswith("?a=1")
+    with pytest.raises(UnsafePathError):
+        validate_request_url(
+            "https://h/app", str(httpx.URL("https://h/app/api/../x")), allow_query=True
+        )

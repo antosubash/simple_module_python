@@ -149,6 +149,21 @@ def state_of(ctx: click.Context) -> AppState:
     return state
 
 
+def _strings(value: object) -> bool:
+    return isinstance(value, list) and all(isinstance(v, str) for v in value)
+
+
+def _is_identity(data: dict) -> bool:
+    optional_text = data.get("tenant_id") is None or isinstance(data.get("tenant_id"), str)
+    scopes = data.get("scopes")
+    return (
+        all(isinstance(data.get(field), str) for field in WHOAMI_FIELDS)
+        and optional_text
+        and (scopes is None or _strings(scopes))
+        and _strings(data.get("roles", []))
+    )
+
+
 def fetch_whoami(client: ApiClient) -> dict:
     """``GET /api/_meta/whoami``; raises :class:`ApiError` on any non-2xx or non-JSON reply."""
     response = client.request("GET", WHOAMI_PATH, follow=False)
@@ -160,6 +175,6 @@ def fetch_whoami(client: ApiClient) -> dict:
         raise ApiError(response.status_code, message="whoami response is not JSON") from None
     if not isinstance(data, dict):
         raise ApiError(response.status_code, message="whoami response is not an object")
-    if not all(isinstance(data.get(field), str) for field in WHOAMI_FIELDS):
+    if not _is_identity(data):
         raise ApiError(response.status_code, message="whoami response is not an identity document")
     return data

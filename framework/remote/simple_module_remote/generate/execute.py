@@ -27,8 +27,6 @@ from simple_module_remote.generate.params import json_response_schema, success_i
 from simple_module_remote.generate.prepare import DEFAULT_CONTENT_TYPE, Prepared, prepare_request
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import (
-    ERROR_MIN,
-    EXIT_CLIENT_ERROR,
     EXIT_USAGE,
     REDIRECT_MIN,
     ApiError,
@@ -101,9 +99,7 @@ def _all_pages(
         try:
             return response.json()
         except ValueError:
-            raise ApiError(
-                response.status_code, response.text[:ERROR_BODY_CHARS], "response is not JSON"
-            ) from None
+            raise ApiError(response.status_code, response.text, "response is not JSON") from None
 
     show = is_terminal(ctx.stderr)
 
@@ -121,17 +117,8 @@ def _all_pages(
 def _fail(ctx: RunContext, exc: ApiError) -> int:
     say(ctx, f"error: {exc.message}")
     if exc.body_text.strip():
-        say_server(ctx, exc.body_text[:ERROR_BODY_CHARS])
+        say_server(ctx, exc.body_text, limit=ERROR_BODY_CHARS)
     return exit_code_for(exc.status)
-
-
-def _status_code(response: httpx.Response) -> int:
-    # A leftover 3xx means the request itself has to change, not that the server failed.
-    return (
-        EXIT_CLIENT_ERROR
-        if response.status_code < ERROR_MIN
-        else exit_code_for(response.status_code)
-    )
 
 
 def _exchange(
@@ -149,12 +136,12 @@ def _exchange(
             _all_pages(ctx, client, op, prep, values)
         except _HttpFailureError as failure:
             print_error(ctx, failure.response)
-            return _status_code(failure.response)
+            return exit_code_for(failure.response.status_code)
         return 0
     with _send(client, op, prep, stream) as response:
         if response.status_code >= REDIRECT_MIN:
             print_error(ctx, response)
-            return _status_code(response)
+            return exit_code_for(response.status_code)
         return emit(ctx, response, values)
 
 
@@ -162,6 +149,8 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
     """Execute ``op`` with click ``values``; returns the process exit code."""
     mutation = op.method not in SAFE_METHODS
     with ExitStack() as stack:
+        if values.get("out") and (values.get("all_pages") or values.get("limit")):
+            raise click.UsageError("--all and --limit print rows to stdout and cannot use --out")
         try:
             prep = prepare_request(op, values, ctx.root, ctx.stdin, stack)
         except UnsafePathError as exc:

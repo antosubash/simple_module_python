@@ -2,7 +2,6 @@
 
 import contextlib
 import errno
-import fcntl
 import os
 import secrets
 import stat
@@ -18,6 +17,19 @@ LOCK_SUFFIX = ".lock"
 TOKEN_FIELD = "token"
 ORIGIN_FIELD = "origin"
 LOOSE_MODE_MASK = 0o077
+
+
+def _lock_exclusive(fd: int) -> None:
+    """Block until ``fd`` holds an exclusive advisory lock.
+
+    ``fcntl`` is POSIX-only; where it is missing (Windows) updates are not serialized
+    across processes, which is the documented fallback.
+    """
+    try:
+        import fcntl
+    except ImportError:
+        return
+    fcntl.flock(fd, fcntl.LOCK_EX)
 
 
 class FileStoreError(Exception):
@@ -102,7 +114,7 @@ class FileStore:
         lock_path = self._path.with_name(self._path.name + LOCK_SUFFIX)
         try:
             fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            _lock_exclusive(fd)
         except OSError as exc:
             raise FileStoreError(f"cannot lock {lock_path}: {exc.__class__.__name__}") from None
         try:

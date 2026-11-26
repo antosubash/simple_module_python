@@ -26,7 +26,7 @@ in-memory keyring. The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
 | `config/` | Environments, origin-bound credentials, XDG paths |
 | `http/` | Guarded `httpx` client: `/api/` only, no credentials in URLs, no cross-origin redirects with auth |
 | `output/` | Table/JSON/YAML/`id` rendering with terminal-escape sanitising |
-| `commands/` | Built-in commands and the dynamic command tree |
+| `commands/` | Built-in commands and the operation-to-click adapter |
 
 ## `x-sm-token`
 

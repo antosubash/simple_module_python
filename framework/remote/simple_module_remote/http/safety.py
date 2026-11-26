@@ -43,6 +43,8 @@ def validate_base_url(url: str) -> str:
         or "#" in url
     ):
         raise UnsafePathError("environment url must not carry credentials, query or fragment")
+    if any(unquote(seg) in _DOT_SEGMENTS for seg in parts.path.split("/")):
+        raise UnsafePathError("environment url path must not contain dot segments")
     try:
         port = parts.port  # raises ValueError for a malformed or out-of-range port
     except ValueError:
@@ -58,14 +60,30 @@ def validate_base_url(url: str) -> str:
     return url
 
 
-def validate_request_url(base: str, url: str) -> str:
-    """Refuse a composed request URL that is not under ``base`` + ``/api/``."""
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _origin(parts: SplitResult) -> tuple[str, str | None, int | None]:
+    return (parts.scheme, parts.hostname, parts.port or _DEFAULT_PORTS.get(parts.scheme))
+
+
+def validate_request_url(base: str, url: str, *, allow_query: bool = False) -> str:
+    """Refuse a request URL that is not under ``base`` + ``/api/`` on the same origin.
+
+    Run it on the composed string and again on the URL httpx built, which has had its
+    dot segments resolved (``allow_query`` then admits the encoded query parameters).
+    """
     try:
         wanted, got = urlsplit(base), urlsplit(url)
-        same_host = (got.scheme, got.netloc) == (wanted.scheme, wanted.netloc)
+        same_origin = _origin(got) == _origin(wanted)
     except ValueError:
         raise UnsafePathError("request URL is not valid") from None
     prefix = wanted.path.rstrip("/") + API_PREFIX
-    if not same_host or got.query or got.fragment or not got.path.startswith(prefix):
+    if (
+        not same_origin
+        or (got.query and not allow_query)
+        or got.fragment
+        or not got.path.startswith(prefix)
+    ):
         raise UnsafePathError("request URL would leave the environment's /api/ surface")
     return url

@@ -167,7 +167,20 @@ def test_network_error_is_api_error_without_token() -> None:
 
 @pytest.mark.parametrize(
     ("status", "code"),
-    [(401, 4), (403, 4), (404, 5), (409, 6), (412, 6), (422, 2), (500, 3)],
+    [
+        (401, 4),
+        (403, 4),
+        (404, 5),
+        (409, 6),
+        (412, 6),
+        (422, 2),
+        (500, 3),
+        (0, 3),
+        (100, 2),
+        (302, 2),
+        (399, 2),
+        (200, 3),
+    ],
 )
 def test_exit_code_mapping(status: int, code: int) -> None:
     assert exit_code_for(status) == code
@@ -233,3 +246,20 @@ def test_invalid_request_url_becomes_a_cli_level_error(monkeypatch) -> None:
 def test_redact_strips_the_token() -> None:
     with _client(lambda r: httpx.Response(200)) as c:
         assert c.redact(f"Bearer {TOKEN} echoed") == "Bearer [redacted] echoed"
+
+
+def test_redirect_carrying_the_token_is_refused() -> None:
+    seen: list[httpx.Request] = []
+    for location in (
+        f"https://o.example/?t={TOKEN}",
+        "https://o.example/?t=" + TOKEN.replace("-", "%2d"),
+    ):
+        seen.clear()
+
+        def handler(req: httpx.Request, location=location) -> httpx.Response:
+            seen.append(req)
+            return httpx.Response(302, headers={"Location": location})
+
+        with _client(handler) as c, pytest.raises(ApiError) as err:
+            c.request("GET", "/api/a")
+        assert len(seen) == 1 and TOKEN not in str(err.value)
