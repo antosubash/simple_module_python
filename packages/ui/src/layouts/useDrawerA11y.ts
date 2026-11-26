@@ -9,6 +9,11 @@ const FOCUSABLE =
  */
 export const DESKTOP_SIDEBAR_QUERY = '(min-width: 64rem)';
 
+export interface DrawerA11yOptions {
+  /** Media query where the drawer becomes non-modal; match the layout's CSS breakpoint. */
+  desktopQuery?: string;
+}
+
 /** Rendered and reachable: `lg:hidden` items and `[hidden]`/`[inert]` subtrees are not. */
 function isFocusable(el: HTMLElement): boolean {
   return !el.closest('[hidden], [inert]') && el.getClientRects().length > 0;
@@ -17,7 +22,7 @@ function isFocusable(el: HTMLElement): boolean {
 /**
  * Modal-dialog behaviour for the mobile sidebar drawer (WAI-ARIA dialog
  * pattern): Escape closes it, focus moves in on open and is trapped while it is
- * open, and focus returns to whatever opened it on close.
+ * open, scrolling is locked, and focus returns to whatever opened it on close.
  *
  * The drawer element stays mounted (it is the static sidebar on desktop), so
  * this is a hook rather than a Dialog primitive. Crossing to the desktop
@@ -28,10 +33,11 @@ export function useDrawerA11y(
   open: boolean,
   onClose: () => void,
   drawerRef: RefObject<HTMLElement | null>,
+  { desktopQuery = DESKTOP_SIDEBAR_QUERY }: DrawerA11yOptions = {},
 ) {
   useEffect(() => {
     const desktop =
-      typeof window.matchMedia === 'function' ? window.matchMedia(DESKTOP_SIDEBAR_QUERY) : null;
+      typeof window.matchMedia === 'function' ? window.matchMedia(desktopQuery) : null;
     const drawer = drawerRef.current;
     const updateVisibility = () => {
       const hidden = !open && !desktop?.matches;
@@ -52,6 +58,8 @@ export function useDrawerA11y(
       return unsubscribe;
     }
     const opener = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const items = () =>
       drawer ? Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isFocusable) : [];
     items()[0]?.focus();
@@ -88,7 +96,8 @@ export function useDrawerA11y(
     return () => {
       unsubscribe();
       document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
       if (opener?.isConnected) opener.focus();
     };
-  }, [open, onClose, drawerRef]);
+  }, [open, onClose, drawerRef, desktopQuery]);
 }
