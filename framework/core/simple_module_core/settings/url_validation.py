@@ -11,7 +11,7 @@ def validate_http_base_url(value: str, field_name: str) -> str:
     if not value:
         return value
     message = (
-        f"{field_name} must be an absolute http(s) URL without credentials "
+        f"{field_name} must be an absolute http(s) URL without credentials, query or fragment, "
         "of at most 2083 characters (e.g. https://example.com), or blank"
     )
     try:
@@ -19,6 +19,9 @@ def validate_http_base_url(value: str, field_name: str) -> str:
         if (
             not parts.netloc
             or parts.username is not None
+            # Link paths are appended, so even empty query/fragment delimiters break them.
+            or "?" in value
+            or "#" in value
             # URL parsers can silently repair controls and backslashes.
             or any(c.isspace() or c == "\\" or ord(c) < 32 or ord(c) == 127 for c in value)
         ):

@@ -12,6 +12,8 @@ from tenants.core.settings import TenantsSettings
         ("https://example.com", "https://example.com"),
         ("http://localhost:8000", "http://localhost:8000"),
         ("https://[::1]:8443", "https://[::1]:8443"),
+        ("https://bücher.example/app", "https://bücher.example/app"),
+        ("https://example.com/app%3Fpart%23one", "https://example.com/app%3Fpart%23one"),
         ("  https://example.com/app/  ", "https://example.com/app/"),
         ("", ""),
         (" \t\n ", ""),
@@ -44,7 +46,12 @@ def test_public_base_url_accepts_and_trims_http_urls(value, expected):
         "https://[invalid]",
         "https://example.com\n.evil.com",
         "https://example.com\\@evil.com",
+        "https://example.com/app?next=/other",
+        "https://example.com/app#section",
+        "https://example.com/app?",
+        "https://example.com/app#",
         "a" * 1000,
+        "https://example.com/" + "a" * 2064,
         "https://example.com/" + "a" * 2065,
     ],
 )
@@ -58,15 +65,28 @@ def test_public_base_url_rejects_unsafe_or_malformed_urls(value):
     assert "credentials" in error["msg"]
 
 
-def test_invalid_stored_public_url_falls_back_without_losing_other_settings(caplog):
+@pytest.mark.parametrize(
+    "value",
+    [
+        "javascript:alert(1)",
+        "https://user:password@example.com",
+        "https://example.com/app?next=/other",
+        "https://example.com/app#section",
+        "https://example.com/" + "a" * 2064,
+    ],
+)
+def test_invalid_stored_public_url_falls_back_without_losing_other_settings(caplog, value):
+    stored = {
+        "public_base_url": (value, "string"),
+        "invitation_ttl_hours": ("24", "int"),
+    }
     settings = build_settings(
         TenantsSettings,
-        {
-            "public_base_url": ("javascript:alert(1)", "string"),
-            "invitation_ttl_hours": ("24", "int"),
-        },
+        stored,
         lenient=True,
     )
     assert settings.public_base_url == ""
     assert settings.invitation_ttl_hours == 24
+    assert stored["public_base_url"] == (value, "string")
     assert "Ignoring stored value for TenantsSettings.public_base_url" in caplog.text
+    assert value not in caplog.text

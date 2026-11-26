@@ -8,6 +8,10 @@ import pytest
     [
         ("tenants", "subdomain_base", "https://example.com", "hostname"),
         ("users", "base_url", "javascript:alert(1)", "http(s)"),
+        ("tenants", "public_base_url", "javascript:alert(1)", "http(s)"),
+        ("tenants", "public_base_url", "https://user:password@example.com", "credentials"),
+        ("tenants", "public_base_url", "https://example.com/app?next=/other", "query"),
+        ("tenants", "public_base_url", "https://example.com/app#section", "fragment"),
     ],
 )
 async def test_invalid_url_save_returns_field_error_without_writing(
@@ -34,6 +38,12 @@ async def test_invalid_url_save_returns_field_error_without_writing(
     [
         ("tenants", "subdomain_base", "  ExAmPlE.COM  ", "example.com"),
         ("users", "base_url", "  https://example.com  ", "https://example.com"),
+        (
+            "tenants",
+            "public_base_url",
+            "  https://example.com/app/  ",
+            "https://example.com/app/",
+        ),
     ],
 )
 async def test_url_save_persists_normalized_value(

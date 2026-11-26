@@ -208,7 +208,7 @@ Edit the remaining settings under Users at `/admin/settings/`:
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
 | `cookie_samesite` | `"lax"` |
-| `base_url` | `""` — inherit `host.public_base_url`; an explicit users origin wins. Both blank: copied links remain relative and account emails are skipped with an ERROR log naming `host.public_base_url` / `SM_PUBLIC_BASE_URL`. Public reset and verification responses remain unchanged. |
+| `base_url` | `""` — inherit `host.public_base_url`; an explicit users origin wins. Accepts blank or an absolute HTTP(S) URL without credentials, query strings or fragments, up to 2,083 characters after trimming; path prefixes are preserved and saves persist the trimmed string. Invalid saves return a field-level 422; invalid stored values are logged and ignored without deleting their rows. Both blank: copied links remain relative and account emails are skipped with an ERROR log naming `host.public_base_url` / `SM_PUBLIC_BASE_URL`. Public reset and verification responses remain unchanged. |
 | `mail_template_dirs` | `[]` — ordered absolute template directories, restart required; see [Overriding auth email templates](#overriding-auth-email-templates) |
 | `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
 | `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
