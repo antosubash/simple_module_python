@@ -8,8 +8,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 from mail.core.settings import MailSettings
+from mail.delivery._destination import _SocketSMTP
 from mail.delivery.sender import SmtpMailSender, build_sender
 from simple_module_core.mailer.mail import ConsoleMailSender, MailAttachment, MailMessage
+
+pytestmark = pytest.mark.usefixtures("smtp_delivery")
 
 
 def test_defaults() -> None:
@@ -42,38 +45,29 @@ def _smtp() -> SmtpMailSender:
     return SmtpMailSender("smtp.test", 2525, "user", "pw", "from@test", True)
 
 
-async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
+async def test_send_builds_a_plain_text_message(monkeypatch, smtp_socket) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("aiosmtplib.SMTP.sendmail", send)
 
     await _smtp().send(MailMessage(to="to@test", subject="Hi", text="Body"))
 
-    (wire,), kwargs = send.call_args
+    (sender, recipients, wire), kwargs = send.call_args
     email = BytesParser(policy=policy.default).parsebytes(wire)
     assert (email["From"], email["To"], email["Subject"]) == ("from@test", "to@test", "Hi")
     assert email.get_content_type() == "text/plain"
     assert email.get_content().strip() == "Body"
-    assert kwargs == {
-        "sender": "from@test",
-        "recipients": ["to@test"],
-        "mail_options": [],
-        "hostname": "smtp.test",
-        "port": 2525,
-        "username": "user",
-        "password": "pw",
-        "use_tls": False,
-        "start_tls": True,
-        "timeout": 15.0,
-    }
+    assert sender == "from@test" and recipients == ["to@test"]
+    assert kwargs == {"mail_options": []}
+    _SocketSMTP.login.assert_awaited_once_with("user", "pw")
 
 
 async def test_send_adds_an_html_alternative(monkeypatch) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("aiosmtplib.SMTP.sendmail", send)
 
     await _smtp().send(MailMessage(to="to@test", subject="Hi", text="Body", html="<b>Body</b>"))
 
-    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0])
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[2])
     assert email.get_content_type() == "multipart/alternative"
     parts = {p.get_content_type(): p.get_content().strip() for p in email.iter_parts()}
     assert parts == {"text/plain": "Body", "text/html": "<b>Body</b>"}
@@ -91,29 +85,28 @@ async def test_send_adds_an_html_alternative(monkeypatch) -> None:
 )
 async def test_smtp_reply_to_header(monkeypatch, reply_to) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("aiosmtplib.SMTP.sendmail", send)
     await _smtp().send(MailMessage("to@test", "Booking", "Confirmed", reply_to=reply_to))
-    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0])
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[2])
     assert email["Reply-To"] == reply_to
     assert email["From"] == "from@test"
     assert email["To"] == "to@test"
 
 
-async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
+async def test_blank_credentials_skip_authentication(monkeypatch) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("aiosmtplib.SMTP.sendmail", send)
 
     sender = SmtpMailSender("h", 25, "", "", "f@test", False)
     await sender.send(MailMessage(to="t@test", subject="s", text="b"))
 
-    _, kwargs = send.call_args
-    assert kwargs["username"] is None and kwargs["password"] is None
+    _SocketSMTP.login.assert_not_awaited()
 
 
 @pytest.mark.parametrize("html", [None, "<b>Body</b>"])
 async def test_smtp_attachment_parts_preserve_filename_type_and_bytes(monkeypatch, html) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("aiosmtplib.SMTP.sendmail", send)
     await _smtp().send(
         MailMessage(
             "to@test",
@@ -134,7 +127,7 @@ async def test_smtp_attachment_parts_preserve_filename_type_and_bytes(monkeypatc
             ],
         )
     )
-    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0])
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[2])
     parts = list(email.iter_attachments())
     assert [
         (p.get_filename(), p.get_content_type(), p.get_payload(decode=True)) for p in parts
@@ -182,11 +175,12 @@ def test_smtp_port_outside_the_tcp_range_is_rejected(port) -> None:
 async def test_tls_mode_for_send_and_connection(monkeypatch, port, tls, mode, expected):
     from unittest.mock import MagicMock
 
-    send = AsyncMock()
-    client = AsyncMock()
+    import aiosmtplib
+
+    client = MagicMock(spec=aiosmtplib.SMTP)
+    client.socket_transferred = False
     smtp = MagicMock(return_value=client)
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.SMTP", smtp)
+    monkeypatch.setattr("mail.delivery._destination._SocketSMTP", smtp)
     sender = build_sender(
         MailSettings(
             backend="smtp", smtp_host="smtp.test", smtp_port=port, smtp_tls=tls, smtp_tls_mode=mode
@@ -194,9 +188,11 @@ async def test_tls_mode_for_send_and_connection(monkeypatch, port, tls, mode, ex
     )
     await sender.send(MailMessage("to@test", "Hi", "Body"))
     await sender.verify_connection()
-    for kwargs in [send.call_args.kwargs, smtp.call_args.kwargs]:
+    for call in smtp.call_args_list:
+        kwargs = call.kwargs
         assert (kwargs["use_tls"], kwargs.get("start_tls")) == expected
-    client.connect.assert_awaited_once()
+    assert client.connect.await_count == 2
+    client.sendmail.assert_awaited_once()
 
 
 def test_unknown_tls_mode_is_rejected():
