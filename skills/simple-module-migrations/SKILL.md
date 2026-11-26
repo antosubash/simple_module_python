@@ -46,11 +46,16 @@ It honors `config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE]` from
 connection target). Replace older copied environments with this call to receive
 framework fixes; keep revisions and application customizations in the host.
 
-The matching host entry point uses `build_host_app(__file__, routers=("routes:router",))`
+The matching host entry point uses
+`build_host_app(__file__, app_name="my_app", routers=("routes:router",))`
 from `simple_module_hosting.boot.host`. It publishes the project root and loads dotenv
 before importing settings, then calls `merge_host_settings()`, configures logging
 and builds the app. Use router import strings to preserve that ordering; do not
 replace the merged settings with `Settings()` when customizing host boot.
+`app_name` also works with `create_app(settings, app_name="my_app")`. It supplies
+app-local defaults for the API title and branding (titles and account emails);
+environment and stored overrides retain priority. Resetting an override restores
+the code default. See `docs/framework/settings.md` for the precedence rules.
 
 `build_module_metadata()` walks the `simple_module` entry-point group, imports each module's `models` submodule (a missing `models` module is skipped; a missing dependency inside it raises), and merges every module's per-module `MetaData` into one unified `MetaData`. `make_include_object(metadata)` allowlists only tables owned by installed modules — any host-owned tables (and `alembic_version`) outside the module system are preserved untouched. So one autogenerate call covers every installed module in a single pass; editable installs and wheels behave identically.
 

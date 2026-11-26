@@ -39,8 +39,8 @@ def branding_head(request: Request) -> dict:
     (duck-typed, never imported) so the ``<title>``, ``theme-color`` and
     favicon are already branded *before* React hydrates — otherwise the browser
     paints the default favicon and only swaps on hydration, a visible flicker on
-    every full page load. Degrades to the framework default when branding isn't
-    installed.
+    every full page load. Without branding, uses the resolved host API title,
+    then the framework default.
 
     The favicon URL is read from the module rather than assembled here: branding
     owns its route shape, and framework code must not reach into a plugin

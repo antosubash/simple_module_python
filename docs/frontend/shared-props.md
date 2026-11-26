@@ -45,6 +45,13 @@ For each rendered page, it reads:
 
 Then it stores the result on `request.state.inertia_shared`, which `get_inertia` (`simple_module_hosting.frontend.inertia_deps`) shares into the Inertia payload.
 
+When no provider supplies `branding`, hosting adds a branding block with `appName`
+set to the resolved name and the remaining fields set to `null`, using the host
+API title as the name fallback. This keeps layouts and browser title
+suffixes named without the branding module. Set the code default with
+`build_host_app(..., app_name="Acme")` or `create_app(..., app_name="Acme")`;
+see [host settings](/framework/settings) for override precedence.
+
 ## Accessing from a page
 
 `@simple-module-py/ui` registers `SharedProps` with Inertia (`InertiaConfig.sharedPageProps`), so `usePage().props` is already typed: no generic, no cast. A page gets its own props as typed component arguments; a component or layout that needs the page's own props as well uses `usePageProps<T>()`, which returns `T & SharedProps & { errors }`. Use `useT` from `@simple-module-py/i18n` for translations:

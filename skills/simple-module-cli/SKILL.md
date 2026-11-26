@@ -28,6 +28,11 @@ The `uv run smpy` command is provided by `simple_module_cli` (installed as a dep
 
 The fastest way from zero to a working app. It calls `create-host` under the hood, then installs and wires up the modules you pick.
 
+Generated hosts pass the project name as `build_host_app(..., app_name="my_app")`.
+Edit that argument in the generated entry point to change the default API title,
+branding, page titles and account-email name; environment and DB overrides still
+win. See `docs/framework/settings.md` for precedence and reset behavior.
+
 App names must be **lowercase** with a single separator style (`my_app`, `my-app`, or `myapp`) — `uv run smpy new` rejects mixed case / spaces / mixed separators up front (`MyApp`, `foo_bar-baz` error out). `create-host` and `create-module` are lenient and accept any case.
 
 ```bash

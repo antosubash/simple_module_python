@@ -177,7 +177,17 @@ async def merge_shared_prop_providers(app: Any, request: Request, shared: dict) 
     from simple_module_hosting.frontend._inertia_setup import branding_head
 
     if "branding" not in shared and get_host_services(app) is not None:
-        shared["branding"] = {"appName": branding_head(request)["app_name"]}
+        shared["branding"] = {
+            "appName": branding_head(request)["app_name"],
+            "primaryColor": None,
+            "designPack": None,
+            "logoUrl": None,
+            "logoDarkUrl": None,
+            "faviconUrl": None,
+            "banner": None,
+            "footerText": None,
+            "footerLinks": None,
+        }
     for key, provider in getattr(app.state, "inertia_shared_replacements", {}).items():
         if key not in shared:
             raise KeyError(f"No Inertia shared prop {key!r} to replace")
