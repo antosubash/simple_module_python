@@ -275,3 +275,15 @@ def test_unicode_base_host_is_accepted() -> None:
     with _client(handler, url="https://bücher.example/app") as c:
         assert c.request("GET", "/api/x", params={"a": "1"}).status_code == 200
     assert seen[0].url.path == "/app/api/x"
+
+
+@pytest.mark.parametrize("location", ["javascript:alert(1)", "http:\\\\evil\\x", "http://[::1", "//[::1"])
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_invalid_redirect_location_is_a_clean_api_error(method, location) -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"Location": location})
+
+    with _client(handler) as c, pytest.raises(ApiError) as info:
+        c.request(method, "/api/x")
+    assert exit_code_for(info.value.status) == 3
+    assert info.value.message and TOKEN not in info.value.message

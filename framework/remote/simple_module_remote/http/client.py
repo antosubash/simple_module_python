@@ -176,6 +176,9 @@ class ApiClient:
             return client.send(request, stream=stream)
         except httpx.HTTPError as exc:
             raise ApiError(0, message=f"request failed: {type(exc).__name__}") from None
+        except httpx.InvalidURL:
+            # httpx parses a redirect's Location while sending, even with redirects off.
+            raise ApiError(0, message="the server sent an invalid redirect URL") from None
 
     def _unsafe_redirect(self, target: str) -> bool:
         """True for a target with userinfo (or unparsable) or one that carries the token."""
@@ -193,7 +196,11 @@ class ApiClient:
             location = current.headers.get("Location")
             if current.status_code not in REDIRECT_STATUSES or not location:
                 return current
-            target = urljoin(str(current.url), location)
+            try:
+                target = urljoin(str(current.url), location)
+            except ValueError:
+                current.close()
+                raise ApiError(0, message="the server sent an invalid redirect URL") from None
             if not target.lower().startswith(("http://", "https://")):
                 current.close()
                 raise ApiError(0, message="redirect to an unsupported URL scheme")
