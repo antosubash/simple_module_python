@@ -24,7 +24,12 @@ class WhoAmI(SQLModel):
 async def whoami(request: Request) -> WhoAmI:
     """Identify the credential and principal authenticated for this request."""
     user = request.state.user
-    slug = await tenant_slug(request.app, user.tenant_id) if user.tenant_id else None
+    # The slug names the tenant the request really acts for: the one the tenancy layer
+    # validated (request.state.tenant_id), and only when it is the principal's own claim.
+    resolved = getattr(request.state, "tenant_id", None)
+    slug = None
+    if user.tenant_id and resolved == user.tenant_id:
+        slug = await tenant_slug(request.app, user.tenant_id)
     return WhoAmI(
         id=user.id,
         email=user.email,

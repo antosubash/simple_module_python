@@ -132,3 +132,15 @@ def test_429_wait_is_announced() -> None:
     with client:
         client.request("GET", "/api/x")
     assert waits == [2.0]
+
+
+@pytest.mark.parametrize(
+    "location",
+    ["/api/%2e%2e/admin", "/api/%2E%2E/x", "/api/a%2fb", "/api/a%5cb", "/api/%252e%252e/x"],
+)
+def test_encoded_traversal_in_a_redirect_never_keeps_the_token(location: str) -> None:
+    seen: list[httpx.Request] = []
+    with _client(_redirecting(location, seen)) as c:
+        response = c.request("GET", "/api/x")
+    assert "authorization" not in seen[1].headers
+    assert c.was_redirected(response)
