@@ -31,11 +31,17 @@ def _read_text(source: str, stdin: TextIO, flag: str) -> str:
         raise BodyError(f"{flag}: cannot read {source}: {exc.__class__.__name__}") from None
 
 
+def _reject_constant(name: str) -> object:
+    raise ValueError(name)
+
+
 def _parse_json(text: str, flag: str) -> object:
     try:
-        return json.loads(text)
+        return json.loads(text, parse_constant=_reject_constant)
     except json.JSONDecodeError as exc:
         raise BodyError(f"{flag}: invalid JSON ({exc.msg} at position {exc.pos})") from None
+    except ValueError as exc:  # NaN, Infinity and -Infinity are not JSON
+        raise BodyError(f"{flag}: invalid JSON ({exc} is not allowed)") from None
 
 
 def _property_schema(root: dict, schema: dict | None, parts: Sequence[str]) -> dict | None:

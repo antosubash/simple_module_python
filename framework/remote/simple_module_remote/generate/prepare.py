@@ -15,6 +15,7 @@ from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.pairs import split_pairs
 from simple_module_remote.generate.params import param_map
 from simple_module_remote.http.safety import validate_api_path
+from simple_module_remote.schema.loader import resolve_ref
 
 __all__ = ["Prepared", "prepare_request"]
 
@@ -40,6 +41,15 @@ def _query_value(value: Any) -> Any:
     return value
 
 
+def _empty_body(op: Operation, root: dict) -> dict:
+    """``{}`` for a required body whose fields are all optional; an error for any other shape."""
+    schema = resolve_ref(root, op.body_schema) if op.body_schema else {}
+    kind = schema.get("type")
+    if kind == "object" or not schema or (kind is None and "properties" in schema):
+        return {}
+    raise click.UsageError("this command needs a request body: use --json, --file or --set")
+
+
 def _json_body(op: Operation, values: dict[str, Any], root: dict, stdin: TextIO) -> Any:
     try:
         body = build_json_body(
@@ -56,6 +66,8 @@ def _json_body(op: Operation, values: dict[str, Any], root: dict, stdin: TextIO)
     missing = missing_required(body if isinstance(body, dict) else {}, op.body_schema, root)
     if missing and (body is None or isinstance(body, dict)):
         raise click.UsageError(f"missing required body fields: {', '.join(missing)}")
+    if body is None and op.body_required:
+        return _empty_body(op, root)
     return body
 
 

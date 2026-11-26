@@ -48,6 +48,7 @@ class Operation:
     safe: bool
     confirm: bool
     token_capable: bool
+    body_required: bool = False
 
 
 def _collect_params(schema: dict, path_item: dict, op: dict) -> tuple[Param, ...]:
@@ -77,6 +78,10 @@ def _collect_params(schema: dict, path_item: dict, op: dict) -> tuple[Param, ...
 def is_json_media(media: str) -> bool:
     base = media.split(";", 1)[0].strip().lower()
     return base == JSON_MEDIA or (base.startswith("application/") and base.endswith("+json"))
+
+
+def _body_required(schema: dict, op: dict) -> bool:
+    return resolve_ref(schema, op.get("requestBody") or {}).get("required") is True
 
 
 def _body(schema: dict, op: dict) -> tuple[BodyKind, dict | None]:
@@ -132,6 +137,7 @@ def parse_operations(schema: dict) -> list[Operation]:
                     safe=op.get("x-cli-safe") is True,
                     confirm=op.get("x-cli-confirm") is True,
                     token_capable=op.get("x-sm-token") is True,
+                    body_required=_body_required(schema, op),
                 )
             )
     return ops

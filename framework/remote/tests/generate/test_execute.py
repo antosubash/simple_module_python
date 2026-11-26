@@ -280,3 +280,33 @@ def test_missing_required_body_fields(make_op, post):
     h = Harness(ok)
     with pytest.raises(click.UsageError, match="email"):
         h.run(op, sets=("a=1",))
+
+
+def test_required_body_with_optional_fields_sends_empty_object(make_op, post):
+    op = make_op(
+        method="PUT",
+        body_kind="json",
+        body_required=True,
+        body_schema={"type": "object", "properties": {"n": {"type": "integer"}}},
+    )
+    h = Harness(ok)
+    assert h.run(op) == 0
+    assert json.loads(h.requests[0].content) == {}
+    dry = Harness(ok)
+    dry.run(op, dry_run=True)
+    assert dry.out.getvalue().splitlines()[1:] == ["{}"]
+
+
+def test_optional_body_stays_absent(make_op):
+    op = make_op(method="PUT", body_kind="json", body_schema={"type": "object"})
+    h = Harness(ok)
+    h.run(op)
+    assert h.requests[0].content == b""
+
+
+def test_required_array_body_without_input_is_an_error(make_op):
+    op = make_op(
+        method="POST", body_kind="json", body_required=True, body_schema={"type": "array"}
+    )
+    with pytest.raises(click.UsageError, match="needs a request body"):
+        Harness(ok).run(op)
