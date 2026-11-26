@@ -181,8 +181,8 @@ class AuthMiddleware:
                     await refusal(scope, receive, send)
                     return
             token = current_user_id.set(user_ctx.id)
-            kind_token = current_auth_kind.set(user_ctx.auth_kind)
-            token_id_token = current_token_id.set(user_ctx.token_id)
+            kind_token = current_auth_kind.set(getattr(user_ctx, "auth_kind", None))
+            token_id_token = current_token_id.set(getattr(user_ctx, "token_id", None))
             try:
                 await self.app(scope, receive, send)
             finally:
