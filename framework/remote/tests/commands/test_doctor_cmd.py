@@ -107,3 +107,11 @@ def test_doctor_loose_credentials_file_fix_is_the_chmod(make_cli, fail_keyring, 
     creds.chmod(0o644)
     out = runner.invoke(cli, ["doctor"]).output
     assert f"fix: chmod 600 {creds}" in out
+
+
+def test_doctor_tenant_line_shows_slug_and_id(make_cli, logged_in, who):
+    cli = make_cli(lambda r: httpx.Response(200, json=who(tenant_slug="acme")))
+    runner = logged_in(cli, login=False)
+    runner.invoke(cli, ["--tenant", "t-1", "login", "--token-stdin"], input="tok\n")
+    out = runner.invoke(cli, ["--tenant", "t-1", "doctor"]).output
+    assert "ok    tenant: token is pinned to acme (t-1)" in out

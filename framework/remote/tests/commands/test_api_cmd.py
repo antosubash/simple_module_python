@@ -154,3 +154,21 @@ def test_yes_ignored_even_with_click_auto_envvar(make_cli, logged_in):
     )
     assert api.exit_code == 1 and gen.exit_code == 1
     assert len(cli.requests) == before
+
+
+def test_no_active_organisation_is_a_tenant_reason(make_cli, logged_in):
+    cli = make_cli(
+        lambda r: httpx.Response(403, json={"detail": "No active organisation for this request"})
+    )
+    runner = logged_in(cli)
+    result = runner.invoke(cli, ["api", "GET", "/api/settings/current"])
+    assert "the server needs a tenant" in result.output and "login" not in result.output
+
+
+@pytest.mark.parametrize("flag", ["--body-file"])
+def test_missing_body_file_names_file_and_reason(make_cli, logged_in, flag):
+    cli = make_cli()
+    runner = logged_in(cli)
+    result = runner.invoke(cli, ["file-storage", "put-raw", flag, "/nonexistent/part.bin", "--yes"])
+    assert "/nonexistent/part.bin" in result.output and "no such file or directory" in result.output
+    assert "FileNotFoundError" not in result.output
