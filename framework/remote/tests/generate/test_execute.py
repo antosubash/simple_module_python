@@ -310,3 +310,11 @@ def test_required_array_body_without_input_is_an_error(make_op):
     )
     with pytest.raises(click.UsageError, match="needs a request body"):
         Harness(ok).run(op)
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_empty_path_value_is_refused_client_side(download, value):
+    h = Harness(lambda r: pytest.fail("sent"))
+    with pytest.raises(click.UsageError, match="file_id"):
+        h.run(download, p_file_id=value)
+    assert h.requests == []

@@ -94,6 +94,8 @@ def prepare_request(
     for dest, param in param_map(op).items():
         value = values.get(dest)
         if param.location == "path":
+            if not str(value).strip():
+                raise click.UsageError(f"path parameter {param.name!r} must not be empty")
             path = path.replace("{" + param.name + "}", quote(str(value), safe=""))
         elif value is not None and value != ():
             query[param.name] = _query_value(value)
