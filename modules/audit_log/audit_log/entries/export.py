@@ -35,12 +35,12 @@ CSV_COLUMNS = (
     "entity_label",
     "actor",
     "changes",
-    # Appended last, not slotted in beside ``actor``: consumers that read the
-    # file by position (a spreadsheet macro, ``cut -d,``) predate the column
-    # and must keep finding ``changes`` where it always was.
+    # New columns are appended, never slotted in beside ``actor``: consumers
+    # that read the file by position (a spreadsheet macro, ``cut -d,``) predate
+    # them and must keep finding ``changes`` where it always was.
     "tenant_id",
-    # How the change was made (``session``, ``pat``, ``service``) and which API
-    # token made it, so an export tells CLI changes from browser ones (#1242).
+    # The credential that made the change (``session``, ``bearer``, ``pat``,
+    # ``service``) and, for an API token, which one (#1242).
     "auth_kind",
     "token_id",
 )

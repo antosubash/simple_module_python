@@ -42,10 +42,11 @@ _UNITS = ((86400, "d"), (3600, "h"), (60, "m"))
 def schema_fingerprint(root: dict) -> str:
     """Hash of the document's content, not its bytes.
 
-    The same schema exported by ``smpy openapi export`` and served live differs in
-    whitespace and key order; both must show the same fingerprint (#1241).
+    Equivalent documents can differ in whitespace or key order (``smpy openapi
+    export`` indents, the live route does not); both show one fingerprint (#1241).
+    ASCII escapes keep a lone surrogate in a description from failing the encode.
     """
-    canonical = json.dumps(root, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    canonical = json.dumps(root, sort_keys=True, separators=(",", ":"))
     return schema_digest(canonical.encode("utf-8"))[:FINGERPRINT_CHARS]
 
 

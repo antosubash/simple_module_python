@@ -12,7 +12,7 @@ from simple_module_remote.generate.pairs import split_pair
 from simple_module_remote.output.reasons import os_reason
 from simple_module_remote.schema.loader import resolve_ref, unwrap_nullable
 
-__all__ = ["BodyError", "body_field_summary", "build_json_body", "missing_required"]
+__all__ = ["BodyError", "build_json_body", "missing_required", "type_of"]
 
 STDIN = "-"
 _TRUE = frozenset({"true", "1", "yes"})
@@ -63,7 +63,7 @@ def _property_schema(root: dict, schema: dict | None, parts: Sequence[str]) -> d
     return resolve_ref(root, current) if current is not None else None
 
 
-def _type_of(schema: dict | None, root: dict) -> str | None:
+def type_of(schema: dict | None, root: dict) -> str | None:
     if not schema:
         return None
     schema = unwrap_nullable(root, schema)
@@ -74,7 +74,7 @@ def _type_of(schema: dict | None, root: dict) -> str | None:
 
 
 def _coerce(raw: str, key: str, schema: dict | None, root: dict) -> object:
-    kind = _type_of(schema, root)
+    kind = type_of(schema, root)
     try:
         if kind == "integer":
             return int(raw)
@@ -162,7 +162,7 @@ def build_json_body(
             body = loaded
     if not isinstance(body, dict | list):
         raise BodyError("request body must be a JSON object or array")
-    expected = _type_of(body_schema, root)
+    expected = type_of(body_schema, root)
     if expected == "object" and isinstance(body, list):
         raise BodyError("this command takes a JSON object, but --json/--file gave an array")
     if (sets or set_jsons) and not isinstance(body, dict):
@@ -183,7 +183,7 @@ def build_json_body(
             # Replacing a field (or an ancestor) ends any array being accumulated under it.
             arrays = {a for a in arrays if not _related(a, key)}
             _assign(body, key, value, "--set")
-            if _type_of(schema, root) == "array" and isinstance(value, list):
+            if type_of(schema, root) == "array" and isinstance(value, list):
                 arrays.add(key)
     return body
 
@@ -196,36 +196,3 @@ def missing_required(body: dict, body_schema: dict | None, root: dict) -> list[s
     if not isinstance(required, list):
         return []
     return [name for name in required if isinstance(name, str) and name not in body]
-
-
-MAX_HELP_FIELDS = 40
-
-
-def _type_label(root: dict, prop: object) -> str:
-    if not isinstance(prop, dict):
-        return "any"
-    node = unwrap_nullable(root, resolve_ref(root, prop))
-    kind = node.get("type")
-    if kind == "array":
-        items = node.get("items")
-        return f"list of {_type_label(root, items)}" if isinstance(items, dict) else "list"
-    if isinstance(kind, str):
-        return kind
-    return "object" if "properties" in node else "any"
-
-
-def body_field_summary(body_schema: dict | None, root: dict) -> list[tuple[str, str, bool]]:
-    """``(name, type, required)`` for each top-level body field, for ``--help`` (#1241)."""
-    if not body_schema:
-        return []
-    schema = resolve_ref(root, body_schema)
-    props = schema.get("properties")
-    if not isinstance(props, dict):
-        return []
-    required = schema.get("required")
-    wanted = set(required) if isinstance(required, list) else set()
-    return [
-        (name, _type_label(root, prop), name in wanted)
-        for name, prop in list(props.items())[:MAX_HELP_FIELDS]
-        if isinstance(name, str) and not (isinstance(prop, dict) and prop.get("readOnly"))
-    ]

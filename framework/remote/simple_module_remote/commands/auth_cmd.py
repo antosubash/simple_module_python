@@ -123,13 +123,21 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
 
 
 def _adopt_as_current(state: AppState, name: str) -> None:
-    """With no current environment yet, the one just logged in to becomes it (#1241)."""
-    config = state.config()
-    if config.current is not None or name not in config.envs:
-        return  # a choice already made, or a CI-only environment (SMDEV_URL)
-    config.current = name
-    with state.guard():
-        save_config(state.cli, config)
+    """With no current environment yet, a configured one just logged in to becomes it (#1241).
+
+    The login itself has already succeeded, so a config that cannot be saved is a
+    warning, not a failure.
+    """
+    try:
+        config = state.config()
+        if config.current is not None or name not in config.envs:
+            return  # a choice already made, or a one-off environment from <CLI>_URL
+        config.current = name
+        with state.guard():
+            save_config(state.cli, config)
+    except CliError as exc:
+        click.echo(f"warning: {name} was not made the current environment: {exc}", err=True)
+        return
     click.echo(f"current environment: {name}", err=True)
 
 

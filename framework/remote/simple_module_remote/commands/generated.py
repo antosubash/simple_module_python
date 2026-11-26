@@ -7,7 +7,7 @@ from typing import Any
 import click
 
 from simple_module_remote.commands.runtime import state_of
-from simple_module_remote.generate.body import body_field_summary
+from simple_module_remote.generate.body_help import body_field_summary, set_addressable
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.pagination import pagination_style
 from simple_module_remote.generate.params import (
@@ -19,6 +19,23 @@ from simple_module_remote.generate.params import (
 from simple_module_remote.output.sanitize import sanitize
 
 __all__ = ["operation_command"]
+
+
+def _fields_help(op: Operation, root: dict) -> str:
+    fields, more = body_field_summary(op.body_schema, root)
+    if not fields:
+        return ""
+    names = [sanitize(f.name) if set_addressable(f.name) else ascii(f.name) for f in fields]
+    listed = ", ".join(
+        f"{name}{'*' if f.required else ''} ({sanitize(f.kind)})"
+        for name, f in zip(names, fields, strict=True)
+    )
+    text = f"\n\nBody fields for --set (* required): {listed}"
+    if more:
+        text += f", and {more} more (see the schema)"
+    if not all(set_addressable(f.name) for f in fields):
+        text += ". Quoted names cannot be set with --set: use --json or --file"
+    return text
 
 
 def operation_command(op: Operation, root: dict) -> click.Command:
@@ -40,13 +57,8 @@ def operation_command(op: Operation, root: dict) -> click.Command:
     route = sanitize(f"{op.method} {op.path}")
     summary = sanitize(op.summary)
     text = sanitize(op.description) or summary
-    fields = body_field_summary(op.body_schema, root) if op.body_kind == "json" else []
-    if fields:
-        listed = ", ".join(
-            f"{sanitize(name)}{'*' if required else ''} ({sanitize(kind)})"
-            for name, kind, required in fields
-        )
-        text += f"\n\nBody fields for --set (* required): {listed}"
+    if op.body_kind == "json":
+        text += _fields_help(op, root)
     if not success_is_json(op, root):
         text += "\n\nThe response is not JSON: redirect stdout or use --out FILE."
     return click.Command(

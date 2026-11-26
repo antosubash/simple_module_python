@@ -68,7 +68,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- Project CLI engine (#1241): a 403 that explains a refused action no longer suggests logging in again; the `schema sync` hint appears only for a missing route (404 `Not Found`, 405) or a 422 for a missing or unknown field; `--help` lists a command's JSON body fields (`*` = required); the schema fingerprint hashes content, so the bundled and live copies of one schema match; `login` makes its environment current when none is.
+- Project CLI engine (#1241): a 403 that explains a refused action no longer suggests logging in again; the `schema sync` hint appears only for a missing route (404 with no detail or the router's exact `Not Found`, 405) or a 422 for a missing or unknown field; a generated command's `--help` lists up to 40 top-level JSON body fields (`*` = required); the schema fingerprint hashes content, so the bundled and live copies of one schema match; `login` to a configured environment makes it current when none is.
 - Audit log CSV export adds `auth_kind` and `token_id` columns after `tenant_id` (#1242).
 - Admin shell: improve primary text/button contrast, close the mobile drawer on Inertia navigation, reserve sidebar footer space, enlarge narrow/coarse touch targets, fit feature flags at tablet widths, wrap long user headings, use consistent section headings, and label search fields and the drawer toggle (#1184).
 

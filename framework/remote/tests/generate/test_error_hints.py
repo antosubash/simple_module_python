@@ -15,7 +15,9 @@ def _run(execute_harness, make_op, status, body):
     h = execute_harness(lambda r: httpx.Response(status, json=body))
     h.ctx.login_hint = LOGIN
     h.ctx.schema_hint = SCHEMA
-    h.run(make_op(method="POST"))
+    assert h.run(make_op(method="POST")) != 0
+    # the request went out and its error was reported, so a missing hint means something
+    assert len(h.requests) == 1 and f"error: HTTP {status}" in h.err.getvalue()
     return _hints(h)
 
 
@@ -24,6 +26,9 @@ def _run(execute_harness, make_op, status, body):
     [
         "You cannot assign roles you do not hold.",
         "You cannot manage a more privileged account.",
+        "The invitation has expired.",
+        "Only authenticated administrators can do this.",
+        {"code": "action_denied"},
     ],
 )
 def test_a_refused_action_does_not_suggest_logging_in_again(execute_harness, make_op, detail):
@@ -38,6 +43,7 @@ def test_a_refused_action_does_not_suggest_logging_in_again(execute_harness, mak
         (403, {}),
         (403, {"detail": "Not authenticated"}),
         (403, {"detail": "Token expired"}),
+        (403, {"detail": "Authentication required"}),
         (403, {"detail": "Forbidden"}),
     ],
 )
@@ -51,6 +57,8 @@ def test_a_credential_problem_still_suggests_logging_in(execute_harness, make_op
     [
         (404, {"detail": "member_not_found"}),
         (404, {"detail": "Item 7 not found"}),
+        (404, {"detail": "Not found"}),
+        (422, {"detail": [{"type": [], "loc": ["body"], "msg": "x"}]}),
         (422, {"detail": [{"type": "bool_parsing", "loc": ["body", "enabled"], "msg": "x"}]}),
         (422, {"detail": "Choose a different slug."}),
     ],
