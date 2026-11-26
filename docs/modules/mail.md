@@ -40,9 +40,14 @@ Earlier versions kept these under `users` (`users.mailer`, `users.smtp_*`). A da
 
 Both delivery and **Test connection** resolve the configured host and refuse the
 entire destination if **any** DNS answer is link-local (`169.254.0.0/16` or
-`fe80::/10`), unspecified (`0.0.0.0` or `::`), multicast, reserved or broadcast.
-The metadata address `fd00:ec2::254` is also explicitly refused; the link-local
-rule covers `169.254.169.254`. IPv4-mapped IPv6 addresses follow the same rules.
+`fe80::/10`), unspecified (`0.0.0.0` or `::`), multicast, reserved or broadcast
+(with the NAT64 exception below).
+The metadata addresses `fd00:ec2::254` (AWS), `100.100.100.200` (Alibaba Cloud),
+and `192.0.0.192` (Oracle Classic) are also explicitly refused; the link-local
+rule covers `169.254.169.254`. IPv4-mapped IPv6 addresses follow the same rules,
+as do the IPv4 endpoints embedded in 6to4 and Teredo addresses. NAT64 addresses
+under `64:ff9b::/96` are checked against their embedded IPv4 destination rather
+than IPv6's broad reserved classification, allowing translated public relays.
 Loopback, private IPv4 and IPv6 ULA addresses remain allowed for local Mailpit
 and internal relays. There is no policy override setting.
 
@@ -50,6 +55,8 @@ SMTP connects to a vetted IP without resolving the host again, while TLS SNI
 and certificate verification continue to use the configured hostname. A refused
 destination appears as a failed **Test connection** diagnostic and is logged
 without message contents or credentials (#1228).
+DNS resolution and all TCP connection attempts share a 15-second timeout;
+SMTP handshakes and commands retain their separate per-operation timeouts.
 
 ## Custom transports
 

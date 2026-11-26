@@ -11,20 +11,31 @@ from typing import cast
 from mail.core.constants import SMTP_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
-_METADATA_V6 = ipaddress.IPv6Address("fd00:ec2::254")
+_METADATA_ADDRESSES = frozenset(
+    ipaddress.ip_address(address) for address in ("fd00:ec2::254", "100.100.100.200", "192.0.0.192")
+)
+_NAT64_V6 = ipaddress.IPv6Network("64:ff9b::/96")
 
 
 def _refused(address: str) -> bool:
     ip = ipaddress.ip_address(address.split("%", 1)[0])
     if isinstance(ip, ipaddress.IPv6Address):
-        ip = ip.ipv4_mapped or ip
+        if ip.sixtofour is not None and _refused(str(ip.sixtofour)):
+            return True
+        if ip.teredo is not None and any(_refused(str(endpoint)) for endpoint in ip.teredo):
+            return True
+        # ipaddress labels even globally usable NAT64 destinations as reserved.
+        if ip in _NAT64_V6:
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        else:
+            ip = ip.ipv4_mapped or ip
     # IPv6 loopback is also classified as reserved by ipaddress.
     return not ip.is_loopback and (
         ip.is_link_local
         or ip.is_unspecified
         or ip.is_multicast
         or ip.is_reserved
-        or ip == _METADATA_V6
+        or ip in _METADATA_ADDRESSES
     )
 
 
@@ -62,7 +73,10 @@ async def _connect(host: str, port: int) -> socket.socket:
 
 @asynccontextmanager
 async def _smtp_socket(host: str, port: int) -> AsyncGenerator[socket.socket]:
-    sock = await _connect(host, port)
+    try:
+        sock = await _connect(host, port)
+    except TimeoutError as exc:
+        raise TimeoutError("Timed out resolving or connecting to SMTP destination") from exc
     try:
         yield sock
     finally:

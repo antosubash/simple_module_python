@@ -52,6 +52,11 @@ async def _run(operation):
         "fe80::1%eth0",
         "fd00:ec2::254",
         "fd00:ec2::254%1",
+        "100.100.100.200",
+        "192.0.0.192",
+        "::ffff:100.100.100.200",
+        "64:ff9b::6464:64c8",
+        "2002:6464:64c8::1",
         "0.0.0.0",
         "::",
         "224.0.0.1",
@@ -62,6 +67,11 @@ async def _run(operation):
         "::ffff:169.254.169.254",
         "::ffff:0.0.0.0",
         "::ffff:224.0.0.1",
+        "::169.254.169.254",
+        "64:ff9b::a9fe:a9fe",
+        "2002:a9fe:a9fe::1",
+        "2001:0:808:808:0:ffff:5601:5601",
+        "2001:0:a9fe:a9fe:0:ffff:f7f7:f7f7",
     ],
 )
 async def test_refused_address_never_connects(network, ip, operation):
@@ -88,6 +98,10 @@ async def test_refused_address_never_connects(network, ip, operation):
         "8.8.8.8",
         "2606:4700:4700::1111",
         "::ffff:127.0.0.1",
+        "64:ff9b::808:808",
+        "64:ff9b::a00:19",
+        "2002:808:808::1",
+        "2001:0:808:808:0:ffff:f7f7:f7f7",
     ],
 )
 async def test_allowed_address_is_pinned_to_connected_socket(network, ip, operation):
@@ -174,3 +188,67 @@ async def test_empty_dns_answer_does_not_connect(network):
         await _run("verify")
     sockets.assert_not_called()
     connect.assert_not_awaited()
+
+
+@pytest.mark.parametrize("stage", ["dns", "connect"])
+async def test_destination_timeout_has_a_safe_diagnostic_and_closes_socket(
+    network, monkeypatch, stage
+):
+    from mail.delivery import _destination
+
+    async def blocked(*args, **kwargs):
+        await asyncio.Future()
+
+    monkeypatch.setattr(_destination, "SMTP_TIMEOUT_SECONDS", 0)
+    resolve, connect, sockets, _, _ = network
+    (resolve if stage == "dns" else connect).side_effect = blocked
+    install_mail_sender(SmtpMailSender("relay.test", 587, "", "", "from@test", False))
+    result = await check_smtp()
+    assert result.status is HealthStatus.UNHEALTHY
+    assert "timed out" in result.detail.lower()
+    assert "relay.test" not in result.detail and "10.0.0.25" not in result.detail
+    if stage == "dns":
+        sockets.assert_not_called()
+    else:
+        connect.call_args.args[0].close.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "host", ["2852039166", "0251.0376.0251.0376", "0xa9fea9fe", "169.254.43518", "fe80::1%1"]
+)
+async def test_libc_numeric_host_forms_cannot_bypass_the_policy(network, host):
+    resolve, connect, sockets, _, _ = network
+    # Numeric-only libc lookup exercises normalization without an external DNS request.
+    resolve.side_effect = lambda host, port, **kwargs: socket.getaddrinfo(
+        host, port, flags=socket.AI_NUMERICHOST, **kwargs
+    )
+    sender = SmtpMailSender(host, 587, "", "", "from@test", False)
+    with pytest.raises(ValueError, match="SMTP destination refused"):
+        await sender.verify_connection()
+    sockets.assert_not_called()
+    connect.assert_not_awaited()
+
+
+@pytest.mark.parametrize("ip", ["8.8.8.8", "2606:4700:4700::1111", "::ffff:8.8.8.8"])
+async def test_real_sock_connect_does_not_repeat_dns_after_vetting(network, monkeypatch, ip):
+    resolve, _, sockets, _, _ = network
+    resolve.side_effect = [[_answer(ip)], [_answer("169.254.169.254")]]
+    loop = asyncio.get_running_loop()
+    connected = []
+
+    def socket_double(family, kind, proto):
+        sock = MagicMock(spec=socket.SocketType)
+        sock.family, sock.type, sock.proto = family, kind, proto
+        return sock
+
+    def connected_without_io(future, sock, address):
+        connected.append(address)
+        future.set_result(None)
+
+    sockets.side_effect = socket_double
+    # Keep asyncio's numeric-address fast path; stub only the final OS operation.
+    monkeypatch.setattr(loop, "sock_connect", type(loop).sock_connect.__get__(loop))
+    monkeypatch.setattr(loop, "_sock_connect", connected_without_io)
+    await _run("verify")
+    assert connected == [_answer(ip)[4]]
+    assert resolve.await_count == 1
