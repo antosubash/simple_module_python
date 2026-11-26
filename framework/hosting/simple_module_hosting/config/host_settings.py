@@ -171,9 +171,9 @@ class HostSettings(BaseSettings):
     leaves authenticated requests unlimited."""
 
     forwarded_host_allowlist: list[str] = Field(default=[], json_schema_extra=_RESTART_GUARD)
-    """Hosts a trusted proxy may substitute through ``X-Forwarded-Host``: an exact
-    host or ``*.example.com``, each with an optional port. Empty (default) ignores
-    the header. Only honoured together with ``trusted_proxy``."""
+    """Exact hosts or ``*.example.com`` entries with optional ports. Used by the
+    account email request-origin fallback and, when ``trusted_proxy`` is set,
+    by the ``X-Forwarded-Host`` middleware."""
 
     cors_allow_origins: list[str] = Field(default=[], json_schema_extra={"group": "CORS"})
     """Origins allowed to call ``/api/`` cross-origin. Empty (default) installs no

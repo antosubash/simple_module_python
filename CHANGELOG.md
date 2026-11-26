@@ -24,6 +24,9 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Behaviour change:** account emails fall back to the resolved request origin when the host is allowlisted and both configured origins are blank. Non-loopback HTTP requires a trusted proxy peer (#1126).
+- `ForwardedHostMiddleware` and the allowlist now accept bracketed IPv6 hosts (`[2001:db8::1]:8443`) and reject ports above 65535 and values with trailing characters (#1126).
+
 - **Behaviour change:** mail exposes DB-backed `smtp_tls_mode` (`auto`, `starttls`, `implicit`); `auto` retains implicit TLS on 465 and STARTTLS elsewhere. Deployments that previously used implicit TLS on custom ports must select `implicit`; `smtp_tls=false` disables TLS in every mode (#1099).
 - **Behaviour change:** worker images use a separate non-root runtime without build tools or uv; web and worker images copy only their runtime artifacts (#1088).
 

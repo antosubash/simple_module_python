@@ -28,7 +28,7 @@ from users.invites.bulk import (
     STATUS_SENT,
     invite_link,
 )
-from users.mailer import mailer_delivers
+from users.mailer import mailer_delivers, request_mail_options
 from users.web.deps import get_mailer, get_user_service
 
 logger = logging.getLogger(__name__)
@@ -70,9 +70,10 @@ async def admin_resend_invite(
 
     invited_by_name = getattr(actor, "name", None) or "Administrator"
 
-    if mailer_delivers(mailer):
+    mail_options = request_mail_options(mailer, request)
+    if mailer_delivers(mailer, **mail_options, log_missing_origin=True):
         try:
-            await mailer.send_invite(user.email, token, invited_by_name)
+            await mailer.send_invite(user.email, token, invited_by_name, **mail_options)
         except Exception:
             # The token is valid and the account is waiting; only delivery
             # failed. Handing back the link turns a dead end into a copy-paste.

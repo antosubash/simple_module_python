@@ -23,7 +23,7 @@ from users.admin.safety import check_request_role_assignment
 from users.admin.service import UserService
 from users.contracts.events import UserInvited
 from users.contracts.schemas import BulkInviteResponse, BulkInviteResult, UserBulkInvite
-from users.mailer import mailer_delivers
+from users.mailer import mailer_delivers, request_mail_options
 from users.models import OAuthAccount, User
 from users.web.deps import get_event_bus, get_mailer
 
@@ -83,8 +83,7 @@ async def admin_bulk_invite(
     await check_request_role_assignment(request, data.role_names)
     invited_by_name = invited_by.name if invited_by else "Administrator"
 
-    # Same question the page's ``mailer_delivers`` prop answers, asked once.
-    delivers = mailer_delivers(mailer)
+    mail_options = request_mail_options(mailer, request)
 
     # Preserve submit order but drop repeats: pasting a list with the same
     # address twice should not create two invites for it. A malformed address
@@ -111,6 +110,7 @@ async def admin_bulk_invite(
     accepted, overflow = ordered[:MAX_ADDRESSES], ordered[MAX_ADDRESSES:]
 
     results: list[BulkInviteResult] = []
+    delivers: bool | None = None
     for email in accepted:
         try:
             async with independent_session(request.app) as checkpoint:
@@ -136,9 +136,13 @@ async def admin_bulk_invite(
             )
             continue
 
+        if delivers is None:
+            delivers = mailer_delivers(mailer, **mail_options, log_missing_origin=True)
         if delivers:
             try:
-                await mailer.send_invite(user.email, token, invited_by_name, data.message)
+                await mailer.send_invite(
+                    user.email, token, invited_by_name, data.message, **mail_options
+                )
             except Exception:
                 # The account exists and the token is valid — the delivery
                 # failed. Handing back the link turns a dead end into a

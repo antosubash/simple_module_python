@@ -82,16 +82,28 @@ save and by the existing cross-process settings invalidation/reload.
 ### Shared host policy
 
 Set `host.public_base_url` once for canonical URLs, account emails, copied
-account links and tenant invitations. Blank `users.base_url` (the new default)
-and blank `tenants.public_base_url` inherit it; explicit module origins still
-win. The shared `simple_module_hosting.pipeline.public_urls.public_origin` helper never
-uses the inbound Host header. With both values blank, copied and invitation links stay relative for
-fresh development installs. Account emails (password reset, verification,
-invitations) are skipped with an ERROR log naming `host.public_base_url` until an
-absolute origin is configured; the public responses stay the same, and startup
-still succeeds.
+account links and tenant invitations. Blank `users.base_url` and
+`tenants.public_base_url` inherit it. Explicit module origins win.
+The shared `simple_module_hosting.pipeline.public_urls.public_origin` helper
+uses configured origins, with relative URLs as the default for copied
+account and tenant invitation links.
+
+When both account email origins are blank, `trusted_request_origin(request)`
+can supply an origin for password reset, verification and invitation emails.
+It uses the scheme and authority resolved by the hosting middleware.
+`host.forwarded_host_allowlist` must match the authority using the same exact
+host, wildcard subdomain and optional port rules as [ForwardedHost](/framework/middleware#forwardedhostmiddleware-opt-in).
+The middleware accepts `X-Forwarded-Host` only from a trusted proxy. HTTPS is
+eligible for any allowlisted host. HTTP requires a trusted proxy peer or a
+loopback host (`localhost`, its subdomains, `127.0.0.0/8` or `[::1]`), which must also be
+allowlisted. Use brackets when listing an IPv6 address and add an optional
+port after the closing bracket.
+
+If there is no eligible request origin, including sends without a request,
+the mailer skips delivery and logs an ERROR naming `host.public_base_url`.
+Public reset and verification responses stay generic.
 An explicitly stored users origin, including the old localhost default, keeps
-winning: clear it to inherit the host.
+winning. Clear it to inherit the host.
 
 `host.session_cookie_secure` controls both session and users auth cookies.
 Unset means Secure outside development/testing and HTTP-compatible within them;

@@ -65,7 +65,7 @@ settings can change live unless pinned by the environment. See [Settings](/frame
 | `SM_I18N_COOKIE_NAME` | `locale` | Locale preference cookie name. Restart required. |
 | `SM_MAINTENANCE_MODE` | `false` | Serve a 503 to everyone except admins. Runtime. |
 | `SM_MAINTENANCE_MESSAGE` | `""` | Optional maintenance notice. Runtime. |
-| `SM_PUBLIC_BASE_URL` | `""` | Shared public origin for canonical and `og:url` links, account emails and invitation links. `users.base_url` and `tenants.public_base_url` inherit it when blank. Never derived from the request `Host`. Runtime. |
+| `SM_PUBLIC_BASE_URL` | `""` | Shared public origin for canonical and `og:url` links, account emails and invitation links. `users.base_url` and `tenants.public_base_url` inherit it when blank. Account emails can fall back to an [allowlisted request origin](/framework/settings#shared-host-policy) when both configured origins are blank. Runtime. |
 | `SM_LOGIN_REDIRECT_URL` | `/dashboard/` | Where every auth provider sends a user after sign-in; falls back to another view when the Dashboard module is absent. Runtime. |
 | `SM_NATIVE_LINK_PREFIXES` | `[]` | JSON array of path prefixes whose links use full browser navigation. Runtime. |
 | `SM_LOG_LEVEL` | `INFO` | Application logging threshold. Restart required. |
