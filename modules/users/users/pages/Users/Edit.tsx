@@ -4,6 +4,7 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Slot, slots } from '@simple-module-py/ui/extensions';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { initials } from '@simple-module-py/ui/lib/initials';
+import { useEffect, useState } from 'react';
 import { StatusPill } from '../../admin/components/StatusPill';
 import { deriveState, type UserListItem } from '../../admin/components/user-list-item';
 import { AccountCard } from './components/AccountCard';
@@ -55,6 +56,10 @@ function Edit({
   const { t } = useT();
   const { ago } = useRelativeTime();
   const isSelf = auth?.user?.id === user.id;
+  const [hadLinkedSignIns, setHadLinkedSignIns] = useState(linkedSignIns.length > 0);
+  useEffect(() => {
+    if (linkedSignIns.length > 0) setHadLinkedSignIns(true);
+  }, [linkedSignIns]);
 
   const form = useEditUserForm(user);
   const actions = useUserActions(
@@ -128,8 +133,8 @@ function Edit({
             <RecentActivityCard entries={recentActivity} userId={user.id} />
           )}
 
-          {/* Only accounts that sign in through an identity provider have any. */}
-          {linkedSignIns.length > 0 && (
+          {/* Keep the heading as a focus target after removing the final link. */}
+          {(hadLinkedSignIns || linkedSignIns.length > 0) && (
             <LinkedSignInsCard
               userId={user.id}
               links={linkedSignIns}

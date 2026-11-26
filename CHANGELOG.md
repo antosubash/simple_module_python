@@ -47,6 +47,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Users admin: removing linked sign-ins preserves unsaved details without a leave prompt, restores keyboard focus after confirmation, and refreshes stale links after a failed removal (#1149).
 - Keycloak user-cache writes tolerate malformed profile claims without losing the cached identity at sign-in. Missing or malformed emails preserve the last known address (empty for new identities); explicit null or empty `preferred_username` claims still clear the cached name (#1146).
 - Settings controls announce their field descriptions through `aria-describedby`, including boolean descriptions in the trailing column (#1138).
 - **Behaviour change:** Users logout publishes `UserLoggedOut` for the validated browser session even when an Authorization bearer token identifies the same or a different user. A bearer token without a valid browser session publishes no logout event. `session_logout_event` accepts the validated session `UserContext`; passing a `Request` positionally or through `request=` remains supported with a `DeprecationWarning` until removal in `0.0.52` (#1129).

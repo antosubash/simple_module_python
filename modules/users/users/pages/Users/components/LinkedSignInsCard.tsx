@@ -8,7 +8,7 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { currentCsrfToken } from '@simple-module-py/ui/lib/csrf-token';
 import { TriangleAlert } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 export interface LinkedSignIn {
@@ -31,11 +31,34 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
   const { ago } = useRelativeTime();
   const [pending, setPending] = useState<LinkedSignIn | null>(null);
   const [removing, setRemoving] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const removeButtons = useRef(new Map<string, HTMLButtonElement>());
+  const focusOrder = useRef<string[]>([]);
+  const lastFocus = useRef<HTMLElement | null>(null);
+  const restoreFocus = useCallback(() => {
+    const target =
+      focusOrder.current.map((id) => removeButtons.current.get(id)).find(Boolean) ??
+      heading.current;
+    target?.focus();
+    lastFocus.current = target ?? null;
+  }, []);
+
+  // A failed removal's refresh can remove the stale row after the dialog closes.
+  useEffect(() => {
+    if (
+      lastFocus.current &&
+      !lastFocus.current.isConnected &&
+      document.activeElement === document.body
+    ) {
+      restoreFocus();
+    }
+  });
 
   function confirmRemove() {
     if (!pending) return;
     const onFailure = () => {
       toast.error(t(keys.users.linked_sign_ins.remove_failed));
+      router.reload({ only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'] });
       return false;
     };
     router.delete(`/admin/users/${userId}/linked-sign-ins/${pending.id}`, {
@@ -59,7 +82,9 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
   return (
     <Card className="border-border">
       <CardContent className="pt-5">
-        <SectionTitle>{t(keys.users.linked_sign_ins.title)}</SectionTitle>
+        <SectionTitle ref={heading} tabIndex={-1}>
+          {t(keys.users.linked_sign_ins.title)}
+        </SectionTitle>
         {hasDuplicates && (
           <Alert className="mb-4 border-amber-500/40 bg-amber-500/5">
             <TriangleAlert aria-hidden="true" />
@@ -77,11 +102,23 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
                   )}
                 </p>
                 <Button
+                  ref={(button) => {
+                    if (button) removeButtons.current.set(link.id, button);
+                    else removeButtons.current.delete(link.id);
+                  }}
                   variant="outline"
                   size="sm"
                   className="max-lg:min-h-11"
                   disabled={removing}
-                  onClick={() => setPending(link)}
+                  onClick={() => {
+                    const index = links.indexOf(link);
+                    focusOrder.current = [
+                      link,
+                      ...links.slice(index + 1),
+                      ...links.slice(0, index).reverse(),
+                    ].map((row) => row.id);
+                    setPending(link);
+                  }}
                 >
                   {t(keys.users.linked_sign_ins.remove)}
                 </Button>
@@ -103,6 +140,10 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
       <ConfirmActionDialog
         open={pending !== null}
         onOpenChange={(open) => !removing && !open && setPending(null)}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          restoreFocus();
+        }}
         icon={TriangleAlert}
         title={t(keys.users.linked_sign_ins.confirm_title, { provider: pending?.provider ?? '' })}
         description={

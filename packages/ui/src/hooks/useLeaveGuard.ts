@@ -1,3 +1,4 @@
+import type { PendingVisit } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { type RefObject, useEffect } from 'react';
 
@@ -12,18 +13,24 @@ import { type RefObject, useEffect } from 'react';
  * @param dirty   Whether there is anything worth warning about.
  * @param message The confirm copy, already translated.
  * @param saving  Set by the page while it is driving its own save visit.
+ * @param allowVisit Explicit page-owned visits that preserve its unsaved fields.
  */
-export function useLeaveGuard(dirty: boolean, message: string, saving: RefObject<boolean>): void {
+export function useLeaveGuard(
+  dirty: boolean,
+  message: string,
+  saving: RefObject<boolean>,
+  allowVisit?: (visit: PendingVisit) => boolean,
+): void {
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
-    const stopListening = router.on('before', (event) =>
-      event.detail.visit.prefetch || saving.current ? true : window.confirm(message),
+    const stopListening = router.on('before', ({ detail: { visit } }) =>
+      visit.prefetch || saving.current || allowVisit?.(visit) ? true : window.confirm(message),
     );
     return () => {
       window.removeEventListener('beforeunload', warn);
       stopListening();
     };
-  }, [dirty, message, saving]);
+  }, [dirty, message, saving, allowVisit]);
 }

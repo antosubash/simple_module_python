@@ -2,15 +2,16 @@ import '@testing-library/jest-dom/vitest';
 import type { VisitOptions } from '@inertiajs/core';
 import { configureI18n } from '@simple-module-py/i18n';
 import { setCsrfToken } from '@simple-module-py/ui/lib/csrf-token';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-const { remove, success, error } = vi.hoisted(() => ({
+const { remove, reload, success, error } = vi.hoisted(() => ({
   remove: vi.fn(),
+  reload: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
 }));
-vi.mock('@inertiajs/react', () => ({ router: { delete: remove, on: vi.fn() } }));
+vi.mock('@inertiajs/react', () => ({ router: { delete: remove, reload, on: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { success, error } }));
 
 configureI18n({
@@ -146,9 +147,10 @@ test('cancel keeps the link; confirm deletes its view URL and reports success', 
 
 test.each(['onError', 'onHttpException', 'onNetworkError'] as const)(
   '%s reports failed removal and permits another attempt',
-  (failure) => {
+  async (failure) => {
     render(<LinkedSignInsCard userId="user-1" links={links} hasDuplicates={false} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    const opener = screen.getByRole('button', { name: 'Remove' });
+    fireEvent.click(opener);
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     );
@@ -166,6 +168,10 @@ test.each(['onError', 'onHttpException', 'onNetworkError'] as const)(
     });
     expect(error).toHaveBeenCalledWith('Could not remove sign-in');
     expect(screen.getByRole('button', { name: 'Remove' })).toBeEnabled();
+    expect(reload).toHaveBeenCalledWith(
+      expect.objectContaining({ only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'] }),
+    );
+    await waitFor(() => expect(opener).toHaveFocus());
   },
 );
 
@@ -184,3 +190,67 @@ test('each duplicate provider row removes its own link id', () => {
     expect.any(Object),
   );
 });
+
+test.each(['Cancel', 'Escape'])(
+  '%s returns focus to the Remove button that opened it',
+  async (close) => {
+    render(<LinkedSignInsCard userId="user-1" links={links} hasDuplicates={false} />);
+    const opener = screen.getByRole('button', { name: 'Remove' });
+    fireEvent.click(opener);
+    if (close === 'Cancel') fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    else fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(opener).toHaveFocus());
+  },
+);
+
+test('a failure refresh that removes the stale row keeps focus in the card', async () => {
+  const { rerender } = render(
+    <LinkedSignInsCard userId="user-1" links={links} hasDuplicates={false} />,
+  );
+  const opener = screen.getByRole('button', { name: 'Remove' });
+  fireEvent.click(opener);
+  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }));
+  const options = remove.mock.calls[0][1];
+  act(() => {
+    options.onHttpException();
+    options.onFinish();
+  });
+  await waitFor(() => expect(opener).toHaveFocus());
+  rerender(<LinkedSignInsCard userId="user-1" links={[]} hasDuplicates={false} />);
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: 'Linked sign-ins' })).toHaveFocus(),
+  );
+});
+
+test.each([
+  { count: 3, index: 1, target: 'link-3' },
+  { count: 2, index: 1, target: 'link-1' },
+  { count: 1, index: 0, target: null },
+])(
+  'removing row $index of $count focuses $target or the heading',
+  async ({ count, index, target }) => {
+    const rows = Array.from({ length: count }, (_, i) => ({ ...links[0], id: `link-${i + 1}` }));
+    const { rerender } = render(
+      <LinkedSignInsCard userId="user-1" links={rows} hasDuplicates={false} />,
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[index]);
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
+    );
+    const options = remove.mock.calls[0][1];
+    act(() => options.onStart());
+    const remaining = rows.filter((_, i) => i !== index);
+    rerender(<LinkedSignInsCard userId="user-1" links={remaining} hasDuplicates={false} />);
+    act(() => {
+      options.onSuccess();
+      options.onFinish();
+    });
+    const expected = target
+      ? screen.getAllByRole('button', { name: 'Remove' })[
+          remaining.findIndex((r) => r.id === target)
+        ]
+      : screen.getByRole('heading', { name: 'Linked sign-ins' });
+    await waitFor(() => expect(expected).toHaveFocus());
+  },
+);
