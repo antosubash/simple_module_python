@@ -20,7 +20,8 @@ from simple_module_remote.config.credentials import (
     token_env_var,
 )
 from simple_module_remote.config.environments import Environment
-from simple_module_remote.http.errors import ApiError, UnsafePathError
+from simple_module_remote.config.paths import env_var_name
+from simple_module_remote.http.errors import AUTH_STATUSES, ApiError, UnsafePathError
 from simple_module_remote.http.safety import validate_base_url
 from simple_module_remote.output.sanitize import sanitize
 
@@ -44,7 +45,12 @@ def _select(state: AppState, report: _Report) -> tuple[Environment, bool] | None
     try:
         env, explicit = state.select()
     except CliError as exc:
-        report.fail("environment", exc.message, f"{state.cli} env add <name> --url URL")
+        known = sorted(state.config().envs)
+        fix = f"{state.cli} env add <name> --url URL"
+        if known:
+            use = "local" if "local" in known else known[0]
+            fix = f"{state.cli} env use {use}  (known: {', '.join(known)}), or {fix}"
+        report.fail("environment", exc.message.splitlines()[0], fix)
         return None
     report.ok("environment", f"{env.name} ({env.url})")
     return env, explicit
@@ -64,7 +70,8 @@ def _check_reachable(state: AppState, env: Environment, report: _Report) -> None
     try:
         with state.client(env, None) as client:
             response = client.request("GET", WHOAMI_PATH)
-        report.ok("reachable", f"server answered HTTP {response.status_code}")
+        shown = "auth required" if response.status_code in AUTH_STATUSES else "ok"
+        report.ok(f"reachable ({shown})", f"server answered HTTP {response.status_code}")
     except ApiError as exc:
         report.fail("reachable", exc.message, "check the URL, your network and VPN")
 
@@ -74,7 +81,15 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
     try:
         token = state.token(env, explicit)
     except CliError as exc:
-        report.fail("credentials", exc.message, login_hint(state.cli, env, wanted))
+        var = token_env_var(state.cli)
+        if state.environ.get(var) and not explicit:
+            fix = f"pass --env {env.name} or set {env_var_name(state.cli)}={env.name} so {var} is used"
+        else:
+            fix = (
+                f"create a token at {env.url.rstrip('/')}/api-tokens/, then "
+                f"{login_hint(state.cli, env, wanted)} (or --token-stdin)"
+            )
+        report.fail("credentials", exc.message, fix)
         return
     var = token_env_var(state.cli)
     report.ok(

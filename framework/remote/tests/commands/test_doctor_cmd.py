@@ -8,7 +8,7 @@ def test_doctor_reports_failures(make_cli, logged_in):
     result = runner.invoke(cli, ["doctor"])
     assert result.exit_code == 1
     assert "ok    environment" in result.output
-    assert "ok    reachable: server answered HTTP 401" in result.output
+    assert "ok    reachable (auth required): server answered HTTP 401" in result.output
     assert "FAIL  credentials" in result.output and "fix:" in result.output
     assert "ok    schema" in result.output and "9.9" in result.output
     assert all(req.url.path == "/api/_meta/whoami" for req in cli.requests)
@@ -17,6 +17,31 @@ def test_doctor_reports_failures(make_cli, logged_in):
 def test_doctor_no_environment(make_cli):
     result = CliRunner().invoke(make_cli(), ["doctor"])
     assert result.exit_code == 1 and "FAIL  environment" in result.output
+    assert "fix: smdev env add <name> --url URL" in result.output
+
+
+def test_doctor_points_at_the_builtin_local_env(make_cli, tmp_path):
+    cli = make_cli()
+    defaults = tmp_path / "defaults.toml"
+    defaults.write_text('[env.local]\nurl = "http://localhost:8000"\n')
+    cli.context_settings["obj"].defaults_path = defaults
+    result = CliRunner().invoke(cli, ["doctor"])
+    assert "fix: smdev env use local  (known: local)" in result.output
+
+
+def test_doctor_credentials_fix_says_where_to_get_a_token(make_cli, logged_in):
+    cli = make_cli()
+    runner = logged_in(cli, login=False)
+    out = runner.invoke(cli, ["doctor"]).output
+    assert "http://localhost:8000/api-tokens/" in out and "--token-stdin" in out
+
+
+def test_doctor_ignored_token_variable_points_at_env(make_cli, logged_in):
+    cli = make_cli()
+    runner = logged_in(cli, login=False)
+    out = runner.invoke(cli, ["doctor"], env={"SMDEV_TOKEN": "tok"}).output
+    assert "pass --env dev or set SMDEV_ENV=dev" in out
+    assert "login --token" not in out.split("fix:")[-1]
 
 
 def test_doctor_all_ok(make_cli, logged_in):
@@ -51,6 +76,6 @@ def test_login_usage_and_doctor_hints_say_token(make_cli, logged_in):
     cli = make_cli(lambda r: httpx.Response(401, json={}))
     runner = logged_in(cli, login=False)
     doctor = runner.invoke(cli, ["doctor"]).output
-    assert f"fix: {TOKEN_HINT}" in doctor
+    assert f"then {TOKEN_HINT}" in doctor
     fresh = CliRunner().invoke(make_cli(), ["users", "list-users", "--page", "1"], env={})
     assert "login --token`" in fresh.output or "env add" in fresh.output
