@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from _api_tokens_support import CSRF, create_pat
+from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from simple_module_test.web.tenant_client import session_client
 from tenants.core.constants import SESSION_ACTIVE_TENANT, Permissions
 
@@ -21,7 +22,7 @@ async def _bearer_client(app, token: str):
     )
 
 
-async def _admin_pat(app, scopes: list[str]) -> tuple[str, str]:
+async def _admin_pat(app, scopes: list[str]) -> tuple[str, str, str]:
     from _api_tokens_support import join_tenant, make_admin
 
     email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
@@ -30,24 +31,27 @@ async def _admin_pat(app, scopes: list[str]) -> tuple[str, str]:
     data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
     async with session_client(app, data) as c:
         body = await create_pat(c, scopes)
-    return user_id, body["token"]
+    return user_id, body["token"], tenant_id
 
 
-async def test_pat_lists_only_its_owners_memberships(app, user_client):
-    async with user_client("owner@x.io") as (client, _):
-        await client.post(_URL, json={"name": "Mine"})
+async def test_pat_lists_only_its_pinned_tenant(app, user_client):
     async with user_client("other@x.io") as (client, _):
-        await client.post(_URL, json={"name": "Theirs"})
-    user_id, token = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
+        foreign = await client.post(_URL, json={"name": "Theirs"})
+        assert foreign.status_code == 201, foreign.text
+    user_id, token, pinned = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
+    from _api_tokens_support import join_tenant
+
+    # The owner also belongs to a second tenant the token is not pinned to.
+    second = await join_tenant(app, user_id, "adm2@example.com")
     async with await _bearer_client(app, token) as bc:
         resp = await bc.get(_URL)
     assert resp.status_code == 200, resp.text
-    assert [t["name"] for t in resp.json()] == ["Test Org"]
-    assert user_id
+    assert [t["id"] for t in resp.json()] == [pinned]
+    assert second != pinned
 
 
 async def test_pat_with_platform_manage_creates_tenant_without_cookie(app):
-    _, token = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
+    _, token, _t = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
     app.state.tenants.settings.allow_self_service = False
     async with await _bearer_client(app, token) as bc:
         resp = await bc.post(_URL, json={"name": "Via Token"})
@@ -55,19 +59,22 @@ async def test_pat_with_platform_manage_creates_tenant_without_cookie(app):
         assert resp.json()["role"] == "owner"
         assert "set-cookie" not in resp.headers
         names = [t["name"] for t in (await bc.get(_URL)).json()]
-    assert "Via Token" in names
+    # The token stays pinned to its own tenant; the new one is not listed.
+    assert names == ["Test Org"]
 
 
-async def test_pat_without_platform_manage_blocked_when_self_service_off(app):
-    _, token = await _admin_pat(app, ["feature_flags.view"])
-    app.state.tenants.settings.allow_self_service = False
-    async with await _bearer_client(app, token) as bc:
-        resp = await bc.post(_URL, json={"name": "Nope"})
-    assert resp.status_code == 403, resp.text
+async def test_pat_without_platform_manage_blocked_whatever_self_service_says(app):
+    _, token, _t = await _admin_pat(app, [PERM_FEATURE_FLAGS_VIEW])
+    for allowed in (False, True):
+        app.state.tenants.settings.allow_self_service = allowed
+        async with await _bearer_client(app, token) as bc:
+            resp = await bc.post(_URL, json={"name": "Nope"})
+        assert resp.status_code == 403, (allowed, resp.text)
+        assert resp.json()["detail"] == "self_service_disabled"
 
 
 async def test_session_only_routes_refuse_tokens(app):
-    _, token = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
+    _, token, _t = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
     async with await _bearer_client(app, token) as bc:
         for method, url, kw in (
             ("POST", "/api/tenants/some-id/switch", {}),

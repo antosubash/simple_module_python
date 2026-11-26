@@ -84,8 +84,16 @@ async def _email_verified(request: Request, invitations: Any, user_id: str) -> b
     response_model=list[MyTenantView],
     dependencies=[Depends(Authenticated()), Depends(TokenAllowed())],
 )
-async def list_mine(user_id: UserIdDep, service: TenantServiceDep) -> list[MyTenantView]:
+async def list_mine(
+    request: Request, user_id: UserIdDep, service: TenantServiceDep
+) -> list[MyTenantView]:
     rows = await service.list_for_user(user_id)
+    user = getattr(request.state, "user", None)
+    if is_token_principal(user):
+        # A token is pinned to one tenant: show only that one (and only while
+        # the owner still has a membership row there), never the owner's others.
+        pinned = getattr(user, "tenant_id", None)
+        rows = [(t, role) for t, role in rows if pinned is not None and t.id == pinned]
     return [MyTenantView(**t.model_dump(), role=role) for t, role in rows]
 
 
@@ -99,9 +107,11 @@ async def create_tenant(
     data: TenantCreate, request: Request, user_id: UserIdDep, service: TenantServiceDep
 ) -> MyTenantView:
     settings = request.app.state.tenants.settings
-    if not settings.allow_self_service and not grants(
-        resolved_permissions_for(request), Permissions.PLATFORM_MANAGE
-    ):
+    is_platform = grants(resolved_permissions_for(request), Permissions.PLATFORM_MANAGE)
+    # Self-service is a browser-session shortcut; a token must hold the
+    # (scope-capped) platform permission whatever the setting says.
+    token = is_token_principal(getattr(request.state, "user", None))
+    if not is_platform and (token or not settings.allow_self_service):
         raise TenantError("self_service_disabled", status_code=403)
     tenant = await service.create_tenant(
         data, owner_user_id=user_id, owner_email=_email_of(request)

@@ -4888,7 +4888,7 @@
             }
           }
         },
-        "x-sm-token": false,
+        "x-sm-token": true,
         "security": [
           {
             "bearerAuth": []
@@ -4936,7 +4936,7 @@
             }
           }
         },
-        "x-sm-token": false,
+        "x-sm-token": true,
         "security": [
           {
             "bearerAuth": []
