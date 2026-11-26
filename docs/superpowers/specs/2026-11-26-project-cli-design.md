@@ -1,7 +1,7 @@
 # Project CLI: a per-project command line over the REST API
 
-Status: design, revised after a four-reviewer council (security, operator UX,
-architecture, feasibility), awaiting approval (2026-11-26).
+Status: approved 2026-11-26, after a four-reviewer council (security, operator UX,
+architecture, feasibility). Browser login is in v1.
 
 ## Intent
 
@@ -40,7 +40,8 @@ the API**, against any environment of any project, from a laptop or CI.
 - Direct database commands. `users create-admin` stays the bootstrap path for a
   deployment with no admin yet.
 - A TUI or interactive wizard.
-- Token management from the CLI (create/list/revoke stay in the UI, see § 4).
+- Token management from the CLI (list/revoke stay in the UI; the CLI obtains its
+  own token only through browser approval, see § 4).
 - Self-account flows (own profile, own sessions, logout, accepting an invitation,
   switching the browser's active tenant). They are about a browser session.
 
@@ -213,10 +214,11 @@ work once the server fixes in § 7 and the upstream gate fixes land.
   `O_EXCL` at 0600 in a 0700 dir, refused if group/world-readable.
   `<CLI>_TOKEN` (CI) is honoured only with an explicit `--env` or `<CLI>_ENV`.
   Tokens are never accepted as an argument, never echoed, never in `-v` output.
-- **Login.** `login [--env] [--tenant]` takes a token pasted at a hidden prompt
-  or `--token-stdin`, calls `whoami`, checks the token's pinned tenant matches
-  `--tenant` (if given), stores it, then runs `schema sync`. Tokens are made in
-  the UI ("API tokens" page). See the open question below on browser login.
+- **Login (browser, default).** `login [--env] [--tenant]` runs a device-style
+  approval (§ 4a), stores the minted PAT, calls `whoami`, then runs `schema sync`.
+- **Login (token).** `login --token` reads a token at a hidden prompt, or
+  `--token-stdin` for CI and service keys; it calls `whoami` and checks the
+  token's pinned tenant matches `--tenant` if given.
 - **Tenants.** One credential per (environment, tenant): `--tenant acme` (or the
   env default) picks `<env>/acme`; missing → the CLI names the `login` command.
   `whoami` shows the pinned tenant. Ignored on a single-tenant app.
@@ -233,6 +235,36 @@ work once the server fixes in § 7 and the upstream gate fixes land.
   marked `x-cli-safe: true` (read-like POSTs such as test-connection) don't ask.
   Every mutation prints `[<env>]` to stderr.
 - Shell completion via Typer, with dynamic completion of env names.
+
+### 4a. Browser login (device approval)
+
+Modelled on the OAuth device authorization grant (RFC 8628), served by
+`api_tokens`:
+
+1. `POST /api/api_tokens/device/start` (public, rate-limited per IP) with
+   `client_name` (`<cli>`), `hostname` and optional `tenant` hint returns
+   `device_code` (secret, high entropy), `user_code` (8 chars, `XXXX-XXXX`,
+   unambiguous alphabet), `verification_uri`, `expires_in` (600 s), `interval` (5 s).
+2. The CLI prints the user code and URL and opens
+   `<verification_uri>?code=<user_code>` in the browser (`--no-browser` just prints).
+3. The approval page (view route under `/api-tokens/device`, signed-in session,
+   CSRF-protected POST) shows the user code to compare with the terminal, the
+   client name and hostname, the server URL, a tenant picker limited to the user's
+   active memberships (preselected from the hint), scopes (default: all the user
+   may grant, editable) and expiry (default 90 days). Approve or deny.
+4. On approve the server mints a PAT owned by the user, pinned to the chosen
+   tenant, named `<cli> on <hostname>` so it is recognisable and revocable on the
+   API tokens page. The device request records the token id.
+5. The CLI polls `POST /api/api_tokens/device/token` with `device_code`:
+   `authorization_pending`, `slow_down`, `access_denied`, `expired_token`, or the
+   token **once**; the request is then consumed.
+
+Rules: `device_code` and `user_code` stored hashed; single use; expired requests
+purged; start and poll rate-limited; a user code that fails to match too often
+locks that request; approval requires a session (a token can never approve, so
+tokens still cannot mint tokens); audit entries for start, approve, deny and
+issue. The device-request table lives on the `api_tokens` migration branch.
+Service keys are still created in the UI and passed with `--token-stdin`.
 
 ### 5. Schema: bundled and live
 
@@ -350,20 +382,11 @@ matrix, `CHANGELOG.md`.
    token-aware identity endpoint. Usable against the dev host.
 2. **Server**: CSRF for tokens, tenant gates, API gaps, audit attribution,
    `/api/_meta/openapi` + `schema sync`, guard test, credential matrix.
-3. **Curated**: users, settings, tenants.
-4. **Scaffold + docs**: `smpy new`/`add cli`, `export --app`, freshness check.
-5. **Upstream** (`smpy_modules`): pagebuilder reader gate and CSRF use, provider
+3. **Browser login**: device approval in `api_tokens` and `login` in the engine.
+4. **Curated**: users, settings, tenants.
+5. **Scaffold + docs**: `smpy new`/`add cli`, `export --app`, freshness check.
+6. **Upstream** (`smpy_modules`): pagebuilder reader gate and CSRF use, provider
    distribution, guard adoption. Issues filed.
-
-## Open question for the author
-
-**Browser login in v1?** Tokens are pinned per tenant and made only in the UI,
-so with 3 environments and several tenants the operator mints and pastes one
-token per pair. A device-style login (`plotwiki login --tenant acme` opens the
-browser; you approve while signed in; the server mints a PAT for that tenant
-and hands it to the CLI) removes that chore without letting a token mint
-tokens, since approval needs a browser session. Cost: one more PR on the server
-(an approval page and a polling endpoint in `api_tokens`), slotted between 2 and 3.
 
 ## Left to the builder
 
