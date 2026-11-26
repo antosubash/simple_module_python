@@ -206,6 +206,45 @@ Import directly from the framework locations above. The settings plugin keeps
 its `settings.models` model identity and its area-level store, constants and
 secret helpers; the deprecated root import paths were removed in #989.
 
+### Labels and help in the settings editor
+
+The admin editor (`/admin/settings/`) never shows a field's Python name. It
+reads a `settings_form` section from the module's `locales/<lang>.json`:
+
+```json
+{
+  "settings_form": {
+    "title": "Orders",
+    "description": "Limits that apply when customers place orders.",
+    "groups": { "shipping": "Shipping" },
+    "fields": {
+      "max_items_per_order": {
+        "label": "Maximum items per order",
+        "help": "Orders with more items are refused at checkout."
+      },
+      "carrier": {
+        "label": "Carrier",
+        "choices": { "dhl": "DHL", "ups": "UPS" }
+      }
+    }
+  }
+}
+```
+
+- `groups` keys are the slug of `json_schema_extra={"group": "..."}`:
+  lower-case, each run of other characters one `_` (`"Demo account"` →
+  `demo_account`).
+- `choices` labels the values of a select (`Literal[...]`, a `choices` list or
+  an alternation `pattern`); a value that is not a plain token is shown as is.
+- Without a key the editor falls back to `Field(title=...)` /
+  `Field(description=...)`, then to a humanised name (`smtp_tls_mode` →
+  "SMTP TLS mode"). Bundled modules must ship every key:
+  `modules/settings/tests/module_settings/fields/test_settings_field_translations.py`
+  fails otherwise.
+- Host settings (`HostSettings`) take their text from the framework's
+  `hosting` catalog; an app can override any of it under
+  `host.settings_form.*` in `host/locales/`.
+
 A Celery worker or CLI script never runs the lifespan, so it hydrates
 synchronously:
 
