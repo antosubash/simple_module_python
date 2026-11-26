@@ -7,18 +7,18 @@ f-string) and the dynamic shapes it must refuse to guess at.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
-
-@dataclass
-class _FakeMeta:
-    name: str
+from simple_module_core import ModuleBase, ModuleMeta
+from simple_module_core.diagnostics._types import DiagnosticLevel
 
 
-@dataclass
-class _FakeModule:
-    meta: _FakeMeta
+def _module(src_dir: Path, name: str) -> ModuleBase:
+    return type(
+        "TestModule",
+        (ModuleBase,),
+        {"__module__": f"{src_dir.name}.module", "meta": ModuleMeta(name=name)},
+    )()
 
 
 class TestSm003PageRenderResolution:
@@ -27,9 +27,13 @@ class TestSm003PageRenderResolution:
     def _diags(self, src_dir: Path, mod_name: str):
         from simple_module_core.diagnostics._pages import check_pages, find_render_calls
 
-        mod = _FakeModule(meta=_FakeMeta(name=mod_name))
-        rendered = find_render_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
-        return [d for d in check_pages(mod, src_dir, rendered) if d.code == "SM003"]  # pyright: ignore[reportArgumentType]
+        mod = _module(src_dir, mod_name)
+        rendered, unresolved = find_render_calls(mod, src_dir)
+        return [
+            d
+            for d in check_pages(mod, src_dir, rendered, unresolved_renders=unresolved)
+            if d.code == "SM003"
+        ]
 
     async def test_resolves_constant_imported_from_sibling_file(self, tmp_path: Path):
         src_dir = tmp_path / "feature_flags" / "feature_flags"
@@ -39,7 +43,7 @@ class TestSm003PageRenderResolution:
         endpoints = src_dir / "endpoints"
         endpoints.mkdir()
         (endpoints / "views.py").write_text(
-            "from feature_flags.core.constants import PAGE_BROWSE\n"
+            "from feature_flags.constants import PAGE_BROWSE\n"
             "async def view(inertia):\n"
             "    return await inertia.render(PAGE_BROWSE, {})\n"
         )
@@ -74,7 +78,7 @@ class TestSm003PageRenderResolution:
         endpoints = src_dir / "endpoints"
         endpoints.mkdir()
         (endpoints / "views.py").write_text(
-            "from audit_log.core.constants import PAGE_BROWSE\n"
+            "from audit_log.constants import PAGE_BROWSE\n"
             "async def view(inertia):\n"
             "    return await inertia.render(PAGE_BROWSE, {})\n"
         )
@@ -105,8 +109,9 @@ class TestSm003PageRenderResolution:
         # an unresolved chain reports Browse.tsx as an SM003 orphan.
         from simple_module_core.diagnostics._pages import find_render_calls
 
-        mod = _FakeModule(meta=_FakeMeta(name="M"))
-        assert "admin/Browse" in find_render_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+        rendered, unresolved = find_render_calls(_module(src_dir, "M"), src_dir)
+        assert "admin/Browse" in rendered
+        assert not unresolved
 
     async def test_colocated_test_file_is_not_flagged_as_orphan_page(self, tmp_path: Path):
         """A ``*.test.tsx``/``*.spec.tsx`` beside a page is a test, not a page.
@@ -126,7 +131,7 @@ class TestSm003PageRenderResolution:
         )
         assert self._diags(src_dir, "M") == []
 
-    async def test_fstring_with_unknown_name_stays_flagged(self, tmp_path: Path):
+    async def test_fstring_with_unknown_name_is_informational(self, tmp_path: Path):
         """An f-string over a runtime value is not static — don't guess."""
         src_dir = tmp_path / "m" / "m"
         (src_dir / "pages").mkdir(parents=True)
@@ -138,3 +143,4 @@ class TestSm003PageRenderResolution:
         )
         results = self._diags(src_dir, "M")
         assert [r.code for r in results] == ["SM003"]
+        assert results[0].level == DiagnosticLevel.INFO

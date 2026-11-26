@@ -30,7 +30,7 @@ return await inertia.render(
 
 The key must resolve against the page map built from `modules.generated.ts`. Mismatches produce:
 
-- **`SM003`** (warning) — the `.tsx` file exists, but no `inertia.render()` call in any module references it. The page is orphaned.
+- **`SM003`** (warning; informational when render targets are unresolved) — the `.tsx` file exists, but no resolved `inertia.render()` call in the module references it. Check unresolved targets before treating the page as orphaned.
 - **`SM004`** (warning) — an `inertia.render("Orders/Unknown", ...)` call exists, but there's no matching `.tsx` file. You'll get a runtime error when a user hits that route.
 
 Both fire at app boot.
