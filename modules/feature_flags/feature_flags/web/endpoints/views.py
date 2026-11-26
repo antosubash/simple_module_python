@@ -98,6 +98,7 @@ async def browse(
     dependencies=[
         Depends(RequiresPermission(Permissions.MANAGE)),
         Depends(api_equivalent("PUT", "/api/feature_flags/{name}")),
+        Depends(api_equivalent("PUT", "/api/feature_flags/tenant/{tenant_id}/{name}")),
         Depends(require_known_tenant),
     ],
 )
@@ -122,6 +123,7 @@ async def toggle_action(
     dependencies=[
         Depends(RequiresPermission(Permissions.MANAGE)),
         Depends(api_equivalent("DELETE", "/api/feature_flags/{name}")),
+        Depends(api_equivalent("DELETE", "/api/feature_flags/tenant/{tenant_id}/{name}")),
     ],
 )
 async def clear_action(

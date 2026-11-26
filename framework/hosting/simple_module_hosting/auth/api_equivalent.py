@@ -2,10 +2,11 @@
 
 A page route refuses API tokens (``token_guard``), so anything a browser can
 change through a view form must also be reachable through the JSON API, or the
-project CLI cannot do it. Every non-GET view route therefore declares one of:
+project CLI cannot do it. Every non-GET view route therefore declares either:
 
 * :func:`api_equivalent` — the ``/api`` operation (method and path template, as
-  registered) that performs the same change. A host test resolves it against
+  registered) that performs the same change. A view acting on several scopes
+  (system and tenant) declares one per scope. A host test resolves each against
   the built app and checks it admits tokens.
 * :func:`api_exempt` — why no token may do this at all (logout, sign-in flows,
   the signed-in account's own profile, token management, the setup wizard, the
@@ -25,6 +26,7 @@ from collections.abc import Callable, Iterator
 from typing import Any, NamedTuple
 
 from fastapi.routing import iter_route_contexts
+from starlette.routing import Mount
 
 from simple_module_hosting.auth.token_guard import dependant_gate_kinds, gate_kinds_admit_tokens
 
@@ -111,53 +113,82 @@ def dependant_api_declarations(dependant: Any) -> list[ApiEquivalent | ApiExempt
     return out
 
 
-def _contexts(app: Any) -> Iterator[tuple[str, frozenset[str], Any]]:
-    """Each route as FastAPI runs it (include-level dependencies included)."""
-    for ctx in iter_route_contexts(app.routes):
-        path = getattr(ctx, "path_format", None) or getattr(ctx, "path", None)
-        dependant = getattr(ctx, "dependant", None)
-        if not path or dependant is None:
+def _walk(routes: Any, prefix: str = "") -> Iterator[tuple[str, frozenset[str], Any]]:
+    """Each route in dispatch order, as FastAPI runs it, mounted sub-apps included.
+
+    Include-level dependencies come from ``iter_route_contexts``; a ``Mount``
+    contributes its path template as a prefix to every route beneath it.
+    """
+    for route in routes:
+        if isinstance(route, Mount):
+            # ``path`` is the mount prefix template; ``path_format`` adds ``/{path}``.
+            yield from _walk(route.routes, prefix + route.path)
             continue
-        yield path, frozenset(m.upper() for m in (getattr(ctx, "methods", None) or ())), dependant
+        for ctx in iter_route_contexts([route]):
+            path = getattr(ctx, "path_format", None) or getattr(ctx, "path", None)
+            dependant = getattr(ctx, "dependant", None)
+            if not path or dependant is None:
+                continue
+            methods = frozenset(m.upper() for m in (getattr(ctx, "methods", None) or ()))
+            yield prefix + path, methods, dependant
 
 
 def _api_operations(app: Any) -> dict[tuple[str, str], bool]:
-    """``(method, path template)`` of every ``/api`` route -> whether it admits tokens."""
+    """``(method, path template)`` of every ``/api`` route -> whether it admits tokens.
+
+    Judged on the first registration in dispatch order: that is the route a
+    request for this method and path reaches; a later duplicate is shadowed.
+    """
     found: dict[tuple[str, str], bool] = {}
-    for path, methods, dependant in _contexts(app):
+    for path, methods, dependant in _walk(app.routes):
         if not path.startswith(_API_PREFIX):
             continue
         admits = gate_kinds_admit_tokens(dependant_gate_kinds(dependant))
         for method in methods:
-            found[(method, path)] = found.get((method, path), False) or admits
+            found.setdefault((method, path), admits)
     return found
+
+
+def _declaration_problem(declarations: list[ApiEquivalent | ApiExempt]) -> str | None:
+    exempt = sum(isinstance(d, ApiExempt) for d in declarations)
+    equivalent = len(declarations) - exempt
+    if exempt and equivalent:
+        return "declares both api_exempt and api_equivalent"
+    if exempt > 1:
+        return f"{exempt} api_exempt declarations, need exactly one"
+    if not declarations:
+        return "no api_equivalent or api_exempt declaration"
+    return None
 
 
 def view_route_offenders(app: Any) -> list[str]:
     """Every non-GET route outside ``/api/`` whose declaration is missing or wrong.
 
-    A route needs exactly one declaration; an :class:`ApiEquivalent` must name a
-    registered ``/api`` operation (method and exact path template) that admits
-    tokens. Each offender is one human-readable line.
+    A route needs at least one :class:`ApiEquivalent` (one per scope it acts
+    on) or exactly one :class:`ApiExempt`, never both. Each equivalent must
+    name a registered ``/api`` operation (method and exact path template) whose
+    route, the first in dispatch order, admits tokens. Each offender is one
+    human-readable line.
     """
     api = _api_operations(app)
     offenders: list[str] = []
-    for path, methods, dependant in _contexts(app):
+    for path, methods, dependant in _walk(app.routes):
         mutating = sorted(methods - _SAFE)
         if path.startswith(_API_PREFIX) or not mutating:
             continue
         label = f"{'/'.join(mutating)} {path}"
         declarations = dependant_api_declarations(dependant)
-        if len(declarations) != 1:
-            offenders.append(f"{label}: {len(declarations)} declarations, need exactly one")
+        problem = _declaration_problem(declarations)
+        if problem is not None:
+            offenders.append(f"{label}: {problem}")
             continue
-        declared = declarations[0]
-        if not isinstance(declared, ApiEquivalent):
-            continue
-        target = f"{declared.method} {declared.path}"
-        admits = api.get((declared.method, declared.path))
-        if admits is None:
-            offenders.append(f"{label}: {target} is not a registered route")
-        elif not admits:
-            offenders.append(f"{label}: {target} refuses API tokens")
+        for declared in declarations:
+            if not isinstance(declared, ApiEquivalent):
+                continue
+            target = f"{declared.method} {declared.path}"
+            admits = api.get((declared.method, declared.path))
+            if admits is None:
+                offenders.append(f"{label}: {target} is not a registered route")
+            elif not admits:
+                offenders.append(f"{label}: {target} refuses API tokens")
     return offenders

@@ -62,6 +62,11 @@ logout, sign-in, the signed-in account itself, token management, setup, locale).
 `host/tests/test_view_api_equivalents.py` checks each target exists and admits
 tokens; see `docs/module-authoring.md` § Form actions name their API equivalent.
 
+The API twin normally asks for the same permissions as the page. One deliberate
+exception: `POST /api/dashboard/doctor/rerun` accepts the delegable
+`dashboard.doctor` permission, while the `/admin/doctor` page needs the `admin`
+role, so an operator can grant a CI token the re-run without making it an admin.
+
 ## Operation hints
 
 | Extension | Effect |

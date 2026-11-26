@@ -37,8 +37,12 @@ CONVENTIONAL_PATHS = {
     "keycloak": ("/api/keycloak/auth/login", "/keycloak/login"),
     "oidc": ("/api/oidc/auth/login", "/oidc/login"),
     "permissions": ("/api/permissions/", "/admin/permissions/"),
-    "sharing": ("/api/sharing/shares", "/admin/sharing/"),
+    "sharing": ("/api/sharing/shares", "/api/sharing/admin/shares", "/admin/sharing/"),
 }
+
+# Modules that mount a second API router and so override ``register_routes``
+# again (#1178: sharing's admin API); their conventional paths must still serve.
+EXPLICIT_REGISTER_ROUTES = {"sharing"}
 
 
 def test_all_builtin_identities_and_namespaces_are_unchanged():
@@ -58,7 +62,8 @@ def test_all_builtin_identities_and_namespaces_are_unchanged():
         )
         assert mod.locale_dirs() == locales
         if package in CONVENTIONAL_PATHS:
-            assert type(mod).register_routes is ModuleBase.register_routes
+            uses_default = type(mod).register_routes is ModuleBase.register_routes
+            assert uses_default is (package not in EXPLICIT_REGISTER_ROUTES)
             app = FastAPI()
             wire_module_routes(app, mod)
             paths = app_route_paths(app)

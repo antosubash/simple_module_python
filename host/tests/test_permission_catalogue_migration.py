@@ -25,7 +25,14 @@ _BEFORE = {
         ["branding.view", "branding.manage"],
         {"admin": ["*"]},
     ),
-    "dashboard": ("DashboardModule", "Dashboard", ["dashboard.view"], {"admin": ["*"]}),
+    # ``dashboard.doctor`` was added after the migration (#1178): a delegable
+    # grant for the doctor re-run API; existing keys keep their order.
+    "dashboard": (
+        "DashboardModule",
+        "Dashboard",
+        ["dashboard.view", "dashboard.doctor"],
+        {"admin": ["*"]},
+    ),
     "feature_flags": (
         "FeatureFlagsModule",
         "Feature flags",

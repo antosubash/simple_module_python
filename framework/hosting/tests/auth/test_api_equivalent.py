@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
 from simple_module_hosting.auth.api_equivalent import (
     EXEMPT_LOGOUT,
+    EXEMPT_SETUP,
     ApiEquivalent,
     ApiExempt,
     api_equivalent,
@@ -94,11 +95,11 @@ def test_undeclared_route_is_an_offender():
     app = _app_with_api()
     _view(app)
     assert view_route_offenders(app) == [
-        "POST /things/{thing_id}: 0 declarations, need exactly one"
+        "POST /things/{thing_id}: no api_equivalent or api_exempt declaration"
     ]
 
 
-def test_two_declarations_are_an_offender():
+def test_exempt_and_equivalent_together_are_an_offender():
     app = _app_with_api()
     _view(
         app,
@@ -106,8 +107,77 @@ def test_two_declarations_are_an_offender():
         Depends(api_equivalent("PUT", "/api/things/{thing_id}")),
     )
     assert view_route_offenders(app) == [
-        "POST /things/{thing_id}: 2 declarations, need exactly one"
+        "POST /things/{thing_id}: declares both api_exempt and api_equivalent"
     ]
+
+
+def test_two_exemptions_are_an_offender():
+    app = _app_with_api()
+    _view(app, Depends(api_exempt(EXEMPT_LOGOUT)), Depends(api_exempt(EXEMPT_SETUP)))
+    assert view_route_offenders(app) == [
+        "POST /things/{thing_id}: 2 api_exempt declarations, need exactly one"
+    ]
+
+
+def test_one_equivalent_per_scope_validates_each():
+    app = _app_with_api()
+    app.put("/api/tenant/{thing_id}", dependencies=[Depends(RequiresPermission(_PERM))])(
+        lambda thing_id: None
+    )
+    _view(
+        app,
+        Depends(api_equivalent("PUT", "/api/things/{thing_id}")),
+        Depends(api_equivalent("PUT", "/api/tenant/{thing_id}")),
+    )
+    assert view_route_offenders(app) == []
+    _view(
+        app,
+        Depends(api_equivalent("PUT", "/api/things/{thing_id}")),
+        Depends(api_equivalent("PUT", "/api/missing/{thing_id}")),
+    )
+    assert view_route_offenders(app) == [
+        "POST /things/{thing_id}: PUT /api/missing/{thing_id} is not a registered route"
+    ]
+
+
+def test_mounted_view_route_is_walked():
+    app = _app_with_api()
+    sub = FastAPI()
+    sub.post("/{thing_id}")(lambda thing_id: None)
+    app.mount("/sub", sub)
+    assert view_route_offenders(app) == [
+        "POST /sub/{thing_id}: no api_equivalent or api_exempt declaration"
+    ]
+
+
+def test_mounted_api_target_resolves():
+    app = FastAPI()
+    sub = FastAPI()
+    sub.put("/things/{thing_id}", dependencies=[Depends(RequiresPermission(_PERM))])(
+        lambda thing_id: None
+    )
+    app.mount("/api/sub", sub)
+    _view(app, Depends(api_equivalent("PUT", "/api/sub/things/{thing_id}")))
+    assert view_route_offenders(app) == []
+
+
+def test_shadowed_target_is_judged_on_the_route_that_dispatches():
+    app = FastAPI()
+    app.put("/api/things/{thing_id}")(lambda thing_id: None)  # first: no gate, refuses
+    app.put("/api/things/{thing_id}", dependencies=[Depends(RequiresPermission(_PERM))])(
+        lambda thing_id: None
+    )
+    _view(app, Depends(api_equivalent("PUT", "/api/things/{thing_id}")))
+    assert view_route_offenders(app) == [
+        "POST /things/{thing_id}: PUT /api/things/{thing_id} refuses API tokens"
+    ]
+
+
+def test_shadowed_refusing_duplicate_does_not_matter():
+    app = _app_with_api()  # gated PUT registered first
+    app.put("/api/things/{thing_id}")(lambda thing_id: None)
+    _view(app, Depends(api_equivalent("PUT", "/api/things/{thing_id}")))
+    assert view_route_offenders(app) == []
 
 
 def test_unknown_target_is_an_offender():

@@ -39,9 +39,10 @@ router = APIRouter(prefix="/modules", tags=["Settings Modules"])
 # Per-module settings UI exposes raw secret values (mailer password, JWT
 # signing keys, etc.) — every endpoint here is gated on the same permissions
 # the scoped API uses so a non-admin can't read or mutate module config.
+# Mutations need ``settings.view`` too, like the admin page they back.
 _VIEW = [Depends(RequiresPermission(Permissions.VIEW))]
-_EDIT = [Depends(RequiresPermission(Permissions.EDIT))]
-_DELETE = [Depends(RequiresPermission(Permissions.DELETE))]
+_EDIT = [*_VIEW, Depends(RequiresPermission(Permissions.EDIT))]
+_DELETE = [*_VIEW, Depends(RequiresPermission(Permissions.DELETE))]
 
 
 def _masked_fields(app: FastAPI, package: str) -> frozenset[str]:
@@ -125,7 +126,7 @@ async def list_testable(request: Request) -> dict[str, list[str]]:
 
 @router.post(
     "/{package}/test-connection",
-    dependencies=[*_VIEW, *_EDIT, Depends(RateLimit("10/minute", key="user"))],
+    dependencies=[*_EDIT, Depends(RateLimit("10/minute", key="user"))],
 )
 async def test_module_connection(package: str, request: Request) -> dict[str, Any]:
     """Run a module's connection checks; same payload as the view route."""

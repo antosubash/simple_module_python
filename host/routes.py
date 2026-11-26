@@ -13,6 +13,10 @@ from simple_module_inertia import InertiaResponse
 
 router = APIRouter()
 
+#: The host routers ``host/main.py`` hands to ``build_host_app``; tests that walk
+#: the production route table build their app with the same list.
+HOST_ROUTERS = ("host.routes:router",)
+
 
 @router.get("/", response_model=None, include_in_schema=False)
 async def landing(request: Request, inertia: InertiaDep) -> InertiaResponse:
