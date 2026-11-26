@@ -1,7 +1,7 @@
 """Capture concrete changes, never SQL text pretending to be a resulting value."""
 
 import pytest
-from simple_module_db.auditing.audit import collect_audit_records
+from simple_module_db.auditing.audit import COMPUTED_BY_DATABASE, collect_audit_records
 from sqlalchemy import create_engine, literal
 from sqlalchemy.orm import Session, make_transient_to_detached
 from users.models import User
@@ -22,9 +22,12 @@ def test_expression_updates_keep_only_concrete_field_changes(literal_change):
 
             records = collect_audit_records(session)
 
-            assert [r.changes for r in records] == (
-                [[{"field": "full_name", "old": None, "new": "Sam"}]] if literal_change else []
-            )
+            bump = {"field": "session_version", "old": 0, "new": COMPUTED_BY_DATABASE}
+            name = {"field": "full_name", "old": None, "new": "Sam"}
+            # The revocation stays on record, without SQL text as its value.
+            assert [sorted(r.changes, key=lambda c: c["field"]) for r in records] == [
+                [name, bump] if literal_change else [bump]
+            ]
             session.flush()
             session.refresh(user, attribute_names=["session_version"])
             assert user.session_version == 1

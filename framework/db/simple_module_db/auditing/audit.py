@@ -85,6 +85,10 @@ def _excluded_fields(obj: object) -> frozenset[str]:
     return _EXCLUDED_MIXIN_FIELDS | per_model
 
 
+#: Recorded as the new value when an update assigns a SQL expression.
+COMPUTED_BY_DATABASE = "<computed by database>"
+
+
 def format_pk(values: tuple | list) -> str:
     """One primary-key rendering for ``entity_id``: bare value, or a tuple string."""
     if len(values) == 1:
@@ -131,10 +135,11 @@ def _column_diffs(obj: object, inspector: Any, excl: frozenset[str]) -> list[dic
             continue
         old_val = hist.deleted[0] if hist.deleted else None
         new_val = hist.added[0] if hist.added else None
-        # The expression is input to the database, not the value it will store.
-        if isinstance(new_val, ClauseElement):
-            continue
-        changes.append({"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)})
+        # The expression is input to the database, not the value it will store:
+        # keep the field (a session_version bump is a revocation worth auditing)
+        # but record a marker instead of SQL text.
+        new = COMPUTED_BY_DATABASE if isinstance(new_val, ClauseElement) else _serialize(new_val)
+        changes.append({"field": col_name, "old": _serialize(old_val), "new": new})
     return redact_changes(type(obj), changes, obj)
 
 

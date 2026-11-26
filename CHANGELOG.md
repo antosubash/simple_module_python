@@ -52,7 +52,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- **Behaviour change:** audit capture skips SQL-expression-valued ORM fields instead of recording SQL text as a resulting value; role-assignment audit labels show the role and user email for readers with `users.manage` (#1172).
+- **Behaviour change:** audit capture records `<computed by database>` as the new value of a field updated with a SQL expression (for example a `session_version` bump) instead of the SQL text, so such updates stay on record; role-assignment audit labels show the role and user email for readers with `users.manage` (#1172).
 - Audit log: index target-user history lookups by `(entity_type, entity_id)` to avoid scanning every entry of the same entity type (#1166; migration `819d8c5714a5`).
 - **Behaviour change:** Keycloak and OIDC logout publish `UserLoggedOut` from the validated browser session even when an Authorization bearer token identifies the same or a different user. Identity capture uses local validation only and never renews tokens or calls the IdP; expired sessions publish no event, and cleanup revokes the original refresh token. Identity-capture failures are logged while logout cleanup continues (#1162).
 - Users admin: keep Recent activity scoped to actions by the user, clarify its empty state, and always show separate links to all activity by the user and changes to the account (BUG-001, #1166).
