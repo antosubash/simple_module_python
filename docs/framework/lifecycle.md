@@ -448,11 +448,13 @@ def register_audit_links(self, registry: AuditLinkRegistry) -> None:
 
 `entity_type` matches `AuditEntry.entity_type`, which `snapshot_changes` writes as `type(obj).__name__`. Keying it off `__tablename__` (`"users_user"`) produces a link that never matches — and nothing errors: an unmatched lookup falls back to rendering `entity_type` as a plain label, so the row still shows text while silently never becoming a link. `AuditLink.for_model(Model, ...)` fills `entity_type` from `Model.__name__` and `table_name` from `Model.__tablename__`, so a rename or a table-name mix-up is impossible; the plain `AuditLink(...)` constructor stays available for links without a model class.
 
-`url_template` must contain the literal `{id}` placeholder, substituted with the entity id. A template without it raises at boot rather than pointing every row at the same page.
+Use an empty `url_template` for rows that have no individual screen; their labels can still be resolved. A nonempty template must contain the literal `{id}` placeholder, substituted with the entity id. A nonempty template without it raises at boot rather than pointing every row at the same page.
 
 `label_key` translates the label the same way `MenuItem.label_key` does, falling back to `label` when the key resolves to nothing. Rows are rendered server-side, so the audit view translates these before they reach the page.
 
 `label_resolver` names individual rows — a batch callable taking the request session and every id of that type on the page, returning `{id: display name}`. Only the owning module knows that a `Setting` is named by its key and a `User` by `full_name or email`, and without one the reader gets a bare primary key.
+
+The resolver runs once per entity type per page and may make multiple batched queries. For example, `users` names a `UserRole` assignment from the current role name and user email, even after the assignment is revoked, using one query per side. Its stored composite UUID id is decoded by `parse_uuid_pk` beside `format_pk` in `simple_module_db.auditing.audit`; malformed or unsupported ids return `None`. Missing rows should be omitted from the resolver's result so the caller falls back to the recorded id.
 
 `label_permission` gates that name. **Set it whenever naming the row discloses something the module gates elsewhere.** The name travels inside the audit payload, so no downstream route ever gets the chance to refuse it — a reader holding `audit_log.view` and nothing else would otherwise read the display name (and, for accounts with an outstanding invite, the email) of every account that has ever been edited. `users` therefore declares `users.manage`. Readers without it still see the entry, the action and the id; they just do not get the name. Leaving it empty — the default — says the name is safe for anyone who may read the trail at all, which is true of setting keys, filenames and task names.
 

@@ -1,5 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { FieldInput, type FieldMeta } from './FieldInput';
 import { FieldSource, sourceShowsDescription } from './FieldSource';
 
@@ -12,7 +12,8 @@ interface Props {
   disabled?: boolean;
   error?: string;
   onChange: (name: string, value: unknown) => void;
-  onReset: () => void;
+  /** May resolve `false` when the revert failed or was ignored. */
+  onReset: () => unknown;
 }
 
 /**
@@ -44,6 +45,17 @@ export function ModuleFieldRow({
   // print the same sentence twice. When the trailing column shows something
   // else (a stored value, a secret), the description belongs here instead.
   const showDescription = !!field.description && !sourceShowsDescription(field);
+  // Revert is shown only while `db_override` is set, so a successful revert
+  // unmounts the focused button and drops focus to the page. Move it to the
+  // field once that has rendered. A failed revert keeps the button (a 422
+  // moves focus to the first invalid field instead, in ModuleForm).
+  const refocusAfterRevert = useRef(false);
+  const revertInFlight = useRef(false);
+  useEffect(() => {
+    if (field.db_override || !refocusAfterRevert.current) return;
+    refocusAfterRevert.current = false;
+    if (document.activeElement === document.body) document.getElementById(id)?.focus();
+  }, [field.db_override, id]);
 
   return (
     // Query the editor card: two sidebars can leave little space at a wide viewport.
@@ -58,13 +70,13 @@ export function ModuleFieldRow({
         {showDescription && (
           <p
             id={descriptionId}
-            className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground"
+            className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] max-lg:text-xs leading-snug text-muted-foreground"
           >
             {field.description}
           </p>
         )}
         {field.requires_restart && modified && (
-          <span className="mt-1 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-700">
+          <span className="mt-1 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] max-lg:text-xs uppercase tracking-wide text-amber-700">
             {t(keys.settings.modules_form.requires_restart)}
           </span>
         )}
@@ -87,7 +99,20 @@ export function ModuleFieldRow({
       </div>
 
       <div className="min-w-0 [overflow-wrap:anywhere] @md:col-span-2 @xl:col-span-1 @xl:justify-self-start">
-        <FieldSource field={field} descriptionId={descriptionId} onReset={onReset} />
+        <FieldSource
+          field={field}
+          descriptionId={descriptionId}
+          onReset={async () => {
+            // A second click while this row's revert is in flight is ignored
+            // by the form; it must not cancel the first one's refocus.
+            if (revertInFlight.current) return;
+            revertInFlight.current = true;
+            refocusAfterRevert.current = true;
+            const result = await onReset();
+            revertInFlight.current = false;
+            if (result === false) refocusAfterRevert.current = false;
+          }}
+        />
       </div>
 
       {/* Its own grid row, spanning the control and trailing columns: inside

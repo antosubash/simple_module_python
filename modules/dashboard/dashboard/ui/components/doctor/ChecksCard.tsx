@@ -26,12 +26,14 @@ const TONE = {
 
 function Finding({ finding }: { finding: DoctorFinding }) {
   return (
-    <div className="mt-1 text-[12.5px] text-muted-foreground">
-      <code className="font-mono text-[11px]">{finding.code}</code> · {finding.module} —{' '}
-      {finding.message}
+    <div className="mt-1 [overflow-wrap:anywhere] text-[12.5px] text-muted-foreground">
+      <code className="font-mono text-[11px] max-lg:text-xs">{finding.code}</code> ·{' '}
+      {finding.module} — {finding.message}
       {finding.file && (
         <div className="mt-0.5">
-          <code className="font-mono text-[11px]">{finding.file}</code>
+          <code className="[overflow-wrap:anywhere] font-mono text-[11px] max-lg:text-xs">
+            {finding.file}
+          </code>
         </div>
       )}
       {finding.suggestion && <div className="mt-0.5">{finding.suggestion}</div>}
@@ -81,7 +83,7 @@ function ProblemRow({
         <button
           type="button"
           onClick={() => onCopyCommand(check.command as string)}
-          className={`shrink-0 text-[12.5px] font-medium max-lg:min-h-11 ${tone.action}`}
+          className={`shrink-0 text-[12.5px] font-medium max-lg:min-h-11 max-lg:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${tone.action}`}
         >
           {fixLabel}
         </button>

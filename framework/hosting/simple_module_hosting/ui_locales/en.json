@@ -6,7 +6,10 @@
     "go_home_button": "Go Home"
   },
   "nav": {
-    "admin": "Administration"
+    "admin": "Administration",
+    "sidebar": "Section navigation",
+    "footer": "Footer links",
+    "breadcrumb": "Breadcrumb"
   },
   "switcher": {
     "label": "Change language",

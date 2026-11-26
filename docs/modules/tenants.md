@@ -73,16 +73,25 @@ DB-backed (Settings screen):
 
 - `allow_self_service` (default on) — any signed-in user may create an
   organisation.
-- `invitation_ttl_hours` (default 72).
+- `invitation_ttl_hours` (default 72) — a whole number from 1 to 720 hours.
 - `subdomain_base` (default empty) — with `example.com`, `acme.example.com`
   resolves to the tenant whose slug is `acme`. Members get their role there;
   anonymous visitors and signed-in non-members get the tenant on **public
   routes only**; an unknown or suspended subdomain resolves to nothing.
+  Values are trimmed, lowercased and limited to a hostname of at most 253
+  characters, without a scheme, path or port; blank disables this resolver.
 - `public_base_url` (default empty) — inherit `host.public_base_url` for invitation
   links; an explicit module origin wins. Only when both are blank do links remain
   root-relative; invitation emails are then skipped with an ERROR log naming
   `host.public_base_url` / `SM_PUBLIC_BASE_URL` as the setting to configure.
   The request `Host` header is never used.
+  The override must be blank or an absolute HTTP(S) URL without credentials,
+  query strings or fragments, at most 2,083 characters after trimming; path
+  prefixes are preserved.
+
+Saves persist normalized `subdomain_base` and trimmed `public_base_url` values.
+Invalid values return a field-level 422. Invalid stored values are logged and
+ignored during hydration, using the blank default without deleting their rows.
 
 Management routes need both the permission and an owner/admin role *in the
 active tenant*: a platform-wide grant does not make a plain member of a tenant

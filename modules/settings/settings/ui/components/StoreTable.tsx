@@ -17,7 +17,8 @@ const SCOPE_TONE: Record<SettingScope, string> = {
   user: 'border-amber-200 bg-amber-50 text-amber-700',
 };
 
-const HEAD = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
+const HEAD =
+  'text-[11px] max-lg:text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground';
 
 /** `#rgb` / `#rrggbb`, the only values worth previewing as a colour. */
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;

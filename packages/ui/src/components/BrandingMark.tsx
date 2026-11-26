@@ -72,7 +72,11 @@ export function BrandingMark({
       {caption ? (
         <span className="flex flex-col leading-tight">
           {wordmark}
-          <span className={captionClassName ?? 'font-mono text-[11px] text-muted-foreground'}>
+          <span
+            className={
+              captionClassName ?? 'font-mono text-[11px] max-lg:text-xs text-muted-foreground'
+            }
+          >
             {caption}
           </span>
         </span>

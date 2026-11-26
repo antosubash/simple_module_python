@@ -18,6 +18,7 @@ configureI18n({
     'settings.modules_form.saved_toast': 'Saved',
     'settings.modules_form.reset_to_default': 'Revert',
     'settings.modules_form.discard_changes': 'Discard changes',
+    'settings.modules_form.revert_field': 'Revert {field}',
     'settings.modules.unsaved_count_one': '{count} unsaved',
   },
 });
@@ -64,7 +65,7 @@ test('reverting one field preserves other drafts and their saved baseline after 
   );
   fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'draft' } });
   fireEvent.change(screen.getByLabelText('smtp_host'), { target: { value: 'discard me' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Revert smtp_host' }));
   await waitFor(() => expect(mocks.reload).toHaveBeenCalled());
   rerender(
     <ModuleForm module={view([field('smtp_host', 'default'), field('sender', 'original')])} />,
@@ -99,10 +100,10 @@ test('saving a defaulted field immediately offers Revert and keeps confirmation 
     vi.fn(async () => new Response('{}', { status: 200 })),
   );
   render(<ModuleForm module={view([field('sender', '')])} />);
-  expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'new sender' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByRole('button', { name: 'Revert' })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'Revert sender' })).toBeVisible();
   expect(screen.getByRole('status')).toHaveTextContent('Saved');
 });
 
@@ -119,7 +120,8 @@ test('saving the default removes Revert without changing other fields', async ()
   fireEvent.change(screen.getByLabelText('sender'), { target: { value: '' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Saved'));
-  expect(screen.getAllByRole('button', { name: 'Revert' })).toHaveLength(1);
+  expect(screen.getByRole('button', { name: 'Revert host' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();
 });
 
 test('a failed save keeps a defaulted field without Revert', async () => {
@@ -131,7 +133,7 @@ test('a failed save keeps a defaulted field without Revert', async () => {
   fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'rejected' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
-  expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();
   expect(screen.getByLabelText('sender')).toHaveValue('rejected');
 });
 
@@ -148,10 +150,13 @@ test('revert right after a save shows the live default and hides Revert', async 
   const input = screen.getByDisplayValue('default-sender');
   fireEvent.change(input, { target: { value: 'custom' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  const revert = await screen.findByRole('button', { name: 'Revert' });
+  const revert = await screen.findByRole('button', { name: 'Revert sender' });
+  revert.focus();
   fireEvent.click(revert);
   await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toBeInTheDocument());
-  expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();
+  // Keyboard focus stays on the field, not on the page body.
+  await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toHaveFocus());
 });
 
 test('a failed revert surfaces validation errors without clearing override or reloading', async () => {
@@ -167,9 +172,13 @@ test('a failed revert surfaces validation errors without clearing override or re
   );
   render(<ModuleForm module={view([field('password', 'gate-password', true)])} />);
   fireEvent.change(screen.getByLabelText('password'), { target: { value: 'draft-pw' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
+  const revert = screen.getByRole('button', { name: 'Revert password' });
+  revert.focus();
+  fireEvent.click(revert);
   expect(await screen.findByText('Password is required')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Revert' })).toBeInTheDocument();
+  expect(revert).toBeInTheDocument();
+  // A 422 moves focus to the invalid field (#1156), never to the page body.
+  await waitFor(() => expect(screen.getByLabelText('password')).toHaveFocus());
   expect(screen.getByLabelText('password')).toHaveValue('draft-pw');
   expect(mocks.reload).not.toHaveBeenCalled();
 });

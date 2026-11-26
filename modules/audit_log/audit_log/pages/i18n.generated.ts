@@ -28,6 +28,7 @@ export const keys = {
       title: 'audit_log.browse.title',
     },
     changes: {
+      computed_value: 'audit_log.changes.computed_value',
       fields_set: 'audit_log.changes.fields_set',
       fields_set_one: 'audit_log.changes.fields_set_one',
       fields_set_other: 'audit_log.changes.fields_set_other',
@@ -98,6 +99,7 @@ type ModuleTranslationResources = {
   readonly 'audit_log.browse.no_match_description': '';
   readonly 'audit_log.browse.no_match_title': '';
   readonly 'audit_log.browse.title': '';
+  readonly 'audit_log.changes.computed_value': '';
   readonly 'audit_log.changes.fields_set': '';
   readonly 'audit_log.changes.fields_set_one': '';
   readonly 'audit_log.changes.fields_set_other': '';

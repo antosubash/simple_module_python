@@ -31,7 +31,7 @@ interface Props {
 }
 
 const HEAD =
-  'bg-secondary/40 text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+  'bg-secondary/40 text-[11px] max-lg:text-xs font-semibold uppercase tracking-[0.08em] ' +
   'text-muted-foreground sm:px-6';
 
 export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Props) {

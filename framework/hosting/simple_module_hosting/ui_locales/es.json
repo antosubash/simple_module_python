@@ -6,7 +6,10 @@
     "go_home_button": "Ir al inicio"
   },
   "nav": {
-    "admin": "Administración"
+    "admin": "Administración",
+    "sidebar": "Navegación de la sección",
+    "footer": "Enlaces del pie de página",
+    "breadcrumb": "Ruta de navegación"
   },
   "switcher": {
     "label": "Cambiar idioma",

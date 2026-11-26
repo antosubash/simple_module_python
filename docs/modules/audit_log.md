@@ -71,6 +71,8 @@ record_bulk_audit(session, Order, "bulk_updated", ids, {"status": "archived"})
 
 `changes` is a list of `{field, new}` (creates) or `{field, old, new}` (updates) entries; hard deletes carry an empty change list. Soft-deletes and restores retain any other field edits made in the same flush, or carry an empty list when only the lifecycle flag changed (a `VersionedMixin` model also lists its bumped `version`). Column values are normalised to JSON-safe scalars (non-primitives are stringified).
 
+For ORM attribute assignments, a SQL expression such as `user.session_version = User.session_version + 1` records `<computed by database>` as the field's new value on update. The change remains on record even when it is the only edited field; the marker is neither SQL text nor the resulting database value. On create, expression-valued fields are omitted from the change list. Statement DML still records SQL with bind placeholders, as described above.
+
 ## Opting out
 
 Auditing is on by default for every table. Two escape hatches, both class attributes read off the model:
@@ -213,9 +215,11 @@ did across tenants.
 
 ## Entity and actor names
 
-An entry stores a model class name and a primary key, which proves what happened and names nobody. The browse screen, the CSV export and the users edit page's activity card all resolve those ids at render time through the audit-link registry: each module supplies a batch `label_resolver` naming its own rows, one query per entity type per page. Nothing is stored — the row keeps the ids it recorded.
+An entry stores a model class name and a primary key, which proves what happened and names nobody. The browse screen, the CSV export and the users edit page's activity card all resolve those ids at render time through the audit-link registry: each module supplies a batch `label_resolver` naming its own rows, called once per entity type per page. Nothing is stored — the row keeps the ids it recorded.
 
 **The entity column's names are permission-gated.** An `AuditLink` may declare a `label_permission`, and a reader who does not hold it gets the id instead of the name. `users` declares `users.manage`, because a user row is named by `full_name or email` — so without the gate, `audit_log.view` alone was a way to read the display name of every account that appears in the log, and the email address of every account still holding an unaccepted invite (those have no `full_name` yet). The entry itself is never withheld: the action, the type, the timestamp and the id are the audit trail. Links whose owner declares nothing — setting keys, filenames, task names, flag names — are shown to anyone who may read the trail.
+
+Role assignments (`UserRole`) use the same `users.manage` gate and display `editor · sam@example.com`, using the current role name and user email. The resolver batches two queries, one for users and one for roles, so revoked assignments can still be named while both referenced records exist. Missing records or malformed ids fall back to the stored composite id. These join rows have no individual screen, so the label has no link.
 
 Actor names come from the [user directory](/framework/user-directory) (`DirectoryUser.label`), so they follow whichever auth provider holds the accounts. The Actor search box matches a uuid exactly and anything else against names and emails as a database subquery (`match_ids`), with no ceiling on how many accounts match; with no directory it matches the term as an exact actor id.
 

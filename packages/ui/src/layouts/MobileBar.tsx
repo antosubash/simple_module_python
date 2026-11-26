@@ -99,7 +99,7 @@ export function MobileBar({
           user && (
             <span
               aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white"
             >
               {initials(user.name, user.email)}
             </span>

@@ -9,6 +9,7 @@ configureI18n({
     'settings.modules_form.saved_toast': 'Settings saved',
     'settings.modules_form.save': 'Save',
     'settings.modules_form.reset_to_default': 'Revert',
+    'settings.modules_form.revert_field': 'Revert {field}',
     'settings.modules_form.set_new_value': 'Set new value',
     'settings.modules.heading_suffix': 'settings',
     'settings.modules.description': 'Generated from the module’s declared settings.',
@@ -167,7 +168,7 @@ describe('Revert', () => {
     );
 
     expect(screen.getByText('overridden in DB')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Revert' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Revert smtp_host' })).toBeVisible();
   });
 
   test('is not offered when an env var, not the database, moved the value', () => {
@@ -188,7 +189,7 @@ describe('Revert', () => {
       />,
     );
 
-    expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Revert smtp_host' })).not.toBeInTheDocument();
   });
 
   test('is offered even when the stored override equals the default', () => {
@@ -200,7 +201,7 @@ describe('Revert', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Revert' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Revert smtp_host' })).toBeVisible();
   });
 
   test('clears the override and reloads the props', async () => {
@@ -212,7 +213,7 @@ describe('Revert', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revert smtp_host' }));
 
     await waitFor(() => expect(mocks.reload).toHaveBeenCalled());
     const [req] = fetchMock.mock.calls[0] as unknown as [Request];

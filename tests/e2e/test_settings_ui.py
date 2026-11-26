@@ -76,7 +76,7 @@ def test_bool_description_stays_while_stored_value_overrides(
     row = page.get_by_test_id("row-field-file_storage-public_files_cors")
     toggle = row.get_by_role("switch", name="public_files_cors", exact=True)
     description = row.get_by_text("Let any origin read public files cross-origin", exact=False)
-    revert = row.get_by_role("button", name="Revert", exact=True)
+    revert = row.get_by_role("button", name="Revert public_files_cors", exact=True)
     expect(revert).to_have_count(0)
     expect(description).to_be_visible()
     described = re.compile(r"^Let any origin read public files cross-origin")

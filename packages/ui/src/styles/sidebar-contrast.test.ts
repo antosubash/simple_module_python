@@ -1,6 +1,8 @@
 // Normal-size sidebar labels must meet WCAG AA, including account-row hover (#670).
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { compile } from '@tailwindcss/node';
+import postcss from 'postcss';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = resolve(__dirname, '../../../..');
@@ -73,4 +75,28 @@ describe('sidebar text contrast', () => {
       }
     }
   });
+});
+
+it('keeps dark muted text at AA contrast on the page, cards and muted surfaces (#1160)', async () => {
+  const base = join(ROOT, 'packages/ui/src/styles');
+  const compiler = await compile(readFileSync(join(base, 'globals.css'), 'utf8'), {
+    base,
+    onDependency() {},
+  });
+  const tokens = new Map<string, number>();
+  postcss.parse(compiler.build(['text-muted-foreground'])).walkRules((rule) => {
+    if (rule.selector !== '.dark') return;
+    rule.walkDecls((decl) => {
+      if (!['--muted-foreground', '--background', '--card', '--muted'].includes(decl.prop)) return;
+      const color = decl.value.match(/^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/);
+      if (color) tokens.set(decl.prop, luminance(+color[1], +color[2], +color[3]));
+    });
+  });
+  const fg = tokens.get('--muted-foreground');
+  expect(fg).toBeDefined();
+  for (const surface of ['--background', '--card', '--muted']) {
+    const bg = tokens.get(surface);
+    expect(bg).toBeDefined();
+    expect(ratio(fg as number, bg as number), surface).toBeGreaterThanOrEqual(4.5);
+  }
 });
