@@ -151,7 +151,9 @@ class TestUserContextTokenFields:
 
     async def test_token_fields_round_trip_and_empty_scopes_stay_capped(self):
         for scopes in (["x.read"], []):
-            ctx = UserContext(id="1", email="", name="A", auth_kind="pat", scopes=scopes)
+            ctx = UserContext(
+                id="1", email="", name="A", auth_kind="pat", scopes=scopes, token_id="t-1"
+            )
             back = UserContext.from_session_dict(ctx.to_session_dict())
             assert back == ctx
             assert back is not None and back.is_scoped

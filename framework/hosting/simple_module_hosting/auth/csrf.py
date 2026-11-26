@@ -14,7 +14,12 @@ reloads. The generated API client sends its current value as ``X-CSRF-Token``
 on same-origin POST/PUT/PATCH/DELETE; page code needs no token plumbing.
 Safe methods are never checked. Apps that mount no ``SessionMiddleware``
 (bare unit-test apps) are exempt — without a session there is nothing to
-bind a token to.
+bind a token to. API-token principals (a personal access token or service
+key, as resolved by the auth middleware onto ``request.state.user``) are
+exempt too: their credential travels in an ``Authorization`` header a browser
+never attaches on its own, so there is nothing ambient to forge. The check
+reads the authenticated principal, never the header, so a cookie session that
+also sends a bearer header is still checked.
 
 This lifts the design the pagebuilder module shipped first
 (``pagebuilder/security.py``) into the framework, so every module shares
@@ -26,8 +31,11 @@ call ``rotate_csrf_token`` before rendering the next page.
 from __future__ import annotations
 
 import secrets
+from typing import Any
 
 from fastapi import HTTPException, Request
+
+from simple_module_hosting.auth.token_guard import is_token_principal
 
 __all__ = [
     "CSRF_HEADER",
@@ -40,6 +48,21 @@ __all__ = [
 CSRF_HEADER = "X-CSRF-Token"
 _SESSION_KEY = "sm_csrf_token"
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+# ``auth.contracts.tokens.AUTH_KIND_PAT`` / ``AUTH_KIND_SERVICE``, restated
+# here because the framework must not import a module (SM009).
+_TOKEN_AUTH_KINDS = frozenset({"pat", "service"})
+
+
+def _is_api_token_request(request: Request) -> bool:
+    """Whether the authenticated principal is an API token (PAT or service key).
+
+    Both halves must agree: a scoped principal (``scopes is not None``) whose
+    ``auth_kind`` names a token credential. Read duck-typed off
+    ``request.state.user`` — set only by the auth middleware after a
+    credential resolved — so a header alone can never earn the skip.
+    """
+    user: Any = getattr(request.state, "user", None)
+    return is_token_principal(user) and getattr(user, "auth_kind", None) in _TOKEN_AUTH_KINDS
 
 
 async def require_browser_origin(request: Request) -> None:
@@ -111,6 +134,8 @@ class RequiresCsrf:
         session = request.scope.get("session")
         if session is None:
             return  # no session mounted — nothing to bind a token to
+        if _is_api_token_request(request):
+            return  # header credential, not ambient: nothing for CSRF to forge
         # Read (never mint) the token here: a rejected request must not mutate
         # the session or re-issue the cookie. Compare as bytes — str
         # compare_digest raises TypeError on non-ASCII input, and header

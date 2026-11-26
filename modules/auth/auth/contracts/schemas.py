@@ -57,6 +57,10 @@ class UserContext:
     # permissions; when missing, the request runs as anonymous (401 on gated
     # routes). ``None`` (a session, a service key) requires nothing.
     required_permission: str | None = None
+    # The ``api_tokens`` row id of the credential behind a ``"pat"`` /
+    # ``"service"`` principal, so audit records can name the token. ``None``
+    # for every other kind of sign-in.
+    token_id: str | None = None
 
     # Providers must explicitly attest ownership of the principal's email.
     email_verified: bool = False
@@ -110,6 +114,7 @@ class UserContext:
             "auth_kind": self.auth_kind,
             "scopes": list(self.scopes) if self.scopes is not None else None,
             "required_permission": self.required_permission,
+            "token_id": self.token_id,
         }
 
     @classmethod
@@ -134,6 +139,7 @@ class UserContext:
                 auth_kind=str(payload.get("auth_kind") or AUTH_KIND_SESSION),
                 scopes=_scopes_from(payload.get("scopes")),
                 required_permission=payload.get("required_permission") or None,
+                token_id=payload.get("token_id") or None,
             )
         except (KeyError, TypeError, ValueError):
             return None

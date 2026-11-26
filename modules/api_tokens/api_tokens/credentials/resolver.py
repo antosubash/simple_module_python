@@ -69,6 +69,7 @@ async def _personal(db: Any, directory: UserDirectory, token: ApiToken) -> UserC
         roles=list(user.roles or ()),
         auth_kind=AUTH_KIND_PAT,
         scopes=list(token.scopes),
+        token_id=str(token.id),
     )
     # Pinned to the tenant it was created in, like a service key: the tenant
     # resolver acts for this tenant only (and only while the owner is still an
@@ -96,6 +97,7 @@ def _service(token: ApiToken) -> UserContext:
         tenant_id=token.tenant_id,
         auth_kind=AUTH_KIND_SERVICE,
         scopes=list(token.scopes),
+        token_id=str(token.id),
     )
 
 
