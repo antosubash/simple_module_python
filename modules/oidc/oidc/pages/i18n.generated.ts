@@ -17,6 +17,76 @@ export const keys = {
     nav: {
       logout: 'oidc.nav.logout',
     },
+    settings_form: {
+      description: 'oidc.settings_form.description',
+      fields: {
+        api_allowed_client_ids: {
+          help: 'oidc.settings_form.fields.api_allowed_client_ids.help',
+          label: 'oidc.settings_form.fields.api_allowed_client_ids.label',
+        },
+        api_audience: {
+          help: 'oidc.settings_form.fields.api_audience.help',
+          label: 'oidc.settings_form.fields.api_audience.label',
+        },
+        client_id: {
+          help: 'oidc.settings_form.fields.client_id.help',
+          label: 'oidc.settings_form.fields.client_id.label',
+        },
+        client_secret: {
+          help: 'oidc.settings_form.fields.client_secret.help',
+          label: 'oidc.settings_form.fields.client_secret.label',
+        },
+        discovery_url: {
+          help: 'oidc.settings_form.fields.discovery_url.help',
+          label: 'oidc.settings_form.fields.discovery_url.label',
+        },
+        email_claim: {
+          help: 'oidc.settings_form.fields.email_claim.help',
+          label: 'oidc.settings_form.fields.email_claim.label',
+        },
+        jwks_cache_ttl_seconds: {
+          help: 'oidc.settings_form.fields.jwks_cache_ttl_seconds.help',
+          label: 'oidc.settings_form.fields.jwks_cache_ttl_seconds.label',
+        },
+        name_claim: {
+          help: 'oidc.settings_form.fields.name_claim.help',
+          label: 'oidc.settings_form.fields.name_claim.label',
+        },
+        provider: {
+          help: 'oidc.settings_form.fields.provider.help',
+          label: 'oidc.settings_form.fields.provider.label',
+        },
+        role_mapping: {
+          help: 'oidc.settings_form.fields.role_mapping.help',
+          label: 'oidc.settings_form.fields.role_mapping.label',
+        },
+        roles_claim_path: {
+          help: 'oidc.settings_form.fields.roles_claim_path.help',
+          label: 'oidc.settings_form.fields.roles_claim_path.label',
+        },
+        scope: {
+          help: 'oidc.settings_form.fields.scope.help',
+          label: 'oidc.settings_form.fields.scope.label',
+        },
+        tenant_id: {
+          help: 'oidc.settings_form.fields.tenant_id.help',
+          label: 'oidc.settings_form.fields.tenant_id.label',
+        },
+        trust_tenant_claim: {
+          help: 'oidc.settings_form.fields.trust_tenant_claim.help',
+          label: 'oidc.settings_form.fields.trust_tenant_claim.label',
+        },
+        uid_claim: {
+          help: 'oidc.settings_form.fields.uid_claim.help',
+          label: 'oidc.settings_form.fields.uid_claim.label',
+        },
+        username_claim: {
+          help: 'oidc.settings_form.fields.username_claim.help',
+          label: 'oidc.settings_form.fields.username_claim.label',
+        },
+      },
+      title: 'oidc.settings_form.title',
+    },
   },
 } as const;
 
@@ -27,6 +97,40 @@ type ModuleTranslationResources = {
   readonly 'oidc.logout.sign_in_again': '';
   readonly 'oidc.logout.title': '';
   readonly 'oidc.nav.logout': '';
+  readonly 'oidc.settings_form.description': '';
+  readonly 'oidc.settings_form.fields.api_allowed_client_ids.help': '';
+  readonly 'oidc.settings_form.fields.api_allowed_client_ids.label': '';
+  readonly 'oidc.settings_form.fields.api_audience.help': '';
+  readonly 'oidc.settings_form.fields.api_audience.label': '';
+  readonly 'oidc.settings_form.fields.client_id.help': '';
+  readonly 'oidc.settings_form.fields.client_id.label': '';
+  readonly 'oidc.settings_form.fields.client_secret.help': '';
+  readonly 'oidc.settings_form.fields.client_secret.label': '';
+  readonly 'oidc.settings_form.fields.discovery_url.help': '';
+  readonly 'oidc.settings_form.fields.discovery_url.label': '';
+  readonly 'oidc.settings_form.fields.email_claim.help': '';
+  readonly 'oidc.settings_form.fields.email_claim.label': '';
+  readonly 'oidc.settings_form.fields.jwks_cache_ttl_seconds.help': '';
+  readonly 'oidc.settings_form.fields.jwks_cache_ttl_seconds.label': '';
+  readonly 'oidc.settings_form.fields.name_claim.help': '';
+  readonly 'oidc.settings_form.fields.name_claim.label': '';
+  readonly 'oidc.settings_form.fields.provider.help': '';
+  readonly 'oidc.settings_form.fields.provider.label': '';
+  readonly 'oidc.settings_form.fields.role_mapping.help': '';
+  readonly 'oidc.settings_form.fields.role_mapping.label': '';
+  readonly 'oidc.settings_form.fields.roles_claim_path.help': '';
+  readonly 'oidc.settings_form.fields.roles_claim_path.label': '';
+  readonly 'oidc.settings_form.fields.scope.help': '';
+  readonly 'oidc.settings_form.fields.scope.label': '';
+  readonly 'oidc.settings_form.fields.tenant_id.help': '';
+  readonly 'oidc.settings_form.fields.tenant_id.label': '';
+  readonly 'oidc.settings_form.fields.trust_tenant_claim.help': '';
+  readonly 'oidc.settings_form.fields.trust_tenant_claim.label': '';
+  readonly 'oidc.settings_form.fields.uid_claim.help': '';
+  readonly 'oidc.settings_form.fields.uid_claim.label': '';
+  readonly 'oidc.settings_form.fields.username_claim.help': '';
+  readonly 'oidc.settings_form.fields.username_claim.label': '';
+  readonly 'oidc.settings_form.title': '';
 };
 
 declare module '@simple-module-py/i18n' {

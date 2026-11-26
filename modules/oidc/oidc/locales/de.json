@@ -10,5 +10,75 @@
   },
   "nav": {
     "logout": "Abmelden"
+  },
+  "settings_form": {
+    "title": "Anmeldung (OIDC)",
+    "description": "Verbindung zu Ihrem OpenID-Connect-Anbieter, Claim-Zuordnung und API-Zugriff.",
+    "fields": {
+      "provider": {
+        "label": "Anbieter",
+        "help": "Welche Anbieter-Vorlage verwendet wird, etwa Entra oder ein generischer OIDC-Anbieter. Eine Änderung erfordert einen Neustart."
+      },
+      "discovery_url": {
+        "label": "Discovery-URL",
+        "help": "Adresse des Discovery-Dokuments des Anbieters. Leer: wird, wo der Anbieter es unterstützt, aus der Tenant-ID abgeleitet."
+      },
+      "tenant_id": {
+        "label": "Tenant-ID",
+        "help": "ID des Verzeichnisses (Tenant) für Anbieter wie Entra. Nur Single-Tenant."
+      },
+      "client_id": {
+        "label": "Client-ID",
+        "help": "ID des Clients, der für diese Anwendung beim Anbieter registriert ist."
+      },
+      "client_secret": {
+        "label": "Client-Secret",
+        "help": "Geheimnis dieses Clients. Nach dem Speichern wird es ausgeblendet."
+      },
+      "api_audience": {
+        "label": "API-Audience",
+        "help": "Audience, die Bearer-Tokens für die API haben müssen. Leer lassen, um die Bearer-Authentifizierung auszuschalten."
+      },
+      "api_allowed_client_ids": {
+        "label": "Erlaubte API-Clients",
+        "help": "Client-IDs außer dem der Anwendung selbst, die die API mit einem Bearer-Token aufrufen dürfen. Leer: nur der Client dieser Anwendung."
+      },
+      "trust_tenant_claim": {
+        "label": "Mandanten-Claim in Tokens vertrauen",
+        "help": "Den im Token genannten Mandanten verwenden. Nur aktivieren, wenn Benutzer diesen Claim nicht beeinflussen können."
+      },
+      "scope": {
+        "label": "Scopes",
+        "help": "Beim Anmelden angeforderte Scopes. Unverändert lassen, um die Vorgabe des Anbieters zu nutzen."
+      },
+      "uid_claim": {
+        "label": "Claim für die Benutzer-ID",
+        "help": "Token-Claim, der den Benutzer eindeutig identifiziert."
+      },
+      "username_claim": {
+        "label": "Claim für den Benutzernamen",
+        "help": "Token-Claim mit dem Benutzernamen."
+      },
+      "email_claim": {
+        "label": "Claim für die E-Mail-Adresse",
+        "help": "Token-Claim mit der E-Mail-Adresse."
+      },
+      "name_claim": {
+        "label": "Claim für den Anzeigenamen",
+        "help": "Token-Claim mit dem vollständigen Namen des Benutzers."
+      },
+      "roles_claim_path": {
+        "label": "Pfad des Rollen-Claims",
+        "help": "Wo die Rollenliste im Token steht, als Punkt-Pfad angegeben."
+      },
+      "jwks_cache_ttl_seconds": {
+        "label": "Cache-Dauer der Signaturschlüssel (Sekunden)",
+        "help": "Wie lange die Signaturschlüssel des Anbieters zwischengespeichert werden, bevor sie neu geladen werden. 0 schaltet den Cache aus."
+      },
+      "role_mapping": {
+        "label": "Rollenzuordnung",
+        "help": "Ordnet Rollennamen des Anbieters den Rollen dieser Anwendung zu."
+      }
+    }
   }
 }

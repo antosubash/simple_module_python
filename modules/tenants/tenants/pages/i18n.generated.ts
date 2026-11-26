@@ -164,6 +164,28 @@ export const keys = {
       toast_saved: 'tenants.settings.toast_saved',
       toast_uploaded: 'tenants.settings.toast_uploaded',
     },
+    settings_form: {
+      description: 'tenants.settings_form.description',
+      fields: {
+        allow_self_service: {
+          help: 'tenants.settings_form.fields.allow_self_service.help',
+          label: 'tenants.settings_form.fields.allow_self_service.label',
+        },
+        invitation_ttl_hours: {
+          help: 'tenants.settings_form.fields.invitation_ttl_hours.help',
+          label: 'tenants.settings_form.fields.invitation_ttl_hours.label',
+        },
+        public_base_url: {
+          help: 'tenants.settings_form.fields.public_base_url.help',
+          label: 'tenants.settings_form.fields.public_base_url.label',
+        },
+        subdomain_base: {
+          help: 'tenants.settings_form.fields.subdomain_base.help',
+          label: 'tenants.settings_form.fields.subdomain_base.label',
+        },
+      },
+      title: 'tenants.settings_form.title',
+    },
     status: {
       active: 'tenants.status.active',
       suspended: 'tenants.status.suspended',
@@ -315,6 +337,16 @@ type ModuleTranslationResources = {
   readonly 'tenants.settings.toast_reset': '';
   readonly 'tenants.settings.toast_saved': '';
   readonly 'tenants.settings.toast_uploaded': '';
+  readonly 'tenants.settings_form.description': '';
+  readonly 'tenants.settings_form.fields.allow_self_service.help': '';
+  readonly 'tenants.settings_form.fields.allow_self_service.label': '';
+  readonly 'tenants.settings_form.fields.invitation_ttl_hours.help': '';
+  readonly 'tenants.settings_form.fields.invitation_ttl_hours.label': '';
+  readonly 'tenants.settings_form.fields.public_base_url.help': '';
+  readonly 'tenants.settings_form.fields.public_base_url.label': '';
+  readonly 'tenants.settings_form.fields.subdomain_base.help': '';
+  readonly 'tenants.settings_form.fields.subdomain_base.label': '';
+  readonly 'tenants.settings_form.title': '';
   readonly 'tenants.status.active': '';
   readonly 'tenants.status.suspended': '';
 };

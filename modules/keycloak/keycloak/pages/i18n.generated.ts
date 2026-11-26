@@ -28,6 +28,44 @@ export const keys = {
     nav: {
       logout: 'keycloak.nav.logout',
     },
+    settings_form: {
+      description: 'keycloak.settings_form.description',
+      fields: {
+        client_id: {
+          help: 'keycloak.settings_form.fields.client_id.help',
+          label: 'keycloak.settings_form.fields.client_id.label',
+        },
+        client_secret: {
+          help: 'keycloak.settings_form.fields.client_secret.help',
+          label: 'keycloak.settings_form.fields.client_secret.label',
+        },
+        jwks_cache_ttl_seconds: {
+          help: 'keycloak.settings_form.fields.jwks_cache_ttl_seconds.help',
+          label: 'keycloak.settings_form.fields.jwks_cache_ttl_seconds.label',
+        },
+        realm: {
+          help: 'keycloak.settings_form.fields.realm.help',
+          label: 'keycloak.settings_form.fields.realm.label',
+        },
+        role_mapping: {
+          help: 'keycloak.settings_form.fields.role_mapping.help',
+          label: 'keycloak.settings_form.fields.role_mapping.label',
+        },
+        roles_claim_path: {
+          help: 'keycloak.settings_form.fields.roles_claim_path.help',
+          label: 'keycloak.settings_form.fields.roles_claim_path.label',
+        },
+        server_url: {
+          help: 'keycloak.settings_form.fields.server_url.help',
+          label: 'keycloak.settings_form.fields.server_url.label',
+        },
+        trust_tenant_claim: {
+          help: 'keycloak.settings_form.fields.trust_tenant_claim.help',
+          label: 'keycloak.settings_form.fields.trust_tenant_claim.label',
+        },
+      },
+      title: 'keycloak.settings_form.title',
+    },
   },
 } as const;
 
@@ -47,6 +85,24 @@ type ModuleTranslationResources = {
   readonly 'keycloak.logout.sign_in_again': '';
   readonly 'keycloak.logout.title': '';
   readonly 'keycloak.nav.logout': '';
+  readonly 'keycloak.settings_form.description': '';
+  readonly 'keycloak.settings_form.fields.client_id.help': '';
+  readonly 'keycloak.settings_form.fields.client_id.label': '';
+  readonly 'keycloak.settings_form.fields.client_secret.help': '';
+  readonly 'keycloak.settings_form.fields.client_secret.label': '';
+  readonly 'keycloak.settings_form.fields.jwks_cache_ttl_seconds.help': '';
+  readonly 'keycloak.settings_form.fields.jwks_cache_ttl_seconds.label': '';
+  readonly 'keycloak.settings_form.fields.realm.help': '';
+  readonly 'keycloak.settings_form.fields.realm.label': '';
+  readonly 'keycloak.settings_form.fields.role_mapping.help': '';
+  readonly 'keycloak.settings_form.fields.role_mapping.label': '';
+  readonly 'keycloak.settings_form.fields.roles_claim_path.help': '';
+  readonly 'keycloak.settings_form.fields.roles_claim_path.label': '';
+  readonly 'keycloak.settings_form.fields.server_url.help': '';
+  readonly 'keycloak.settings_form.fields.server_url.label': '';
+  readonly 'keycloak.settings_form.fields.trust_tenant_claim.help': '';
+  readonly 'keycloak.settings_form.fields.trust_tenant_claim.label': '';
+  readonly 'keycloak.settings_form.title': '';
 };
 
 declare module '@simple-module-py/i18n' {

@@ -1,0 +1,20 @@
+{
+  "settings_form": {
+    "title": "Seitensperre",
+    "description": "Gemeinsames Passwort, das die gesamte Website vor Besuchern schützt.",
+    "fields": {
+      "enabled": {
+        "label": "Website sperren",
+        "help": "Besucher müssen das gemeinsame Passwort eingeben, bevor sie etwas sehen. Legen Sie zuerst ein Passwort fest."
+      },
+      "password": {
+        "label": "Passwort",
+        "help": "Das gemeinsame Passwort, das Besucher eingeben. Nach dem Speichern wird es ausgeblendet."
+      },
+      "message": {
+        "label": "Nachricht",
+        "help": "Text, der Besuchern auf der Sperrseite angezeigt wird. Optional."
+      }
+    }
+  }
+}

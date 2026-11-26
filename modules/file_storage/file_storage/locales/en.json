@@ -106,5 +106,91 @@
   "permission_group": "Files",
   "feature_flags": {
     "public_uploads": "Allow unauthenticated uploads (future)."
+  },
+  "settings_form": {
+    "title": "File storage",
+    "description": "Where uploads are stored and the limits that apply to them.",
+    "groups": {
+      "filesystem": "Local filesystem",
+      "s3": "Amazon S3 / compatible"
+    },
+    "fields": {
+      "backend": {
+        "label": "Storage backend",
+        "help": "Where files are stored, for example the local filesystem or S3. Changing it needs a restart."
+      },
+      "fs_root_path": {
+        "label": "Root folder",
+        "help": "Folder on the server where files are saved when using the local filesystem."
+      },
+      "s3_bucket": {
+        "label": "Bucket",
+        "help": "Name of the bucket uploads go to."
+      },
+      "s3_region": {
+        "label": "Region",
+        "help": "Region the bucket lives in."
+      },
+      "s3_access_key_id": {
+        "label": "Access key ID",
+        "help": "Access key used to sign in to the bucket."
+      },
+      "s3_secret_access_key": {
+        "label": "Secret access key",
+        "help": "Secret that goes with the access key ID. It is hidden once saved."
+      },
+      "s3_endpoint_url": {
+        "label": "Endpoint URL",
+        "help": "Custom endpoint for MinIO, R2 or similar services. Leave blank for Amazon S3."
+      },
+      "s3_public_endpoint_url": {
+        "label": "Public endpoint URL",
+        "help": "Address browsers use for direct part uploads when it differs from the endpoint above, such as an internal hostname. Blank uses the endpoint URL."
+      },
+      "s3_signature_version": {
+        "label": "Signature version",
+        "help": "Signing method for presigned links. Keep s3v4; most providers reject the older version."
+      },
+      "s3_presign_ttl_seconds": {
+        "label": "Presigned link lifetime (seconds)",
+        "help": "How long a presigned download or upload link stays valid."
+      },
+      "max_file_size_bytes": {
+        "label": "Maximum file size (bytes)",
+        "help": "Largest file a regular upload may have."
+      },
+      "allowed_content_types": {
+        "label": "Allowed file types",
+        "help": "List of permitted MIME types. Leave empty to allow any type."
+      },
+      "quota_bytes": {
+        "label": "Storage quota (bytes)",
+        "help": "Total storage allowed for stored files and uploads in progress. Leave empty for no limit."
+      },
+      "public_files_cors": {
+        "label": "Allow cross-origin reads of public files",
+        "help": "Lets pages on other sites embed or read public files. Applies immediately."
+      },
+      "direct_upload_threshold_bytes": {
+        "label": "Resumable upload threshold (bytes)",
+        "help": "Files larger than this are uploaded in parts through a resumable session."
+      },
+      "max_direct_upload_bytes": {
+        "label": "Maximum resumable upload size (bytes)",
+        "help": "Largest file the resumable upload flow accepts."
+      },
+      "multipart_part_size_bytes": {
+        "label": "Upload part size (bytes)",
+        "help": "Preferred size of each part. It grows automatically to stay under 10,000 parts."
+      },
+      "upload_session_ttl_seconds": {
+        "label": "Upload session lifetime (seconds)",
+        "help": "How long an unfinished upload can still be resumed."
+      },
+      "upload_session_retention_days": {
+        "label": "Upload session retention (days)",
+        "help": "How long records of finished or aborted upload sessions are kept."
+      }
+    }
   }
 }

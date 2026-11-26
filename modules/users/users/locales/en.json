@@ -443,5 +443,195 @@
     "last_sign_in": "Last signed in {when}",
     "never": "Not signed in through it yet",
     "subject": "Subject"
+  },
+  "settings_form": {
+    "title": "Users & sign-up",
+    "description": "Sign-up rules, session and token lifetimes, sign-in protection, social sign-in and the demo accounts.",
+    "groups": {
+      "demo_account": "Demo account",
+      "google_oauth": "Google sign-in",
+      "github_oauth": "GitHub sign-in",
+      "oidc": "OpenID Connect sign-in",
+      "microsoft_oauth": "Microsoft sign-in",
+      "oauth_provisioning": "Account creation via sign-in providers"
+    },
+    "fields": {
+      "allow_signup": {
+        "label": "Allow self-service sign-up",
+        "help": "Let visitors register their own account."
+      },
+      "require_verification": {
+        "label": "Require email verification",
+        "help": "New accounts must confirm their email address before they can sign in."
+      },
+      "signup_default_role": {
+        "label": "Default role for sign-ups",
+        "help": "Existing role given to accounts that register themselves. Blank: no role. The admin role is not allowed."
+      },
+      "reset_password_token_lifetime_seconds": {
+        "label": "Password reset link lifetime (seconds)",
+        "help": "How long a password reset link stays valid."
+      },
+      "verification_token_lifetime_seconds": {
+        "label": "Email verification link lifetime (seconds)",
+        "help": "How long an email verification link stays valid."
+      },
+      "bearer_token_lifetime_seconds": {
+        "label": "Access token lifetime (seconds)",
+        "help": "How long an access token for mobile and API clients works before it must be refreshed."
+      },
+      "refresh_token_lifetime_seconds": {
+        "label": "Refresh token lifetime (seconds)",
+        "help": "How long a refresh token can be used to get new access tokens."
+      },
+      "refresh_token_family_max_age_days": {
+        "label": "Maximum sign-in age (days)",
+        "help": "Longest a chain of refresh tokens may be renewed before the user has to sign in again."
+      },
+      "cookie_name": {
+        "label": "Session cookie name",
+        "help": "Name of the cookie that holds the sign-in session."
+      },
+      "cookie_max_age_seconds": {
+        "label": "Session lifetime (seconds)",
+        "help": "How long a normal sign-in session lasts."
+      },
+      "remember_me_max_age_seconds": {
+        "label": "Keep-me-signed-in lifetime (seconds)",
+        "help": "How long a session lasts when the user ticks the keep-me-signed-in box. The sign-in page shows the matching number of days."
+      },
+      "session_version_cache_ttl_seconds": {
+        "label": "Session check cache (seconds)",
+        "help": "How long a server reuses a session check before asking the database again. Lower values notice a revoked session sooner on other servers; 0 checks on every request."
+      },
+      "cookie_samesite": {
+        "label": "Cookie SameSite policy",
+        "help": "Whether the session cookie is sent with requests coming from other sites: lax, strict or none."
+      },
+      "base_url": {
+        "label": "Account link base URL",
+        "help": "Address that account emails such as verification and reset links point to. If blank, the host's public URL is used."
+      },
+      "mail_template_dirs": {
+        "label": "Custom email template folders",
+        "help": "Absolute folders searched first for verification, reset and invitation email templates. Relative or missing paths are ignored."
+      },
+      "login_rate_limit_failures": {
+        "label": "Failed sign-ins per source",
+        "help": "Failed attempts for one username from one IP address within the window before that source is throttled."
+      },
+      "login_rate_limit_window_seconds": {
+        "label": "Sign-in attempt window (seconds)",
+        "help": "Period over which failed sign-ins are counted."
+      },
+      "login_rate_limit_cooldown_seconds": {
+        "label": "Lockout duration (seconds)",
+        "help": "How long an account stays locked after too many failed sign-ins."
+      },
+      "login_lockout_account_failures": {
+        "label": "Failed sign-ins before account lockout",
+        "help": "Failed attempts from anywhere within the window that lock the account."
+      },
+      "auth_rate_limit_attempts": {
+        "label": "Account action limit",
+        "help": "Attempts per IP address within the window for registering, forgotten passwords, accepting invitations and verification requests."
+      },
+      "auth_rate_limit_window_seconds": {
+        "label": "Account action window (seconds)",
+        "help": "Period over which those attempts are counted."
+      },
+      "demo_mode": {
+        "label": "Enable demo sign-in",
+        "help": "Adds a one-click sign-in button for each demo account on the sign-in page. No password is sent to the browser."
+      },
+      "demo_admin_email": {
+        "label": "Demo admin email",
+        "help": "Email of the demo administrator account. Leave blank to offer only the user account."
+      },
+      "demo_user_email": {
+        "label": "Demo user email",
+        "help": "Email of the demo regular-user account. Leave blank to offer only the admin account."
+      },
+      "demo_admin_password": {
+        "label": "Demo admin password",
+        "help": "Leave blank so the account can only be reached through its button. Set one only if you publish the credentials."
+      },
+      "demo_user_password": {
+        "label": "Demo user password",
+        "help": "Leave blank so the account can only be reached through its button. Set one only if you publish the credentials."
+      },
+      "demo_read_only": {
+        "label": "Read-only demo sessions",
+        "help": "Block every change made from a demo session. Turn off only if the database is disposable, since a writable admin demo is a public administrator."
+      },
+      "oauth_google_client_id": {
+        "label": "Client ID",
+        "help": "Client ID from your Google OAuth app."
+      },
+      "oauth_google_client_secret": {
+        "label": "Client secret",
+        "help": "Client secret from your Google OAuth app. It is hidden once saved."
+      },
+      "oauth_github_client_id": {
+        "label": "Client ID",
+        "help": "Client ID from your GitHub OAuth app."
+      },
+      "oauth_github_client_secret": {
+        "label": "Client secret",
+        "help": "Client secret from your GitHub OAuth app. It is hidden once saved."
+      },
+      "oauth_oidc_client_id": {
+        "label": "Client ID",
+        "help": "Client ID registered with your OpenID Connect provider."
+      },
+      "oauth_oidc_client_secret": {
+        "label": "Client secret",
+        "help": "Client secret for that client. It is hidden once saved."
+      },
+      "oauth_oidc_discovery_url": {
+        "label": "Discovery URL",
+        "help": "Address of the provider's discovery document. Works with Keycloak, Authentik, Auth0, Zitadel and similar."
+      },
+      "oauth_oidc_display_name": {
+        "label": "Button label",
+        "help": "Name shown on the sign-in button."
+      },
+      "oauth_microsoft_client_id": {
+        "label": "Client ID",
+        "help": "Application (client) ID from your Microsoft app registration."
+      },
+      "oauth_microsoft_client_secret": {
+        "label": "Client secret",
+        "help": "Client secret from your Microsoft app registration. It is hidden once saved."
+      },
+      "oauth_microsoft_tenant": {
+        "label": "Tenant",
+        "help": "Use common for any account, organizations for work or school accounts only, or a directory ID to allow one organization."
+      },
+      "oauth_microsoft_trust_tenant_upn": {
+        "label": "Trust member sign-in names as verified email",
+        "help": "Treat a member's sign-in name as a verified email so it links to an invited or verified local account. Only works when the tenant is a directory ID. Guests stay unverified."
+      },
+      "oauth_microsoft_discovery_url": {
+        "label": "Discovery URL override",
+        "help": "For development and testing only: take Microsoft endpoints from a local provider. Ignored in other environments."
+      },
+      "oauth_signup_providers": {
+        "label": "Providers that may create accounts",
+        "help": "Providers whose users can create an account on first sign-in even when sign-up is off, if the provider confirmed their email. Choose from google, github, microsoft and oidc."
+      },
+      "oauth_signup_default_role": {
+        "label": "Default role for these accounts",
+        "help": "Role given to accounts created this way. Blank: no role until an admin assigns one. The admin role is not allowed."
+      },
+      "oauth_trusted_email_domains": {
+        "label": "Trusted email domains",
+        "help": "Email domains each provider may vouch for, for example microsoft: example.com. Exact domains only. Available for microsoft and oidc."
+      },
+      "oauth_sync_profile": {
+        "label": "Update name on every sign-in",
+        "help": "Refresh the account's full name from the provider each time the user signs in. The email is never changed."
+      }
+    }
   }
 }
