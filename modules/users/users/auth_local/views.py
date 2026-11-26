@@ -11,7 +11,7 @@ from simple_module_db.engine.deps import get_db
 from simple_module_hosting.auth.auth_policy import login_redirect_url
 from simple_module_hosting.auth.csrf import get_csrf_token
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
-from simple_module_inertia import InertiaResponse
+from simple_module_inertia import InertiaResponse, always
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
@@ -54,8 +54,11 @@ def _mailer_delivers(request: Request) -> bool:
 
 
 def _is_direct_loopback(request: Request) -> bool:
-    # A local proxy must never make a remote visitor eligible for credentials.
-    if "x-forwarded-for" in request.headers or request.client is None:
+    # Forwarding headers disqualify requests even after client-address rewriting.
+    if request.client is None or any(
+        name in {"forwarded", "x-real-ip"} or name.startswith("x-forwarded-")
+        for name in request.headers
+    ):
         return False
     try:
         address = ip_address(request.client.host)
@@ -85,7 +88,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
                         "password": resolved[password_key],
                     }
                 )
-    return await inertia.render(
+    response = await inertia.render(
         _PAGE_LOGIN,
         {
             "csrfToken": get_csrf_token(request),
@@ -107,7 +110,8 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
                 ],
                 "read_only": users_settings.demo_read_only,
             },
-            "dev_accounts": dev_accounts,
+            # Clear previously received credentials even on a partial reload.
+            "dev_accounts": always(dev_accounts),
             # Where AuthMiddleware bounced them from, when it bounced them.
             # Read, not popped: a reload of the login page must not silently
             # downgrade the deep link to the default landing page. The POST
@@ -130,6 +134,9 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             "remember_me_days": users_settings.remember_me_max_age_seconds // _SECONDS_PER_DAY,
         },
     )
+    # HTML embeds the same secrets as JSON and must not be cached either.
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @router.post("/logout", response_model=None, dependencies=[Depends(require_browser_origin)])

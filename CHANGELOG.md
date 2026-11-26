@@ -56,7 +56,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Security
 
-- **Behaviour change:** Users login bootstrap credentials and click-to-fill buttons are available only to direct loopback clients in development. Remote clients, missing or invalid client addresses, and any request carrying `X-Forwarded-For` receive no credentials in HTML or Inertia JSON props (#1229).
+- **Behaviour change:** Users login bootstrap credentials and click-to-fill buttons are available only to loopback clients in development. Non-loopback, missing or invalid client addresses, and any request carrying `Forwarded`, `X-Real-IP`, or `X-Forwarded-*` receive no credentials in HTML or Inertia JSON props. Partial reloads clear previously received credentials when the request becomes ineligible, and login responses use `Cache-Control: private, no-store`. Local proxies must preserve a forwarding header to be distinguished from local browsers (#1229).
 - **Behaviour change:** refuse OAuth sign-in by verified email when the local account already has a different identity from the same provider, preserving its existing links and roles (#1128). This applies to every provider, including GitHub and Google: a user who recreates their provider account is refused until the old link is removed. The refusal is logged at WARNING with the provider and local user id.
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
 - Validate incoming `X-Correlation-ID` headers in `CorrelationIdMiddleware` for bounded length and safe token characters (#1065).
