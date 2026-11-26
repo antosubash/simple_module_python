@@ -98,3 +98,42 @@ def test_route_not_in_served_schema_and_gated(app):
 
     assert META_OPENAPI_PATH not in app.openapi()["paths"]
     assert not any(META_OPENAPI_PATH in d.message for d in check_unguarded_api_routes(app))
+
+
+async def test_if_none_match_parsing_over_http(app):
+    token = await _pat(app, [HostPermissions.OPENAPI_READ])
+    async with _client(app, Authorization=f"Bearer {token}") as c:
+        etag = (await c.get(META_OPENAPI_PATH)).headers["etag"]
+
+        async def status(*values: str) -> int:
+            headers = [("If-None-Match", v) for v in values]
+            return (await c.get(META_OPENAPI_PATH, headers=headers)).status_code
+
+        assert await status("other,*,other") == 200  # malformed, not a wildcard
+        assert await status('"other,*,other"') == 200  # one quoted tag holding commas
+        assert await status('"a", *') == 200  # `*` counts only as the whole value
+        assert await status('W/"stale"', etag) == 304  # match in a second header line
+        assert await status("*") == 304
+        assert await status(f"{etag[:-1]}") == 200  # unterminated quote
+
+
+@pytest.mark.parametrize(
+    "fields, expected",
+    [
+        (['"abc"'], True),
+        (['W/"abc"'], True),
+        (['"x", W/"abc"'], True),
+        (['"a,b", "abc"'], True),
+        (['"a,abc"'], False),
+        (["abc"], False),
+        (['"abc" junk'], False),
+        ([""], False),
+        ([" * "], True),
+        (['"x"', "*"], True),
+        ([], False),
+    ],
+)
+def test_matches_unit(fields, expected):
+    from simple_module_hosting.auth.meta_openapi import _matches
+
+    assert _matches(fields, 'W/"abc"') is expected

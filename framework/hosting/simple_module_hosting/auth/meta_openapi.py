@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from fastapi import APIRouter, Depends, Request, Response
 
@@ -26,6 +27,8 @@ __all__ = ["META_OPENAPI_PATH", "router"]
 META_OPENAPI_PATH = "/api/_meta/openapi"
 _CACHE_CONTROL = "private, no-cache"
 _JSON = "application/json"
+# One entity-tag, then a comma (with optional whitespace) or the end of the value.
+_ENTITY_TAG = re.compile(r'(?:W/)?"([^"]*)"\s*(?:,\s*|$)')
 
 # No prefix: ``whoami.router`` (``/api/_meta``) includes this one, so boot mounts one router.
 router = APIRouter()
@@ -43,12 +46,31 @@ def _serialized(request: Request) -> tuple[bytes, str]:
     return body, etag
 
 
-def _matches(if_none_match: str, etag: str) -> bool:
-    """Weak comparison (RFC 9110 §13.1.2): ``W/`` prefixes are ignored; ``*`` matches."""
-    bare = etag.removeprefix("W/")
-    for candidate in if_none_match.split(","):
-        candidate = candidate.strip()
-        if candidate == "*" or candidate.removeprefix("W/") == bare:
+def _entity_tags(field: str) -> list[str] | None:
+    """The opaque tags of one ``If-None-Match`` field value, ``W/`` dropped.
+
+    Quote-aware (RFC 9110 §8.8.3): a comma inside quotes is part of a tag, not a
+    separator. ``None`` when the value is malformed, so it matches nothing.
+    """
+    tags: list[str] = []
+    pos = 0
+    while True:
+        found = _ENTITY_TAG.match(field, pos)
+        if found is None:
+            return None
+        tags.append(found.group(1))
+        pos = found.end()
+        if pos == len(field):
+            return tags
+
+
+def _matches(fields: list[str], etag: str) -> bool:
+    """Weak comparison over every field value; ``*`` only as an entire field value."""
+    bare = etag.removeprefix("W/").strip('"')
+    for field in fields:
+        if field.strip() == "*":
+            return True
+        if bare in (_entity_tags(field.strip()) or ()):
             return True
     return False
 
@@ -62,7 +84,6 @@ async def meta_openapi(request: Request) -> Response:
     """The live OpenAPI schema, revalidated by ETag."""
     body, etag = _serialized(request)
     headers = {"ETag": etag, "Cache-Control": _CACHE_CONTROL}
-    if_none_match = request.headers.get("if-none-match")
-    if if_none_match and _matches(if_none_match, etag):
+    if _matches(request.headers.getlist("if-none-match"), etag):
         return Response(status_code=304, headers=headers)
     return Response(content=body, media_type=_JSON, headers=headers)
