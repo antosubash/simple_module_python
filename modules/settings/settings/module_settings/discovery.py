@@ -83,6 +83,8 @@ class ModuleSettingField:
     """``None`` is a valid value; the editor sends it for an empty input."""
     control: str | None = None
     """Optional frontend renderer registered under this name."""
+    title: str | None = None
+    """``Field(title=...)``: the label when no ``settings_form`` locale key exists."""
 
     @property
     def source(self) -> str:
@@ -192,6 +194,7 @@ def _field_view(
         input_type=input_type,
         nullable=nullable,
         control=control if isinstance(control := extra.get("control"), str) else None,
+        title=info.title or None,
     )
 
 
