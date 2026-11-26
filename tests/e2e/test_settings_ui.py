@@ -105,20 +105,20 @@ def test_module_url_search_and_draft_guard(
     switching module with a draft asks before discarding it (#1159)."""
     page.goto("/")
     _login(page, e2e_username, e2e_password)
-    page.goto("/admin/settings/?module=tenants")
-    expect(page.get_by_role("heading", name=re.compile(r"^tenants settings"))).to_be_visible()
+    page.goto("/admin/settings/?module=users")
+    expect(page.get_by_role("heading", name=re.compile(r"^users settings"))).to_be_visible()
 
     search = page.get_by_role("searchbox")
     search.fill("zzzz-no-such-module")
     expect(page.get_by_role("status").filter(has_text="No matching modules")).to_be_visible()
     search.fill("")
 
-    page.get_by_label("subdomain_base", exact=True).fill("draft.example.com")
+    page.get_by_label("base_url", exact=True).fill("https://draft.example.com")
     page.get_by_role("button", name=re.compile(r"^mail\b")).click()
     dialog = page.get_by_role("alertdialog")
     expect(dialog).to_be_visible()
     dialog.get_by_role("button", name="Cancel").click()
-    expect(page.get_by_label("subdomain_base", exact=True)).to_have_value("draft.example.com")
+    expect(page.get_by_label("base_url", exact=True)).to_have_value("https://draft.example.com")
 
     page.get_by_role("button", name=re.compile(r"^mail\b")).click()
     page.get_by_role("alertdialog").get_by_role("button", name=re.compile("Discard")).click()
@@ -132,14 +132,14 @@ def test_rejected_field_error_is_linked_and_focused(
     """A 422 field error is announced, linked to its control and focused (#1156)."""
     page.goto("/")
     _login(page, e2e_username, e2e_password)
-    page.goto("/admin/settings/?module=tenants")
-    control = page.get_by_label("subdomain_base", exact=True)
-    control.fill("example.com:8080")
+    page.goto("/admin/settings/?module=users")
+    control = page.get_by_label("base_url", exact=True)
+    control.fill("javascript:alert(1)")
     page.get_by_role("button", name="Save").click()
 
     expect(control).to_have_attribute("aria-invalid", "true")
     expect(control).to_be_focused()
-    error = page.get_by_role("alert").filter(has_text="subdomain_base")
+    error = page.get_by_test_id("row-field-users-base_url").get_by_role("alert")
     expect(error).to_be_visible()
     error_id = error.get_attribute("id")
     assert error_id
