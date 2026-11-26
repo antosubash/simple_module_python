@@ -32,5 +32,6 @@
     "title": "Administration",
     "description": "Benutzer, Zugriff, Darstellung und Systemeinstellungen verwalten.",
     "empty": "Für Ihr Konto sind keine Administrationswerkzeuge verfügbar."
-  }
+  },
+  "permission_group": "Host-System"
 }

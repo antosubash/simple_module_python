@@ -32,5 +32,6 @@
     "title": "Administration",
     "description": "Manage users, access, appearance and system configuration.",
     "empty": "No admin tools are available to your account."
-  }
+  },
+  "permission_group": "Host"
 }

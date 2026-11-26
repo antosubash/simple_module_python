@@ -646,6 +646,7 @@ const resources = {
     'hosting.admin.empty': '',
     'hosting.admin.title': '',
     'hosting.errors.token_not_allowed': '',
+    'hosting.permission_group': '',
     'hosting.setup.connections.description': '',
     'hosting.setup.connections.heading': '',
     'hosting.setup.connections.retest': '',

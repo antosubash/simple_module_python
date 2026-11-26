@@ -32,5 +32,6 @@
     "title": "Administración",
     "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
     "empty": "No hay herramientas de administración disponibles para tu cuenta."
-  }
+  },
+  "permission_group": "Sistema anfitrión"
 }

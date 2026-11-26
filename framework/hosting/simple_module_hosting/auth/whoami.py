@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, Request
 from simple_module_core.access.tenancy import tenant_slug
 from sqlmodel import SQLModel
 
+from simple_module_hosting.auth.meta_openapi import router as meta_openapi_router
 from simple_module_hosting.auth.token_guard import Authenticated, TokenAllowed
 
 router = APIRouter(prefix="/api/_meta", tags=["Meta"])
+router.include_router(meta_openapi_router)  # GET /api/_meta/openapi
 
 
 class WhoAmI(SQLModel):

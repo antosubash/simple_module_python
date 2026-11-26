@@ -816,6 +816,7 @@ export const keys = {
     errors: {
       token_not_allowed: 'hosting.errors.token_not_allowed',
     },
+    permission_group: 'hosting.permission_group',
     setup: {
       connections: {
         description: 'hosting.setup.connections.description',
