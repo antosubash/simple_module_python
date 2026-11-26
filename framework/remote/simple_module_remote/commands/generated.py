@@ -25,7 +25,8 @@ def _fields_help(op: Operation, root: dict) -> str:
     fields, more = body_field_summary(op.body_schema, root)
     if not fields:
         return ""
-    names = [sanitize(f.name) if set_addressable(f.name) else ascii(f.name) for f in fields]
+    # ascii() shows a name exactly where sanitize would drop control characters from it.
+    names = [f.name if f.name.isprintable() else ascii(f.name) for f in fields]
     listed = ", ".join(
         f"{name}{'*' if f.required else ''} ({sanitize(f.kind)})"
         for name, f in zip(names, fields, strict=True)
@@ -34,7 +35,7 @@ def _fields_help(op: Operation, root: dict) -> str:
     if more:
         text += f", and {more} more (see the schema)"
     if not all(set_addressable(f.name) for f in fields):
-        text += ". Names with . or = cannot be set with --set: use --json or --file"
+        text += ". Empty names and names with . or = cannot be set with --set: use --json or --file"
     return text
 
 

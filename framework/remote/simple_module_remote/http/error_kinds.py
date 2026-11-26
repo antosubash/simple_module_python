@@ -66,12 +66,15 @@ def token_problem(status: int, text: str) -> bool:
     if status == HTTPStatus.UNAUTHORIZED:
         return True
     detail = detail_of(text)
-    if detail is None:
+    if detail is None or (isinstance(detail, str) and not detail.strip()):
         body = _decoded(text)
-        if body is not _NOT_JSON:
-            # An empty JSON body explains nothing; {"code": ..., "message": ...} does.
+        if body is _NOT_JSON or isinstance(body, str):
+            detail = text if body is _NOT_JSON else body  # the body is the explanation
+        elif isinstance(body, dict):
+            # A blank detail or none: the other fields may still explain the refusal.
+            return _says_nothing({k: v for k, v in body.items() if k != "detail"})
+        else:
             return _says_nothing(body)
-        detail = text  # a plain-text body is the server's explanation
     if not isinstance(detail, str):
         return False
     wording = detail.strip().lower()

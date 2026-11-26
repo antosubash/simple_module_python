@@ -98,6 +98,9 @@ def test_a_plain_text_403_is_read_as_the_explanation(execute_harness, make_op, t
         ({"code": "action_denied", "message": "Operation denied by policy"}, False),
         ({"detail": None}, True),
         ({}, True),
+        ({"detail": "", "code": "action_denied", "message": "Denied by policy"}, False),
+        ("Token expired", True),
+        ("Denied by policy", False),
     ],
 )
 def test_a_403_without_detail_is_judged_by_its_body(execute_harness, make_op, body, hinted):
