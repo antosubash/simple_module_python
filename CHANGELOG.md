@@ -65,6 +65,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Admin shell: improve primary text/button contrast, close the mobile drawer on Inertia navigation, reserve sidebar footer space, enlarge narrow/coarse touch targets, fit feature flags at tablet widths, wrap long user headings, use consistent section headings, and label search fields and the drawer toggle (#1184).
+- Mail leaves pinned SMTP sockets under asyncio transport ownership after connection, preventing descriptor reuse during deferred shutdown; failed authentication always closes the SMTP client (#1228).
 
 - **Behaviour change:** ORM audit capture records `<computed by database>` as the new value of a field updated with a SQL expression (for example a `session_version` bump) instead of the SQL text, so such updates stay on record; expression-valued fields on create are omitted. Role-assignment audit labels show `role · user email` for readers with `users.manage`, and the audit UI shows the marker as translated text (#1172).
 - Audit log: index target-user history lookups by `(entity_type, entity_id)` to avoid scanning every entry of the same entity type (#1166; migration `819d8c5714a5`).

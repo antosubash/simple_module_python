@@ -5,8 +5,10 @@ import ipaddress
 import logging
 import socket
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import cast
+
+import aiosmtplib
 
 from mail.core.constants import SMTP_TIMEOUT_SECONDS
 
@@ -71,13 +73,54 @@ async def _connect(host: str, port: int) -> socket.socket:
     raise OSError("SMTP hostname resolved to no usable addresses")
 
 
+class _SocketSMTP(aiosmtplib.SMTP):
+    """Remember ownership even after aiosmtplib clears its transport on failure."""
+
+    socket_transferred = False
+
+    def close(self) -> None:
+        # connect() also calls close() on greeting/TLS errors, clearing transport.
+        self.socket_transferred |= self.transport is not None
+        super().close()
+
+
 @asynccontextmanager
-async def _smtp_socket(host: str, port: int) -> AsyncGenerator[socket.socket]:
+async def _smtp_connection(
+    host: str,
+    port: int,
+    *,
+    username: str,
+    password: str,
+    use_tls: bool,
+    start_tls: bool,
+) -> AsyncGenerator[aiosmtplib.SMTP]:
     try:
         sock = await _connect(host, port)
     except TimeoutError as exc:
         raise TimeoutError("Timed out resolving or connecting to SMTP destination") from exc
     try:
-        yield sock
-    finally:
+        # Keep the configured hostname for TLS verification/SNI with a pinned socket.
+        client = _SocketSMTP(
+            hostname=host,
+            sock=sock,
+            use_tls=use_tls,
+            start_tls=start_tls,
+            timeout=SMTP_TIMEOUT_SECONDS,
+        )
+    except BaseException:
         sock.close()
+        raise
+    try:
+        await client.connect()
+        try:
+            if username:
+                await client.login(username, password)
+            yield client
+        finally:
+            # A hangup failure must not mask a login or delivery error.
+            with suppress(Exception):
+                await client.quit()
+    finally:
+        client.close()
+        if not client.socket_transferred:
+            sock.close()

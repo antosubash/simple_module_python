@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import contextlib
 from email import policy
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 from typing import Any
 
-import aiosmtplib
 from simple_module_core.mailer.mail import (
     MailMessage,
     MailSender,
@@ -19,7 +17,7 @@ from simple_module_core.mailer.mail import (
 from mail.core import constants as c
 from mail.core.settings import MailSettings
 from mail.core.transports import get_mail_transport
-from mail.delivery._destination import _smtp_socket
+from mail.delivery._destination import _smtp_connection
 
 
 class _SmtpPolicy(policy.EmailPolicy):
@@ -101,19 +99,18 @@ class SmtpMailSender:
         # Avoid encoded words in long RFC 2369 URLs; bytes bypass aiosmtplib's refolding.
         wire = email.as_bytes(policy=wire_policy.clone(max_line_length=998, cte_type="7bit"))
         tls = _tls_kwargs(self._port, self._use_tls, self._tls_mode)
-        async with _smtp_socket(self._host, self._port) as sock:
-            await aiosmtplib.send(
+        async with _smtp_connection(
+            self._host,
+            self._port,
+            username=self._username,
+            password=self._password,
+            **tls,
+        ) as client:
+            await client.sendmail(
+                sender,
+                recipients,
                 wire,
-                sender=sender,
-                recipients=recipients,
                 mail_options=["SMTPUTF8"] if utf8_required else [],
-                hostname=self._host,
-                sock=sock,
-                username=self._username or None,
-                password=self._password or None,
-                use_tls=tls["use_tls"],
-                start_tls=tls["start_tls"],
-                timeout=c.SMTP_TIMEOUT_SECONDS,
             )
 
     async def verify_connection(self) -> None:
@@ -124,23 +121,14 @@ class SmtpMailSender:
         whatever aiosmtplib raises so the caller can show the real reason.
         """
         tls = _tls_kwargs(self._port, self._use_tls, self._tls_mode)
-        async with _smtp_socket(self._host, self._port) as sock:
-            # hostname remains the TLS verification/SNI name even with a pinned socket.
-            client = aiosmtplib.SMTP(
-                hostname=self._host,
-                sock=sock,
-                use_tls=tls["use_tls"],
-                start_tls=tls["start_tls"],
-                timeout=c.SMTP_TIMEOUT_SECONDS,
-            )
-            await client.connect()
-            try:
-                if self._username:
-                    await client.login(self._username, self._password or "")
-            finally:
-                # A failure hanging up must not mask the login error being unwound.
-                with contextlib.suppress(Exception):
-                    await client.quit()
+        async with _smtp_connection(
+            self._host,
+            self._port,
+            username=self._username,
+            password=self._password,
+            **tls,
+        ):
+            pass
 
 
 def build_sender(

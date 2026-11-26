@@ -4,6 +4,7 @@ import asyncio
 import socket
 from unittest.mock import AsyncMock, MagicMock
 
+import aiosmtplib
 import pytest
 from mail.delivery.runtime import check_smtp
 from mail.delivery.sender import SmtpMailSender
@@ -26,10 +27,10 @@ async def network(monkeypatch):
     monkeypatch.setattr(loop, "getaddrinfo", resolve)
     monkeypatch.setattr(loop, "sock_connect", connect)
     monkeypatch.setattr(socket, "socket", sockets)
-    send = AsyncMock()
-    client = AsyncMock()
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.SMTP", MagicMock(return_value=client))
+    client = MagicMock(spec=aiosmtplib.SMTP)
+    client.socket_transferred = False
+    send = client.sendmail
+    monkeypatch.setattr("mail.delivery._destination._SocketSMTP", MagicMock(return_value=client))
     return resolve, connect, sockets, send, client
 
 
@@ -105,7 +106,7 @@ async def test_refused_address_never_connects(network, ip, operation):
     ],
 )
 async def test_allowed_address_is_pinned_to_connected_socket(network, ip, operation):
-    resolve, connect, _, send, _ = network
+    resolve, connect, _, _, _ = network
     resolve.return_value = [_answer(ip)]
     await _run(operation)
     resolve.assert_awaited_once_with("relay.test", 587, type=socket.SOCK_STREAM)
@@ -113,12 +114,9 @@ async def test_allowed_address_is_pinned_to_connected_socket(network, ip, operat
     assert address == _answer(ip)[4]
     sock.setblocking.assert_called_once_with(False)
     sock.close.assert_called_once()
-    if operation == "send":
-        kwargs = send.call_args.kwargs
-    else:
-        from mail.delivery import sender
+    from mail.delivery import _destination
 
-        kwargs = sender.aiosmtplib.SMTP.call_args.kwargs
+    kwargs = _destination._SocketSMTP.call_args.kwargs
     assert kwargs["sock"] is sock
     assert kwargs["hostname"] == "relay.test"
     assert "port" not in kwargs
@@ -150,7 +148,7 @@ async def test_refusal_is_clear_in_diagnostics_and_logged_without_message_conten
 
 
 async def test_failed_first_address_falls_back_only_to_another_vetted_address(network):
-    resolve, connect, _, send, _ = network
+    resolve, connect, _, _, _ = network
     resolve.return_value = [_answer("::1"), _answer("127.0.0.1")]
     connect.side_effect = [ConnectionRefusedError(), None]
     await _run("send")
@@ -158,7 +156,9 @@ async def test_failed_first_address_falls_back_only_to_another_vetted_address(ne
         ("::1", 587, 0, 0),
         ("127.0.0.1", 587),
     ]
-    assert send.call_args.kwargs["sock"] is connect.call_args.args[0]
+    from mail.delivery import _destination
+
+    assert _destination._SocketSMTP.call_args.kwargs["sock"] is connect.call_args.args[0]
     for call in connect.call_args_list:
         call.args[0].close.assert_called_once()
 
