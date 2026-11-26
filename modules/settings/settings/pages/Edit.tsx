@@ -102,7 +102,11 @@ function Edit({ setting }: Props) {
                 <Button asChild variant="outline">
                   <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
                 </Button>
-                <Button type="submit" disabled={processing}>
+                <Button
+                  type="submit"
+                  disabled={processing}
+                  className="max-lg:min-h-11 pointer-coarse:min-h-11"
+                >
                   {t(keys.settings.edit.submit_button)}
                 </Button>
               </div>

@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const ROOT = resolve(__dirname, '../../../..');
 
 /** OKLCH → OKLab → linear sRGB → WCAG relative luminance. */
-function luminance(lightness: number, chroma: number, hue: number): number {
+function luminance(lightness: number, chroma: number, hue: number, opacity = 1): number {
   const a = chroma * Math.cos((hue * Math.PI) / 180);
   const b = chroma * Math.sin((hue * Math.PI) / 180);
   const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
@@ -19,8 +19,13 @@ function luminance(lightness: number, chroma: number, hue: number): number {
     -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
     -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
   ];
-  for (const channel of rgb) expect(channel).toBeGreaterThanOrEqual(-1e-6);
-  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  const channels = rgb.map((linear) => {
+    const clipped = Math.max(0, Math.min(1, linear));
+    const encoded = clipped <= 0.0031308 ? 12.92 * clipped : 1.055 * clipped ** (1 / 2.4) - 0.055;
+    const mixed = encoded * opacity + 1 - opacity;
+    return mixed <= 0.04045 ? mixed / 12.92 : ((mixed + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
 }
 
 function cssFiles(dir: string): string[] {
@@ -98,5 +103,71 @@ it('keeps dark muted text at AA contrast on the page, cards and muted surfaces (
     const bg = tokens.get(surface);
     expect(bg).toBeDefined();
     expect(ratio(fg as number, bg as number), surface).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
+// Read the compiled theme, so these checks cover the values Tailwind emits.
+async function themeTokens(selector: string) {
+  const base = join(ROOT, 'packages/ui/src/styles');
+  const compiler = await compile(readFileSync(join(base, 'globals.css'), 'utf8'), {
+    base,
+    onDependency() {},
+  });
+  const tokens = new Map<string, number>();
+  postcss
+    .parse(compiler.build(['bg-primary', 'text-primary-text', 'text-primary-text-hover']))
+    .walkRules((rule) => {
+      if (
+        !rule.selector
+          .split(',')
+          .map((s) => s.trim())
+          .some((s) => s === ':root' || s === selector)
+      )
+        return;
+      rule.walkDecls((decl) => {
+        const color = decl.value.match(/^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/);
+        if (color) tokens.set(decl.prop, luminance(+color[1], +color[2], +color[3]));
+      });
+    });
+  return tokens;
+}
+
+it('keeps light primary buttons and active sidebar text at AA, including button hover (#1184)', async () => {
+  const tokens = await themeTokens(':root');
+  const fg = tokens.get('--primary-foreground') as number;
+  const bg = tokens.get('--primary') as number;
+  expect(fg).toBeDefined();
+  expect(bg).toBeDefined();
+  expect(ratio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  // Button hover is bg-primary/90, composited over a white card.
+  const color = readFileSync(join(ROOT, 'packages/ui/src/styles/theme.css'), 'utf8').match(
+    /--primary: oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/,
+  );
+  expect(color).not.toBeNull();
+  if (color)
+    expect(ratio(fg, luminance(+color[1], +color[2], +color[3], 0.9))).toBeGreaterThanOrEqual(4.5);
+  expect(
+    ratio(
+      tokens.get('--sidebar-primary-foreground') as number,
+      tokens.get('--sidebar-primary') as number,
+    ),
+  ).toBeGreaterThanOrEqual(4.5);
+});
+
+it('keeps dark primary text at AA on settings surfaces, including selected rows (#1184)', async () => {
+  const tokens = await themeTokens('.dark');
+  const fg = tokens.get('--color-primary-text') as number;
+  expect(fg).toBeDefined();
+  for (const name of ['--background', '--card', '--muted']) {
+    const bg = tokens.get(name) as number;
+    expect(bg).toBeDefined();
+    expect(ratio(fg, bg), name).toBeGreaterThanOrEqual(4.5);
+    expect(
+      ratio(tokens.get('--color-primary-text-hover') as number, bg),
+      name,
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(fg, bg * 0.9 + luminance(0.59, 0.14, 158) * 0.1), name).toBeGreaterThanOrEqual(
+      4.5,
+    );
   }
 });

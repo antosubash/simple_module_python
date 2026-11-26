@@ -42,7 +42,7 @@ export function ScopeCard({ tenantId, tenants, auditLogUrl, onSelect }: Props) {
       {auditLogUrl && (
         <Link
           href={auditLogUrl}
-          className="text-xs font-medium text-primary-700 hover:underline sm:ml-auto"
+          className="inline-flex items-center text-xs font-medium text-primary-text hover:underline sm:ml-auto max-lg:min-h-11 pointer-coarse:min-h-11"
         >
           {t(keys.feature_flags.browse.view_history)}
         </Link>

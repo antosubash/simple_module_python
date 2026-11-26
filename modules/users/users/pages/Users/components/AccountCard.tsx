@@ -81,7 +81,7 @@ export function AccountCard({
   return (
     <Card className="border-border">
       <CardContent className="flex h-full flex-col pt-5">
-        <SectionTitle>{t(keys.users.metadata_card.title)}</SectionTitle>
+        <SectionTitle as="h2">{t(keys.users.metadata_card.title)}</SectionTitle>
         <div className="space-y-2.5">
           <Row label={t(keys.users.metadata_card.sign_in)}>
             <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs">

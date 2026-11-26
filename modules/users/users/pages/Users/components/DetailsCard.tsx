@@ -42,7 +42,7 @@ export function DetailsCard({
   return (
     <Card className="border-border">
       <CardContent className="pt-5">
-        <SectionTitle>{t(keys.users.details_card.title)}</SectionTitle>
+        <SectionTitle as="h2">{t(keys.users.details_card.title)}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="edit-full-name" className="text-sm font-medium text-muted-foreground">
@@ -78,7 +78,7 @@ export function DetailsCard({
             {hasPermissionsModule && (
               <Link
                 href={`/admin/permissions/users/${userId}/edit`}
-                className="text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400"
+                className="inline-flex items-center max-lg:min-h-11 pointer-coarse:min-h-11 text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400"
               >
                 {t(keys.users.roles_card.manage_permissions)}
               </Link>

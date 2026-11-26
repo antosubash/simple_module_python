@@ -1,9 +1,9 @@
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
 import { TooltipProvider } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
@@ -65,6 +65,8 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const drawerRef = useRef<HTMLElement>(null);
+  const drawerId = useId();
+  useEffect(() => router.on('navigate', closeSidebar), [closeSidebar]);
   useDrawerA11y(sidebarOpen, closeSidebar, drawerRef);
 
   const menuItems = menus?.[menuKey] ?? NO_ITEMS;
@@ -116,6 +118,8 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
           currentUrl={currentUrl}
           user={auth?.user}
           onOpen={() => setSidebarOpen(true)}
+          sidebarOpen={sidebarOpen}
+          sidebarId={drawerId}
         />
 
         {/* Mobile overlay */}
@@ -138,6 +142,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {/* Sidebar */}
         <aside
           ref={drawerRef}
+          id={drawerId}
           // Only a dialog while the phone drawer is open; otherwise it is the
           // plain desktop sidebar.
           {...(sidebarOpen
@@ -162,31 +167,34 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             theme={theme}
             showAdminLink={menuKey === 'sidebar'}
             onNavigate={closeSidebar}
-          >
-            {footerNavSlot}
-          </SidebarNav>
+          />
 
-          {/* The topbar carries the locale on desktop; on a phone it belongs
+          {/* Reserve space below the scroll area so account chrome cannot cover navigation. */}
+          <div className="shrink-0">
+            {footerNavSlot && <div className="px-3 pb-3">{footerNavSlot}</div>}
+
+            {/* The topbar carries the locale on desktop; on a phone it belongs
               here rather than in the bar, where the deck puts the page title
               and the page's own action. A single-locale install gets nothing:
               the topbar's inert pill exists to balance a row of controls, and
               there is no such row here. */}
-          {hasLocaleChoice && (
-            <div className="border-t border-white/[0.06] px-3 py-2 lg:hidden">
-              <LocaleSwitcher className="w-full min-h-11 border-white/15 text-app-sidebar-text hover:bg-white/10 hover:text-white" />
-            </div>
-          )}
+            {hasLocaleChoice && (
+              <div className="border-t border-white/[0.06] px-3 py-2 lg:hidden">
+                <LocaleSwitcher className="w-full min-h-11 border-white/15 text-app-sidebar-text hover:bg-white/10 hover:text-white" />
+              </div>
+            )}
 
-          {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
-          {auth?.user && (
-            <UserMenu
-              user={auth.user}
-              items={menus?.userDropdown ?? NO_ITEMS}
-              hoverBg={theme.hoverBg}
-              mutedTextClass={theme.mutedTextClass}
-              onNavigate={closeSidebar}
-            />
-          )}
+            {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
+            {auth?.user && (
+              <UserMenu
+                user={auth.user}
+                items={menus?.userDropdown ?? NO_ITEMS}
+                hoverBg={theme.hoverBg}
+                mutedTextClass={theme.mutedTextClass}
+                onNavigate={closeSidebar}
+              />
+            )}
+          </div>
         </aside>
 
         {/* Main content */}

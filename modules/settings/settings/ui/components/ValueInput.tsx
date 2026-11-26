@@ -55,7 +55,7 @@ export default function ValueInput({ valueType, value, onValueChange, required =
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
         required={required}
-        className="font-mono"
+        className="font-mono max-lg:min-h-11 pointer-coarse:min-h-11"
       />
     );
   }

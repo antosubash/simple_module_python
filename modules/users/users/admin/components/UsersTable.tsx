@@ -17,7 +17,7 @@ import type { UserListItem } from './user-list-item';
 import { useUserRowActions } from './useUserRowActions';
 
 const HEAD_CLASS =
-  'bg-secondary/40 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
+  'bg-secondary/40 text-[11px] max-lg:text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground';
 
 interface Props {
   users: UserListItem[];

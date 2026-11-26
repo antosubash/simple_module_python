@@ -19,7 +19,8 @@
     "scope_all": "All",
     "showing": "Showing {from}–{to} of {total}",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "search_label": "Search stored settings"
   },
   "table": {
     "scope": "Scope",
@@ -127,7 +128,8 @@
     "managed_description": "{module} ships a purpose-built settings page; edit it there so validation and previews apply.",
     "managed_open": "Open {module} settings",
     "no_results": "No matching modules",
-    "navigation_label": "Settings modules"
+    "navigation_label": "Settings modules",
+    "search_label": "Search settings modules"
   },
   "modules_form": {
     "save": "Save",

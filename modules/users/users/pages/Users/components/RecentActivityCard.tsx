@@ -49,7 +49,7 @@ export function RecentActivityCard({ entries, userId }: Props) {
   return (
     <Card className="border-border">
       <CardContent className="flex h-full flex-col pt-5">
-        <SectionTitle>{t(keys.users.recent_activity.title)}</SectionTitle>
+        <SectionTitle as="h2">{t(keys.users.recent_activity.title)}</SectionTitle>
         {entries.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(keys.users.recent_activity.empty)}</p>
         ) : (
@@ -61,7 +61,7 @@ export function RecentActivityCard({ entries, userId }: Props) {
                 </span>
                 <Link
                   href={entry.href}
-                  className="flex-1 hover:text-primary-700 dark:hover:text-primary-400"
+                  className="flex-1 inline-flex items-center max-lg:min-h-11 pointer-coarse:min-h-11 hover:text-primary-700 dark:hover:text-primary-400"
                 >
                   {entry.summary}
                 </Link>
@@ -72,13 +72,13 @@ export function RecentActivityCard({ entries, userId }: Props) {
         <div className="mt-auto flex flex-col items-start gap-2 pt-4 text-sm font-medium">
           <Link
             href={`/admin/audit-log/?user_id=${encodeURIComponent(userId)}`}
-            className="text-primary-700 hover:text-primary-800 dark:text-primary-400"
+            className="inline-flex items-center max-lg:min-h-11 pointer-coarse:min-h-11 text-primary-700 hover:text-primary-800 dark:text-primary-400"
           >
             {t(keys.users.recent_activity.activity_by_user)}
           </Link>
           <Link
             href={`/admin/audit-log/?target_user_id=${encodeURIComponent(userId)}`}
-            className="text-primary-700 hover:text-primary-800 dark:text-primary-400"
+            className="inline-flex items-center max-lg:min-h-11 pointer-coarse:min-h-11 text-primary-700 hover:text-primary-800 dark:text-primary-400"
           >
             {t(keys.users.recent_activity.account_changes)}
           </Link>

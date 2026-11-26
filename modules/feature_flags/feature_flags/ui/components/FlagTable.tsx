@@ -44,7 +44,7 @@ export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Pro
       <Button
         variant="link"
         size="sm"
-        className="h-auto p-0 text-primary-700 max-sm:min-h-11"
+        className="h-auto p-0 text-primary-text max-sm:min-h-11"
         onClick={() => onClear(flag)}
       >
         {t(keys.feature_flags.table.clear_override)}
@@ -66,7 +66,7 @@ export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Pro
         <TableHeader>
           <TableRow>
             <TableHead className={HEAD}>{t(keys.feature_flags.table.name)}</TableHead>
-            <TableHead className={cn(HEAD, 'hidden md:table-cell')}>
+            <TableHead className={cn(HEAD, 'hidden lg:table-cell')}>
               {t(keys.feature_flags.table.description)}
             </TableHead>
             <TableHead className={cn(HEAD, 'hidden sm:table-cell')}>
@@ -89,13 +89,13 @@ export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Pro
                 <div className="flex flex-wrap items-center gap-2">
                   <code className="font-mono text-sm font-medium">{flag.name}</code>
                   {flag.overridden && (
-                    <Badge variant="outline" className="border-primary text-primary-700">
+                    <Badge variant="outline" className="border-primary text-primary-text">
                       {t(keys.feature_flags.table.overridden)}
                     </Badge>
                   )}
                 </div>
               </TableCell>
-              <TableCell className="hidden md:table-cell sm:px-6">
+              <TableCell className="hidden lg:table-cell sm:px-6">
                 <span className="line-clamp-2 text-sm text-muted-foreground">
                   {flag.description || '—'}
                 </span>

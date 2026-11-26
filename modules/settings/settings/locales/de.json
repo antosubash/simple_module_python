@@ -19,7 +19,8 @@
     "scope_all": "Alle",
     "showing": "{from}–{to} von {total}",
     "previous": "Zurück",
-    "next": "Weiter"
+    "next": "Weiter",
+    "search_label": "Gespeicherte Einstellungen suchen"
   },
   "table": {
     "scope": "Geltungsbereich",
@@ -127,7 +128,8 @@
     "managed_description": "{module} hat eine eigene Einstellungsseite. Bearbeiten Sie die Werte dort, damit Validierung und Vorschau greifen.",
     "managed_open": "Einstellungen für {module} öffnen",
     "no_results": "Keine passenden Module",
-    "navigation_label": "Einstellungsmodule"
+    "navigation_label": "Einstellungsmodule",
+    "search_label": "Einstellungsmodule suchen"
   },
   "modules_form": {
     "save": "Speichern",

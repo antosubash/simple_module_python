@@ -93,7 +93,7 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
   return (
     <Card className="border-border">
       <CardContent className="pt-5">
-        <SectionTitle ref={heading} tabIndex={-1}>
+        <SectionTitle as="h2" ref={heading} tabIndex={-1}>
           {t(keys.users.linked_sign_ins.title)}
         </SectionTitle>
         {hasDuplicates && (

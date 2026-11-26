@@ -143,7 +143,7 @@ export function FieldInput({
         onChange={(e) =>
           onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
         }
-        className={`w-[120px] font-mono ${highlight}`}
+        className={`w-[120px] font-mono max-lg:min-h-11 pointer-coarse:min-h-11 ${highlight}`}
       />
     );
   }

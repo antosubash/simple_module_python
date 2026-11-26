@@ -116,7 +116,7 @@ function Index({
         actions={
           // One entry point: invite-vs-create is a choice inside the form, not
           // a choice between two buttons made before seeing either.
-          <Button asChild className="gap-1.5">
+          <Button asChild className="gap-1.5 max-lg:min-h-11 pointer-coarse:min-h-11">
             <Link href={ADD_PEOPLE_URL}>
               <Plus className="h-4 w-4" />
               {t(keys.users.index.add_people)}
@@ -146,6 +146,8 @@ function Index({
               <div className="relative min-w-60 flex-1">
                 <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  type="search"
+                  aria-label={t(keys.users.index.search_label)}
                   placeholder={t(keys.users.index.search_placeholder)}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

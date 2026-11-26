@@ -222,7 +222,7 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
           {saved && (
-            <p role="status" className="text-sm font-medium text-primary-700">
+            <p role="status" className="text-sm font-medium text-primary-text">
               {t(keys.settings.modules_form.saved_toast)}
             </p>
           )}

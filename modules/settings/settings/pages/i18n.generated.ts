@@ -26,6 +26,7 @@ export const keys = {
       previous: 'settings.browse.previous',
       scope_all: 'settings.browse.scope_all',
       scope_filter_label: 'settings.browse.scope_filter_label',
+      search_label: 'settings.browse.search_label',
       search_placeholder: 'settings.browse.search_placeholder',
       showing: 'settings.browse.showing',
       title: 'settings.browse.title',
@@ -83,6 +84,7 @@ export const keys = {
       overridden_count: 'settings.modules.overridden_count',
       overridden_count_one: 'settings.modules.overridden_count_one',
       overridden_count_other: 'settings.modules.overridden_count_other',
+      search_label: 'settings.modules.search_label',
       search_placeholder: 'settings.modules.search_placeholder',
       secret_badge: 'settings.modules.secret_badge',
       secret_write_only: 'settings.modules.secret_write_only',
@@ -188,6 +190,7 @@ type ModuleTranslationResources = {
   readonly 'settings.browse.previous': '';
   readonly 'settings.browse.scope_all': '';
   readonly 'settings.browse.scope_filter_label': '';
+  readonly 'settings.browse.search_label': '';
   readonly 'settings.browse.search_placeholder': '';
   readonly 'settings.browse.showing': '';
   readonly 'settings.browse.title': '';
@@ -235,6 +238,7 @@ type ModuleTranslationResources = {
   readonly 'settings.modules.no_results': '';
   readonly 'settings.modules.overridden_count_one': '';
   readonly 'settings.modules.overridden_count_other': '';
+  readonly 'settings.modules.search_label': '';
   readonly 'settings.modules.search_placeholder': '';
   readonly 'settings.modules.secret_badge': '';
   readonly 'settings.modules.secret_write_only': '';

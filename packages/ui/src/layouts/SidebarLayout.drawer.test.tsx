@@ -1,14 +1,15 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@inertiajs/react', () => ({
+vi.mock('@inertiajs/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@inertiajs/react')>()),
   usePage: () => ({
     url: '/admin/settings',
     props: {
       menus: {
         adminSidebar: [
-          { label: 'One', url: '/admin/one' },
-          { label: 'Two', url: '/admin/two' },
+          { label: 'One', url: '/admin/one', icon: 'settings' },
+          { label: 'Two', url: '/admin/two', icon: 'settings' },
         ],
       },
     },
@@ -47,13 +48,6 @@ vi.mock('../components/LocaleSwitcher', () => ({
   useHasMultipleLocales: () => false,
 }));
 vi.mock('./SidebarUserMenu', () => ({ SidebarUserMenu: () => null }));
-vi.mock('./MobileBar', () => ({
-  MobileBar: ({ onOpen }: { onOpen: () => void }) => (
-    <button type="button" onClick={onOpen}>
-      open
-    </button>
-  ),
-}));
 
 import { AdminLayout } from './AdminLayout';
 
@@ -176,4 +170,37 @@ describe('SidebarLayout closed drawer accessibility (#638)', () => {
       vi.unstubAllGlobals();
     }
   });
+});
+
+it.each(['/admin', '/admin/settings/', '/admin/settings/store', '/admin/feature-flags/'])(
+  'closes the persistent drawer after navigating to %s',
+  (url) => {
+    const trigger = setup();
+    act(() => {
+      document.dispatchEvent(new CustomEvent('inertia:navigate', { detail: { page: { url } } }));
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    // Same-URL visits must close it too; a URL dependency alone misses these.
+    fireEvent.click(trigger);
+    act(() => {
+      document.dispatchEvent(new CustomEvent('inertia:navigate', { detail: { page: { url } } }));
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  },
+);
+
+it('reports the drawer state and identifies the controlled sidebar', () => {
+  const trigger = setup();
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  expect(trigger).toHaveAttribute('aria-controls', screen.getByRole('dialog').id);
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+});
+
+it('keeps Back to app outside the scrolling navigation', () => {
+  setup();
+  const back = screen.getByRole('link', { name: 'back_to_app' });
+  expect(screen.getByRole('navigation')).not.toContainElement(back);
+  expect(back.parentElement?.parentElement?.parentElement).toHaveClass('shrink-0');
 });
