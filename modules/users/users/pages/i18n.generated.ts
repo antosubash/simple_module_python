@@ -399,6 +399,196 @@ export const keys = {
       no_description: 'users.roles_tab.no_description',
       system_badge: 'users.roles_tab.system_badge',
     },
+    settings_form: {
+      description: 'users.settings_form.description',
+      fields: {
+        allow_signup: {
+          help: 'users.settings_form.fields.allow_signup.help',
+          label: 'users.settings_form.fields.allow_signup.label',
+        },
+        auth_rate_limit_attempts: {
+          help: 'users.settings_form.fields.auth_rate_limit_attempts.help',
+          label: 'users.settings_form.fields.auth_rate_limit_attempts.label',
+        },
+        auth_rate_limit_window_seconds: {
+          help: 'users.settings_form.fields.auth_rate_limit_window_seconds.help',
+          label: 'users.settings_form.fields.auth_rate_limit_window_seconds.label',
+        },
+        base_url: {
+          help: 'users.settings_form.fields.base_url.help',
+          label: 'users.settings_form.fields.base_url.label',
+        },
+        bearer_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.bearer_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.bearer_token_lifetime_seconds.label',
+        },
+        cookie_max_age_seconds: {
+          help: 'users.settings_form.fields.cookie_max_age_seconds.help',
+          label: 'users.settings_form.fields.cookie_max_age_seconds.label',
+        },
+        cookie_name: {
+          help: 'users.settings_form.fields.cookie_name.help',
+          label: 'users.settings_form.fields.cookie_name.label',
+        },
+        cookie_samesite: {
+          help: 'users.settings_form.fields.cookie_samesite.help',
+          label: 'users.settings_form.fields.cookie_samesite.label',
+        },
+        demo_admin_email: {
+          help: 'users.settings_form.fields.demo_admin_email.help',
+          label: 'users.settings_form.fields.demo_admin_email.label',
+        },
+        demo_admin_password: {
+          help: 'users.settings_form.fields.demo_admin_password.help',
+          label: 'users.settings_form.fields.demo_admin_password.label',
+        },
+        demo_mode: {
+          help: 'users.settings_form.fields.demo_mode.help',
+          label: 'users.settings_form.fields.demo_mode.label',
+        },
+        demo_read_only: {
+          help: 'users.settings_form.fields.demo_read_only.help',
+          label: 'users.settings_form.fields.demo_read_only.label',
+        },
+        demo_user_email: {
+          help: 'users.settings_form.fields.demo_user_email.help',
+          label: 'users.settings_form.fields.demo_user_email.label',
+        },
+        demo_user_password: {
+          help: 'users.settings_form.fields.demo_user_password.help',
+          label: 'users.settings_form.fields.demo_user_password.label',
+        },
+        login_lockout_account_failures: {
+          help: 'users.settings_form.fields.login_lockout_account_failures.help',
+          label: 'users.settings_form.fields.login_lockout_account_failures.label',
+        },
+        login_rate_limit_cooldown_seconds: {
+          help: 'users.settings_form.fields.login_rate_limit_cooldown_seconds.help',
+          label: 'users.settings_form.fields.login_rate_limit_cooldown_seconds.label',
+        },
+        login_rate_limit_failures: {
+          help: 'users.settings_form.fields.login_rate_limit_failures.help',
+          label: 'users.settings_form.fields.login_rate_limit_failures.label',
+        },
+        login_rate_limit_window_seconds: {
+          help: 'users.settings_form.fields.login_rate_limit_window_seconds.help',
+          label: 'users.settings_form.fields.login_rate_limit_window_seconds.label',
+        },
+        mail_template_dirs: {
+          help: 'users.settings_form.fields.mail_template_dirs.help',
+          label: 'users.settings_form.fields.mail_template_dirs.label',
+        },
+        oauth_github_client_id: {
+          help: 'users.settings_form.fields.oauth_github_client_id.help',
+          label: 'users.settings_form.fields.oauth_github_client_id.label',
+        },
+        oauth_github_client_secret: {
+          help: 'users.settings_form.fields.oauth_github_client_secret.help',
+          label: 'users.settings_form.fields.oauth_github_client_secret.label',
+        },
+        oauth_google_client_id: {
+          help: 'users.settings_form.fields.oauth_google_client_id.help',
+          label: 'users.settings_form.fields.oauth_google_client_id.label',
+        },
+        oauth_google_client_secret: {
+          help: 'users.settings_form.fields.oauth_google_client_secret.help',
+          label: 'users.settings_form.fields.oauth_google_client_secret.label',
+        },
+        oauth_microsoft_client_id: {
+          help: 'users.settings_form.fields.oauth_microsoft_client_id.help',
+          label: 'users.settings_form.fields.oauth_microsoft_client_id.label',
+        },
+        oauth_microsoft_client_secret: {
+          help: 'users.settings_form.fields.oauth_microsoft_client_secret.help',
+          label: 'users.settings_form.fields.oauth_microsoft_client_secret.label',
+        },
+        oauth_microsoft_discovery_url: {
+          help: 'users.settings_form.fields.oauth_microsoft_discovery_url.help',
+          label: 'users.settings_form.fields.oauth_microsoft_discovery_url.label',
+        },
+        oauth_microsoft_tenant: {
+          help: 'users.settings_form.fields.oauth_microsoft_tenant.help',
+          label: 'users.settings_form.fields.oauth_microsoft_tenant.label',
+        },
+        oauth_microsoft_trust_tenant_upn: {
+          help: 'users.settings_form.fields.oauth_microsoft_trust_tenant_upn.help',
+          label: 'users.settings_form.fields.oauth_microsoft_trust_tenant_upn.label',
+        },
+        oauth_oidc_client_id: {
+          help: 'users.settings_form.fields.oauth_oidc_client_id.help',
+          label: 'users.settings_form.fields.oauth_oidc_client_id.label',
+        },
+        oauth_oidc_client_secret: {
+          help: 'users.settings_form.fields.oauth_oidc_client_secret.help',
+          label: 'users.settings_form.fields.oauth_oidc_client_secret.label',
+        },
+        oauth_oidc_discovery_url: {
+          help: 'users.settings_form.fields.oauth_oidc_discovery_url.help',
+          label: 'users.settings_form.fields.oauth_oidc_discovery_url.label',
+        },
+        oauth_oidc_display_name: {
+          help: 'users.settings_form.fields.oauth_oidc_display_name.help',
+          label: 'users.settings_form.fields.oauth_oidc_display_name.label',
+        },
+        oauth_signup_default_role: {
+          help: 'users.settings_form.fields.oauth_signup_default_role.help',
+          label: 'users.settings_form.fields.oauth_signup_default_role.label',
+        },
+        oauth_signup_providers: {
+          help: 'users.settings_form.fields.oauth_signup_providers.help',
+          label: 'users.settings_form.fields.oauth_signup_providers.label',
+        },
+        oauth_sync_profile: {
+          help: 'users.settings_form.fields.oauth_sync_profile.help',
+          label: 'users.settings_form.fields.oauth_sync_profile.label',
+        },
+        oauth_trusted_email_domains: {
+          help: 'users.settings_form.fields.oauth_trusted_email_domains.help',
+          label: 'users.settings_form.fields.oauth_trusted_email_domains.label',
+        },
+        refresh_token_family_max_age_days: {
+          help: 'users.settings_form.fields.refresh_token_family_max_age_days.help',
+          label: 'users.settings_form.fields.refresh_token_family_max_age_days.label',
+        },
+        refresh_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.refresh_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.refresh_token_lifetime_seconds.label',
+        },
+        remember_me_max_age_seconds: {
+          help: 'users.settings_form.fields.remember_me_max_age_seconds.help',
+          label: 'users.settings_form.fields.remember_me_max_age_seconds.label',
+        },
+        require_verification: {
+          help: 'users.settings_form.fields.require_verification.help',
+          label: 'users.settings_form.fields.require_verification.label',
+        },
+        reset_password_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.reset_password_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.reset_password_token_lifetime_seconds.label',
+        },
+        session_version_cache_ttl_seconds: {
+          help: 'users.settings_form.fields.session_version_cache_ttl_seconds.help',
+          label: 'users.settings_form.fields.session_version_cache_ttl_seconds.label',
+        },
+        signup_default_role: {
+          help: 'users.settings_form.fields.signup_default_role.help',
+          label: 'users.settings_form.fields.signup_default_role.label',
+        },
+        verification_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.verification_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.verification_token_lifetime_seconds.label',
+        },
+      },
+      groups: {
+        demo_account: 'users.settings_form.groups.demo_account',
+        github_oauth: 'users.settings_form.groups.github_oauth',
+        google_oauth: 'users.settings_form.groups.google_oauth',
+        microsoft_oauth: 'users.settings_form.groups.microsoft_oauth',
+        oauth_provisioning: 'users.settings_form.groups.oauth_provisioning',
+        oidc: 'users.settings_form.groups.oidc',
+      },
+      title: 'users.settings_form.title',
+    },
     setup: {
       administrator: {
         description: 'users.setup.administrator.description',
@@ -792,6 +982,102 @@ type ModuleTranslationResources = {
   readonly 'users.roles_tab.member_count_other': '';
   readonly 'users.roles_tab.no_description': '';
   readonly 'users.roles_tab.system_badge': '';
+  readonly 'users.settings_form.description': '';
+  readonly 'users.settings_form.fields.allow_signup.help': '';
+  readonly 'users.settings_form.fields.allow_signup.label': '';
+  readonly 'users.settings_form.fields.auth_rate_limit_attempts.help': '';
+  readonly 'users.settings_form.fields.auth_rate_limit_attempts.label': '';
+  readonly 'users.settings_form.fields.auth_rate_limit_window_seconds.help': '';
+  readonly 'users.settings_form.fields.auth_rate_limit_window_seconds.label': '';
+  readonly 'users.settings_form.fields.base_url.help': '';
+  readonly 'users.settings_form.fields.base_url.label': '';
+  readonly 'users.settings_form.fields.bearer_token_lifetime_seconds.help': '';
+  readonly 'users.settings_form.fields.bearer_token_lifetime_seconds.label': '';
+  readonly 'users.settings_form.fields.cookie_max_age_seconds.help': '';
+  readonly 'users.settings_form.fields.cookie_max_age_seconds.label': '';
+  readonly 'users.settings_form.fields.cookie_name.help': '';
+  readonly 'users.settings_form.fields.cookie_name.label': '';
+  readonly 'users.settings_form.fields.cookie_samesite.help': '';
+  readonly 'users.settings_form.fields.cookie_samesite.label': '';
+  readonly 'users.settings_form.fields.demo_admin_email.help': '';
+  readonly 'users.settings_form.fields.demo_admin_email.label': '';
+  readonly 'users.settings_form.fields.demo_admin_password.help': '';
+  readonly 'users.settings_form.fields.demo_admin_password.label': '';
+  readonly 'users.settings_form.fields.demo_mode.help': '';
+  readonly 'users.settings_form.fields.demo_mode.label': '';
+  readonly 'users.settings_form.fields.demo_read_only.help': '';
+  readonly 'users.settings_form.fields.demo_read_only.label': '';
+  readonly 'users.settings_form.fields.demo_user_email.help': '';
+  readonly 'users.settings_form.fields.demo_user_email.label': '';
+  readonly 'users.settings_form.fields.demo_user_password.help': '';
+  readonly 'users.settings_form.fields.demo_user_password.label': '';
+  readonly 'users.settings_form.fields.login_lockout_account_failures.help': '';
+  readonly 'users.settings_form.fields.login_lockout_account_failures.label': '';
+  readonly 'users.settings_form.fields.login_rate_limit_cooldown_seconds.help': '';
+  readonly 'users.settings_form.fields.login_rate_limit_cooldown_seconds.label': '';
+  readonly 'users.settings_form.fields.login_rate_limit_failures.help': '';
+  readonly 'users.settings_form.fields.login_rate_limit_failures.label': '';
+  readonly 'users.settings_form.fields.login_rate_limit_window_seconds.help': '';
+  readonly 'users.settings_form.fields.login_rate_limit_window_seconds.label': '';
+  readonly 'users.settings_form.fields.mail_template_dirs.help': '';
+  readonly 'users.settings_form.fields.mail_template_dirs.label': '';
+  readonly 'users.settings_form.fields.oauth_github_client_id.help': '';
+  readonly 'users.settings_form.fields.oauth_github_client_id.label': '';
+  readonly 'users.settings_form.fields.oauth_github_client_secret.help': '';
+  readonly 'users.settings_form.fields.oauth_github_client_secret.label': '';
+  readonly 'users.settings_form.fields.oauth_google_client_id.help': '';
+  readonly 'users.settings_form.fields.oauth_google_client_id.label': '';
+  readonly 'users.settings_form.fields.oauth_google_client_secret.help': '';
+  readonly 'users.settings_form.fields.oauth_google_client_secret.label': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_client_id.help': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_client_id.label': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_client_secret.help': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_client_secret.label': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_discovery_url.help': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_discovery_url.label': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_tenant.help': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_tenant.label': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_trust_tenant_upn.help': '';
+  readonly 'users.settings_form.fields.oauth_microsoft_trust_tenant_upn.label': '';
+  readonly 'users.settings_form.fields.oauth_oidc_client_id.help': '';
+  readonly 'users.settings_form.fields.oauth_oidc_client_id.label': '';
+  readonly 'users.settings_form.fields.oauth_oidc_client_secret.help': '';
+  readonly 'users.settings_form.fields.oauth_oidc_client_secret.label': '';
+  readonly 'users.settings_form.fields.oauth_oidc_discovery_url.help': '';
+  readonly 'users.settings_form.fields.oauth_oidc_discovery_url.label': '';
+  readonly 'users.settings_form.fields.oauth_oidc_display_name.help': '';
+  readonly 'users.settings_form.fields.oauth_oidc_display_name.label': '';
+  readonly 'users.settings_form.fields.oauth_signup_default_role.help': '';
+  readonly 'users.settings_form.fields.oauth_signup_default_role.label': '';
+  readonly 'users.settings_form.fields.oauth_signup_providers.help': '';
+  readonly 'users.settings_form.fields.oauth_signup_providers.label': '';
+  readonly 'users.settings_form.fields.oauth_sync_profile.help': '';
+  readonly 'users.settings_form.fields.oauth_sync_profile.label': '';
+  readonly 'users.settings_form.fields.oauth_trusted_email_domains.help': '';
+  readonly 'users.settings_form.fields.oauth_trusted_email_domains.label': '';
+  readonly 'users.settings_form.fields.refresh_token_family_max_age_days.help': '';
+  readonly 'users.settings_form.fields.refresh_token_family_max_age_days.label': '';
+  readonly 'users.settings_form.fields.refresh_token_lifetime_seconds.help': '';
+  readonly 'users.settings_form.fields.refresh_token_lifetime_seconds.label': '';
+  readonly 'users.settings_form.fields.remember_me_max_age_seconds.help': '';
+  readonly 'users.settings_form.fields.remember_me_max_age_seconds.label': '';
+  readonly 'users.settings_form.fields.require_verification.help': '';
+  readonly 'users.settings_form.fields.require_verification.label': '';
+  readonly 'users.settings_form.fields.reset_password_token_lifetime_seconds.help': '';
+  readonly 'users.settings_form.fields.reset_password_token_lifetime_seconds.label': '';
+  readonly 'users.settings_form.fields.session_version_cache_ttl_seconds.help': '';
+  readonly 'users.settings_form.fields.session_version_cache_ttl_seconds.label': '';
+  readonly 'users.settings_form.fields.signup_default_role.help': '';
+  readonly 'users.settings_form.fields.signup_default_role.label': '';
+  readonly 'users.settings_form.fields.verification_token_lifetime_seconds.help': '';
+  readonly 'users.settings_form.fields.verification_token_lifetime_seconds.label': '';
+  readonly 'users.settings_form.groups.demo_account': '';
+  readonly 'users.settings_form.groups.github_oauth': '';
+  readonly 'users.settings_form.groups.google_oauth': '';
+  readonly 'users.settings_form.groups.microsoft_oauth': '';
+  readonly 'users.settings_form.groups.oauth_provisioning': '';
+  readonly 'users.settings_form.groups.oidc': '';
+  readonly 'users.settings_form.title': '';
   readonly 'users.setup.administrator.description': '';
   readonly 'users.setup.administrator.email': '';
   readonly 'users.setup.administrator.full_name': '';

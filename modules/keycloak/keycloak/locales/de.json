@@ -21,5 +21,43 @@
   },
   "nav": {
     "logout": "Abmelden"
+  },
+  "settings_form": {
+    "title": "Keycloak",
+    "description": "Verbindung zu Ihrem Keycloak-Server und die Zuordnung seiner Rollen zu dieser Anwendung.",
+    "fields": {
+      "server_url": {
+        "label": "Server-URL",
+        "help": "Basisadresse des Keycloak-Servers. Eine Änderung erfordert einen Neustart."
+      },
+      "realm": {
+        "label": "Realm",
+        "help": "Name des Keycloak-Realms, in dem sich Benutzer anmelden."
+      },
+      "client_id": {
+        "label": "Client-ID",
+        "help": "ID des Clients, der für diese Anwendung in Keycloak registriert ist."
+      },
+      "client_secret": {
+        "label": "Client-Secret",
+        "help": "Geheimnis dieses Clients. Nach dem Speichern wird es ausgeblendet."
+      },
+      "trust_tenant_claim": {
+        "label": "Mandanten-Claim in Tokens vertrauen",
+        "help": "Nur aktivieren, wenn Benutzer den Realm-Mapper, der den Mandanten im Token setzt, nicht beeinflussen können. Sonst könnten sie ihren Mandanten selbst wählen."
+      },
+      "roles_claim_path": {
+        "label": "Pfad des Rollen-Claims",
+        "help": "Wo die Rollenliste im Token steht, als Punkt-Pfad angegeben."
+      },
+      "jwks_cache_ttl_seconds": {
+        "label": "Cache-Dauer der Signaturschlüssel (Sekunden)",
+        "help": "Wie lange die Signaturschlüssel von Keycloak zwischengespeichert werden, bevor sie neu geladen werden. 0 schaltet den Cache aus."
+      },
+      "role_mapping": {
+        "label": "Rollenzuordnung",
+        "help": "Ordnet Keycloak-Rollen den Rollen dieser Anwendung zu."
+      }
+    }
   }
 }

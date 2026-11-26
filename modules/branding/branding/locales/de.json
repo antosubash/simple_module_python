@@ -73,5 +73,9 @@
     "logo_dark_file_id": "Logo (dunkle Flächen)",
     "favicon_file_id": "Favicon"
   },
-  "permission_group": "Branding"
+  "permission_group": "Branding",
+  "settings_form": {
+    "title": "Branding",
+    "description": "Name, Logo und Farben der Anwendung. Werden auf der Branding-Seite bearbeitet."
+  }
 }

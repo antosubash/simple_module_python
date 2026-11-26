@@ -96,6 +96,16 @@ export const keys = {
       description: 'api_tokens.revoke_all.description',
       title: 'api_tokens.revoke_all.title',
     },
+    settings_form: {
+      description: 'api_tokens.settings_form.description',
+      fields: {
+        max_lifetime_days: {
+          help: 'api_tokens.settings_form.fields.max_lifetime_days.help',
+          label: 'api_tokens.settings_form.fields.max_lifetime_days.label',
+        },
+      },
+      title: 'api_tokens.settings_form.title',
+    },
     status: {
       active: 'api_tokens.status.active',
       expired: 'api_tokens.status.expired',
@@ -175,6 +185,16 @@ export const keys = {
       audit_log: 'audit_log.nav.audit_log',
     },
     permission_group: 'audit_log.permission_group',
+    settings_form: {
+      description: 'audit_log.settings_form.description',
+      fields: {
+        refuse_unaudited_dml: {
+          help: 'audit_log.settings_form.fields.refuse_unaudited_dml.help',
+          label: 'audit_log.settings_form.fields.refuse_unaudited_dml.label',
+        },
+      },
+      title: 'audit_log.settings_form.title',
+    },
     table: {
       action: 'audit_log.table.action',
       changes: 'audit_log.table.changes',
@@ -325,6 +345,149 @@ export const keys = {
       retried_before_one: 'background_tasks.retry_dialog.retried_before_one',
       retried_before_other: 'background_tasks.retry_dialog.retried_before_other',
       title: 'background_tasks.retry_dialog.title',
+    },
+    settings_form: {
+      description: 'background_tasks.settings_form.description',
+      fields: {
+        broadcast_invalidations: {
+          help: 'background_tasks.settings_form.fields.broadcast_invalidations.help',
+          label: 'background_tasks.settings_form.fields.broadcast_invalidations.label',
+        },
+        broker_url: {
+          help: 'background_tasks.settings_form.fields.broker_url.help',
+          label: 'background_tasks.settings_form.fields.broker_url.label',
+        },
+        db_max_overflow: {
+          help: 'background_tasks.settings_form.fields.db_max_overflow.help',
+          label: 'background_tasks.settings_form.fields.db_max_overflow.label',
+        },
+        db_pool_size: {
+          help: 'background_tasks.settings_form.fields.db_pool_size.help',
+          label: 'background_tasks.settings_form.fields.db_pool_size.label',
+        },
+        db_recycle: {
+          help: 'background_tasks.settings_form.fields.db_recycle.help',
+          label: 'background_tasks.settings_form.fields.db_recycle.label',
+        },
+        db_statement_timeout_ms: {
+          help: 'background_tasks.settings_form.fields.db_statement_timeout_ms.help',
+          label: 'background_tasks.settings_form.fields.db_statement_timeout_ms.label',
+        },
+        execution_tracking: {
+          help: 'background_tasks.settings_form.fields.execution_tracking.help',
+          label: 'background_tasks.settings_form.fields.execution_tracking.label',
+        },
+        invalidation_channel: {
+          help: 'background_tasks.settings_form.fields.invalidation_channel.help',
+          label: 'background_tasks.settings_form.fields.invalidation_channel.label',
+        },
+        log_retention_days: {
+          help: 'background_tasks.settings_form.fields.log_retention_days.help',
+          label: 'background_tasks.settings_form.fields.log_retention_days.label',
+        },
+        log_sink_enabled: {
+          help: 'background_tasks.settings_form.fields.log_sink_enabled.help',
+          label: 'background_tasks.settings_form.fields.log_sink_enabled.label',
+        },
+        log_sink_level: {
+          help: 'background_tasks.settings_form.fields.log_sink_level.help',
+          label: 'background_tasks.settings_form.fields.log_sink_level.label',
+        },
+        outbox_handler_timeout_seconds: {
+          help: 'background_tasks.settings_form.fields.outbox_handler_timeout_seconds.help',
+          label: 'background_tasks.settings_form.fields.outbox_handler_timeout_seconds.label',
+        },
+        outbox_lease_seconds: {
+          help: 'background_tasks.settings_form.fields.outbox_lease_seconds.help',
+          label: 'background_tasks.settings_form.fields.outbox_lease_seconds.label',
+        },
+        outbox_max_attempts: {
+          help: 'background_tasks.settings_form.fields.outbox_max_attempts.help',
+          label: 'background_tasks.settings_form.fields.outbox_max_attempts.label',
+        },
+        outbox_mode: {
+          help: 'background_tasks.settings_form.fields.outbox_mode.help',
+          label: 'background_tasks.settings_form.fields.outbox_mode.label',
+        },
+        outbox_sweep_interval_seconds: {
+          help: 'background_tasks.settings_form.fields.outbox_sweep_interval_seconds.help',
+          label: 'background_tasks.settings_form.fields.outbox_sweep_interval_seconds.label',
+        },
+        purge_interval_seconds: {
+          help: 'background_tasks.settings_form.fields.purge_interval_seconds.help',
+          label: 'background_tasks.settings_form.fields.purge_interval_seconds.label',
+        },
+        result_backend: {
+          help: 'background_tasks.settings_form.fields.result_backend.help',
+          label: 'background_tasks.settings_form.fields.result_backend.label',
+        },
+        retention_days: {
+          help: 'background_tasks.settings_form.fields.retention_days.help',
+          label: 'background_tasks.settings_form.fields.retention_days.label',
+        },
+        stuck_after_seconds: {
+          help: 'background_tasks.settings_form.fields.stuck_after_seconds.help',
+          label: 'background_tasks.settings_form.fields.stuck_after_seconds.label',
+        },
+        stuck_sweep_interval_seconds: {
+          help: 'background_tasks.settings_form.fields.stuck_sweep_interval_seconds.help',
+          label: 'background_tasks.settings_form.fields.stuck_sweep_interval_seconds.label',
+        },
+        task_always_eager: {
+          help: 'background_tasks.settings_form.fields.task_always_eager.help',
+          label: 'background_tasks.settings_form.fields.task_always_eager.label',
+        },
+        task_default_queue: {
+          help: 'background_tasks.settings_form.fields.task_default_queue.help',
+          label: 'background_tasks.settings_form.fields.task_default_queue.label',
+        },
+        task_eager_propagates: {
+          help: 'background_tasks.settings_form.fields.task_eager_propagates.help',
+          label: 'background_tasks.settings_form.fields.task_eager_propagates.label',
+        },
+        task_reject_on_worker_lost: {
+          help: 'background_tasks.settings_form.fields.task_reject_on_worker_lost.help',
+          label: 'background_tasks.settings_form.fields.task_reject_on_worker_lost.label',
+        },
+        task_routes_override: {
+          help: 'background_tasks.settings_form.fields.task_routes_override.help',
+          label: 'background_tasks.settings_form.fields.task_routes_override.label',
+        },
+        task_soft_time_limit: {
+          help: 'background_tasks.settings_form.fields.task_soft_time_limit.help',
+          label: 'background_tasks.settings_form.fields.task_soft_time_limit.label',
+        },
+        task_time_limit: {
+          help: 'background_tasks.settings_form.fields.task_time_limit.help',
+          label: 'background_tasks.settings_form.fields.task_time_limit.label',
+        },
+        track_publish: {
+          help: 'background_tasks.settings_form.fields.track_publish.help',
+          label: 'background_tasks.settings_form.fields.track_publish.label',
+        },
+        visibility_timeout_seconds: {
+          help: 'background_tasks.settings_form.fields.visibility_timeout_seconds.help',
+          label: 'background_tasks.settings_form.fields.visibility_timeout_seconds.label',
+        },
+        worker_concurrency: {
+          help: 'background_tasks.settings_form.fields.worker_concurrency.help',
+          label: 'background_tasks.settings_form.fields.worker_concurrency.label',
+        },
+        worker_max_memory_per_child_kb: {
+          help: 'background_tasks.settings_form.fields.worker_max_memory_per_child_kb.help',
+          label: 'background_tasks.settings_form.fields.worker_max_memory_per_child_kb.label',
+        },
+        worker_max_tasks_per_child: {
+          help: 'background_tasks.settings_form.fields.worker_max_tasks_per_child.help',
+          label: 'background_tasks.settings_form.fields.worker_max_tasks_per_child.label',
+        },
+      },
+      groups: {
+        celery: 'background_tasks.settings_form.groups.celery',
+        database: 'background_tasks.settings_form.groups.database',
+        logs: 'background_tasks.settings_form.groups.logs',
+      },
+      title: 'background_tasks.settings_form.title',
     },
     status: {
       failed: 'background_tasks.status.failed',
@@ -479,6 +642,10 @@ export const keys = {
       branding: 'branding.nav.branding',
     },
     permission_group: 'branding.permission_group',
+    settings_form: {
+      description: 'branding.settings_form.description',
+      title: 'branding.settings_form.title',
+    },
     tenant_setting_labels: {
       app_name: 'branding.tenant_setting_labels.app_name',
       design_pack: 'branding.tenant_setting_labels.design_pack',
@@ -718,6 +885,92 @@ export const keys = {
       files: 'file_storage.nav.files',
     },
     permission_group: 'file_storage.permission_group',
+    settings_form: {
+      description: 'file_storage.settings_form.description',
+      fields: {
+        allowed_content_types: {
+          help: 'file_storage.settings_form.fields.allowed_content_types.help',
+          label: 'file_storage.settings_form.fields.allowed_content_types.label',
+        },
+        backend: {
+          help: 'file_storage.settings_form.fields.backend.help',
+          label: 'file_storage.settings_form.fields.backend.label',
+        },
+        direct_upload_threshold_bytes: {
+          help: 'file_storage.settings_form.fields.direct_upload_threshold_bytes.help',
+          label: 'file_storage.settings_form.fields.direct_upload_threshold_bytes.label',
+        },
+        fs_root_path: {
+          help: 'file_storage.settings_form.fields.fs_root_path.help',
+          label: 'file_storage.settings_form.fields.fs_root_path.label',
+        },
+        max_direct_upload_bytes: {
+          help: 'file_storage.settings_form.fields.max_direct_upload_bytes.help',
+          label: 'file_storage.settings_form.fields.max_direct_upload_bytes.label',
+        },
+        max_file_size_bytes: {
+          help: 'file_storage.settings_form.fields.max_file_size_bytes.help',
+          label: 'file_storage.settings_form.fields.max_file_size_bytes.label',
+        },
+        multipart_part_size_bytes: {
+          help: 'file_storage.settings_form.fields.multipart_part_size_bytes.help',
+          label: 'file_storage.settings_form.fields.multipart_part_size_bytes.label',
+        },
+        public_files_cors: {
+          help: 'file_storage.settings_form.fields.public_files_cors.help',
+          label: 'file_storage.settings_form.fields.public_files_cors.label',
+        },
+        quota_bytes: {
+          help: 'file_storage.settings_form.fields.quota_bytes.help',
+          label: 'file_storage.settings_form.fields.quota_bytes.label',
+        },
+        s3_access_key_id: {
+          help: 'file_storage.settings_form.fields.s3_access_key_id.help',
+          label: 'file_storage.settings_form.fields.s3_access_key_id.label',
+        },
+        s3_bucket: {
+          help: 'file_storage.settings_form.fields.s3_bucket.help',
+          label: 'file_storage.settings_form.fields.s3_bucket.label',
+        },
+        s3_endpoint_url: {
+          help: 'file_storage.settings_form.fields.s3_endpoint_url.help',
+          label: 'file_storage.settings_form.fields.s3_endpoint_url.label',
+        },
+        s3_presign_ttl_seconds: {
+          help: 'file_storage.settings_form.fields.s3_presign_ttl_seconds.help',
+          label: 'file_storage.settings_form.fields.s3_presign_ttl_seconds.label',
+        },
+        s3_public_endpoint_url: {
+          help: 'file_storage.settings_form.fields.s3_public_endpoint_url.help',
+          label: 'file_storage.settings_form.fields.s3_public_endpoint_url.label',
+        },
+        s3_region: {
+          help: 'file_storage.settings_form.fields.s3_region.help',
+          label: 'file_storage.settings_form.fields.s3_region.label',
+        },
+        s3_secret_access_key: {
+          help: 'file_storage.settings_form.fields.s3_secret_access_key.help',
+          label: 'file_storage.settings_form.fields.s3_secret_access_key.label',
+        },
+        s3_signature_version: {
+          help: 'file_storage.settings_form.fields.s3_signature_version.help',
+          label: 'file_storage.settings_form.fields.s3_signature_version.label',
+        },
+        upload_session_retention_days: {
+          help: 'file_storage.settings_form.fields.upload_session_retention_days.help',
+          label: 'file_storage.settings_form.fields.upload_session_retention_days.label',
+        },
+        upload_session_ttl_seconds: {
+          help: 'file_storage.settings_form.fields.upload_session_ttl_seconds.help',
+          label: 'file_storage.settings_form.fields.upload_session_ttl_seconds.label',
+        },
+      },
+      groups: {
+        filesystem: 'file_storage.settings_form.groups.filesystem',
+        s3: 'file_storage.settings_form.groups.s3',
+      },
+      title: 'file_storage.settings_form.title',
+    },
     table: {
       actions: 'file_storage.table.actions',
       filename: 'file_storage.table.filename',
@@ -867,6 +1120,84 @@ export const keys = {
     nav: {
       logout: 'keycloak.nav.logout',
     },
+    settings_form: {
+      description: 'keycloak.settings_form.description',
+      fields: {
+        client_id: {
+          help: 'keycloak.settings_form.fields.client_id.help',
+          label: 'keycloak.settings_form.fields.client_id.label',
+        },
+        client_secret: {
+          help: 'keycloak.settings_form.fields.client_secret.help',
+          label: 'keycloak.settings_form.fields.client_secret.label',
+        },
+        jwks_cache_ttl_seconds: {
+          help: 'keycloak.settings_form.fields.jwks_cache_ttl_seconds.help',
+          label: 'keycloak.settings_form.fields.jwks_cache_ttl_seconds.label',
+        },
+        realm: {
+          help: 'keycloak.settings_form.fields.realm.help',
+          label: 'keycloak.settings_form.fields.realm.label',
+        },
+        role_mapping: {
+          help: 'keycloak.settings_form.fields.role_mapping.help',
+          label: 'keycloak.settings_form.fields.role_mapping.label',
+        },
+        roles_claim_path: {
+          help: 'keycloak.settings_form.fields.roles_claim_path.help',
+          label: 'keycloak.settings_form.fields.roles_claim_path.label',
+        },
+        server_url: {
+          help: 'keycloak.settings_form.fields.server_url.help',
+          label: 'keycloak.settings_form.fields.server_url.label',
+        },
+        trust_tenant_claim: {
+          help: 'keycloak.settings_form.fields.trust_tenant_claim.help',
+          label: 'keycloak.settings_form.fields.trust_tenant_claim.label',
+        },
+      },
+      title: 'keycloak.settings_form.title',
+    },
+  },
+  mail: {
+    settings_form: {
+      description: 'mail.settings_form.description',
+      fields: {
+        backend: {
+          help: 'mail.settings_form.fields.backend.help',
+          label: 'mail.settings_form.fields.backend.label',
+        },
+        smtp_from: {
+          help: 'mail.settings_form.fields.smtp_from.help',
+          label: 'mail.settings_form.fields.smtp_from.label',
+        },
+        smtp_host: {
+          help: 'mail.settings_form.fields.smtp_host.help',
+          label: 'mail.settings_form.fields.smtp_host.label',
+        },
+        smtp_password: {
+          help: 'mail.settings_form.fields.smtp_password.help',
+          label: 'mail.settings_form.fields.smtp_password.label',
+        },
+        smtp_port: {
+          help: 'mail.settings_form.fields.smtp_port.help',
+          label: 'mail.settings_form.fields.smtp_port.label',
+        },
+        smtp_tls: {
+          help: 'mail.settings_form.fields.smtp_tls.help',
+          label: 'mail.settings_form.fields.smtp_tls.label',
+        },
+        smtp_tls_mode: {
+          help: 'mail.settings_form.fields.smtp_tls_mode.help',
+          label: 'mail.settings_form.fields.smtp_tls_mode.label',
+        },
+        smtp_username: {
+          help: 'mail.settings_form.fields.smtp_username.help',
+          label: 'mail.settings_form.fields.smtp_username.label',
+        },
+      },
+      title: 'mail.settings_form.title',
+    },
   },
   oidc: {
     login: {
@@ -880,6 +1211,76 @@ export const keys = {
     },
     nav: {
       logout: 'oidc.nav.logout',
+    },
+    settings_form: {
+      description: 'oidc.settings_form.description',
+      fields: {
+        api_allowed_client_ids: {
+          help: 'oidc.settings_form.fields.api_allowed_client_ids.help',
+          label: 'oidc.settings_form.fields.api_allowed_client_ids.label',
+        },
+        api_audience: {
+          help: 'oidc.settings_form.fields.api_audience.help',
+          label: 'oidc.settings_form.fields.api_audience.label',
+        },
+        client_id: {
+          help: 'oidc.settings_form.fields.client_id.help',
+          label: 'oidc.settings_form.fields.client_id.label',
+        },
+        client_secret: {
+          help: 'oidc.settings_form.fields.client_secret.help',
+          label: 'oidc.settings_form.fields.client_secret.label',
+        },
+        discovery_url: {
+          help: 'oidc.settings_form.fields.discovery_url.help',
+          label: 'oidc.settings_form.fields.discovery_url.label',
+        },
+        email_claim: {
+          help: 'oidc.settings_form.fields.email_claim.help',
+          label: 'oidc.settings_form.fields.email_claim.label',
+        },
+        jwks_cache_ttl_seconds: {
+          help: 'oidc.settings_form.fields.jwks_cache_ttl_seconds.help',
+          label: 'oidc.settings_form.fields.jwks_cache_ttl_seconds.label',
+        },
+        name_claim: {
+          help: 'oidc.settings_form.fields.name_claim.help',
+          label: 'oidc.settings_form.fields.name_claim.label',
+        },
+        provider: {
+          help: 'oidc.settings_form.fields.provider.help',
+          label: 'oidc.settings_form.fields.provider.label',
+        },
+        role_mapping: {
+          help: 'oidc.settings_form.fields.role_mapping.help',
+          label: 'oidc.settings_form.fields.role_mapping.label',
+        },
+        roles_claim_path: {
+          help: 'oidc.settings_form.fields.roles_claim_path.help',
+          label: 'oidc.settings_form.fields.roles_claim_path.label',
+        },
+        scope: {
+          help: 'oidc.settings_form.fields.scope.help',
+          label: 'oidc.settings_form.fields.scope.label',
+        },
+        tenant_id: {
+          help: 'oidc.settings_form.fields.tenant_id.help',
+          label: 'oidc.settings_form.fields.tenant_id.label',
+        },
+        trust_tenant_claim: {
+          help: 'oidc.settings_form.fields.trust_tenant_claim.help',
+          label: 'oidc.settings_form.fields.trust_tenant_claim.label',
+        },
+        uid_claim: {
+          help: 'oidc.settings_form.fields.uid_claim.help',
+          label: 'oidc.settings_form.fields.uid_claim.label',
+        },
+        username_claim: {
+          help: 'oidc.settings_form.fields.username_claim.help',
+          label: 'oidc.settings_form.fields.username_claim.label',
+        },
+      },
+      title: 'oidc.settings_form.title',
     },
   },
   permissions: {
@@ -1192,6 +1593,26 @@ export const keys = {
       user: 'sharing.subjects.user',
     },
   },
+  site_lock: {
+    settings_form: {
+      description: 'site_lock.settings_form.description',
+      fields: {
+        enabled: {
+          help: 'site_lock.settings_form.fields.enabled.help',
+          label: 'site_lock.settings_form.fields.enabled.label',
+        },
+        message: {
+          help: 'site_lock.settings_form.fields.message.help',
+          label: 'site_lock.settings_form.fields.message.label',
+        },
+        password: {
+          help: 'site_lock.settings_form.fields.password.help',
+          label: 'site_lock.settings_form.fields.password.label',
+        },
+      },
+      title: 'site_lock.settings_form.title',
+    },
+  },
   tenants: {
     accept: {
       accept_button: 'tenants.accept.accept_button',
@@ -1351,6 +1772,28 @@ export const keys = {
       toast_reset: 'tenants.settings.toast_reset',
       toast_saved: 'tenants.settings.toast_saved',
       toast_uploaded: 'tenants.settings.toast_uploaded',
+    },
+    settings_form: {
+      description: 'tenants.settings_form.description',
+      fields: {
+        allow_self_service: {
+          help: 'tenants.settings_form.fields.allow_self_service.help',
+          label: 'tenants.settings_form.fields.allow_self_service.label',
+        },
+        invitation_ttl_hours: {
+          help: 'tenants.settings_form.fields.invitation_ttl_hours.help',
+          label: 'tenants.settings_form.fields.invitation_ttl_hours.label',
+        },
+        public_base_url: {
+          help: 'tenants.settings_form.fields.public_base_url.help',
+          label: 'tenants.settings_form.fields.public_base_url.label',
+        },
+        subdomain_base: {
+          help: 'tenants.settings_form.fields.subdomain_base.help',
+          label: 'tenants.settings_form.fields.subdomain_base.label',
+        },
+      },
+      title: 'tenants.settings_form.title',
     },
     status: {
       active: 'tenants.status.active',
@@ -1869,6 +2312,196 @@ export const keys = {
       member_count_other: 'users.roles_tab.member_count_other',
       no_description: 'users.roles_tab.no_description',
       system_badge: 'users.roles_tab.system_badge',
+    },
+    settings_form: {
+      description: 'users.settings_form.description',
+      fields: {
+        allow_signup: {
+          help: 'users.settings_form.fields.allow_signup.help',
+          label: 'users.settings_form.fields.allow_signup.label',
+        },
+        auth_rate_limit_attempts: {
+          help: 'users.settings_form.fields.auth_rate_limit_attempts.help',
+          label: 'users.settings_form.fields.auth_rate_limit_attempts.label',
+        },
+        auth_rate_limit_window_seconds: {
+          help: 'users.settings_form.fields.auth_rate_limit_window_seconds.help',
+          label: 'users.settings_form.fields.auth_rate_limit_window_seconds.label',
+        },
+        base_url: {
+          help: 'users.settings_form.fields.base_url.help',
+          label: 'users.settings_form.fields.base_url.label',
+        },
+        bearer_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.bearer_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.bearer_token_lifetime_seconds.label',
+        },
+        cookie_max_age_seconds: {
+          help: 'users.settings_form.fields.cookie_max_age_seconds.help',
+          label: 'users.settings_form.fields.cookie_max_age_seconds.label',
+        },
+        cookie_name: {
+          help: 'users.settings_form.fields.cookie_name.help',
+          label: 'users.settings_form.fields.cookie_name.label',
+        },
+        cookie_samesite: {
+          help: 'users.settings_form.fields.cookie_samesite.help',
+          label: 'users.settings_form.fields.cookie_samesite.label',
+        },
+        demo_admin_email: {
+          help: 'users.settings_form.fields.demo_admin_email.help',
+          label: 'users.settings_form.fields.demo_admin_email.label',
+        },
+        demo_admin_password: {
+          help: 'users.settings_form.fields.demo_admin_password.help',
+          label: 'users.settings_form.fields.demo_admin_password.label',
+        },
+        demo_mode: {
+          help: 'users.settings_form.fields.demo_mode.help',
+          label: 'users.settings_form.fields.demo_mode.label',
+        },
+        demo_read_only: {
+          help: 'users.settings_form.fields.demo_read_only.help',
+          label: 'users.settings_form.fields.demo_read_only.label',
+        },
+        demo_user_email: {
+          help: 'users.settings_form.fields.demo_user_email.help',
+          label: 'users.settings_form.fields.demo_user_email.label',
+        },
+        demo_user_password: {
+          help: 'users.settings_form.fields.demo_user_password.help',
+          label: 'users.settings_form.fields.demo_user_password.label',
+        },
+        login_lockout_account_failures: {
+          help: 'users.settings_form.fields.login_lockout_account_failures.help',
+          label: 'users.settings_form.fields.login_lockout_account_failures.label',
+        },
+        login_rate_limit_cooldown_seconds: {
+          help: 'users.settings_form.fields.login_rate_limit_cooldown_seconds.help',
+          label: 'users.settings_form.fields.login_rate_limit_cooldown_seconds.label',
+        },
+        login_rate_limit_failures: {
+          help: 'users.settings_form.fields.login_rate_limit_failures.help',
+          label: 'users.settings_form.fields.login_rate_limit_failures.label',
+        },
+        login_rate_limit_window_seconds: {
+          help: 'users.settings_form.fields.login_rate_limit_window_seconds.help',
+          label: 'users.settings_form.fields.login_rate_limit_window_seconds.label',
+        },
+        mail_template_dirs: {
+          help: 'users.settings_form.fields.mail_template_dirs.help',
+          label: 'users.settings_form.fields.mail_template_dirs.label',
+        },
+        oauth_github_client_id: {
+          help: 'users.settings_form.fields.oauth_github_client_id.help',
+          label: 'users.settings_form.fields.oauth_github_client_id.label',
+        },
+        oauth_github_client_secret: {
+          help: 'users.settings_form.fields.oauth_github_client_secret.help',
+          label: 'users.settings_form.fields.oauth_github_client_secret.label',
+        },
+        oauth_google_client_id: {
+          help: 'users.settings_form.fields.oauth_google_client_id.help',
+          label: 'users.settings_form.fields.oauth_google_client_id.label',
+        },
+        oauth_google_client_secret: {
+          help: 'users.settings_form.fields.oauth_google_client_secret.help',
+          label: 'users.settings_form.fields.oauth_google_client_secret.label',
+        },
+        oauth_microsoft_client_id: {
+          help: 'users.settings_form.fields.oauth_microsoft_client_id.help',
+          label: 'users.settings_form.fields.oauth_microsoft_client_id.label',
+        },
+        oauth_microsoft_client_secret: {
+          help: 'users.settings_form.fields.oauth_microsoft_client_secret.help',
+          label: 'users.settings_form.fields.oauth_microsoft_client_secret.label',
+        },
+        oauth_microsoft_discovery_url: {
+          help: 'users.settings_form.fields.oauth_microsoft_discovery_url.help',
+          label: 'users.settings_form.fields.oauth_microsoft_discovery_url.label',
+        },
+        oauth_microsoft_tenant: {
+          help: 'users.settings_form.fields.oauth_microsoft_tenant.help',
+          label: 'users.settings_form.fields.oauth_microsoft_tenant.label',
+        },
+        oauth_microsoft_trust_tenant_upn: {
+          help: 'users.settings_form.fields.oauth_microsoft_trust_tenant_upn.help',
+          label: 'users.settings_form.fields.oauth_microsoft_trust_tenant_upn.label',
+        },
+        oauth_oidc_client_id: {
+          help: 'users.settings_form.fields.oauth_oidc_client_id.help',
+          label: 'users.settings_form.fields.oauth_oidc_client_id.label',
+        },
+        oauth_oidc_client_secret: {
+          help: 'users.settings_form.fields.oauth_oidc_client_secret.help',
+          label: 'users.settings_form.fields.oauth_oidc_client_secret.label',
+        },
+        oauth_oidc_discovery_url: {
+          help: 'users.settings_form.fields.oauth_oidc_discovery_url.help',
+          label: 'users.settings_form.fields.oauth_oidc_discovery_url.label',
+        },
+        oauth_oidc_display_name: {
+          help: 'users.settings_form.fields.oauth_oidc_display_name.help',
+          label: 'users.settings_form.fields.oauth_oidc_display_name.label',
+        },
+        oauth_signup_default_role: {
+          help: 'users.settings_form.fields.oauth_signup_default_role.help',
+          label: 'users.settings_form.fields.oauth_signup_default_role.label',
+        },
+        oauth_signup_providers: {
+          help: 'users.settings_form.fields.oauth_signup_providers.help',
+          label: 'users.settings_form.fields.oauth_signup_providers.label',
+        },
+        oauth_sync_profile: {
+          help: 'users.settings_form.fields.oauth_sync_profile.help',
+          label: 'users.settings_form.fields.oauth_sync_profile.label',
+        },
+        oauth_trusted_email_domains: {
+          help: 'users.settings_form.fields.oauth_trusted_email_domains.help',
+          label: 'users.settings_form.fields.oauth_trusted_email_domains.label',
+        },
+        refresh_token_family_max_age_days: {
+          help: 'users.settings_form.fields.refresh_token_family_max_age_days.help',
+          label: 'users.settings_form.fields.refresh_token_family_max_age_days.label',
+        },
+        refresh_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.refresh_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.refresh_token_lifetime_seconds.label',
+        },
+        remember_me_max_age_seconds: {
+          help: 'users.settings_form.fields.remember_me_max_age_seconds.help',
+          label: 'users.settings_form.fields.remember_me_max_age_seconds.label',
+        },
+        require_verification: {
+          help: 'users.settings_form.fields.require_verification.help',
+          label: 'users.settings_form.fields.require_verification.label',
+        },
+        reset_password_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.reset_password_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.reset_password_token_lifetime_seconds.label',
+        },
+        session_version_cache_ttl_seconds: {
+          help: 'users.settings_form.fields.session_version_cache_ttl_seconds.help',
+          label: 'users.settings_form.fields.session_version_cache_ttl_seconds.label',
+        },
+        signup_default_role: {
+          help: 'users.settings_form.fields.signup_default_role.help',
+          label: 'users.settings_form.fields.signup_default_role.label',
+        },
+        verification_token_lifetime_seconds: {
+          help: 'users.settings_form.fields.verification_token_lifetime_seconds.help',
+          label: 'users.settings_form.fields.verification_token_lifetime_seconds.label',
+        },
+      },
+      groups: {
+        demo_account: 'users.settings_form.groups.demo_account',
+        github_oauth: 'users.settings_form.groups.github_oauth',
+        google_oauth: 'users.settings_form.groups.google_oauth',
+        microsoft_oauth: 'users.settings_form.groups.microsoft_oauth',
+        oauth_provisioning: 'users.settings_form.groups.oauth_provisioning',
+        oidc: 'users.settings_form.groups.oidc',
+      },
+      title: 'users.settings_form.title',
     },
     setup: {
       administrator: {

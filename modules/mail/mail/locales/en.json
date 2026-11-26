@@ -1,0 +1,40 @@
+{
+  "settings_form": {
+    "title": "Mail",
+    "description": "How outgoing mail is sent and the SMTP account it uses.",
+    "fields": {
+      "backend": {
+        "label": "Delivery method",
+        "help": "How mail is delivered. Console only logs messages and sends nothing."
+      },
+      "smtp_host": {
+        "label": "SMTP host",
+        "help": "Hostname of the SMTP server."
+      },
+      "smtp_port": {
+        "label": "SMTP port",
+        "help": "Port of the SMTP server, usually 587 or 465."
+      },
+      "smtp_username": {
+        "label": "SMTP username",
+        "help": "Account name for the SMTP server. Leave blank if it needs no sign-in."
+      },
+      "smtp_password": {
+        "label": "SMTP password",
+        "help": "Password for that account. It is hidden once saved."
+      },
+      "smtp_from": {
+        "label": "Sender address",
+        "help": "Address that appears as the sender of outgoing mail."
+      },
+      "smtp_tls": {
+        "label": "Use TLS",
+        "help": "Encrypt the connection to the SMTP server."
+      },
+      "smtp_tls_mode": {
+        "label": "TLS mode",
+        "help": "Auto uses implicit TLS on port 465 and STARTTLS elsewhere. Or force one mode on any port. Ignored when TLS is off."
+      }
+    }
+  }
+}

@@ -69,5 +69,15 @@
   "nav": {
     "audit_log": "Änderungsprotokoll"
   },
-  "permission_group": "Audit-Log"
+  "permission_group": "Audit-Log",
+  "settings_form": {
+    "title": "Audit-Log",
+    "description": "Legt fest, wie streng Änderungen an protokollierten Datensätzen aufgezeichnet werden.",
+    "fields": {
+      "refuse_unaudited_dml": {
+        "label": "Nicht protokollierte Schreibvorgänge ablehnen",
+        "help": "Wenn aktiv, kann ein Schreibvorgang auf einen protokollierten Datensatz das Audit-Log nicht mehr umgehen und wird abgelehnt."
+      }
+    }
+  }
 }
