@@ -11,6 +11,7 @@ import keyring.errors
 
 from simple_module_remote.config._file_store import (
     ORIGIN_FIELD,
+    PIN_FIELDS,
     TOKEN_FIELD,
     FileStore,
     FileStoreError,
@@ -39,9 +40,16 @@ class KeyringBackend(Protocol):
 class StoredCredential:
     token: str
     origin: str
+    # The tenant the token was pinned to when it was stored (from whoami at login).
+    tenant_id: str | None = None
+    tenant_slug: str | None = None
 
     def __repr__(self) -> str:
         return f"StoredCredential(token={MASK!r}, origin={self.origin!r})"
+
+    def pins(self) -> dict[str, str]:
+        found = {"tenant_id": self.tenant_id, "tenant_slug": self.tenant_slug}
+        return {k: v for k, v in found.items() if v is not None}
 
 
 def validate_token(token: str, *, source: str) -> str:
@@ -54,6 +62,18 @@ def validate_token(token: str, *, source: str) -> str:
     return token
 
 
+def describe_tenant(slug: object, tenant_id: object) -> str:
+    """``slug (id)`` for a tenant, or just the id when no slug is known."""
+    if slug and tenant_id:
+        return f"{slug} ({tenant_id})"
+    return str(slug or tenant_id or "none")
+
+
+def tenant_matches(wanted: str, who: Mapping[str, object]) -> bool:
+    """Whether ``wanted`` (a slug or an id) names the tenant a token is pinned to."""
+    return wanted in (who.get("tenant_id"), who.get("tenant_slug"))
+
+
 def credential_key(env: str, tenant: str | None) -> str:
     return f"{env}/{tenant}" if tenant else env
 
@@ -63,6 +83,10 @@ def _keyring_usable() -> bool:
     if isinstance(backend, keyring.backends.fail.Keyring):
         return False
     return getattr(backend, "priority", 0) >= 1
+
+
+def _pin_kwargs(data: Mapping[str, object]) -> dict[str, str | None]:
+    return {f: v if isinstance(v := data.get(f), str) else None for f in PIN_FIELDS}
 
 
 class CredentialStore:
@@ -97,7 +121,11 @@ class CredentialStore:
         try:
             if (file := self._file_store()) is not None:
                 found = file.get(key)
-                return StoredCredential(*found) if found else None
+                if not found:
+                    return None
+                return StoredCredential(
+                    found[TOKEN_FIELD], found[ORIGIN_FIELD], **_pin_kwargs(found)
+                )
             return self._keyring_get(key)
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
@@ -115,7 +143,7 @@ class CredentialStore:
             raise CredentialError(f"stored credential {key!r} is corrupt; log in again") from None
         if not isinstance(token, str) or not isinstance(origin, str):
             raise CredentialError(f"stored credential {key!r} is corrupt; log in again")
-        return StoredCredential(token=token, origin=origin)
+        return StoredCredential(token=token, origin=origin, **_pin_kwargs(data))
 
     def _index(self) -> list[str]:
         raw = self._require_backend().get_password(self._service, INDEX_KEY)
@@ -135,9 +163,11 @@ class CredentialStore:
     def put(self, key: str, cred: StoredCredential) -> None:
         try:
             if (file := self._file_store()) is not None:
-                file.put(key, cred.token, cred.origin)
+                file.put(key, cred.token, cred.origin, cred.pins())
             else:
-                payload = json.dumps({TOKEN_FIELD: cred.token, ORIGIN_FIELD: cred.origin})
+                payload = json.dumps(
+                    {TOKEN_FIELD: cred.token, ORIGIN_FIELD: cred.origin, **cred.pins()}
+                )
                 backend = self._require_backend()
                 backend.set_password(self._service, key, payload)
                 known = self._index()
@@ -219,5 +249,10 @@ def resolve_token(
         raise CredentialError(
             f"the stored token for {env.name!r} was issued for {cred.origin}, "
             f"but the environment now points at {env.origin}: run `{hint}`"
+        )
+    if tenant and cred.tenant_id is not None and tenant not in (cred.tenant_id, cred.tenant_slug):
+        raise CredentialError(
+            f"the stored token for {credential_key(env.name, tenant)!r} is pinned to tenant "
+            f"{describe_tenant(cred.tenant_slug, cred.tenant_id)}, not {tenant!r}: run `{hint}`"
         )
     return cred.token

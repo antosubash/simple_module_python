@@ -11,6 +11,8 @@ from simple_module_remote.config.credentials import (
     CredentialError,
     StoredCredential,
     credential_key,
+    describe_tenant,
+    tenant_matches,
     validate_token,
 )
 from simple_module_remote.http.errors import ApiError, exit_code_for
@@ -67,18 +69,28 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
             ) from None
         raise _api_failure(exc, "the token was not accepted; nothing was stored") from None
     wanted = state.tenant(env)
-    if wanted and who.get("tenant_id") != wanted:
-        pinned = who.get("tenant_id") or "no tenant"
+    if wanted and not tenant_matches(wanted, who):
         raise CliError(
-            f"tenant {wanted!r} does not match the token's pinned tenant id "
-            f"{pinned!r}; nothing was stored"
+            f"tenant {wanted!r} matches neither the slug nor the id of the token's tenant "
+            f"{describe_tenant(who.get('tenant_slug'), who.get('tenant_id'))}; "
+            "nothing was stored"
         )
     store = state.store()
+    where = credential_key(env.name, wanted)
+    pin_id, pin_slug = who.get("tenant_id"), who.get("tenant_slug")
     with state.guard():
-        store.put(credential_key(env.name, wanted), StoredCredential(candidate, env.origin))
+        store.put(
+            where,
+            StoredCredential(
+                candidate,
+                env.origin,
+                pin_id if isinstance(pin_id, str) else None,
+                pin_slug if isinstance(pin_slug, str) else None,
+            ),
+        )
     if store.using_fallback:
         click.echo("warning: no OS keyring; token stored in a 0600 file", err=True)
-    click.echo(f"logged in to {env.name} as {sanitize(str(who.get('email', 'unknown')))}")
+    click.echo(f"logged in to {where} as {sanitize(str(who.get('email', 'unknown')))}")
 
 
 @click.command("logout", help="Remove the stored token for the selected environment.")
@@ -86,11 +98,12 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
 def logout(ctx: click.Context) -> None:
     state = state_of(ctx)
     env, _ = state.select()
+    where = credential_key(env.name, state.tenant(env))
     try:
-        removed = state.store().delete(credential_key(env.name, state.tenant(env)))
+        removed = state.store().delete(where)
     except CredentialError as exc:
         raise CliError(str(exc)) from None
-    click.echo(f"logged out of {env.name}" if removed else f"no stored token for {env.name}")
+    click.echo(f"logged out of {where}" if removed else f"no stored token for {where}")
 
 
 @click.command("whoami", help="Show the identity the selected environment sees.")
@@ -111,7 +124,12 @@ def whoami(ctx: click.Context) -> None:
         ("user", who.get("email")),
         ("auth", who.get("auth_kind")),
         ("scopes", ", ".join(scopes) if isinstance(scopes, list) else "all"),
-        ("tenant", who.get("tenant_id") or "-"),
+        (
+            "tenant",
+            describe_tenant(who.get("tenant_slug"), who.get("tenant_id"))
+            if who.get("tenant_id")
+            else "-",
+        ),
         ("env", env.name),
         ("url", env.url),
     ]

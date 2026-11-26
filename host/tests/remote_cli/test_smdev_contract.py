@@ -36,7 +36,7 @@ async def test_login_token_stdin_then_whoami(smdev, make_actor):
     assert who.exit_code == 0, who.output
     assert f"user:   {admin.email}" in who.output
     assert "auth:   pat" in who.output
-    assert f"tenant: {admin.tenant_id}" in who.output
+    assert f"({admin.tenant_id})" in who.output  # "slug (id)"
 
 
 async def test_generated_list_users_json(smdev, make_actor):

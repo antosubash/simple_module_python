@@ -11392,6 +11392,17 @@
             ],
             "title": "Tenant Id"
           },
+          "tenant_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Slug"
+          },
           "roles": {
             "items": {
               "type": "string"

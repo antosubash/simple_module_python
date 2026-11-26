@@ -16,6 +16,7 @@ CREDENTIALS_FILENAME = "credentials.toml"
 LOCK_SUFFIX = ".lock"
 TOKEN_FIELD = "token"
 ORIGIN_FIELD = "origin"
+PIN_FIELDS = ("tenant_id", "tenant_slug")  # optional: the tenant the token was pinned to
 LOOSE_MODE_MASK = 0o077
 
 
@@ -75,7 +76,11 @@ class FileStore:
             if isinstance(table, dict) and all(
                 isinstance(table.get(f), str) for f in (TOKEN_FIELD, ORIGIN_FIELD)
             ):
-                out[key] = {f: table[f] for f in (TOKEN_FIELD, ORIGIN_FIELD)}
+                out[key] = {
+                    f: table[f]
+                    for f in (TOKEN_FIELD, ORIGIN_FIELD, *PIN_FIELDS)
+                    if isinstance(table.get(f), str)
+                }
         return out
 
     def _secure_dir(self) -> None:
@@ -107,9 +112,8 @@ class FileStore:
             with contextlib.suppress(OSError):
                 tmp.unlink(missing_ok=True)
 
-    def get(self, key: str) -> tuple[str, str] | None:
-        entry = self._load().get(key)
-        return (entry[TOKEN_FIELD], entry[ORIGIN_FIELD]) if entry else None
+    def get(self, key: str) -> dict[str, str] | None:
+        return self._load().get(key)
 
     @contextlib.contextmanager
     def _locked(self) -> Generator[None]:
@@ -126,10 +130,10 @@ class FileStore:
         finally:
             os.close(fd)  # closing the descriptor releases the lock
 
-    def put(self, key: str, token: str, origin: str) -> None:
+    def put(self, key: str, token: str, origin: str, pins: dict[str, str] | None = None) -> None:
         with self._locked():
             data = self._load()
-            data[key] = {TOKEN_FIELD: token, ORIGIN_FIELD: origin}
+            data[key] = {TOKEN_FIELD: token, ORIGIN_FIELD: origin, **(pins or {})}
             self._write(data)
 
     def delete(self, key: str) -> bool:

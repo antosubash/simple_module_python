@@ -219,3 +219,54 @@ def test_ci_env_from_url_and_token_variables(make_cli):
     assert result.exit_code == 0, result.output
     assert cli.requests[0].url == "http://localhost:8000/api/_meta/whoami"
     assert cli.requests[0].headers["Authorization"] == f"Bearer {SECRET}"
+
+
+WHO_ACME = {**WHO, "tenant_id": "t-1", "tenant_slug": "acme"}
+
+
+def _acme_cli(make_cli):
+    return make_cli(lambda r: httpx.Response(200, json=WHO_ACME))
+
+
+def test_tenant_flag_accepts_slug_or_id_at_login(make_cli, keyring_store, logged_in):
+    cli = _acme_cli(make_cli)
+    runner = logged_in(cli, login=False)
+    by_slug = runner.invoke(cli, ["--tenant", "acme", "login", "--token-stdin"], input="tok\n")
+    assert by_slug.exit_code == 0, by_slug.output
+    assert "logged in to dev/acme" in by_slug.output
+    by_id = runner.invoke(cli, ["--tenant", "t-1", "login", "--token-stdin"], input="tok\n")
+    assert by_id.exit_code == 0 and "logged in to dev/t-1" in by_id.output
+    assert {k[1] for k in keyring_store.creds} == {"dev/acme", "dev/t-1"}
+
+
+def test_login_mismatch_names_the_token_tenant(make_cli, keyring_store, logged_in):
+    cli = _acme_cli(make_cli)
+    runner = logged_in(cli, login=False)
+    result = runner.invoke(cli, ["--tenant", "beta", "login", "--token-stdin"], input="tok\n")
+    assert result.exit_code == 1 and keyring_store.creds == {}
+    assert "'beta' matches neither" in result.output and "acme (t-1)" in result.output
+
+
+def test_whoami_shows_slug_and_id_and_logout_names_the_tenant(make_cli, logged_in):
+    cli = _acme_cli(make_cli)
+    runner = logged_in(cli, login=False)
+    runner.invoke(cli, ["--tenant", "acme", "login", "--token-stdin"], input="tok\n")
+    who = runner.invoke(cli, ["--tenant", "acme", "whoami"])
+    assert "tenant: acme (t-1)" in who.output
+    out = runner.invoke(cli, ["--tenant", "acme", "logout"])
+    assert "logged out of dev/acme" in out.output
+    again = runner.invoke(cli, ["--tenant", "acme", "logout"])
+    assert "no stored token for dev/acme" in again.output
+
+
+def test_stored_token_pinned_to_another_tenant_is_refused(make_cli, keyring_store, logged_in):
+    cli = _acme_cli(make_cli)
+    runner = logged_in(cli, login=False)
+    runner.invoke(cli, ["--tenant", "acme", "login", "--token-stdin"], input="tok\n")
+    # A credential copied into another tenant's slot (stale or hand-edited keyring entry).
+    keyring_store.set_password("smdev", "dev/beta", keyring_store.data[("smdev", "dev/acme")])
+    cli.requests.clear()
+    result = runner.invoke(cli, ["--tenant", "beta", "whoami"])
+    assert result.exit_code == 1 and cli.requests == []
+    assert "pinned to tenant acme (t-1), not 'beta'" in result.output
+    assert runner.invoke(cli, ["--tenant", "acme", "whoami"]).exit_code == 0

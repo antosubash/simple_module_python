@@ -13,7 +13,12 @@ from simple_module_remote.commands.runtime import (
     state_of,
 )
 from simple_module_remote.commands.schema_cmd import schema_info
-from simple_module_remote.config.credentials import login_hint, token_env_var
+from simple_module_remote.config.credentials import (
+    describe_tenant,
+    login_hint,
+    tenant_matches,
+    token_env_var,
+)
 from simple_module_remote.config.environments import Environment
 from simple_module_remote.http.errors import ApiError, UnsafePathError
 from simple_module_remote.http.safety import validate_base_url
@@ -85,12 +90,13 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
     report.ok("whoami", str(who.get("email")))
     if wanted is None:
         report.ok("tenant", "no tenant selected")
-    elif who.get("tenant_id") == wanted:
+    elif tenant_matches(wanted, who):
         report.ok("tenant", f"token is pinned to {wanted}")
     else:
         report.fail(
             "tenant",
-            f"token is pinned to {who.get('tenant_id') or 'no tenant'}, not {wanted}",
+            f"token is pinned to {describe_tenant(who.get('tenant_slug'), who.get('tenant_id'))}, "
+            f"not {wanted}",
             login_hint(state.cli, env, wanted),
         )
 

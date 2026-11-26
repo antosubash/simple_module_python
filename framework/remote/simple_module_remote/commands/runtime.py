@@ -128,6 +128,7 @@ class AppState:
             is_tty=sys.stdout.isatty(),
             interactive=sys.stdin.isatty() and sys.stderr.isatty(),
             login_hint=login_hint(self.cli, env, self.tenant(env)),
+            tenant=self.tenant(env),
             stdout=sys.stdout,
             stderr=sys.stderr,
             stdin=sys.stdin,

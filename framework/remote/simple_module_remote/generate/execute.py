@@ -175,7 +175,7 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
             path=prep.path,
         )
         if mutation:
-            say(ctx, f"[{ctx.env.name}]")
+            say(ctx, f"[{ctx.env.name}/{ctx.tenant}]" if ctx.tenant else f"[{ctx.env.name}]")
         is_get = op.method == "GET"
         paged = is_get and bool(values.get("all_pages") or values.get("limit"))
         # Read nothing up front: emit() streams what is not rendered and caps what is.

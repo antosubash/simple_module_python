@@ -399,3 +399,10 @@ def test_tenant_hint_redacts_a_token_straddling_the_cut(make_op):
     body = hint.split("tenant: ", 1)[1].split("; pass")[0]
     assert body.endswith("x[") or body.endswith("[redacted]"[: len(body) - body.rindex("[")])
     assert "to" not in body.rsplit("x", 1)[-1]
+
+
+def test_mutation_banner_names_the_tenant(post):
+    h = Harness(ok)
+    h.ctx.tenant = "acme"
+    h.run(post, sets=("n=1",), yes=True)
+    assert h.err.getvalue().startswith("[prod/acme]")
