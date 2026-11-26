@@ -1,5 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { FieldInput, type FieldMeta } from './FieldInput';
 import { FieldSource, sourceShowsDescription } from './FieldSource';
 
@@ -12,7 +12,7 @@ interface Props {
   disabled?: boolean;
   error?: string;
   onChange: (name: string, value: unknown) => void;
-  onReset: () => void | Promise<void>;
+  onReset: () => void;
 }
 
 /**
@@ -44,6 +44,15 @@ export function ModuleFieldRow({
   // print the same sentence twice. When the trailing column shows something
   // else (a stored value, a secret), the description belongs here instead.
   const showDescription = !!field.description && !sourceShowsDescription(field);
+  // Revert is shown only while `db_override` is set, so a successful revert
+  // unmounts the focused button and drops focus to the page. Move it to the
+  // field once that has rendered; a failed revert keeps the button focused.
+  const refocusAfterRevert = useRef(false);
+  useEffect(() => {
+    if (field.db_override || !refocusAfterRevert.current) return;
+    refocusAfterRevert.current = false;
+    if (document.activeElement === document.body) document.getElementById(id)?.focus();
+  }, [field.db_override, id]);
 
   return (
     // Query the editor card: two sidebars can leave little space at a wide viewport.
@@ -90,16 +99,9 @@ export function ModuleFieldRow({
         <FieldSource
           field={field}
           descriptionId={descriptionId}
-          onReset={async () => {
-            await onReset();
-            // A successful revert unmounts the Revert button, which drops focus
-            // to the page; move it to the field once it is enabled again. A
-            // failed revert keeps the button, and focus with it.
-            requestAnimationFrame(() => {
-              if (document.activeElement === document.body) {
-                document.getElementById(id)?.focus();
-              }
-            });
+          onReset={() => {
+            refocusAfterRevert.current = true;
+            onReset();
           }}
         />
       </div>
