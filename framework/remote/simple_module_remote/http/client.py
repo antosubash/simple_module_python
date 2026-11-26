@@ -1,7 +1,8 @@
 """The guarded HTTP client: every CLI request goes through ApiClient."""
 
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
 from types import TracebackType
 from typing import Any
 from urllib.parse import urljoin
@@ -18,6 +19,7 @@ MAX_WAIT_SECONDS = 30.0
 DEFAULT_RETRY_AFTER = 1.0
 TOO_MANY_REQUESTS = 429
 TIMEOUT_SECONDS = 30.0
+REDIRECTED_EXTENSION = "smr_redirected"
 _STRIPPED_HEADERS = frozenset({"authorization", "cookie", "host", "user-agent"})
 
 
@@ -90,47 +92,71 @@ class ApiClient:
         content: Any = None,
         headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
+        return self._execute(
+            method, path, params, json, files, data, content, headers, stream=False
+        )
+
+    @contextmanager
+    def stream(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> Generator[httpx.Response]:
+        """Like ``request`` but the body is not read; iterate it, then the response closes."""
+        response = self._execute(method, path, params, None, None, None, None, headers, stream=True)
+        try:
+            yield response
+        finally:
+            response.close()
+
+    def _execute(
+        self,
+        method: str,
+        path: str,
+        params: Mapping[str, Any] | None,
+        json: Any,
+        files: Any,
+        data: Any,
+        content: Any,
+        headers: Mapping[str, str] | None,
+        *,
+        stream: bool,
+    ) -> httpx.Response:
         url = self._base + validate_api_path(path)
         extra = {k: v for k, v in (headers or {}).items() if k.lower() not in _STRIPPED_HEADERS}
         verb = method.upper()
         attempts = 0
         while True:
-            response = self._send(verb, url, params, json, files, data, content, extra)
+            request = self._client.build_request(
+                verb, url, params=params, json=json, files=files, data=data,
+                content=content, headers=extra,
+            )  # fmt: skip
+            response = self._send(self._client, request, stream)
             if response.status_code != TOO_MANY_REQUESTS or attempts >= self._max_retries:
                 break
             attempts += 1
             self._sleep(_retry_delay(response.headers.get("Retry-After")))
             response.close()
         if verb == "GET" and response.status_code in REDIRECT_STATUSES:
-            return self._follow(response)
+            return self._follow(response, stream)
         return response
 
-    def _send(
-        self,
-        verb: str,
-        url: str,
-        params: Mapping[str, Any] | None,
-        json: Any,
-        files: Any,
-        data: Any,
-        content: Any,
-        headers: Mapping[str, str],
-    ) -> httpx.Response:
+    @staticmethod
+    def was_redirected(response: httpx.Response) -> bool:
+        """True when ``response`` came from a redirect hop (sent without the token)."""
+        return bool(response.extensions.get(REDIRECTED_EXTENSION))
+
+    @staticmethod
+    def _send(client: httpx.Client, request: httpx.Request, stream: bool) -> httpx.Response:
         try:
-            return self._client.request(
-                verb,
-                url,
-                params=params,
-                json=json,
-                files=files,
-                data=data,
-                content=content,
-                headers=headers,
-            )
+            return client.send(request, stream=stream)
         except httpx.HTTPError as exc:
             raise ApiError(0, message=f"request failed: {type(exc).__name__}") from None
 
-    def _follow(self, response: httpx.Response) -> httpx.Response:
+    def _follow(self, response: httpx.Response, stream: bool) -> httpx.Response:
         current = response
         for _ in range(MAX_HOPS):
             location = current.headers.get("Location")
@@ -138,12 +164,15 @@ class ApiClient:
                 return current
             target = urljoin(str(current.url), location)
             if not target.lower().startswith(("http://", "https://")):
+                current.close()
                 raise ApiError(0, message="redirect to an unsupported URL scheme")
+            current.close()
             self._follower.cookies.clear()
-            try:
-                current = self._follower.get(target)
-            except httpx.HTTPError as exc:
-                raise ApiError(0, message=f"redirect failed: {type(exc).__name__}") from None
+            current = self._send(
+                self._follower, self._follower.build_request("GET", target), stream
+            )
+            current.extensions[REDIRECTED_EXTENSION] = True
         if current.status_code in REDIRECT_STATUSES:
+            current.close()
             raise ApiError(0, message=f"too many redirects (more than {MAX_HOPS})")
         return current

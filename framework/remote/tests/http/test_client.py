@@ -158,3 +158,24 @@ def test_network_error_is_api_error_without_token() -> None:
 )
 def test_exit_code_mapping(status: int, code: int) -> None:
     assert exit_code_for(status) == code
+
+
+def test_stream_follows_redirect_without_auth_and_flags_it() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        if req.url.host == "app.example":
+            return httpx.Response(302, headers={"Location": "https://cdn.example/f"})
+        return httpx.Response(200, content=b"abc", headers={"Content-Type": "image/png"})
+
+    with _client(handler) as c, c.stream("GET", "/api/f") as r:
+        assert b"".join(r.iter_bytes()) == b"abc"
+        assert c.was_redirected(r)
+    assert "authorization" not in seen[1].headers
+    assert seen[0].headers["authorization"] == f"Bearer {TOKEN}"
+
+
+def test_direct_response_not_marked_redirected() -> None:
+    with _client(lambda r: httpx.Response(200)) as c:
+        assert not c.was_redirected(c.request("GET", "/api/x"))

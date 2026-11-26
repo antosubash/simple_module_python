@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
@@ -54,22 +55,42 @@ def _property_schema(root: dict, schema: dict | None, parts: Sequence[str]) -> d
     return resolve_ref(root, current) if current is not None else None
 
 
-def _type_of(schema: dict | None) -> str | None:
+def _unwrap(schema: dict, root: dict) -> dict:
+    """The single non-null branch of an ``anyOf``/``oneOf`` (pydantic's ``X | None``)."""
+    for key in ("anyOf", "oneOf"):
+        branches = schema.get(key)
+        if not isinstance(branches, list):
+            continue
+        live = [
+            resolve_ref(root, b)
+            for b in branches
+            if isinstance(b, dict) and b.get("type") != "null"
+        ]
+        if len(live) == 1:
+            return live[0]
+    return schema
+
+
+def _type_of(schema: dict | None, root: dict) -> str | None:
     if not schema:
         return None
+    schema = _unwrap(schema, root)
     declared = schema.get("type")
     if isinstance(declared, list):
         declared = next((t for t in declared if t != "null"), None)
     return declared if isinstance(declared, str) else None
 
 
-def _coerce(raw: str, key: str, schema: dict | None) -> object:
-    kind = _type_of(schema)
+def _coerce(raw: str, key: str, schema: dict | None, root: dict) -> object:
+    kind = _type_of(schema, root)
     try:
         if kind == "integer":
             return int(raw)
         if kind == "number":
-            return float(raw)
+            number = float(raw)
+            if not math.isfinite(number):
+                raise ValueError(raw)
+            return number
     except ValueError:
         raise BodyError(f"--set {key}: expected {kind}, got {raw!r}") from None
     if kind == "boolean":
@@ -95,13 +116,13 @@ def _assign(target: dict, key: str, value: object, flag: str) -> None:
     node[parts[-1]] = value
 
 
-def _set_value(raw: str, key: str, stdin: TextIO, schema: dict | None) -> object:
+def _set_value(raw: str, key: str, stdin: TextIO, schema: dict | None, root: dict) -> object:
     if raw.startswith("@"):
         text = _read_text(raw[1:], stdin, f"--set {key}")
         return text[:-1] if text.endswith("\n") else text
     if raw == "null":
         return None
-    return _coerce(raw, key, schema)
+    return _coerce(raw, key, schema, root)
 
 
 def build_json_body(
@@ -141,7 +162,7 @@ def build_json_body(
         for item in sets:
             key, raw = _split(item, "--set")
             schema = _property_schema(root, body_schema, key.split("."))
-            _assign(body, key, _set_value(raw, key, stdin, schema), "--set")
+            _assign(body, key, _set_value(raw, key, stdin, schema, root), "--set")
     return body
 
 

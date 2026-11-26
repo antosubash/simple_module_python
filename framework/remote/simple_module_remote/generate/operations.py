@@ -8,7 +8,14 @@ from typing import Literal
 from simple_module_remote.generate.naming import RESERVED, command_name, group_name
 from simple_module_remote.schema.loader import resolve_ref
 
-__all__ = ["Operation", "Param", "cli_operations", "find_collisions", "parse_operations"]
+__all__ = [
+    "Operation",
+    "Param",
+    "cli_operations",
+    "find_collisions",
+    "is_json_media",
+    "parse_operations",
+]
 
 METHODS = ("get", "put", "post", "delete", "patch")
 JSON_MEDIA = "application/json"
@@ -73,7 +80,7 @@ def _collect_params(schema: dict, path_item: dict, op: dict) -> tuple[Param, ...
     return tuple(params)
 
 
-def _is_json_media(media: str) -> bool:
+def is_json_media(media: str) -> bool:
     base = media.split(";", 1)[0].strip().lower()
     return base == JSON_MEDIA or (base.startswith("application/") and base.endswith("+json"))
 
@@ -84,7 +91,7 @@ def _body(schema: dict, op: dict) -> tuple[BodyKind, dict | None]:
     if not isinstance(content, dict) or not content:
         return "none", None
     kind: BodyKind
-    json_media = next((m for m in content if isinstance(m, str) and _is_json_media(m)), None)
+    json_media = next((m for m in content if isinstance(m, str) and is_json_media(m)), None)
     if json_media is not None:
         kind, media = "json", json_media
     elif MULTIPART_MEDIA in content:

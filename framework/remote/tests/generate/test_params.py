@@ -118,3 +118,35 @@ def test_json_media_with_params_and_suffix():
 def test_command_name_never_empty(op_id):
     assert command_name(op_id, None, None, method="get", path="/api/x") == "get-api-x"
     assert command_name(op_id, None, None) == "operation"
+
+
+def test_help_is_a_reserved_option_name():
+    op = make_op(params=(Param("help", "query", False, {"type": "string"}, ""),))
+    flags = [o for p in click_params_for(op) for o in p.opts]
+    assert "--param-help" in flags
+    assert "--help" not in flags
+
+
+def _list_root(media: str) -> dict:
+    return {
+        "paths": {
+            "/api/x": {
+                "get": {
+                    "responses": {
+                        "200": {"content": {media: {"schema": {"type": "array", "items": {}}}}}
+                    }
+                }
+            }
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    "media", ["application/json", "application/json; charset=utf-8", "application/problem+json"]
+)
+def test_returns_list_json_media_variants(media):
+    assert returns_list(make_op(), _list_root(media)) is True
+
+
+def test_returns_list_ignores_non_json_media():
+    assert returns_list(make_op(), _list_root("text/csv")) is False

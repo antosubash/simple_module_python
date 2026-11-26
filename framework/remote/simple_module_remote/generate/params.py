@@ -7,15 +7,22 @@ import re
 import click
 
 from simple_module_remote.generate.naming import snake_name
-from simple_module_remote.generate.operations import Operation, Param
+from simple_module_remote.generate.operations import Operation, Param, is_json_media
 from simple_module_remote.schema.loader import resolve_ref
 
-__all__ = ["RESERVED_OPTIONS", "click_params_for", "param_map", "returns_list"]
+__all__ = [
+    "RESERVED_OPTIONS",
+    "click_params_for",
+    "json_response_schema",
+    "param_map",
+    "returns_list",
+    "success_is_json",
+]
 
 RESERVED_OPTIONS: frozenset[str] = frozenset(
     {
         "output", "columns", "q", "out", "yes", "dry-run", "all", "limit", "json",
-        "file", "set", "set-json", "upload", "body-file", "content-type",
+        "file", "set", "set-json", "upload", "body-file", "content-type", "help",
     }
 )  # fmt: skip
 
@@ -99,14 +106,35 @@ def _body_options(op: Operation) -> list[click.Parameter]:
     return []
 
 
+def json_response_schema(op: Operation, root: dict) -> dict | None:
+    """The resolved JSON schema of the operation's success (200, else first 2xx) response."""
+    node = ((root.get("paths") or {}).get(op.path) or {}).get(op.method.lower()) or {}
+    responses = node.get("responses") or {}
+    code = "200" if "200" in responses else next((c for c in responses if str(c)[:1] == "2"), None)
+    response = resolve_ref(root, responses.get(code) or {}) if code else {}
+    content = response.get("content") or {}
+    media = next((v for k, v in content.items() if is_json_media(str(k))), None)
+    if not isinstance(media, dict) or not isinstance(media.get("schema"), dict):
+        return None
+    return resolve_ref(root, media["schema"])
+
+
+def success_is_json(op: Operation, root: dict) -> bool:
+    """False when the success response declares content but none of it is JSON."""
+    node = ((root.get("paths") or {}).get(op.path) or {}).get(op.method.lower()) or {}
+    responses = node.get("responses") or {}
+    code = "200" if "200" in responses else next((c for c in responses if str(c)[:1] == "2"), None)
+    content = resolve_ref(root, responses.get(code) or {}).get("content") if code else None
+    if not isinstance(content, dict) or not content:
+        return True
+    return any(is_json_media(str(k)) for k in content)
+
+
 def returns_list(op: Operation, root: dict) -> bool:
     """True for a GET whose 200 response is an array or an object with an ``items`` array."""
     if op.method != "GET":
         return False
-    node = ((root.get("paths") or {}).get(op.path) or {}).get("get") or {}
-    response = resolve_ref(root, ((node.get("responses") or {}).get("200")) or {})
-    media = (response.get("content") or {}).get("application/json") or {}
-    schema = resolve_ref(root, media.get("schema") or {})
+    schema = json_response_schema(op, root) or {}
     if schema.get("type") == "array":
         return True
     items = resolve_ref(root, (schema.get("properties") or {}).get("items") or {})

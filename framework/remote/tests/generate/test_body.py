@@ -120,3 +120,37 @@ def test_invalid_json_message():
 def test_unknown_schema_leaves_strings():
     one_of = {"oneOf": [{"type": "object"}]}
     assert build(sets=["max=3"], body_schema=one_of) == {"max": "3"}
+
+
+def test_set_unwraps_optional_anyof():
+    schema = {
+        "type": "object",
+        "properties": {"n": {"anyOf": [{"type": "integer"}, {"type": "null"}]}},
+    }
+    assert build(sets=["n=3"], body_schema=schema) == {"n": 3}
+    with pytest.raises(BodyError):
+        build(sets=["n=x"], body_schema=schema)
+
+
+def test_set_unwraps_oneof_ref_branch():
+    schema = {
+        "type": "object",
+        "properties": {
+            "n": {"oneOf": [{"$ref": "#/components/schemas/Address"}, {"type": "null"}]}
+        },
+    }
+    assert build(sets=["n.city=Rome"], body_schema=schema) == {"n": {"city": "Rome"}}
+
+
+def test_set_multiple_branches_stays_string():
+    schema = {
+        "type": "object",
+        "properties": {"n": {"anyOf": [{"type": "integer"}, {"type": "string"}]}},
+    }
+    assert build(sets=["n=3"], body_schema=schema) == {"n": "3"}
+
+
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "Infinity"])
+def test_set_rejects_non_finite_number(raw):
+    with pytest.raises(BodyError, match="expected number"):
+        build(sets=[f"ratio={raw}"])
