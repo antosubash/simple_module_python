@@ -58,6 +58,10 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
                 return None
             return await self._resolve_bearer(request, credential)
 
+        return await self.resolve_session(request)
+
+    async def resolve_session(self, request: Request) -> UserContext | None:
+        """Validate the browser session independently of any bearer credential."""
         session = request.scope.get("session", {})
         if not self._accept_session(session):
             return None

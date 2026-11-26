@@ -13,6 +13,7 @@ from simple_module_inertia.protocol.response import location
 from starlette.background import BackgroundTask
 from starlette.responses import RedirectResponse, Response
 
+from keycloak.identity.provider import KeycloakAuthProvider
 from keycloak.identity.renewal import _KEYS
 from keycloak.identity.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token
 
@@ -58,7 +59,16 @@ async def logout(request: Request) -> Response:
     from keycloak.identity.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
-    event = session_logout_event(getattr(request.state, "user", None), local_account=False)
+    event = None
+    try:
+        # Use the native validator even when the host wraps its AuthProvider.
+        state = request.app.state.keycloak
+        provider = KeycloakAuthProvider(state=state)
+        provider.jwks_cache = state.jwks_cache
+        session_user = await provider.resolve_session(request)
+        event = session_logout_event(session_user, local_account=False)
+    except Exception as exc:
+        logger.warning("Logout session validation failed (%s); skipping event", type(exc).__name__)
     refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))
     await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()

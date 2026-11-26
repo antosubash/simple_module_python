@@ -19,6 +19,7 @@ from oidc.core.constants import (
     SESSION_REFRESH_TOKEN_KEY,
 )
 from oidc.core.runtime import is_signed_in
+from oidc.identity.provider import OidcAuthProvider
 from oidc.identity.renewal import _KEYS
 from oidc.identity.tokens import open_refresh_token
 
@@ -42,7 +43,16 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
-    event = session_logout_event(getattr(request.state, "user", None), local_account=False)
+    event = None
+    try:
+        # Use the native validator even when the host wraps its AuthProvider.
+        state = request.app.state.oidc
+        provider = OidcAuthProvider(state=state)
+        provider.jwks_cache = state.jwks_cache
+        session_user = await provider.resolve_session(request)
+        event = session_logout_event(session_user, local_account=False)
+    except Exception as exc:
+        logger.warning("Logout session validation failed (%s); skipping event", type(exc).__name__)
     client = request.app.state.oidc.client
     if client is not None:
         try:
