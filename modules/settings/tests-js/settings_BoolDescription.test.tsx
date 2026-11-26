@@ -33,10 +33,10 @@ function renderRow(field: FieldMeta) {
   );
 }
 
-test('a bool description shows once, in the trailing column, without a stored value', () => {
+test('a bool description shows once, under its label, without a stored value', () => {
   renderRow(boolField);
   expect(screen.getAllByText(WARNING)).toHaveLength(1);
-  expect(screen.getByText(boolField.name).parentElement).not.toContainElement(
+  expect(screen.getByText('Allow internal').parentElement).toContainElement(
     screen.getByText(WARNING),
   );
 });
@@ -45,7 +45,7 @@ test('a bool description shows once, in the trailing column, without a stored va
 test('a bool description stays on the row while a stored value overrides it', () => {
   renderRow({ ...boolField, value: true, db_override: true });
   expect(screen.getAllByText(WARNING)).toHaveLength(1);
-  expect(screen.getByText(boolField.name).parentElement).toContainElement(
+  expect(screen.getByText('Allow internal').parentElement).toContainElement(
     screen.getByText(WARNING),
   );
 });

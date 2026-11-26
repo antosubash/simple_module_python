@@ -361,6 +361,22 @@ Two paths to seed the first admin:
 1. **CLI** — `smpy users create-admin ...`.
 2. **Env vars** — set `SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD` before first `make dev`. `bootstrap_admin_from_env(app)` runs at startup and creates the admin if the `users_user` table is empty. Optionally seed a non-admin too via `SM_USERS_BOOTSTRAP_USER_EMAIL` + `SM_USERS_BOOTSTRAP_USER_PASSWORD`.
 
+In development, `/users/login` includes bootstrap credentials in `dev_accounts`
+for click-to-fill buttons only for loopback clients: `127.0.0.0/8`, `::1`,
+or IPv4-mapped loopback addresses. The check uses the ASGI client address after
+the framework's proxy handling. Any `Forwarded`, `X-Real-IP`, or `X-Forwarded-*`
+header (even empty or containing a loopback address), a missing or invalid
+client address, or any non-development environment leaves `dev_accounts`
+empty. This applies to both HTML page props and `X-Inertia` JSON responses.
+Partial reloads always replace this prop, clearing previously received
+accounts when the request is no longer eligible. Login responses use
+`Cache-Control: private, no-store`; the buttons are hidden when accounts are
+absent or empty (#1229).
+
+A local reverse proxy must preserve a forwarding header: without one, a
+proxy or tunnel presenting a loopback client address is indistinguishable
+from a local browser.
+
 ## Demo mode (hosting a showcase instance)
 
 Turn `demo_mode` on and the sign-in card grows a button per demo account.

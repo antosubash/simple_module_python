@@ -206,6 +206,50 @@ Import directly from the framework locations above. The settings plugin keeps
 its `settings.models` model identity and its area-level store, constants and
 secret helpers; the deprecated root import paths were removed in #989.
 
+### Labels and help in the settings editor
+
+The admin editor (`/admin/settings/`) labels fields with translated text, not
+their Python names (the identifier stays available as the label's tooltip). It
+reads a `settings_form` section from the module's `locales/<lang>.json`:
+
+```json
+{
+  "settings_form": {
+    "title": "Orders",
+    "description": "Limits that apply when customers place orders.",
+    "groups": { "shipping": "Shipping" },
+    "fields": {
+      "max_items_per_order": {
+        "label": "Maximum items per order",
+        "help": "Orders with more items are refused at checkout."
+      },
+      "carrier": {
+        "label": "Carrier",
+        "choices": { "dhl": "DHL", "ups": "UPS" }
+      }
+    }
+  }
+}
+```
+
+- `groups` keys are the slug of `json_schema_extra={"group": "..."}`:
+  lower-case, each run of other characters one `_` (`"Demo account"` →
+  `demo_account`).
+- `choices` labels the values of a select (`Literal[...]`, a `choices` list or
+  an alternation `pattern`); a value that is not a plain token is shown as is.
+- Without a key, a label falls back to `Field(title=...)`, then to a
+  humanised name (`smtp_tls_mode` → "SMTP TLS mode"); help falls back to
+  `Field(description=...)` and is omitted when that is empty too.
+- For bundled modules,
+  `modules/settings/tests/module_settings/fields/test_settings_field_translations.py`
+  requires `title`, every field `label`, every declared group and every
+  plain-token choice in `en.json`; `help` and `description` are not checked.
+  `scripts/check_locales.py` fails when German lacks a key English has;
+  other locales are reported, not enforced.
+- Host settings (`HostSettings`) take their text from the framework's
+  `hosting` catalog; an app can override any of it under
+  `host.settings_form.*` in `host/locales/`.
+
 A Celery worker or CLI script never runs the lifespan, so it hydrates
 synchronously:
 

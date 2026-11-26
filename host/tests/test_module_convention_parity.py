@@ -55,11 +55,9 @@ def test_all_builtin_identities_and_namespaces_are_unchanged():
         meta = mod.meta
         assert (meta.name, meta.route_prefix, meta.view_prefix, meta.admin_view_prefix) == expected
         assert type(meta.version) is str
-        locales = (
-            {}
-            if package in {"mail", "site_lock"}
-            else {package: root / "modules" / package / package / "locales"}
-        )
+        # Every built-in ships a catalog: mail and site_lock gained theirs
+        # for the settings editor's ``settings_form`` labels.
+        locales = {package: root / "modules" / package / package / "locales"}
         assert mod.locale_dirs() == locales
         if package in CONVENTIONAL_PATHS:
             uses_default = type(mod).register_routes is ModuleBase.register_routes

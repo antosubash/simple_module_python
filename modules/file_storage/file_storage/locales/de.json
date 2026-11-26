@@ -106,5 +106,91 @@
   "permission_group": "Dateien",
   "feature_flags": {
     "public_uploads": "Nicht authentifizierte Uploads erlauben (künftig)."
+  },
+  "settings_form": {
+    "title": "Dateispeicher",
+    "description": "Wo Uploads gespeichert werden und welche Grenzen dafür gelten.",
+    "groups": {
+      "filesystem": "Lokales Dateisystem",
+      "s3": "Amazon S3 / kompatibel"
+    },
+    "fields": {
+      "backend": {
+        "label": "Speicher-Backend",
+        "help": "Wo Dateien abgelegt werden, etwa im lokalen Dateisystem oder in S3. Eine Änderung erfordert einen Neustart."
+      },
+      "fs_root_path": {
+        "label": "Stammordner",
+        "help": "Ordner auf dem Server, in dem Dateien beim lokalen Dateisystem gespeichert werden."
+      },
+      "s3_bucket": {
+        "label": "Bucket",
+        "help": "Name des Buckets, in den Uploads gespeichert werden."
+      },
+      "s3_region": {
+        "label": "Region",
+        "help": "Region, in der sich der Bucket befindet."
+      },
+      "s3_access_key_id": {
+        "label": "Zugriffsschlüssel-ID",
+        "help": "Zugangsschlüssel für die Anmeldung am Bucket. Zusammen mit dem geheimen Schlüssel setzen, oder beide leer lassen, um die Standard-AWS-Zugangsdaten des Servers zu verwenden."
+      },
+      "s3_secret_access_key": {
+        "label": "Geheimer Zugriffsschlüssel",
+        "help": "Das zur Zugriffsschlüssel-ID gehörende Geheimnis. Nach dem Speichern wird es ausgeblendet."
+      },
+      "s3_endpoint_url": {
+        "label": "Endpunkt-URL",
+        "help": "Eigener Endpunkt für MinIO, R2 oder ähnliche Dienste. Für Amazon S3 leer lassen."
+      },
+      "s3_public_endpoint_url": {
+        "label": "Öffentliche Endpunkt-URL",
+        "help": "Adresse, die Browser für vorsignierte Uploads und Downloads verwenden, wenn sie vom Endpunkt oben abweicht (etwa wenn die App den Speicher über einen internen Hostnamen erreicht). Leer: die Endpunkt-URL wird verwendet."
+      },
+      "s3_signature_version": {
+        "label": "Signaturversion",
+        "help": "Signaturverfahren für alle S3-Anfragen und vorsignierten Links. s3v4 beibehalten, außer ein älterer Speicherdienst braucht die alte Version."
+      },
+      "s3_presign_ttl_seconds": {
+        "label": "Gültigkeit vorsignierter Links (Sekunden)",
+        "help": "Wie lange ein vorsignierter Download- oder Upload-Link gültig bleibt."
+      },
+      "max_file_size_bytes": {
+        "label": "Maximale Dateigröße (Bytes)",
+        "help": "Größte Datei, die bei einem normalen Upload erlaubt ist."
+      },
+      "allowed_content_types": {
+        "label": "Erlaubte Dateitypen",
+        "help": "Liste zulässiger MIME-Typen. Auf Standard zurücksetzen (keine Liste), um jeden Typ zu erlauben; eine leere Liste [] lehnt jeden Upload ab."
+      },
+      "quota_bytes": {
+        "label": "Speicherkontingent (Bytes)",
+        "help": "Erlaubter Speicher pro Mandant (bzw. für die eigenen Dateien der Plattform), einschließlich gespeicherter Dateien und laufender Uploads. Leer lassen für kein Limit."
+      },
+      "public_files_cors": {
+        "label": "Seitenübergreifendes Lesen öffentlicher Dateien erlauben",
+        "help": "Erlaubt Seiten auf anderen Websites, öffentliche Dateien der App einzubetten oder zu lesen. Auf S3 umgeleitete Dateien brauchen zusätzlich eine CORS-Konfiguration am Bucket. Gilt sofort."
+      },
+      "direct_upload_threshold_bytes": {
+        "label": "Schwelle für fortsetzbare Uploads (Bytes)",
+        "help": "Größere Dateien werden in Teilen über eine fortsetzbare Sitzung hochgeladen, sofern das Speicher-Backend direkte Uploads unterstützt; sonst als normaler Upload."
+      },
+      "max_direct_upload_bytes": {
+        "label": "Maximale Größe fortsetzbarer Uploads (Bytes)",
+        "help": "Größte Datei, die der fortsetzbare Upload akzeptiert."
+      },
+      "multipart_part_size_bytes": {
+        "label": "Teilgröße beim Upload (Bytes)",
+        "help": "Bevorzugte Größe der einzelnen Teile. Sie wächst automatisch, damit höchstens 10.000 Teile entstehen."
+      },
+      "upload_session_ttl_seconds": {
+        "label": "Gültigkeit von Upload-Sitzungen (Sekunden)",
+        "help": "Wie lange ein unvollständiger Upload noch fortgesetzt werden kann."
+      },
+      "upload_session_retention_days": {
+        "label": "Aufbewahrung von Upload-Sitzungen (Tage)",
+        "help": "Tage nach dem Ablauf einer Upload-Sitzung, bevor ihr Eintrag gelöscht wird."
+      }
+    }
   }
 }

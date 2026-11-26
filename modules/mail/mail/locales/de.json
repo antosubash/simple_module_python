@@ -1,0 +1,49 @@
+{
+  "settings_form": {
+    "title": "E-Mail",
+    "description": "Wie ausgehende E-Mails versendet werden und welches SMTP-Konto dafür genutzt wird.",
+    "fields": {
+      "backend": {
+        "label": "Versandart",
+        "help": "Wie E-Mails zugestellt werden. Konsole versendet nichts und protokolliert die Nachrichten nur (den Inhalt nur in Entwicklung und Tests).",
+        "choices": {
+          "console": "Konsole (nur Protokoll)",
+          "smtp": "SMTP"
+        }
+      },
+      "smtp_host": {
+        "label": "SMTP-Host",
+        "help": "Hostname des SMTP-Servers."
+      },
+      "smtp_port": {
+        "label": "SMTP-Port",
+        "help": "Port des SMTP-Servers, meist 587 oder 465."
+      },
+      "smtp_username": {
+        "label": "SMTP-Benutzername",
+        "help": "Kontoname für den SMTP-Server. Leer lassen, wenn keine Anmeldung nötig ist."
+      },
+      "smtp_password": {
+        "label": "SMTP-Passwort",
+        "help": "Passwort für dieses Konto. Nach dem Speichern wird es ausgeblendet."
+      },
+      "smtp_from": {
+        "label": "Absenderadresse",
+        "help": "Adresse, die als Absender ausgehender E-Mails erscheint."
+      },
+      "smtp_tls": {
+        "label": "TLS verwenden",
+        "help": "Die Verbindung zum SMTP-Server verschlüsseln."
+      },
+      "smtp_tls_mode": {
+        "label": "TLS-Modus",
+        "help": "Automatisch nutzt implizites TLS auf Port 465, sonst STARTTLS. Alternativ lässt sich ein Modus für jeden Port erzwingen. Wird ignoriert, wenn TLS aus ist.",
+        "choices": {
+          "auto": "Automatisch",
+          "implicit": "Implizites TLS",
+          "starttls": "STARTTLS"
+        }
+      }
+    }
+  }
+}

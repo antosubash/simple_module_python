@@ -101,5 +101,15 @@
     "confirm": "Revoke all",
     "cancel": "Cancel"
   },
-  "permission_group": "API tokens"
+  "permission_group": "API tokens",
+  "settings_form": {
+    "title": "API tokens",
+    "description": "Limits for personal access tokens and service keys.",
+    "fields": {
+      "max_lifetime_days": {
+        "label": "Maximum token lifetime (days)",
+        "help": "The longest expiry a new token can be given. Existing tokens keep their own expiry."
+      }
+    }
+  }
 }

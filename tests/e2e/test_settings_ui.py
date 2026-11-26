@@ -15,6 +15,9 @@ from playwright.sync_api import Page, expect
 
 pytestmark = pytest.mark.e2e
 
+# Fields are labelled from ``users.settings_form.fields.base_url.label``.
+BASE_URL_LABEL = "Account link base URL"
+
 
 def _login(page: Page, username: str, password: str) -> None:
     page.get_by_role("link", name="Sign in").first.click()
@@ -31,18 +34,16 @@ def test_toggle_host_multi_tenant_persists(
 ) -> None:
     """Toggle ``host.multi_tenant`` from the admin UI and confirm the PUT
     succeeds (surfaced by the Save button going idle). Proves the typed
-    settings form wires up to the REST API."""
+    settings form wires up to the REST API. Host settings are listed under
+    their translated title, "Application"."""
     page.goto("/")
     _login(page, e2e_username, e2e_password)
 
     page.goto("/admin/settings/")
-    expect(page.get_by_text("Host", exact=False)).to_be_visible()
+    page.get_by_role("button", name=re.compile(r"^Application\b")).click()
 
-    # Click the Host entry in the sidebar.
-    page.get_by_role("button", name=re.compile(r"host", re.I)).first.click()
-
-    # Booleans render as a shadcn Switch (role=switch), not a bare checkbox.
-    toggle = page.get_by_role("switch").first
+    # Booleans render as a shadcn Switch (role=switch), named by their label.
+    toggle = page.get_by_role("switch", name="Multi-tenant mode", exact=True)
     before = toggle.is_checked()
     toggle.click()
 
@@ -59,27 +60,30 @@ def test_toggle_host_multi_tenant_persists(
     save.click()
     expect(save).to_be_disabled()
 
-    assert page.get_by_role("switch").first.is_checked() == before
+    assert toggle.is_checked() == before
 
 
 def test_bool_description_stays_while_stored_value_overrides(
     page: Page, e2e_username: str, e2e_password: str
 ) -> None:
-    """A toggle's description stays on its row once a stored value overrides
-    it (#1062): the trailing column switches to the stored-value text. In
-    either position the switch announces it as its description (#1138)."""
+    """A toggle's help stays on its row once a stored value overrides it
+    (#1062), and the switch announces it as its description (#1138). Label
+    and help come from the module's ``settings_form`` locale keys."""
     page.goto("/")
     _login(page, e2e_username, e2e_password)
     page.goto("/admin/settings/")
-    page.get_by_role("button", name=re.compile(r"^file_storage\b")).click()
+    page.get_by_role("button", name=re.compile(r"^File storage\b")).click()
 
     row = page.get_by_test_id("row-field-file_storage-public_files_cors")
-    toggle = row.get_by_role("switch", name="public_files_cors", exact=True)
-    description = row.get_by_text("Let any origin read public files cross-origin", exact=False)
-    revert = row.get_by_role("button", name="Revert public_files_cors", exact=True)
+    label = "Allow cross-origin reads of public files"
+    toggle = row.get_by_role("switch", name=label, exact=True)
+    description = row.get_by_text(
+        "Lets pages on other sites embed or read public files", exact=False
+    )
+    revert = row.get_by_role("button", name=f"Reset {label} to default", exact=True)
     expect(revert).to_have_count(0)
     expect(description).to_be_visible()
-    described = re.compile(r"^Let any origin read public files cross-origin")
+    described = re.compile(r"^Lets pages on other sites embed or read public files")
     expect(toggle).to_have_accessible_description(described)
 
     toggle.click()
@@ -106,24 +110,24 @@ def test_module_url_search_and_draft_guard(
     page.goto("/")
     _login(page, e2e_username, e2e_password)
     page.goto("/admin/settings/?module=users")
-    expect(page.get_by_role("heading", name=re.compile(r"^users settings"))).to_be_visible()
+    expect(page.get_by_role("heading", name="Users & sign-up")).to_be_visible()
 
     search = page.get_by_role("searchbox")
     search.fill("zzzz-no-such-module")
     expect(page.get_by_role("status").filter(has_text="No matching modules")).to_be_visible()
     search.fill("")
 
-    page.get_by_label("base_url", exact=True).fill("https://draft.example.com")
-    page.get_by_role("button", name=re.compile(r"^mail\b")).click()
+    page.get_by_label(BASE_URL_LABEL, exact=True).fill("https://draft.example.com")
+    page.get_by_role("button", name=re.compile(r"^Mail\b")).click()
     dialog = page.get_by_role("alertdialog")
     expect(dialog).to_be_visible()
     dialog.get_by_role("button", name="Cancel").click()
-    expect(page.get_by_label("base_url", exact=True)).to_have_value("https://draft.example.com")
+    expect(page.get_by_label(BASE_URL_LABEL, exact=True)).to_have_value("https://draft.example.com")
 
-    page.get_by_role("button", name=re.compile(r"^mail\b")).click()
+    page.get_by_role("button", name=re.compile(r"^Mail\b")).click()
     page.get_by_role("alertdialog").get_by_role("button", name=re.compile("Discard")).click()
     expect(page).to_have_url(re.compile(r"[?&]module=mail\b"))
-    expect(page.get_by_role("heading", name=re.compile(r"^mail settings"))).to_be_visible()
+    expect(page.get_by_role("heading", name="Mail", exact=True)).to_be_visible()
 
 
 def test_rejected_field_error_is_linked_and_focused(
@@ -133,7 +137,7 @@ def test_rejected_field_error_is_linked_and_focused(
     page.goto("/")
     _login(page, e2e_username, e2e_password)
     page.goto("/admin/settings/?module=users")
-    control = page.get_by_label("base_url", exact=True)
+    control = page.get_by_label(BASE_URL_LABEL, exact=True)
     control.fill("javascript:alert(1)")
     page.get_by_role("button", name="Save").click()
 

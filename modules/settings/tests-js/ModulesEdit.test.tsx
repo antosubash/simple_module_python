@@ -67,7 +67,7 @@ describe('ModulesEdit', () => {
     );
 
     expect(screen.queryByText('alpha')).not.toBeInTheDocument();
-    expect(screen.getAllByText('beta').length).toBeGreaterThan(1); // list + selected form
+    expect(screen.getAllByText('Beta').length).toBeGreaterThan(1); // list + selected form
     // Initial selection is the first *visible* module, not the hidden one.
     expect(screen.queryByText('No modules with settings')).not.toBeInTheDocument();
   });
@@ -81,6 +81,6 @@ describe('ModulesEdit', () => {
       />,
     );
 
-    expect(screen.getByText('branding')).toBeInTheDocument();
+    expect(screen.getAllByText('Branding').length).toBeGreaterThan(0);
   });
 });
