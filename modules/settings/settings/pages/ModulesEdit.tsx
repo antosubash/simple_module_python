@@ -9,7 +9,7 @@ import { ArrowRight, Box, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ModuleForm, type ModuleView } from '../ui/components/ModuleForm';
 import { ModuleNav } from '../ui/components/ModuleNav';
-import { settingsText, useLookup } from '../ui/utils/field-text';
+import { settingsText, titleCollator, useLookup } from '../ui/utils/field-text';
 
 type Props = {
   modules: ModuleView[];
@@ -75,13 +75,15 @@ function ModulesEdit({ modules, testable = {} }: Props) {
       Object.fromEntries(visible.map((m) => [m.package, settingsText(m.package, lookup).title()])),
     [visible, lookup],
   );
+  const locale = activeLocale();
+  const collator = useMemo(() => titleCollator(locale), [locale]);
   // Listed by what the reader sees, not by package name.
   const sorted = useMemo(
     () =>
       [...visible].sort((a, b) =>
-        (titles[a.package] ?? '').localeCompare(titles[b.package] ?? '', activeLocale()),
+        collator.compare(titles[a.package] ?? '', titles[b.package] ?? ''),
       ),
-    [visible, titles],
+    [visible, titles, collator],
   );
   const filtered = useMemo(() => {
     if (!q) return sorted;

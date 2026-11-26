@@ -310,7 +310,7 @@
       },
       "visibility_timeout_seconds": {
         "label": "Visibility timeout (seconds)",
-        "help": "Tasks running longer than this are handed out again and may run twice. Leave empty for the default of one hour."
+        "help": "Redis broker only: tasks running longer than this are handed out again and may run twice. Leave empty for Redis's default of one hour."
       },
       "worker_max_tasks_per_child": {
         "label": "Tasks per worker process",

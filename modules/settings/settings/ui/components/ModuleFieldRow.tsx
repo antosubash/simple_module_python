@@ -88,6 +88,14 @@ export function ModuleFieldRow({
       label={label}
       value={value}
       modified={modified}
+      format={(v) => {
+        if (typeof v === 'boolean') {
+          return t(
+            v ? keys.settings.modules_form.option_on : keys.settings.modules_form.option_off,
+          );
+        }
+        return typeof v === 'string' ? text.choice(field, v) : JSON.stringify(v);
+      }}
       onReset={async () => {
         // A second click while this row's revert is in flight is ignored
         // by the form; it must not cancel the first one's refocus.

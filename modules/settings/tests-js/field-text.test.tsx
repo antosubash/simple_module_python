@@ -5,6 +5,7 @@ import {
   groupSlug,
   humanize,
   settingsText,
+  titleCollator,
   useSettingsText,
 } from '../settings/ui/utils/field-text';
 
@@ -88,4 +89,10 @@ describe('choices and catalogs', () => {
     expect(text.label({ name: 'app_name' })).toBe('Site name');
     expect(settingsText('mail', (key) => catalog[key]).title()).toBe('Mail');
   });
+});
+
+test('titleCollator accepts underscore locale ids and survives invalid ones', () => {
+  expect(() => titleCollator('en_US')).not.toThrow();
+  expect(() => titleCollator('not a locale!!')).not.toThrow();
+  expect(['b', 'a'].sort(titleCollator('de_DE').compare)).toEqual(['a', 'b']);
 });

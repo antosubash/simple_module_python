@@ -123,7 +123,7 @@
       },
       "max_request_body_bytes": {
         "label": "Maximum request size (bytes)",
-        "help": "Largest request body accepted. Bigger requests are refused. Use 0 for no limit."
+        "help": "Default size limit for request bodies; bigger requests are refused. Routes with their own limit, such as file uploads, keep it. 0 removes only this default."
       },
       "rate_limit_public": {
         "label": "Anonymous rate limit",

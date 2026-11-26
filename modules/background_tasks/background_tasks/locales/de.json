@@ -310,7 +310,7 @@
       },
       "visibility_timeout_seconds": {
         "label": "Sichtbarkeits-Timeout (Sekunden)",
-        "help": "Aufgaben, die länger laufen, werden erneut vergeben und laufen eventuell doppelt. Leer lassen für den Standard von einer Stunde."
+        "help": "Nur beim Redis-Broker: Aufgaben, die länger laufen, werden erneut vergeben und laufen eventuell doppelt. Leer lassen für den Redis-Standard von einer Stunde."
       },
       "worker_max_tasks_per_child": {
         "label": "Aufgaben pro Worker-Prozess",

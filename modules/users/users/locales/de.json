@@ -631,7 +631,7 @@
       },
       "oauth_trusted_email_domains": {
         "label": "Vertrauenswürdige E-Mail-Domains",
-        "help": "E-Mail-Domains, für die ein Anbieter bürgen darf, z. B. microsoft: example.com. Nur exakte Domains. Verfügbar für microsoft und oidc."
+        "help": "E-Mail-Domains, für die ein Anbieter bürgen darf, z. B. microsoft: example.com. Nur exakte Domains. Verfügbar für microsoft und oidc; bei Microsoft nur wirksam, wenn der Mandant auf eine einzelne Mandanten-ID festgelegt ist (nicht common oder organizations)."
       },
       "oauth_sync_profile": {
         "label": "Namen bei jeder Anmeldung aktualisieren",

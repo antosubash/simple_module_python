@@ -244,7 +244,8 @@ reads a `settings_form` section from the module's `locales/<lang>.json`:
   `modules/settings/tests/module_settings/fields/test_settings_field_translations.py`
   requires `title`, every field `label`, every declared group and every
   plain-token choice in `en.json`; `help` and `description` are not checked.
-  The i18n lint keeps the other locales in step with English.
+  `scripts/check_locales.py` fails when German lacks a key English has;
+  other locales are reported, not enforced.
 - Host settings (`HostSettings`) take their text from the framework's
   `hosting` catalog; an app can override any of it under
   `host.settings_form.*` in `host/locales/`.

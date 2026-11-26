@@ -25,6 +25,9 @@ configureI18n({
     'mail.settings_form.fields.smtp_host.label': 'SMTP server',
     'mail.settings_form.fields.smtp_host.help': 'Host name of your mail server.',
     'mail.settings_form.fields.smtp_port.label': 'Port',
+    'mail.settings_form.fields.backend.choices.console': 'Console (log only)',
+    'settings.modules_form.option_on': 'On',
+    'settings.modules_form.option_off': 'Off',
   },
 });
 
@@ -156,4 +159,19 @@ describe('source badge', () => {
     ).toBeVisible();
     expect(within(line).getByText('Default: localhost')).toBeVisible();
   });
+
+  test('env pinning a stored field offers no Reset the server would refuse', () => {
+    source({ env_set: true, db_override: true });
+    expect(screen.getByText('Stored · environment wins')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Reset/ })).not.toBeInTheDocument();
+  });
+});
+
+test('a moved value shows its default the way the control labels it', () => {
+  renderMail([
+    field({ name: 'backend', value: 'smtp', default: 'console', choices: ['console', 'smtp'] }),
+    field({ name: 'smtp_tls', type: 'bool', value: false, default: true, db_override: true }),
+  ]);
+  expect(screen.getByText('Default: Console (log only)')).toBeVisible();
+  expect(screen.getByText('Default: On')).toBeVisible();
 });

@@ -631,7 +631,7 @@
       },
       "oauth_trusted_email_domains": {
         "label": "Trusted email domains",
-        "help": "Email domains each provider may vouch for, for example microsoft: example.com. Exact domains only. Available for microsoft and oidc."
+        "help": "Email domains each provider may vouch for, for example microsoft: example.com. Exact domains only. Available for microsoft and oidc; for Microsoft it only takes effect when the tenant is pinned to a single tenant ID (not common or organizations)."
       },
       "oauth_sync_profile": {
         "label": "Update name on every sign-in",

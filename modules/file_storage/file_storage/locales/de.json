@@ -145,7 +145,7 @@
       },
       "s3_public_endpoint_url": {
         "label": "Öffentliche Endpunkt-URL",
-        "help": "Adresse, die Browser für direkte Teil-Uploads verwenden, wenn sie vom Endpunkt oben abweicht, etwa bei einem internen Hostnamen. Leer: die Endpunkt-URL wird verwendet."
+        "help": "Adresse, die Browser für vorsignierte Uploads und Downloads verwenden, wenn sie vom Endpunkt oben abweicht (etwa wenn die App den Speicher über einen internen Hostnamen erreicht). Leer: die Endpunkt-URL wird verwendet."
       },
       "s3_signature_version": {
         "label": "Signaturversion",

@@ -145,7 +145,7 @@
       },
       "s3_public_endpoint_url": {
         "label": "Public endpoint URL",
-        "help": "Address browsers use for direct part uploads when it differs from the endpoint above, such as an internal hostname. Blank uses the endpoint URL."
+        "help": "Address browsers use for presigned uploads and downloads, when it differs from the endpoint above (for example when the app reaches storage through an internal hostname). Blank uses the endpoint URL."
       },
       "s3_signature_version": {
         "label": "Signature version",

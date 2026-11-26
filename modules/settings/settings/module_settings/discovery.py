@@ -84,6 +84,7 @@ class ModuleSettingField:
     control: str | None = None
     """Optional frontend renderer registered under this name."""
     title: str | None = None
+    """``Field(title=...)``: the label when no ``settings_form`` locale key exists."""
     env_source_var: str | None = None
     """The env var that supplies the value, when that exact variable is set.
 
@@ -91,7 +92,6 @@ class ModuleSettingField:
     ``SM_REDIS_URL`` feeding the Celery broker, a ``.env`` or secrets file), so
     the editor never names a variable nobody set.
     """
-    """``Field(title=...)``: the label when no ``settings_form`` locale key exists."""
 
     @property
     def source(self) -> str:

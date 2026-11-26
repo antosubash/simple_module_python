@@ -123,7 +123,7 @@
       },
       "max_request_body_bytes": {
         "label": "Tamaño máximo de solicitud (bytes)",
-        "help": "Cuerpo de solicitud más grande que se acepta. Las solicitudes mayores se rechazan. Use 0 para no limitar."
+        "help": "Límite predeterminado del tamaño del cuerpo de las solicitudes; las mayores se rechazan. Las rutas con su propio límite, como las subidas de archivos, lo conservan. 0 elimina solo este valor predeterminado."
       },
       "rate_limit_public": {
         "label": "Límite para solicitudes anónimas",

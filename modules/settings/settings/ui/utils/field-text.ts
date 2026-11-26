@@ -94,6 +94,19 @@ export function settingsText(pkg: string, lookup: Lookup): SettingsText {
   };
 }
 
+/**
+ * Compares display titles in the UI language. A configured locale may be an
+ * underscore id (`en_US`) that `Intl` rejects with a RangeError, so it is
+ * normalised, and an id `Intl` still refuses falls back to the browser's.
+ */
+export function titleCollator(locale: string | undefined): Intl.Collator {
+  try {
+    return new Intl.Collator(locale?.replace(/_/g, '-'));
+  } catch {
+    return new Intl.Collator();
+  }
+}
+
 /** A lookup over the active catalogs that answers `undefined` for a missing key. */
 export function useLookup(): Lookup {
   const { t, i18n } = useT();

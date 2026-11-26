@@ -76,7 +76,7 @@
     "fields": {
       "refuse_unaudited_dml": {
         "label": "Refuse unaudited writes",
-        "help": "When on, a write to an audited record can no longer skip the audit trail and is rejected instead."
+        "help": "When on, a bulk insert, update or delete on an audited table that explicitly opts out of auditing is rejected. Raw SQL writes are not covered and must record their own audit entries."
       }
     }
   }

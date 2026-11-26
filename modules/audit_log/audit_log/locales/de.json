@@ -76,7 +76,7 @@
     "fields": {
       "refuse_unaudited_dml": {
         "label": "Nicht protokollierte Schreibvorgänge ablehnen",
-        "help": "Wenn aktiv, kann ein Schreibvorgang auf einen protokollierten Datensatz das Audit-Log nicht mehr umgehen und wird abgelehnt."
+        "help": "Wenn aktiv, wird ein Masseneinfügen, -ändern oder -löschen auf einer protokollierten Tabelle abgelehnt, das die Protokollierung ausdrücklich abschaltet. Rohe SQL-Schreibvorgänge sind nicht abgedeckt und müssen ihre Audit-Einträge selbst schreiben."
       }
     }
   }

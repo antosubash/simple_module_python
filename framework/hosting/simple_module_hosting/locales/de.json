@@ -123,7 +123,7 @@
       },
       "max_request_body_bytes": {
         "label": "Maximale Anfragegröße (Byte)",
-        "help": "Größter akzeptierter Anfrageinhalt. Größere Anfragen werden abgelehnt. 0 bedeutet keine Begrenzung."
+        "help": "Standardgrenze für die Größe von Anfrageinhalten; größere Anfragen werden abgelehnt. Routen mit eigener Grenze, etwa Datei-Uploads, behalten diese. 0 entfernt nur diesen Standard."
       },
       "rate_limit_public": {
         "label": "Limit für anonyme Anfragen",

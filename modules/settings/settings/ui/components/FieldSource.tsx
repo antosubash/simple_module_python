@@ -46,6 +46,7 @@ export function FieldSource({
   value,
   modified,
   onReset,
+  format = display,
 }: {
   field: FieldMeta;
   /** The field's display label, for the Reset button's accessible name. */
@@ -54,6 +55,8 @@ export function FieldSource({
   value: unknown;
   modified: boolean;
   onReset: () => void;
+  /** Renders the default the way the control shows values (choice labels, On/Off). */
+  format?: (value: unknown) => string;
 }) {
   const { t } = useT();
 
@@ -79,13 +82,14 @@ export function FieldSource({
       )}
       {showDefault && (
         <span className="min-w-0 [overflow-wrap:anywhere] text-muted-foreground">
-          {t(keys.settings.modules.default_value, { value: display(field.default) })}
+          {t(keys.settings.modules.default_value, { value: format(field.default) })}
         </span>
       )}
-      {/* Gated on `db_override`, not "differs from the default": an env value
-          has no stored row to delete, and a stored override equal to the
-          default is still an override someone must be able to remove. */}
-      {field.db_override && (
+      {/* Gated on `db_override`, not "differs from the default": a stored
+          override equal to the default is still an override someone must be
+          able to remove. Not while env pins the field: the server refuses that
+          delete (422), so the button could only fail. */}
+      {field.db_override && !field.env_set && (
         <button
           type="button"
           onClick={onReset}
