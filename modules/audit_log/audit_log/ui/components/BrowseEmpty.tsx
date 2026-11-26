@@ -87,6 +87,8 @@ export function BrowseEmpty({
           : applied.tenant_id
       }`,
     applied.user_id && `${t(keys.audit_log.filters.user_label)}: ${applied.user_id}`,
+    applied.target_user_id &&
+      `${t(keys.audit_log.filters.target_user_label)}: ${applied.target_user_id}`,
     applied.correlation_id &&
       `${t(keys.audit_log.correlation.view_related)}: ${applied.correlation_id}`,
     dateRange && `${t(keys.audit_log.filters.date_range_label)}: ${dateRange}`,

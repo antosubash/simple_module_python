@@ -45,6 +45,7 @@ class EntryFilters:
     action: str | None = None
     user_id: str | None = None
     actor_match: Any | None = None
+    target_user_match: Any | None = None
     correlation_id: str | None = None
     from_date: datetime | None = None
     to_date: datetime | None = None
@@ -59,6 +60,7 @@ class EntryFilters:
         entity_id: str | None = None,
         action: str | None = None,
         actor_match: Any | None = None,
+        target_user_match: Any | None = None,
         correlation_id: str | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
@@ -79,6 +81,7 @@ class EntryFilters:
             entity_id=entity_id,
             action=action,
             actor_match=actor_match,
+            target_user_match=target_user_match,
             correlation_id=correlation_id,
             from_date=from_date,
             to_date=end_of_day(to_date),
@@ -102,6 +105,8 @@ class EntryFilters:
             conditions.append(AuditEntry.user_id == self.user_id)
         if self.actor_match is not None:
             conditions.append(self.actor_match)
+        if self.target_user_match is not None:
+            conditions.append(self.target_user_match)
         # One request that touched four entities writes four rows sharing a
         # correlation id. Filtering on it is what turns those back into a
         # single action instead of four unrelated-looking events.

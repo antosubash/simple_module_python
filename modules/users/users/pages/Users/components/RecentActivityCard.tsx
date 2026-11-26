@@ -42,7 +42,7 @@ function stamp(iso: string): string {
  * `null` otherwise, and an absent card is the honest rendering of a
  * deployment that records nothing. Filtered by actor rather than by subject:
  * an admin looking at an account wants to know what its owner did, not what
- * was done to them.
+ * was done to them. The footer opens the broader audit history about the account.
  */
 export function RecentActivityCard({ entries, userId }: Props) {
   const { t } = useT();
@@ -70,7 +70,7 @@ export function RecentActivityCard({ entries, userId }: Props) {
           </ul>
         )}
         <Link
-          href={`/admin/audit-log/?user_id=${userId}`}
+          href={`/admin/audit-log/?target_user_id=${encodeURIComponent(userId)}`}
           className="mt-auto pt-4 text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400"
         >
           {t(keys.users.recent_activity.see_all)}

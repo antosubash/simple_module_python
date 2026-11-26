@@ -51,11 +51,13 @@ export const keys = {
       action_label: 'audit_log.filters.action_label',
       apply: 'audit_log.filters.apply',
       clear: 'audit_log.filters.clear',
+      clear_target_user: 'audit_log.filters.clear_target_user',
       date_range_any: 'audit_log.filters.date_range_any',
       date_range_label: 'audit_log.filters.date_range_label',
       date_range_reset: 'audit_log.filters.date_range_reset',
       entity_type_all: 'audit_log.filters.entity_type_all',
       entity_type_label: 'audit_log.filters.entity_type_label',
+      target_user_label: 'audit_log.filters.target_user_label',
       tenant_all: 'audit_log.filters.tenant_all',
       tenant_label: 'audit_log.filters.tenant_label',
       tenant_platform: 'audit_log.filters.tenant_platform',
@@ -114,11 +116,13 @@ type ModuleTranslationResources = {
   readonly 'audit_log.filters.action_label': '';
   readonly 'audit_log.filters.apply': '';
   readonly 'audit_log.filters.clear': '';
+  readonly 'audit_log.filters.clear_target_user': '';
   readonly 'audit_log.filters.date_range_any': '';
   readonly 'audit_log.filters.date_range_label': '';
   readonly 'audit_log.filters.date_range_reset': '';
   readonly 'audit_log.filters.entity_type_all': '';
   readonly 'audit_log.filters.entity_type_label': '';
+  readonly 'audit_log.filters.target_user_label': '';
   readonly 'audit_log.filters.tenant_all': '';
   readonly 'audit_log.filters.tenant_label': '';
   readonly 'audit_log.filters.tenant_platform': '';

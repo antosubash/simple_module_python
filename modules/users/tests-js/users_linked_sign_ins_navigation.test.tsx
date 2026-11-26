@@ -53,6 +53,14 @@ const props = {
 };
 const partial = ['linked_sign_ins', 'has_duplicate_linked_sign_ins'];
 
+test('Edit links to audit entries about the user rather than entries by the user', () => {
+  render(<Edit {...props} recent_activity={[]} />);
+  expect(screen.getByRole('link', { name: /See all in the audit log/ })).toHaveAttribute(
+    'href',
+    '/admin/audit-log/?target_user_id=user-1',
+  );
+});
+
 function visit(path: string, method = 'get', options: VisitOptions = {}) {
   return document.dispatchEvent(
     new CustomEvent('inertia:before', {

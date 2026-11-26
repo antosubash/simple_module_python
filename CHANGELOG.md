@@ -52,6 +52,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - **Behaviour change:** Keycloak and OIDC logout publish `UserLoggedOut` from the validated browser session even when an Authorization bearer token identifies the same or a different user. Identity capture uses local validation only and never renews tokens or calls the IdP; expired sessions publish no event, and cleanup revokes the original refresh token. Identity-capture failures are logged while logout cleanup continues (#1162).
+- Audit log: add a `target_user_id` filter and removable chip for entries about a user, including registered linked OAuth accounts and role assignments; the users Edit page's audit-log link uses it while the actor filter stays unchanged (#1166).
 - Users admin: removing linked sign-ins preserves unsaved details without a leave prompt, restores keyboard focus without stealing it on later renders, scopes empty-card retention to the edited user, and refreshes stale links after a 404 removal response (#1149).
 - Keycloak user-cache writes tolerate malformed profile claims without losing the cached identity at sign-in. Missing or malformed emails preserve the last known address (empty for new identities); explicit null or empty `preferred_username` claims still clear the cached name (#1146).
 - Settings controls announce their field descriptions through `aria-describedby`, including boolean descriptions in the trailing column (#1138).

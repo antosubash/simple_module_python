@@ -40,6 +40,7 @@ export interface FilterState {
   action: string;
   tenantId: string;
   userId: string;
+  targetUserId: string;
   fromDate: string;
   toDate: string;
 }
@@ -52,6 +53,7 @@ export interface AppliedFilters {
   action: string | null;
   tenant_id: string | null;
   user_id: string | null;
+  target_user_id: string | null;
   correlation_id: string | null;
   from_date: string | null;
   to_date: string | null;

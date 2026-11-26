@@ -20,6 +20,7 @@ const NONE = {
   action: null,
   tenant_id: null,
   user_id: null,
+  target_user_id: null,
   correlation_id: null,
   from_date: null,
   to_date: null,

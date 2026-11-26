@@ -90,6 +90,9 @@ class AuditLink:
             user directory that ``users.manage`` guards at the front. Denied
             readers still see the row, the action and the id — the audit trail
             stays complete, it just stops volunteering the name.
+        user_id_field: Model field identifying the user these rows belong to.
+            Used by the target-user filter, independently of the audit actor.
+            Set through ``for_model`` so the model is available for live lookups.
     """
 
     entity_type: str
@@ -99,6 +102,8 @@ class AuditLink:
     table_name: str | None = None
     label_resolver: LabelResolver | None = field(default=None, compare=False)
     label_permission: str = ""
+    user_id_field: str | None = None
+    model: type | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.url_template and _ID_PLACEHOLDER not in self.url_template:
@@ -118,6 +123,7 @@ class AuditLink:
         label_key: str = "",
         label_resolver: LabelResolver | None = None,
         label_permission: str = "",
+        user_id_field: str | None = None,
     ) -> AuditLink:
         """Build the link for a SQLModel table class.
 
@@ -133,6 +139,8 @@ class AuditLink:
             table_name=model.__tablename__,
             label_resolver=label_resolver,
             label_permission=label_permission,
+            user_id_field=user_id_field,
+            model=model,
         )
 
     def url_for(self, entity_id: str) -> str | None:

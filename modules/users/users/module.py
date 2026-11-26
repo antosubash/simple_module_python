@@ -184,9 +184,11 @@ class UsersModule(ModuleBase):
         # Built in users.core.audit: the link now carries a batch resolver that
         # names each row (full_name, or the email while an invite is
         # outstanding), which is a query and does not belong in a hook file.
-        from users.core.audit import build_user_audit_link
+        from users.core.audit import build_user_audit_link, linked_user_audit_links
 
         registry.register(build_user_audit_link(_URL_USERS_ADMIN))
+        for link in linked_user_audit_links():
+            registry.register(link)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         # Admin-only user management

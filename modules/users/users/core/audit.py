@@ -18,12 +18,20 @@ from simple_module_core.web.audit_links import AuditLink
 
 from users.core.constants import Permissions
 from users.core.directory import UsersDirectory
-from users.models import User
+from users.models import OAuthAccount, User, UserRole
 
 _LABEL = "User"
 _LABEL_KEY = "users.audit.user"
 
 _DIRECTORY = UsersDirectory()
+
+
+def linked_user_audit_links() -> list[AuditLink]:
+    """Declare ownership even for join rows that have no individual screen."""
+    return [
+        AuditLink.for_model(model, url_template="", user_id_field="user_id")
+        for model in (OAuthAccount, UserRole)
+    ]
 
 
 async def resolve_user_labels(db: Any, ids: list[str]) -> dict[str, str]:

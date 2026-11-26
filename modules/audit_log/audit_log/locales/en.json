@@ -14,6 +14,8 @@
     "entity_type_all": "All types",
     "action_label": "Action",
     "action_all": "All actions",
+    "target_user_label": "Target user",
+    "clear_target_user": "Clear target user filter",
     "user_label": "Actor",
     "user_placeholder": "Anyone",
     "date_range_label": "Date range",

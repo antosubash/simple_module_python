@@ -5,7 +5,7 @@ import { PaginationBar } from '@simple-module-py/ui/components/PaginationBar';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import { Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import { useState } from 'react';
 import { BrowseEmpty } from '../ui/components/BrowseEmpty';
 import { CorrelationBanner } from '../ui/components/Correlation';
@@ -38,6 +38,7 @@ const CLEARED: FilterState = {
   action: ALL,
   tenantId: ALL,
   userId: '',
+  targetUserId: '',
   fromDate: '',
   toDate: '',
 };
@@ -55,6 +56,7 @@ function queryFor(
   if (next.action && next.action !== ALL) p.action = next.action;
   if (next.tenantId && next.tenantId !== ALL) p.tenant_id = next.tenantId;
   if (next.userId) p.user_id = next.userId;
+  if (next.targetUserId) p.target_user_id = next.targetUserId;
   if (correlationId) p.correlation_id = correlationId;
   if (next.fromDate) p.from_date = next.fromDate;
   if (next.toDate) p.to_date = next.toDate;
@@ -81,6 +83,7 @@ function Browse({
     action: filters.action ?? ALL,
     tenantId: filters.tenant_id ?? ALL,
     userId: filters.user_id ?? '',
+    targetUserId: filters.target_user_id ?? '',
     fromDate: filters.from_date ?? '',
     toDate: filters.to_date ?? '',
   });
@@ -118,6 +121,7 @@ function Browse({
       action: filters.action ?? ALL,
       tenantId: filters.tenant_id ?? ALL,
       userId: filters.user_id ?? '',
+      targetUserId: filters.target_user_id ?? '',
       fromDate: filters.from_date ?? '',
       toDate: filters.to_date ?? '',
     },
@@ -150,6 +154,23 @@ function Browse({
           onSubmit={() => navigate(state)}
           onClear={handleClear}
         />
+
+        {filters.target_user_id && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mb-4 gap-2 rounded-full"
+            aria-label={t(keys.audit_log.filters.clear_target_user)}
+            onClick={() => {
+              const next = { ...state, targetUserId: '' };
+              setState(next);
+              navigate(next);
+            }}
+          >
+            {t(keys.audit_log.filters.target_user_label)}: {filters.target_user_id}
+            <X className="size-3" aria-hidden="true" />
+          </Button>
+        )}
 
         {filters.correlation_id && total > 0 && (
           <CorrelationBanner count={total} onClear={handleClear} />
