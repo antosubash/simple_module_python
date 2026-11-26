@@ -19,8 +19,10 @@ invocation the root group peeks at `--env`/`--schema` and, when the selected
 environment has a usable live cache (`schema sync`), rebuilds the generated groups
 from it instead (`commands/schema_source.py`). The environment resolved there is
 reused for the request, and a wrapper's `default_map` for `env`/`schema_source` is
-honoured. Live operations take `x-cli-safe` only from the bundled schema
-(`generate/trust.py`). The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
+honoured. Live operations take `x-cli-safe` only from the bundled schema, matched by
+method and template with placeholder names erased (`generate/trust.py`); `schema
+sync` refuses documents whose body and parameter shapes commands could not use
+(`generate/validate.py`). The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
 [Project CLI](/guide/project-cli).
 
 ## A CLI for your own app
