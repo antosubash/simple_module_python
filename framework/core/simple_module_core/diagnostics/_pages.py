@@ -166,25 +166,30 @@ def find_render_calls(mod: ModuleBase, src_dir: Path) -> tuple[set[str], bool]:
     trees: dict[str, ast.Module] = {}
     packages: dict[str, str] = {}
     for py_file in src_dir.rglob("*.py"):
-        if not py_file.resolve().is_relative_to(src_dir.resolve()):
-            continue
-        parts = py_file.relative_to(src_dir).with_suffix("").parts
-        package = ".".join((root_package, *parts[:-1]))
-        name = package if parts[-1] == "__init__" else f"{package}.{parts[-1]}"
         try:
+            if not py_file.resolve().is_relative_to(src_dir.resolve()):
+                continue
+            parts = py_file.relative_to(src_dir).with_suffix("").parts
+            package = ".".join((root_package, *parts[:-1]))
+            name = package if parts[-1] == "__init__" else f"{package}.{parts[-1]}"
             trees[name] = ast.parse(py_file.read_text(), filename=str(py_file))
             packages[name] = package
-        except (SyntaxError, OSError, UnicodeError):
+        except (SyntaxError, OSError, UnicodeError, RuntimeError):
             continue
     modules = {name: _module_level_str_consts(tree) for name, tree in trees.items()}
-    for name, tree in trees.items():
-        consts = modules[name]
-        while True:
-            resolved = _resolve_fstring_consts(tree, consts)
+    while True:
+        changed = False
+        for name, tree in trees.items():
+            consts = modules[name]
+            imported = _imported_str_consts(tree, packages[name], modules)
+            # Only plain bindings are exports; dotted aliases can grow through cycles.
+            resolved = {k: v for k, v in imported.items() if "." not in k}
+            resolved.update(_resolve_fstring_consts(tree, {**imported, **consts}))
             new = {k: v for k, v in resolved.items() if k not in consts}
-            if not new:
-                break
             consts.update(new)
+            changed |= bool(new)
+        if not changed:
+            break
 
     prefix = f"{mod.meta.name}/"
     rendered: set[str] = set()

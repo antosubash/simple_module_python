@@ -118,3 +118,39 @@ def test_external_import_is_not_resolved_from_same_named_local_constant(tmp_path
     results = _diagnostics(root)
 
     assert [(d.code, d.level) for d in results] == [("SM003", DiagnosticLevel.INFO)]
+
+
+@pytest.mark.parametrize("page_exists", [False, True])
+@pytest.mark.parametrize("reexport", [False, True])
+def test_imported_fstring_dependencies_preserve_page_checks(tmp_path, page_exists, reexport):
+    if page_exists:
+        _source(tmp_path, "pages/Dashboard.tsx", "export default function Dashboard() {}")
+    _source(
+        tmp_path,
+        "module.py",
+        "from pkg.core import PAGE\ninertia.render(PAGE, {})\n",
+    )
+    if reexport:
+        _source(tmp_path, "core/__init__.py", "from .constants import PAGE\n")
+        target = "core/constants.py"
+    else:
+        target = "core/__init__.py"
+    _source(tmp_path, target, 'from pkg.names import PREFIX\nPAGE = f"{PREFIX}/Dashboard"\n')
+    _source(tmp_path, "names.py", 'from pkg.meta import NAME\nPREFIX = f"{NAME}"\n')
+    _source(tmp_path, "meta.py", 'NAME = "Example"\n')
+
+    results = _diagnostics(tmp_path)
+
+    if page_exists:
+        assert results == []
+    else:
+        assert [(d.code, d.level) for d in results] == [("SM004", DiagnosticLevel.WARNING)]
+
+
+def test_source_symlink_loop_does_not_abort_diagnostics(tmp_path):
+    _source(tmp_path, "module.py", 'inertia.render("Example/Missing", {})\n')
+    (tmp_path / "loop.py").symlink_to("loop.py")
+
+    results = _diagnostics(tmp_path)
+
+    assert [(d.code, d.level) for d in results] == [("SM004", DiagnosticLevel.WARNING)]

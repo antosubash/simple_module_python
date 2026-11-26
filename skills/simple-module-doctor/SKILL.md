@@ -16,7 +16,7 @@ You can also call `run_diagnostics(...)` from `simple_module_core` programmatica
 | Code | Level | What it means | Fix |
 |---|---|---|---|
 | **SM001** | ERROR | Module class is missing its `meta = ModuleMeta(...)` class attribute, or (under strict discovery) the entry point failed to load — broken import, missing `meta`, or a class that isn't a `ModuleBase` subclass | Add valid metadata / fix the entry point. Strict discovery also rejects duplicate names (SM008) and missing dependencies (SM030) outside development |
-| **SM003** | WARNING | A `pages/<Name>.tsx` exists but no `inertia.render("<Module>/<Name>", ...)` references it | Either delete the orphan file or wire up the render call |
+| **SM003** | WARNING; INFO when render targets are unresolved | A `pages/<Name>.tsx` exists but no resolved `inertia.render("<Module>/<Name>", ...)` in the module references it | Check unresolved render targets before deleting an orphan file, or wire up the render call |
 | **SM004** | WARNING | `inertia.render("<Module>/<Name>", ...)` is called but no matching `.tsx` exists | Fix the render-key typo or create the page file |
 | **SM007** | INFO | Module overrides no `register_*` hooks at all — likely scaffolded but empty | Either implement at least one hook or delete the module if unused |
 | **SM008** | ERROR (strict discovery/static diagnostics) / WARNING (lenient discovery) | Two selected modules declare the same `ModuleMeta.name`: strict discovery raises with both distributions, development warns and skips the later entry in distribution/name/target order. Static diagnostics also check lowercased table prefixes | Rename or disable one module; select with `ep:<entry_point_name>` to disambiguate |
