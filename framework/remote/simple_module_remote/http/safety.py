@@ -41,7 +41,8 @@ def validate_base_url(url: str) -> str:
     except ValueError:
         raise UnsafePathError("environment url is not a valid URL") from None
     if (
-        parts.username
+        "@" in parts.netloc
+        or parts.username
         or parts.password
         or parts.query
         or parts.fragment
@@ -67,6 +68,33 @@ def validate_base_url(url: str) -> str:
 
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def normalize_origin(url: str) -> str:
+    """``scheme://host[:port]`` with a lowercase scheme and host and no default port.
+
+    A string that does not parse comes back unchanged (validation reports it elsewhere).
+    """
+    try:
+        parts = urlsplit(url)
+        host, number = parts.hostname, parts.port
+    except ValueError:
+        return url
+    if not host or not parts.scheme:
+        return url
+    shown = f"[{host}]" if ":" in host else host
+    port = f":{number}" if number and number != _DEFAULT_PORTS.get(parts.scheme.lower()) else ""
+    return f"{parts.scheme.lower()}://{shown}{port}"
+
+
+def normalize_url(url: str) -> str:
+    """The canonical form stored for an environment: normalised origin, path without ``/``."""
+    try:
+        path = urlsplit(url).path.rstrip("/")
+    except ValueError:
+        return url
+    origin = normalize_origin(url)
+    return url if origin == url else origin + path
 
 
 def _origin(parts: SplitResult) -> tuple[str, str | None, int | None]:

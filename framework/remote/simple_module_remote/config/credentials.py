@@ -18,6 +18,7 @@ from simple_module_remote.config._file_store import (
 )
 from simple_module_remote.config.environments import Environment
 from simple_module_remote.config.paths import env_prefix, env_var_name
+from simple_module_remote.http.safety import normalize_origin
 
 TOKEN_ENV_SUFFIX = "_TOKEN"
 MASK = "***"
@@ -253,7 +254,9 @@ def resolve_token(
     hint = login_hint(cli, env, tenant)
     if cred is None:
         raise CredentialError(f"no stored credentials for {env.name!r}: run `{hint}`")
-    if cred.origin != env.origin:
+    if (
+        normalize_origin(cred.origin) != env.origin
+    ):  # tolerates credentials stored pre-normalisation
         raise CredentialError(
             f"the stored token for {env.name!r} was issued for {cred.origin}, "
             f"but the environment now points at {env.origin}: run `{hint}`"

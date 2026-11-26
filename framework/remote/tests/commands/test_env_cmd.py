@@ -62,7 +62,7 @@ def test_env_add_into_readonly_config_dir_is_clean(make_cli, tmp_path):
     finally:
         config.chmod(0o700)
     assert result.exit_code == 1, result.output
-    assert "Traceback" not in result.output and "PermissionError" in result.output
+    assert "Traceback" not in result.output and "permission denied" in result.output
     assert str(config) in result.output
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TextIO
 
 from simple_module_remote.generate.pairs import split_pair
+from simple_module_remote.output.reasons import os_reason
 from simple_module_remote.schema.loader import resolve_ref
 
 __all__ = ["BodyError", "build_json_body", "missing_required"]
@@ -28,16 +29,23 @@ def _read_text(source: str, stdin: TextIO, flag: str) -> str:
     try:
         return Path(source).read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError) as exc:
-        raise BodyError(f"{flag}: cannot read {source}: {exc.__class__.__name__}") from None
+        raise BodyError(f"{flag}: cannot read {source}: {os_reason(exc)}") from None
 
 
 def _reject_constant(name: str) -> object:
     raise ValueError(name)
 
 
+def _finite_float(text: str) -> float:
+    number = float(text)
+    if not math.isfinite(number):  # 1e999 overflows to infinity
+        raise ValueError(text)
+    return number
+
+
 def _parse_json(text: str, flag: str) -> object:
     try:
-        return json.loads(text, parse_constant=_reject_constant)
+        return json.loads(text, parse_constant=_reject_constant, parse_float=_finite_float)
     except json.JSONDecodeError as exc:
         raise BodyError(f"{flag}: invalid JSON ({exc.msg} at position {exc.pos})") from None
     except ValueError as exc:  # NaN, Infinity and -Infinity are not JSON

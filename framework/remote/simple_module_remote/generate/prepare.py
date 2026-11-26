@@ -15,6 +15,7 @@ from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.pairs import split_pairs
 from simple_module_remote.generate.params import param_map
 from simple_module_remote.http.safety import validate_api_path
+from simple_module_remote.output.reasons import os_reason
 from simple_module_remote.schema.loader import resolve_ref
 
 __all__ = ["Prepared", "prepare_request"]
@@ -81,7 +82,7 @@ def _multipart(
             handle = stack.enter_context(Path(path).open("rb"))  # noqa: SIM115
         except OSError as exc:
             raise click.UsageError(
-                f"--upload {field_name}: cannot read {path}: {exc.__class__.__name__}"
+                f"--upload {field_name}: cannot read {path}: {os_reason(exc)}"
             ) from None
         files.append((field_name, (Path(path).name, handle)))
     prep.files = files or None
@@ -117,7 +118,9 @@ def prepare_request(
         try:
             prep.content = Path(values["body_file"]).read_bytes()
         except OSError as exc:
-            raise click.UsageError(f"--body-file: cannot read: {exc.__class__.__name__}") from None
+            raise click.UsageError(
+                f"--body-file: cannot read {values['body_file']}: {os_reason(exc)}"
+            ) from None
         prep.headers["Content-Type"] = values.get("content_type") or DEFAULT_CONTENT_TYPE
     validate_api_path(prep.path)
     return prep

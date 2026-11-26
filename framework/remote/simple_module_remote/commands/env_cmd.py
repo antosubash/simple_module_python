@@ -12,7 +12,7 @@ from simple_module_remote.config.environments import (
     validate_env_name,
     validate_tenant,
 )
-from simple_module_remote.http.safety import validate_base_url
+from simple_module_remote.http.safety import normalize_url, validate_base_url
 from simple_module_remote.output.sanitize import sanitize
 
 __all__ = ["env_group"]
@@ -70,7 +70,7 @@ def add_env(
     with state.guard():
         validate_env_name(name)
         if url is not None:
-            validate_base_url(url)
+            url = normalize_url(validate_base_url(url))
         if tenant:
             validate_tenant(tenant)
     config = state.config()

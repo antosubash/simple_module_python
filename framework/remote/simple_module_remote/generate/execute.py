@@ -37,18 +37,12 @@ from simple_module_remote.http.errors import (
     exit_code_for,
     is_success,
 )
+from simple_module_remote.output.reasons import os_reason
 from simple_module_remote.output.sanitize import is_terminal
 
 __all__ = ["run_operation"]
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-
-
-_OS_REASONS: dict[type[OSError], str] = {
-    FileNotFoundError: "no such file or directory",
-    IsADirectoryError: "it is a directory",
-    PermissionError: "permission denied",
-}
 
 
 def _quiet_stdout() -> None:
@@ -221,7 +215,5 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
             _quiet_stdout()  # the reader (head, grep -q) went away: not an error
             return 0
         except OSError as exc:
-            say(
-                ctx, f"error: cannot write output: {_OS_REASONS.get(type(exc), type(exc).__name__)}"
-            )
+            say(ctx, f"error: cannot write output: {os_reason(exc)}")
             return EXIT_USAGE

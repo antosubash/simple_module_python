@@ -7,13 +7,13 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import tomli_w
 
 from simple_module_remote.config.paths import config_dir, env_url_var_name, env_var_name
 from simple_module_remote.http.errors import UnsafePathError
-from simple_module_remote.http.safety import validate_base_url
+from simple_module_remote.http.safety import normalize_origin, normalize_url, validate_base_url
+from simple_module_remote.output.reasons import os_reason
 
 CONFIG_FILENAME = "config.toml"
 ENV_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
@@ -57,17 +57,7 @@ class Environment:
 
     @property
     def origin(self) -> str:
-        parts = urlsplit(self.url)
-        host = parts.hostname or ""
-        if ":" in host:
-            host = f"[{host}]"
-        default = {"http": 80, "https": 443}.get(parts.scheme)
-        try:
-            number = parts.port
-        except ValueError:  # rejected by validate_base_url before any request
-            number = None
-        port = f":{number}" if number and number != default else ""
-        return f"{parts.scheme.lower()}://{host}{port}"
+        return normalize_origin(self.url)
 
 
 @dataclass
@@ -107,7 +97,7 @@ def _build(name: str, table: dict[str, object], base: Environment | None) -> Env
     protected = table.get("protected", base.protected if base else False)
     if not isinstance(protected, bool):
         raise ConfigError(f"environment {name!r}: 'protected' must be true or false")
-    return Environment(name=name, url=url, tenant=tenant, protected=protected)
+    return Environment(name=name, url=normalize_url(url), tenant=tenant, protected=protected)
 
 
 def user_config_path(cli: str) -> Path:
@@ -159,7 +149,7 @@ def save_config(cli: str, config: Config) -> None:
         tmp.write_text(tomli_w.dumps(data), encoding="utf-8")
         tmp.replace(path)
     except OSError as exc:
-        raise ConfigError(f"cannot write config {path}: {exc.__class__.__name__}") from None
+        raise ConfigError(f"cannot write config {path}: {os_reason(exc)}") from None
     finally:
         with contextlib.suppress(OSError):
             tmp.unlink(missing_ok=True)
