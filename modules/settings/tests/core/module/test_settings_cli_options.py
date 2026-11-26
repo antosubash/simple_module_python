@@ -82,7 +82,7 @@ async def test_filters_select_only_matching_variables(importer, options, expecte
         store,
         environ={
             "SM_FILE_STORAGE_BUCKET": "storage-value",
-            "SM_USERS_BASE_URL": "users-value",
+            "SM_USERS_BASE_URL": "https://users.example",
             "SM_BG_TASKS_BUCKET": "bg-value",
         },
         **options,
@@ -130,7 +130,7 @@ async def test_invalid_batch_writes_nothing(importer, capsys, environ, name, mes
     # Also catches writing valid variables before discovering a later invalid one.
     environ = {
         "SM_BG_TASKS_BUCKET": "valid-private-bucket",
-        "SM_USERS_BASE_URL": "valid-private-url",
+        "SM_USERS_BASE_URL": "https://private.example",
         **environ,
     }
     with pytest.raises(typer.Exit) as exc:
@@ -240,7 +240,7 @@ def cli_importer(importer, monkeypatch):
 @pytest.mark.parametrize("mounted", [False, True])
 def test_typer_subcommand_executes_filters(cli_importer, monkeypatch, mounted):
     monkeypatch.setenv("SM_FILE_STORAGE_BUCKET", "bucket-private")
-    monkeypatch.setenv("SM_USERS_BASE_URL", "users-private")
+    monkeypatch.setenv("SM_USERS_BASE_URL", "https://users-private.example")
     monkeypatch.setenv("SM_BG_TASKS_BUCKET", "background-private")
     cli = app
     args = ["import-from-env", "--only", "FILE_STORAGE", "--only", "users"]
