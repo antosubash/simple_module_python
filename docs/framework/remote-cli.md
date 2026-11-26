@@ -24,7 +24,7 @@ in-memory keyring. The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
 | `schema/` | Load and `$ref`-resolve the bundled OpenAPI file |
 | `generate/` | Operations, naming, parameters, bodies, execution, confirmation, pagination, and the command tree (`tree.py`) |
 | `config/` | Environments, origin-bound credentials, XDG paths |
-| `http/` | Guarded `httpx` client: `/api/` only, no credentials in URLs, no cross-origin redirects with auth |
+| `http/` | Guarded `httpx` client: `/api/` only, no credentials in URLs, auth only on same-origin redirects under `/api/` |
 | `output/` | Table/JSON/YAML/`id` rendering with terminal-escape sanitising |
 | `commands/` | Built-in commands and the operation-to-click adapter |
 
