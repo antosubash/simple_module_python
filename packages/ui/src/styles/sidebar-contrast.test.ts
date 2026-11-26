@@ -117,7 +117,8 @@ async function themeTokens(selector: string, brand?: string) {
       });
     });
   if (brand) {
-    for (const [name, value] of Object.entries(deriveBrandRamp(brand) ?? {})) values.set(name, value);
+    for (const [name, value] of Object.entries(deriveBrandRamp(brand) ?? {}))
+      values.set(name, value);
   }
   const tokens = new Map<string, number>();
   for (const [name, raw] of values) {

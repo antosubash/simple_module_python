@@ -267,9 +267,7 @@ it('closes real same-URL and replacement visits but preserves background updates
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(trigger);
     await act(async () => {
-      await new Promise<void>((resolve) =>
-        router.visit('/admin', { onFinish: () => resolve() }),
-      );
+      await new Promise<void>((resolve) => router.visit('/admin', { onFinish: () => resolve() }));
     });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(trigger);
