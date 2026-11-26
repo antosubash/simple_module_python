@@ -12,12 +12,17 @@ from rich.text import Text
 
 from simple_module_remote.output.sanitize import sanitize, sanitize_for
 
-__all__ = ["OUTPUT_FORMATS", "render"]
+__all__ = ["OUTPUT_FORMATS", "NoIdentifierError", "render"]
 
 Format = Literal["table", "json", "yaml", "id"]
 OUTPUT_FORMATS: tuple[str, ...] = ("table", "json", "yaml", "id")
 MAX_AUTO_COLUMNS = 8
-ID_KEY = "id"
+ID_KEYS = ("id", "name", "key", "slug", "email")
+NO_IDENTIFIER = "no identifier field in the response; use -o json"
+
+
+class NoIdentifierError(ValueError):
+    """``-o id`` was asked for data that has none of the :data:`ID_KEYS`."""
 
 
 def _rows(data: Any) -> list[Any] | None:
@@ -69,12 +74,19 @@ def _table(data: Any, columns: list[str] | None, out: TextIO) -> None:
     console.print(table)
 
 
+def _identifier(item: Any) -> Any:
+    if not isinstance(item, dict):
+        return item
+    return next((item[k] for k in ID_KEYS if item.get(k) is not None), None)
+
+
 def _ids(data: Any, out: TextIO) -> None:
     rows = _rows(data)
-    for item in rows if rows is not None else [data]:
-        value = item.get(ID_KEY) if isinstance(item, dict) else item
-        if value is not None:
-            out.write(sanitize_for(out, f"{value}") + "\n")
+    values = [_identifier(item) for item in (rows if rows is not None else [data])]
+    if any(value is None for value in values):
+        raise NoIdentifierError(NO_IDENTIFIER)
+    for value in values:
+        out.write(sanitize_for(out, f"{value}") + "\n")
 
 
 def render(

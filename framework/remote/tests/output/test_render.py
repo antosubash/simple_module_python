@@ -1,7 +1,8 @@
 import io
 import json
 
-from simple_module_remote.output.render import render
+import pytest
+from simple_module_remote.output.render import NoIdentifierError, render
 
 ROWS = [{"id": 1, "name": "ada", "meta": {"x": 1}}, {"id": 2, "name": "bob", "meta": {}}]
 
@@ -67,3 +68,22 @@ def test_tty_output_strips_control_sequences_all_formats(make_tty):
 
 def test_non_tty_json_is_byte_exact():
     assert json.loads(run([{"a": "\x9b"}])) == [{"a": "\x9b"}]
+
+
+def test_id_format_falls_back_to_natural_keys():
+    rows = [{"name": "a"}, {"key": "k"}, {"slug": "s"}, {"email": "e@x"}, {"id": 1, "name": "n"}]
+    assert run(rows, fmt="id") == "a\nk\ns\ne@x\n1\n"
+    assert run({"name": "solo"}, quiet=True) == "solo\n"
+
+
+def test_id_format_without_any_identifier_is_an_error_and_writes_nothing():
+    out = io.StringIO()
+    with pytest.raises(NoIdentifierError, match="use -o json"):
+        render([{"id": 1}, {"x": 2}], fmt="id", columns=None, quiet=False, is_tty=False, out=out)
+    assert out.getvalue() == ""
+    with pytest.raises(NoIdentifierError):
+        run({"title": "t"}, fmt="id")
+
+
+def test_id_format_empty_list_is_fine():
+    assert run([], fmt="id") == ""

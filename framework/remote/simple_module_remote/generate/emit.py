@@ -16,7 +16,7 @@ import httpx
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import AUTH_STATUSES, ERROR_MIN
-from simple_module_remote.output.render import OUTPUT_FORMATS, render
+from simple_module_remote.output.render import OUTPUT_FORMATS, NoIdentifierError, render
 from simple_module_remote.output.sanitize import sanitize_for
 
 __all__ = ["emit", "print_error", "render_values", "say", "say_server"]
@@ -112,14 +112,17 @@ def render_values(ctx: RunContext, data: Any, values: dict[str, Any]) -> None:
     if fmt is not None and fmt not in OUTPUT_FORMATS:
         raise click.UsageError(f"--output must be one of: {', '.join(OUTPUT_FORMATS)}")
     columns = [c.strip() for c in (values.get("columns") or "").split(",") if c.strip()]
-    render(
-        data,
-        fmt=fmt,
-        columns=columns or None,
-        quiet=bool(values.get("quiet")),
-        is_tty=ctx.is_tty,
-        out=ctx.stdout,
-    )
+    try:
+        render(
+            data,
+            fmt=fmt,
+            columns=columns or None,
+            quiet=bool(values.get("quiet")),
+            is_tty=ctx.is_tty,
+            out=ctx.stdout,
+        )
+    except NoIdentifierError as exc:
+        raise click.ClickException(str(exc)) from None
 
 
 def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> int:

@@ -318,3 +318,10 @@ def test_empty_path_value_is_refused_client_side(download, value):
     with pytest.raises(click.UsageError, match="file_id"):
         h.run(download, p_file_id=value)
     assert h.requests == []
+
+
+def test_id_output_without_identifier_exits_1_with_message(make_op):
+    h = Harness(lambda r: httpx.Response(200, json={"title": "t"}))
+    with pytest.raises(click.ClickException, match="use -o json") as info:
+        h.run(make_op(), output="id")
+    assert info.value.exit_code == 1
