@@ -190,6 +190,14 @@ class ApiClient:
         decoded = (target, unquote(target), unquote(unquote(target)))
         return bool(self._token) and any(self._token in text for text in decoded)
 
+    def _stays_in_api(self, target: str) -> bool:
+        """True for a redirect target on the environment's origin under its /api/ prefix."""
+        try:
+            validate_request_url(self._base, target, allow_query=True)
+        except UnsafePathError:
+            return False
+        return True
+
     def _follow(self, response: httpx.Response, stream: bool) -> httpx.Response:
         current = response
         for _ in range(MAX_HOPS):
@@ -208,11 +216,18 @@ class ApiClient:
                 current.close()
                 raise ApiError(0, message="redirect to a URL carrying credentials or invalid")
             current.close()
-            self._follower.cookies.clear()
-            current = self._send(
-                self._follower, self._follower.build_request("GET", target), stream
-            )
-            current.extensions[REDIRECTED_EXTENSION] = True
+            # Same origin and still under the env's /api/: the token travels with it.
+            # Anything else goes out bare, through the client that holds no credentials.
+            keep_token = self._stays_in_api(target)
+            client = self._client if keep_token else self._follower
+            client.cookies.clear()
+            try:
+                hop = client.build_request("GET", target)
+            except httpx.InvalidURL:
+                raise ApiError(0, message="the server sent an invalid redirect URL") from None
+            current = self._send(client, hop, stream)
+            if not keep_token:
+                current.extensions[REDIRECTED_EXTENSION] = True
         if current.status_code in REDIRECT_STATUSES:
             current.close()
             raise ApiError(0, message=f"too many redirects (more than {MAX_HOPS})")
