@@ -13,8 +13,9 @@ import {
   type SettingsFieldRendererProps,
   useExtensions,
 } from '@simple-module-py/ui/extensions';
-import { Suspense, useState } from 'react';
+import { Suspense } from 'react';
 import { JsonInput } from './JsonInput';
+import { SecretInput } from './SecretInput';
 
 export type { FieldType } from '@simple-module-py/ui/extensions';
 export type FieldMeta = SettingsFieldMeta;
@@ -24,45 +25,31 @@ type Props = SettingsFieldRendererProps;
 /** A stored override is the one thing on this screen someone put there. */
 const OVERRIDDEN = 'border-primary ring-[3px] ring-primary/10';
 
-export function FieldInput({ field, onChange, value, id, 'aria-describedby': describedBy }: Props) {
+export function FieldInput({
+  field,
+  onChange,
+  value,
+  id,
+  'aria-describedby': describedBy,
+  'aria-invalid': invalid,
+}: Props) {
   const registry = useExtensions();
   const { t } = useT();
-  const [revealed, setRevealed] = useState(false);
   const highlight = field.db_override ? OVERRIDDEN : '';
   const kind = field.input_type ?? field.type;
   const nullable = !!field.nullable;
 
-  if (field.is_secret && !revealed) {
-    // Not "Reveal": the server never returns the stored value, so there is
-    // nothing to uncover — only a new value to set. A reveal control here
-    // would promise something the API deliberately cannot deliver.
+  if (field.is_secret) {
     return (
-      <div
-        className={`flex h-9 items-center justify-between rounded-md border border-input px-3 py-1 ${highlight}`}
-      >
-        {/* A real input, not a styled span: the row's `<label htmlFor>` needs a
-            labelable control to point at, and putting the id on the button
-            instead would replace its own "Set new value" name with the field
-            name for anyone listening to it. */}
-        <input
-          id={id}
-          aria-describedby={describedBy}
-          type="password"
-          value="••••••••••"
-          readOnly
-          className="min-w-0 flex-1 bg-transparent font-mono text-sm text-muted-foreground outline-none"
-        />
-        <button
-          type="button"
-          className="text-xs font-medium text-primary-700 hover:underline"
-          onClick={() => {
-            setRevealed(true);
-            onChange(field.name, ''); // start blank
-          }}
-        >
-          {t(keys.settings.modules_form.set_new_value)}
-        </button>
-      </div>
+      <SecretInput
+        field={field}
+        value={value}
+        onChange={onChange}
+        id={id}
+        aria-describedby={describedBy}
+        aria-invalid={invalid}
+        className={highlight}
+      />
     );
   }
 
@@ -76,6 +63,7 @@ export function FieldInput({ field, onChange, value, id, 'aria-describedby': des
           onChange={onChange}
           id={id}
           aria-describedby={describedBy}
+          aria-invalid={invalid}
         />
       </Suspense>
     );
@@ -89,7 +77,12 @@ export function FieldInput({ field, onChange, value, id, 'aria-describedby': des
         value={current}
         onValueChange={(next) => onChange(field.name, next === UNSET ? null : next === 'true')}
       >
-        <SelectTrigger id={id} aria-describedby={describedBy} className={`w-[160px] ${highlight}`}>
+        <SelectTrigger
+          id={id}
+          aria-describedby={describedBy}
+          aria-invalid={invalid}
+          className={`w-[160px] ${highlight}`}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -106,6 +99,7 @@ export function FieldInput({ field, onChange, value, id, 'aria-describedby': des
       <Switch
         id={id}
         aria-describedby={describedBy}
+        aria-invalid={invalid}
         checked={!!value}
         onCheckedChange={(next) => onChange(field.name, next)}
         className={highlight}
@@ -118,7 +112,12 @@ export function FieldInput({ field, onChange, value, id, 'aria-describedby': des
     // feedback on a typo a 422 after Save.
     return (
       <Select value={String(value ?? '')} onValueChange={(next) => onChange(field.name, next)}>
-        <SelectTrigger id={id} aria-describedby={describedBy} className={`w-full ${highlight}`}>
+        <SelectTrigger
+          id={id}
+          aria-describedby={describedBy}
+          aria-invalid={invalid}
+          className={`w-full ${highlight}`}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -137,6 +136,7 @@ export function FieldInput({ field, onChange, value, id, 'aria-describedby': des
       <Input
         id={id}
         aria-describedby={describedBy}
+        aria-invalid={invalid}
         type="number"
         step={kind === 'int' ? '1' : 'any'}
         value={String(value ?? '')}
@@ -153,6 +153,7 @@ export function FieldInput({ field, onChange, value, id, 'aria-describedby': des
       <JsonInput
         id={id}
         aria-describedby={describedBy}
+        aria-invalid={invalid}
         name={field.name}
         value={value}
         nullable={nullable}
@@ -166,6 +167,7 @@ export function FieldInput({ field, onChange, value, id, 'aria-describedby': des
     <Input
       id={id}
       aria-describedby={describedBy}
+      aria-invalid={invalid}
       type="text"
       value={String(value ?? '')}
       onChange={(e) =>

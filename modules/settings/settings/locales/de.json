@@ -125,7 +125,8 @@
     "head_title": "Moduleinstellungen",
     "managed_title": "Auf eigener Seite verwaltet",
     "managed_description": "{module} hat eine eigene Einstellungsseite. Bearbeiten Sie die Werte dort, damit Validierung und Vorschau greifen.",
-    "managed_open": "Einstellungen für {module} öffnen"
+    "managed_open": "Einstellungen für {module} öffnen",
+    "no_results": "Keine passenden Module"
   },
   "modules_form": {
     "save": "Speichern",
@@ -140,7 +141,12 @@
     "not_set": "Nicht gesetzt (Standard)",
     "option_on": "Ein",
     "option_off": "Aus",
-    "env_pinned": "Durch eine vorrangige Umgebungsvariable festgelegt. Ändern Sie den Wert dort."
+    "env_pinned": "Durch eine vorrangige Umgebungsvariable festgelegt. Ändern Sie den Wert dort.",
+    "show_secret": "Anzeigen",
+    "hide_secret": "Ausblenden",
+    "leave_warning": "Sie haben ungespeicherte Änderungen. Möchten Sie diese verwerfen?",
+    "discard_title": "Änderungen verwerfen?",
+    "discard_changes": "Änderungen verwerfen"
   },
   "nav": {
     "settings": "Einstellungen"

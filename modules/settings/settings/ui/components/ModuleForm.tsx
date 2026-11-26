@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { apiResult } from '@simple-module-py/ui/lib/api';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../pages/api.generated';
 import type { FieldMeta } from './FieldInput';
 import { ModuleFieldRow } from './ModuleFieldRow';
@@ -24,6 +24,7 @@ type Props = {
   module: ModuleView;
   /** Names of the health checks this module registered, if any. */
   checks?: string[];
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 function notEqual(a: unknown, b: unknown): boolean {
@@ -34,7 +35,7 @@ function notEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
-export function ModuleForm({ module: m, checks = [] }: Props) {
+export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
   const { t } = useT();
   const initial = useMemo(() => {
     const o: Record<string, unknown> = {};
@@ -43,11 +44,22 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   }, [m.fields]);
 
   const [{ values, baseline }, setBuffer] = useState({ values: initial, baseline: initial });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [saved, setSaved] = useState(false);
   const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
   const [formErrors, setFormErrors] = useState<string[]>([]);
+  // Bumped after each successful save so secret editors remount masked.
+  const [savedGeneration, setSavedGeneration] = useState(0);
+  const fieldsRef = useRef<HTMLDivElement>(null);
+  const focusFirstError = useRef(false);
+
+  useEffect(() => {
+    if (!focusFirstError.current) return;
+    focusFirstError.current = false;
+    fieldsRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [errors]);
 
   // Refresh saved values without discarding drafts in other fields (#637).
   useEffect(() => {
@@ -67,13 +79,16 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
 
   const modifiedFields = useMemo(() => {
     const s = new Set<string>();
-    for (const name of Object.keys(values)) {
-      if (notEqual(values[name], baseline[name])) s.add(name);
+    for (const f of m.fields) {
+      // An empty secret draft means "no new value yet", never "store blank".
+      if (f.is_secret && values[f.name] === '') continue;
+      if (notEqual(values[f.name], baseline[f.name])) s.add(f.name);
     }
     return s;
-  }, [values, baseline]);
+  }, [m.fields, values, baseline]);
 
   const dirty = modifiedFields.size > 0;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   // Grouped only where the module said so. A single "General" heading over
   // every field of a module that declared no groups is a heading that carries
@@ -95,6 +110,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         (result.error as { detail?: unknown } | null)?.detail,
         m.fields.map((f) => f.name),
       );
+      focusFirstError.current = true;
       setErrors(split.fields);
       setFormErrors(split.form);
     } else {
@@ -103,6 +119,8 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   }
 
   async function onSave() {
+    if (submitting.current || !dirty) return;
+    submitting.current = true;
     setBusy(true);
     setSaved(false);
     setErrors({});
@@ -120,7 +138,15 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     } else {
       // Keeping the form mounted lets the confirmation remain visible instead
       // of being discarded by an immediate Inertia reload.
-      setBuffer((prev) => ({ ...prev, baseline: { ...values } }));
+      // A saved secret goes back to its mask: the typed value leaves the form.
+      const masked = Object.fromEntries(
+        m.fields.filter((f) => f.is_secret && f.name in changed).map((f) => [f.name, f.value]),
+      );
+      setBuffer((prev) => ({
+        values: { ...prev.values, ...masked },
+        baseline: { ...values, ...masked },
+      }));
+      setSavedGeneration((n) => n + 1);
       setSavedOverrides((prev) => ({
         ...prev,
         ...Object.fromEntries(
@@ -132,9 +158,12 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
       setSaved(true);
     }
     setBusy(false);
+    submitting.current = false;
   }
 
   async function onReset(name: string) {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setSaved(false);
     setErrors({});
@@ -147,6 +176,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     if (!result.ok) {
       handleFailure(result);
       setBusy(false);
+      submitting.current = false;
       return;
     }
     setSavedOverrides((prev) => ({ ...prev, [name]: false }));
@@ -172,6 +202,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
       },
     });
     setBusy(false);
+    submitting.current = false;
   }
 
   return (
@@ -222,21 +253,28 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
       <Card className="@container flex min-w-0 flex-1 flex-col gap-4 border-border p-6">
         {/* No inner scroller: the card grows and the page scrolls, which is
             one scrollbar for the screen instead of three nested ones. */}
-        <div className="flex flex-col gap-4">
+        <div ref={fieldsRef} className="flex flex-col gap-4">
           {groups.map(([group, fields]) => (
             <section key={group} className="flex flex-col gap-4">
               {group && <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>}
               {fields.map((f) => (
                 <ModuleFieldRow
-                  key={f.name}
-                  field={{ ...f, db_override: savedOverrides[f.name] ?? f.db_override }}
+                  key={f.is_secret ? `${f.name}:${savedGeneration}` : f.name}
+                  field={{
+                    ...f,
+                    value: baseline[f.name],
+                    db_override: savedOverrides[f.name] ?? f.db_override,
+                  }}
                   package={m.package}
                   value={values[f.name]}
                   modified={modifiedFields.has(f.name)}
+                  // Cancel must not restore a stale secret mask during a save.
+                  disabled={busy && f.is_secret}
                   error={errors[f.name]}
                   onReset={() => onReset(f.name)}
                   onChange={(name, v) => {
                     setSaved(false);
+                    setErrors((prev) => (prev[name] ? { ...prev, [name]: undefined } : prev));
                     setBuffer((prev) => ({
                       ...prev,
                       values: { ...prev.values, [name]: v },

@@ -64,9 +64,7 @@ test('a secret keeps its description when setting a new value', () => {
   render(row({ ...field, is_secret: true }));
   expect(screen.getByLabelText('setting')).toHaveAccessibleDescription('Help for this setting.');
   fireEvent.click(screen.getByRole('button'));
-  expect(screen.getByRole('textbox', { name: 'setting' })).toHaveAccessibleDescription(
-    'Help for this setting.',
-  );
+  expect(screen.getByLabelText('setting')).toHaveAccessibleDescription('Help for this setting.');
 });
 
 test('a field without a description has no aria-describedby', () => {

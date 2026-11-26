@@ -139,12 +139,14 @@ export function register(registry: ExtensionRegistry) {
 ```
 
 Renderers receive the whole field metadata, the current draft value, the label's
-input `id`, the optional `aria-describedby` description reference, and
-`onChange(name, value)`. Forward `id` and `aria-describedby` to the control so
-its label and field description remain accessible. Preserve nullable semantics,
+input `id`, optional `aria-describedby` references for the description and
+validation feedback, optional boolean `aria-invalid`, and `onChange(name, value)`.
+The validation prop is additive; existing renderers remain compatible. Forward
+`id`, `aria-describedby` and `aria-invalid` to the control so its label,
+description and validation feedback remain accessible. Preserve nullable semantics,
 choices and override highlighting as appropriate for the control.
-Secret fields keep the existing masked input until the user chooses to set a
-new value; then a custom renderer can edit that new draft. Missing or unknown
+Secret fields always use the built-in masked control, including when entering a
+new value, so custom renderers never receive secret drafts. Missing or unknown
 control hints use the built-in controls.
 
 ## Bundle size and loading

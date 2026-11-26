@@ -9,6 +9,7 @@ interface Props {
   value: unknown;
   /** Dirty relative to the saved baseline, not to the default. */
   modified: boolean;
+  disabled?: boolean;
   error?: string;
   onChange: (name: string, value: unknown) => void;
   onReset: () => void;
@@ -28,6 +29,7 @@ export function ModuleFieldRow({
   package: pkg,
   value,
   modified,
+  disabled,
   error,
   onChange,
   onReset,
@@ -35,7 +37,9 @@ export function ModuleFieldRow({
   const { t } = useT();
   const id = `field-${pkg}-${field.name}`;
   const descriptionId = useId();
-  const describedBy = field.description ? descriptionId : undefined;
+  const errorId = useId();
+  const describedBy =
+    [field.description && descriptionId, error && errorId].filter(Boolean).join(' ') || undefined;
   // A bool's description is normally the trailing meta; repeating it here would
   // print the same sentence twice. When the trailing column shows something
   // else (a stored value, a secret), the description belongs here instead.
@@ -53,7 +57,7 @@ export function ModuleFieldRow({
         </label>
         {showDescription && (
           <p
-            id={describedBy}
+            id={descriptionId}
             className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground"
           >
             {field.description}
@@ -70,10 +74,11 @@ export function ModuleFieldRow({
         {/* An env-set field always wins over a stored value (env → DB → default),
             so the server refuses edits to it; a disabled fieldset stops the form
             from collecting an edit that would 422 the whole save. */}
-        <fieldset disabled={!!field.env_set} className="min-w-0 border-0 p-0">
+        <fieldset disabled={!!field.env_set || disabled} className="min-w-0 border-0 p-0">
           <FieldInput
             id={id}
             aria-describedby={describedBy}
+            aria-invalid={!!error}
             field={field}
             value={value}
             onChange={onChange}
@@ -82,7 +87,7 @@ export function ModuleFieldRow({
       </div>
 
       <div className="min-w-0 [overflow-wrap:anywhere] @md:col-span-2 @xl:col-span-1 @xl:justify-self-start">
-        <FieldSource field={field} descriptionId={describedBy} onReset={onReset} />
+        <FieldSource field={field} descriptionId={descriptionId} onReset={onReset} />
       </div>
 
       {/* Its own grid row, spanning the control and trailing columns: inside
@@ -90,6 +95,8 @@ export function ModuleFieldRow({
           word per line whenever the cell was narrow. */}
       {error && (
         <p
+          id={errorId}
+          role="alert"
           data-testid={`field-error-${field.name}`}
           className="min-w-0 [overflow-wrap:anywhere] text-xs text-destructive @md:col-span-1 @md:col-start-2 @xl:col-span-2"
         >

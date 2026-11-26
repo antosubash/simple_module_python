@@ -17,7 +17,7 @@ configureI18n({
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   Link: ({ children, ...rest }: { children?: unknown }) => <a {...rest}>{children as never}</a>,
-  router: { reload: vi.fn() },
+  router: { reload: vi.fn(), replace: vi.fn(), on: () => () => {} },
 }));
 
 vi.mock('@simple-module-py/ui/layouts/AdminLayout', () => ({ AdminLayout: () => null }));
