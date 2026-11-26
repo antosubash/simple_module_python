@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from simple_module_hosting.auth.api_equivalent import api_equivalent
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse
@@ -13,6 +14,7 @@ from {{PACKAGE_NAME}}.contracts.schemas import (
     {{SINGULAR_CLASS}}Update,
 )
 from {{PACKAGE_NAME}}.core.constants import (
+    API_PREFIX,
     MENU_URL,
     Permissions,
 )
@@ -20,6 +22,10 @@ from {{PACKAGE_NAME}}.web.deps import get_{{SINGULAR}}_service
 from {{PACKAGE_NAME}}.web.service import {{SINGULAR_CLASS}}Service
 
 router = APIRouter()
+
+# A page refuses API tokens, so every form action names the /api route that
+# does the same (the project CLI drives the API only).
+_API_ITEM = API_PREFIX + "/{item_id}"
 
 
 @router.get(
@@ -50,7 +56,10 @@ async def create_view(inertia: InertiaDep) -> InertiaResponse:
 @router.post(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.CREATE)),
+        Depends(api_equivalent("POST", API_PREFIX + "/")),
+    ],
 )
 async def create_submit(
     data: {{SINGULAR_CLASS}}Create,
@@ -79,7 +88,10 @@ async def edit_view(
 @router.post(
     "/{item_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
+    dependencies=[
+        Depends(RequiresPermission(Permissions.EDIT)),
+        Depends(api_equivalent("PUT", _API_ITEM)),
+    ],
 )
 async def edit_submit(
     item_id: int,

@@ -53,6 +53,15 @@ so a command that could never succeed with a token does not exist.
 `GET /api/_meta/whoami` is the token-capable identity route that `login`,
 `whoami` and `doctor` use.
 
+## Form actions and `api_equivalent`
+
+Page routes refuse tokens, so the CLI can only do what the API can. Every
+non-GET view route therefore declares the `/api` operation that does the same
+(`api_equivalent("PUT", "/api/…")`) or why no token may (`api_exempt(reason)`:
+logout, sign-in, the signed-in account itself, token management, setup, locale).
+`host/tests/test_view_api_equivalents.py` checks each target exists and admits
+tokens; see `docs/module-authoring.md` § Form actions name their API equivalent.
+
 ## Operation hints
 
 | Extension | Effect |

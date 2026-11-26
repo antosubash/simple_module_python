@@ -156,6 +156,17 @@ headers and translation keys when migrating; translate at the request boundary.
 Endpoint-level `HTTPException` for pure request validation is fine. Inertia
 forms may catch domain errors to report field errors or redirect.
 
+### 14. Every non-GET view route names its API equivalent
+
+Pages refuse API tokens, so a form action must have a token-reachable `/api`
+twin. Add `Depends(api_equivalent("PUT", "/api/<module>/{item_id}"))` (method and
+path template exactly as registered; the target needs a permission gate) or
+`Depends(api_exempt(EXEMPT_LOGOUT))` (also `EXEMPT_AUTH_FLOW`,
+`EXEMPT_SELF_ACCOUNT`, `EXEMPT_TOKEN_MANAGEMENT`, `EXEMPT_SETUP`,
+`EXEMPT_LOCALE`) from `simple_module_hosting.auth.api_equivalent`. Missing API
+route? Add it under the same permissions and service. Check an app with
+`view_route_offenders(app)`.
+
 ## Related skills
 
 - **simple-module-database** — per-module Base, mixins, session lifecycle
