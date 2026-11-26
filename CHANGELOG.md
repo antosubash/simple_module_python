@@ -35,6 +35,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Behaviour change:** `smpy new --with` and the wizard offer all 17 published modules, including `oidc`, `audit_log`, `keycloak`, `mail`, `sharing`, `api_tokens` and `branding`; `full` includes them all. Catalog requirements now match each module's `depends_on`, so optional dependencies are no longer installed automatically. Multiple installed auth providers use the existing `SM_AUTH_PROVIDER` selection (#1213).
 - **Behaviour change:** `background_tasks` supports `SM_BG_TASKS_BROKER_URL` and `SM_BG_TASKS_RESULT_BACKEND` as non-deprecated per-field overrides for separate Redis databases or other transports. Only an override equal to the configured `SM_REDIS_URL` logs a redundant-setting INFO hint; production localhost checks and env → DB → default precedence are preserved (#1214).
 - Keycloak and OIDC share internal browser-session resolution while preserving each provider's validation and renewal rules (#1169).
 - **Behaviour change:** tenant `public_base_url` shares user `base_url` validation: blank or an absolute HTTP(S) URL without credentials, query strings or fragments, trimmed and persisted normalized, with path prefixes allowed. Both fields now enforce a 2,083-character limit. Invalid stored tenant URLs fall back to the blank default without deleting the rows. Tenant invitation lifetime help is English-only, and range/type errors name `invitation_ttl_hours` and its 1–720 hour range (#1175).

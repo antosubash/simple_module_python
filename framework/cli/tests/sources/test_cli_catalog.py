@@ -40,11 +40,11 @@ def test_expand_deps_pulls_in_transitive_dep() -> None:
     assert added == [("auth", "users")]
 
 
-def test_expand_deps_pulls_in_chain() -> None:
+def test_expand_deps_resolves_permissions_without_optional_users() -> None:
     resolved, added = expand_deps(["permissions"])
-    assert set(resolved) == {"permissions", "users", "auth"}
+    assert set(resolved) == {"permissions", "auth"}
     added_names = {a for a, _ in added}
-    assert added_names == {"users", "auth"}
+    assert added_names == {"auth"}
 
 
 def test_expand_deps_idempotent_when_input_already_complete() -> None:

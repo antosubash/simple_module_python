@@ -56,9 +56,22 @@ uv run smpy new myapp --preset standard --with background_tasks,file_storage
 |---|---|
 | `minimal` | `auth`, `users` |
 | `standard` (default) | `minimal` + `dashboard`, `permissions` |
-| `full` | `standard` + `settings`, `feature_flags`, `file_storage`, `background_tasks` |
+| `full` | Every [bundled module](/guide/project-structure#bundled-modules) |
 
-Dependencies between modules are resolved automatically — e.g. `users` always pulls in `auth`, and `file_storage` pulls in `settings`. The `settings` module ships only in the `full` preset (or when added explicitly with `--with settings`).
+`--with` accepts any published module: `auth`, `users`, `permissions`, `tenants`,
+`dashboard`, `settings`, `feature_flags`, `file_storage`, `background_tasks`,
+`site_lock`, `oidc`, `audit_log`, `keycloak`, `mail`, `sharing`, `api_tokens`, `branding`.
+
+Required dependencies are resolved automatically: `users`, `oidc`, `keycloak`
+and `api_tokens` pull in `auth`; `mail` pulls in `settings`; `branding` pulls in
+`settings` and `file_storage`. Optional ordering dependencies are not added.
+
+Multiple auth providers can be installed,
+but only one is active: the default is `users`. To activate an alternative added
+with `--with`, set `SM_AUTH_PROVIDER=oidc` or `SM_AUTH_PROVIDER=keycloak` before
+starting the app. Discovery removes the other providers, including `Users`;
+exclude any third-party module that requires an inactive provider. See
+[auth-provider selection](/framework/discovery#provides-auth).
 
 After scaffolding, `uv run smpy new` runs `uv sync --all-packages` (`uv sync` for `--flat`), `npm install`, and `alembic upgrade heads` for you. With `--no-install` it prints those steps instead, starting with `make install`.
 
