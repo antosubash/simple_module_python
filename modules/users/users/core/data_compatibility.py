@@ -5,13 +5,13 @@ from sqlalchemy import Select, String, column, func, inspect, or_, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.core.constants import (
+    DATA_COMPATIBILITY_REPORT_LIMIT,
     UPGRADE_HASHED_BEARER_TOKENS,
     UPGRADE_UNIQUE_EMAILS,
     UPGRADE_UNIQUE_OAUTH_IDENTITY,
 )
 from users.models import RefreshToken, UserAccessToken
 
-_SHOWN_CONFLICTS = 20
 DUPLICATE_EMAILS_QUERY = (
     "SELECT id, email FROM users_user WHERE lower(email) IN "
     "(SELECT lower(email) FROM users_user GROUP BY lower(email) HAVING count(*) > 1);"
@@ -45,9 +45,13 @@ async def _oauth_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
     connection = await db.connection()
     if not await connection.run_sync(lambda sync: inspect(sync).has_table("users_oauth_account")):
         return []
-    rows = (await db.execute(oauth_identity_conflicts_query().limit(_SHOWN_CONFLICTS + 1))).all()
+    rows = (
+        await db.execute(
+            oauth_identity_conflicts_query().limit(DATA_COMPATIBILITY_REPORT_LIMIT + 1)
+        )
+    ).all()
     conflicts: dict[tuple[str, str], list[str]] = {}
-    for provider, account_id, user_id, email, link_id in rows[:_SHOWN_CONFLICTS]:
+    for provider, account_id, user_id, email, link_id in rows[:DATA_COMPATIBILITY_REPORT_LIMIT]:
         conflicts.setdefault((provider, account_id), []).append(
             f"{email!r} (user {user_id}, link {link_id})"
         )
@@ -63,9 +67,10 @@ async def _oauth_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
                 for (provider, account_id), owners in conflicts.items()
             )
             + (
-                f"\nMore conflicting links exist; showing the first {_SHOWN_CONFLICTS}. "
+                "\nMore conflicting links exist; "
+                f"showing the first {DATA_COMPATIBILITY_REPORT_LIMIT}. "
                 "Resolve them and rerun to list more."
-                if len(rows) > _SHOWN_CONFLICTS
+                if len(rows) > DATA_COMPATIBILITY_REPORT_LIMIT
                 else ""
             ),
             remediation_text=(
@@ -90,8 +95,8 @@ async def _email_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
         return []
     # Boot and doctor output lands in logs: name the conflicts by a masked
     # address and leave the full list to an operator's own query.
-    shown = ", ".join(mask_email(value) for value in conflicts[:_SHOWN_CONFLICTS])
-    more = len(conflicts) - _SHOWN_CONFLICTS
+    shown = ", ".join(mask_email(value) for value in conflicts[:DATA_COMPATIBILITY_REPORT_LIMIT])
+    more = len(conflicts) - DATA_COMPATIBILITY_REPORT_LIMIT
     return [
         DataCompatibilityIssue(
             upgrade_id=UPGRADE_UNIQUE_EMAILS,

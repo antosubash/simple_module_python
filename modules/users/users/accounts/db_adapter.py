@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
 from users.accounts.token_storage import prune_tokens
+from users.core.constants import OAUTH_IDENTITY_CONSTRAINT_NAME
 from users.core.settings import DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS
 from users.models import OAuthAccount, User, UserAccessToken
 from users.oauth.errors import OAuthAccountLinkedElsewhereError
@@ -123,8 +124,9 @@ def _is_oauth_identity_conflict(exc: IntegrityError) -> bool:
     # psycopg exposes diag; SQLAlchemy's asyncpg adapter chains the driver error.
     diagnostic = getattr(original, "diag", None) or getattr(original, "__cause__", None)
     sqlstate = getattr(original, "sqlstate", None) or getattr(original, "pgcode", None)
-    return sqlstate == "23505" and (
-        getattr(diagnostic, "constraint_name", None) == "uq_users_oauth_account_identity"
+    return (
+        sqlstate == "23505"
+        and getattr(diagnostic, "constraint_name", None) == OAUTH_IDENTITY_CONSTRAINT_NAME
     )
 
 

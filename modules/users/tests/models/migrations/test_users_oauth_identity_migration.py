@@ -85,7 +85,8 @@ def test_oauth_identity_migration_refuses_duplicates_or_roundtrips(duplicate_own
         engine.dispose()
 
 
-def test_migration_duplicate_report_is_bounded():
+@pytest.mark.parametrize("link_count", [20, 21, 100])
+def test_migration_duplicate_report_is_bounded(link_count):
     engine = sa.create_engine("sqlite://")
     try:
         with engine.begin() as conn:
@@ -99,7 +100,7 @@ def test_migration_duplicate_report_is_bounded():
             )
             conn.execute(
                 sa.text("INSERT INTO users_oauth_account VALUES (:id, 'u', 'github', 'subject')"),
-                [{"id": f"link-{index:02}"} for index in range(100)],
+                [{"id": f"link-{index:02}"} for index in range(link_count)],
             )
             with (
                 Operations.context(MigrationContext.configure(conn)),
@@ -108,9 +109,9 @@ def test_migration_duplicate_report_is_bounded():
                 _migration().upgrade()
             message = str(error.value)
             assert message.count("(user ") == 20
-            assert "more" in message.lower()
+            assert ("more" in message.lower()) is (link_count > 20)
             assert "link-19" in message and "link-20" not in message
-            assert conn.scalar(sa.text("SELECT count(*) FROM users_oauth_account")) == 100
+            assert conn.scalar(sa.text("SELECT count(*) FROM users_oauth_account")) == link_count
             assert not sa.inspect(conn).get_unique_constraints("users_oauth_account")
     finally:
         engine.dispose()

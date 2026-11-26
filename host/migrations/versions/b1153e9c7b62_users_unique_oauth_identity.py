@@ -8,6 +8,7 @@ Create Date: 2026-11-26 07:08:21.880485
 from collections.abc import Sequence
 
 from alembic import op
+from users.core.constants import DATA_COMPATIBILITY_REPORT_LIMIT, OAUTH_IDENTITY_CONSTRAINT_NAME
 from users.core.data_compatibility import oauth_identity_conflicts_query
 
 # revision identifiers, used by Alembic.
@@ -16,20 +17,22 @@ down_revision: str | None = "a1054e9c7b62"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-_SHOWN_CONFLICTS = 20
-
 
 def upgrade() -> None:
     conflicts = (
-        op.get_bind().execute(oauth_identity_conflicts_query().limit(_SHOWN_CONFLICTS + 1)).all()
+        op.get_bind()
+        .execute(oauth_identity_conflicts_query().limit(DATA_COMPATIBILITY_REPORT_LIMIT + 1))
+        .all()
     )
     listed = [
         f"({provider!r}, {account_id!r}): {email!r} (user {user_id}, link {link_id})"
-        for provider, account_id, user_id, email, link_id in conflicts[:_SHOWN_CONFLICTS]
+        for provider, account_id, user_id, email, link_id in conflicts[
+            :DATA_COMPATIBILITY_REPORT_LIMIT
+        ]
     ]
-    if len(conflicts) > _SHOWN_CONFLICTS:
+    if len(conflicts) > DATA_COMPATIBILITY_REPORT_LIMIT:
         listed.append(
-            f"More conflicting links exist; showing the first {_SHOWN_CONFLICTS}. "
+            f"More conflicting links exist; showing the first {DATA_COMPATIBILITY_REPORT_LIMIT}. "
             "Resolve them and rerun to list more."
         )
     if listed:
@@ -43,11 +46,9 @@ def upgrade() -> None:
             "No links or users are removed automatically."
         )
     with op.batch_alter_table("users_oauth_account") as batch:
-        batch.create_unique_constraint(
-            "uq_users_oauth_account_identity", ["oauth_name", "account_id"]
-        )
+        batch.create_unique_constraint(OAUTH_IDENTITY_CONSTRAINT_NAME, ["oauth_name", "account_id"])
 
 
 def downgrade() -> None:
     with op.batch_alter_table("users_oauth_account") as batch:
-        batch.drop_constraint("uq_users_oauth_account_identity", type_="unique")
+        batch.drop_constraint(OAUTH_IDENTITY_CONSTRAINT_NAME, type_="unique")
