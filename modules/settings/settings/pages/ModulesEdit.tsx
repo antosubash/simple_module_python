@@ -6,6 +6,7 @@ import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { ArrowRight, Box, Search, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ModuleForm, type ModuleView } from '../ui/components/ModuleForm';
@@ -105,7 +106,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
               placeholder={t(keys.settings.modules.search_placeholder)}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="h-9 bg-card pl-9 text-[12.5px] max-lg:min-h-11 pointer-coarse:min-h-11"
+              className={`h-9 bg-card pl-9 text-[12.5px] ${TOUCH_TARGET_CLASS}`}
             />
           </div>
           <nav
@@ -164,7 +165,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           <div className="mt-auto border-t border-border pt-3.5 max-lg:mt-3.5">
             <a
               href={ROUTES.browse}
-              className="inline-flex items-center text-[12.5px] font-medium text-primary-text hover:text-primary-text-hover max-lg:min-h-11 pointer-coarse:min-h-11"
+              className={`inline-flex items-center text-[12.5px] font-medium text-primary-text hover:text-primary-text-hover ${TOUCH_TARGET_CLASS}`}
             >
               {t(keys.settings.modules.browse_free_form_link)}
             </a>

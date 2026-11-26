@@ -1,3 +1,5 @@
+import { http } from '@inertiajs/core';
+import { router } from '@inertiajs/react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -173,18 +175,22 @@ describe('SidebarLayout closed drawer accessibility (#638)', () => {
 });
 
 it.each(['/admin', '/admin/settings/', '/admin/settings/store', '/admin/feature-flags/'])(
-  'closes the persistent drawer after navigating to %s',
+  'closes the persistent drawer after history navigation to %s',
   (url) => {
     const trigger = setup();
     act(() => {
-      document.dispatchEvent(new CustomEvent('inertia:navigate', { detail: { page: { url } } }));
+      document.dispatchEvent(
+        new CustomEvent('inertia:navigate', { detail: { page: { url }, type: 'history' } }),
+      );
     });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    // Same-URL visits must close it too; a URL dependency alone misses these.
+    // History entries can share a URL; a URL dependency alone misses these.
     fireEvent.click(trigger);
     act(() => {
-      document.dispatchEvent(new CustomEvent('inertia:navigate', { detail: { page: { url } } }));
+      document.dispatchEvent(
+        new CustomEvent('inertia:navigate', { detail: { page: { url }, type: 'history' } }),
+      );
     });
     expect(screen.queryByRole('dialog')).toBeNull();
   },
@@ -203,4 +209,79 @@ it('keeps Back to app outside the scrolling navigation', () => {
   const back = screen.getByRole('link', { name: 'back_to_app' });
   expect(screen.getByRole('navigation')).not.toContainElement(back);
   expect(back.parentElement?.parentElement?.parentElement).toHaveClass('shrink-0');
+});
+
+it('closes real same-URL and replacement visits but preserves background updates', async () => {
+  window.history.replaceState({}, '', '/admin/settings');
+  const page = {
+    component: 'Settings/ModulesEdit',
+    props: { errors: {} },
+    url: '/admin/settings',
+    version: null,
+    flash: {},
+    rescuedProps: [],
+  };
+  const initial = new Promise<void>((resolve) => router.once('navigate', () => resolve()));
+  router.init({ initialPage: page, resolveComponent: () => ({}), swapComponent: async () => {} });
+  await initial;
+  const request = vi.spyOn(http.getClient(), 'request').mockImplementation(async (config) => ({
+    status: 200,
+    data: { ...page, url: new URL(config.url).pathname + new URL(config.url).search },
+    headers: { 'x-inertia': 'true' },
+  }));
+  const trigger = setup();
+  try {
+    const stopGuard = router.on('before', () => false);
+    try {
+      await act(async () => router.visit('/admin'));
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    } finally {
+      stopGuard();
+    }
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.reload({ only: ['modules'], data: { module: 'users' }, onFinish: () => resolve() }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.replace({
+          url: '/admin/settings?module=users',
+          preserveState: true,
+          onFinish: () => resolve(),
+        }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await act(async () => {
+      router.prefetch('/admin');
+      await vi.waitFor(() => expect(router.getCached('/admin')).toMatchObject({ inFlight: false }));
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.visit('/admin', { replace: true, onFinish: () => resolve() }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.visit('/admin', { onFinish: () => resolve() }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.push({ url: '/admin/users', onFinish: () => resolve() }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  } finally {
+    request.mockRestore();
+    router.cancelAll();
+    router.flushAll();
+  }
 });

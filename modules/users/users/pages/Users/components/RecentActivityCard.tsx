@@ -2,6 +2,9 @@ import { Link } from '@inertiajs/react';
 import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
+
+const HISTORY_LINK_CLASS = `inline-flex items-center ${TOUCH_TARGET_CLASS} text-primary-700 hover:text-primary-800 dark:text-primary-400`;
 
 export interface ActivityEntry {
   at: string;
@@ -61,7 +64,7 @@ export function RecentActivityCard({ entries, userId }: Props) {
                 </span>
                 <Link
                   href={entry.href}
-                  className="flex-1 inline-flex items-center max-lg:min-h-11 pointer-coarse:min-h-11 hover:text-primary-700 dark:hover:text-primary-400"
+                  className={`flex-1 inline-flex items-center ${TOUCH_TARGET_CLASS} hover:text-primary-700 dark:hover:text-primary-400`}
                 >
                   {entry.summary}
                 </Link>
@@ -72,13 +75,13 @@ export function RecentActivityCard({ entries, userId }: Props) {
         <div className="mt-auto flex flex-col items-start gap-2 pt-4 text-sm font-medium">
           <Link
             href={`/admin/audit-log/?user_id=${encodeURIComponent(userId)}`}
-            className="inline-flex items-center max-lg:min-h-11 pointer-coarse:min-h-11 text-primary-700 hover:text-primary-800 dark:text-primary-400"
+            className={HISTORY_LINK_CLASS}
           >
             {t(keys.users.recent_activity.activity_by_user)}
           </Link>
           <Link
             href={`/admin/audit-log/?target_user_id=${encodeURIComponent(userId)}`}
-            className="inline-flex items-center max-lg:min-h-11 pointer-coarse:min-h-11 text-primary-700 hover:text-primary-800 dark:text-primary-400"
+            className={HISTORY_LINK_CLASS}
           >
             {t(keys.users.recent_activity.account_changes)}
           </Link>

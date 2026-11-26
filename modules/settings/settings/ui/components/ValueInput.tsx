@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import type { ValueType } from '../../pages/types';
 
 export type { ValueType } from '../../pages/types';
@@ -55,7 +56,7 @@ export default function ValueInput({ valueType, value, onValueChange, required =
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
         required={required}
-        className="font-mono max-lg:min-h-11 pointer-coarse:min-h-11"
+        className={`font-mono ${TOUCH_TARGET_CLASS}`}
       />
     );
   }

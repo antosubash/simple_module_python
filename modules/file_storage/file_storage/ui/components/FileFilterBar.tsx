@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -84,7 +85,7 @@ export function FileFilterBar({ filters, facets, uploaders, onChange }: Props) {
       <div className="relative flex-1 sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          className="pl-9 max-lg:min-h-11 pointer-coarse:min-h-11"
+          className={`pl-9 ${TOUCH_TARGET_CLASS}`}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t(keys.file_storage.filters.search_placeholder)}

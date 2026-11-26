@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { InterpolatedText } from '@simple-module-py/ui/components/InterpolatedText';
 import { Card } from '@simple-module-py/ui/components/ui/card';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { TenantPicker } from './TenantPicker';
 
 interface Props {
@@ -42,7 +43,7 @@ export function ScopeCard({ tenantId, tenants, auditLogUrl, onSelect }: Props) {
       {auditLogUrl && (
         <Link
           href={auditLogUrl}
-          className="inline-flex items-center text-xs font-medium text-primary-text hover:underline sm:ml-auto max-lg:min-h-11 pointer-coarse:min-h-11"
+          className={`inline-flex items-center text-xs font-medium text-primary-text hover:underline sm:ml-auto ${TOUCH_TARGET_CLASS}`}
         >
           {t(keys.feature_flags.browse.view_history)}
         </Link>

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { compile } from '@tailwindcss/node';
 import postcss from 'postcss';
 import { describe, expect, it } from 'vitest';
+import { deriveBrandRamp } from '../lib/color';
 
 const ROOT = resolve(__dirname, '../../../..');
 
@@ -83,20 +84,7 @@ describe('sidebar text contrast', () => {
 });
 
 it('keeps dark muted text at AA contrast on the page, cards and muted surfaces (#1160)', async () => {
-  const base = join(ROOT, 'packages/ui/src/styles');
-  const compiler = await compile(readFileSync(join(base, 'globals.css'), 'utf8'), {
-    base,
-    onDependency() {},
-  });
-  const tokens = new Map<string, number>();
-  postcss.parse(compiler.build(['text-muted-foreground'])).walkRules((rule) => {
-    if (rule.selector !== '.dark') return;
-    rule.walkDecls((decl) => {
-      if (!['--muted-foreground', '--background', '--card', '--muted'].includes(decl.prop)) return;
-      const color = decl.value.match(/^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/);
-      if (color) tokens.set(decl.prop, luminance(+color[1], +color[2], +color[3]));
-    });
-  });
+  const tokens = await themeTokens('.dark');
   const fg = tokens.get('--muted-foreground');
   expect(fg).toBeDefined();
   for (const surface of ['--background', '--card', '--muted']) {
@@ -107,13 +95,13 @@ it('keeps dark muted text at AA contrast on the page, cards and muted surfaces (
 });
 
 // Read the compiled theme, so these checks cover the values Tailwind emits.
-async function themeTokens(selector: string) {
+async function themeTokens(selector: string, brand?: string) {
   const base = join(ROOT, 'packages/ui/src/styles');
   const compiler = await compile(readFileSync(join(base, 'globals.css'), 'utf8'), {
     base,
     onDependency() {},
   });
-  const tokens = new Map<string, number>();
+  const values = new Map<string, string>();
   postcss
     .parse(compiler.build(['bg-primary', 'text-primary-text', 'text-primary-text-hover']))
     .walkRules((rule) => {
@@ -125,12 +113,37 @@ async function themeTokens(selector: string) {
       )
         return;
       rule.walkDecls((decl) => {
-        const color = decl.value.match(/^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/);
-        if (color) tokens.set(decl.prop, luminance(+color[1], +color[2], +color[3]));
+        values.set(decl.prop, decl.value);
       });
     });
+  if (brand) {
+    for (const [name, value] of Object.entries(deriveBrandRamp(brand) ?? {})) values.set(name, value);
+  }
+  const tokens = new Map<string, number>();
+  for (const [name, raw] of values) {
+    let value = raw;
+    let reference = value.match(/^var\((--[\w-]+)\)$/);
+    while (reference) {
+      value = values.get(reference[1]) ?? '';
+      reference = value.match(/^var\((--[\w-]+)\)$/);
+    }
+    const color = value.match(/^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/);
+    if (color) tokens.set(name, luminance(+color[1], +color[2], +color[3]));
+  }
   return tokens;
 }
+
+it.each([':root', '.dark'])(
+  'keeps primary text in the configured brand palette on %s',
+  async (selector) => {
+    const defaults = await themeTokens(selector);
+    const branded = await themeTokens(selector, '#ff0000');
+    for (const token of ['--color-primary-text', '--color-primary-text-hover']) {
+      expect(branded.get(token)).toBeDefined();
+      expect(branded.get(token)).not.toBe(defaults.get(token));
+    }
+  },
+);
 
 it('keeps light primary buttons and active sidebar text at AA, including button hover (#1184)', async () => {
   const tokens = await themeTokens(':root');

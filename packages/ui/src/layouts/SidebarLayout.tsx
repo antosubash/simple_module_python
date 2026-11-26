@@ -66,7 +66,29 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const drawerRef = useRef<HTMLElement>(null);
   const drawerId = useId();
-  useEffect(() => router.on('navigate', closeSidebar), [closeSidebar]);
+  useEffect(() => {
+    const stopNavigate = router.on('navigate', ({ detail: { type } }) => {
+      // Server visits are handled below; partial reloads can emit navigate too.
+      if (type === 'history') closeSidebar();
+    });
+    const stopClientVisit = router.on('clientVisit', ({ detail: { replace } }) => {
+      if (!replace) closeSidebar();
+    });
+    const stopBefore = router.on('before', (event) => {
+      const { visit } = event.detail;
+      if (visit.prefetch || visit.only.length || visit.except.length || visit.reset.length) return;
+      // Same-URL and replacement visits emit no navigate event, even from cache.
+      // Wait for every leave guard to have a chance to cancel the visit.
+      queueMicrotask(() => {
+        if (!event.defaultPrevented) closeSidebar();
+      });
+    });
+    return () => {
+      stopNavigate();
+      stopClientVisit();
+      stopBefore();
+    };
+  }, [closeSidebar]);
   useDrawerA11y(sidebarOpen, closeSidebar, drawerRef);
 
   const menuItems = menus?.[menuKey] ?? NO_ITEMS;

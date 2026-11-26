@@ -4,6 +4,7 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SegmentedControl } from '@simple-module-py/ui/components/SegmentedControl';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Filters, IndexFilters } from '../../admin/components/IndexFilters';
@@ -116,7 +117,7 @@ function Index({
         actions={
           // One entry point: invite-vs-create is a choice inside the form, not
           // a choice between two buttons made before seeing either.
-          <Button asChild className="gap-1.5 max-lg:min-h-11 pointer-coarse:min-h-11">
+          <Button asChild className={`gap-1.5 ${TOUCH_TARGET_CLASS}`}>
             <Link href={ADD_PEOPLE_URL}>
               <Plus className="h-4 w-4" />
               {t(keys.users.index.add_people)}
