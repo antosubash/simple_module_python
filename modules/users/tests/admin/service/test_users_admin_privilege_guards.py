@@ -1,5 +1,7 @@
 """Delegated user management must not grant access to stronger accounts (#624)."""
 
+import uuid
+
 import httpx
 import pytest
 from _users_admin_support import _build_service, _make_user
@@ -125,6 +127,31 @@ async def test_delegate_cannot_control_privileged_target(
     await users_db.refresh(target)
     assert target.email == "protected@example.com"
     assert target.is_active is True
+
+
+@pytest.mark.parametrize("missing", ["user", "link", "owner"])
+async def test_delegate_unlink_not_owned_is_404(delegated_client, users_db, missing):
+    client, actor_id = delegated_client
+    target = await _make_user(users_db, "protected@example.com", role_names=["admin"])
+    link = OAuthAccount(
+        user_id=actor_id,
+        oauth_name="oidc",
+        account_id="manager-identity",
+        account_email="manager@example.com",
+        access_token="at",
+    )
+    users_db.add(link)
+    await users_db.commit()
+    page = inertia_page(await client.get(f"/admin/users/{actor_id}"))
+    uid = uuid.uuid4() if missing == "user" else target.id
+    link_id = uuid.uuid4() if missing == "link" else link.id
+    response = await client.delete(
+        f"/admin/users/{uid}/linked-sign-ins/{link_id}",
+        headers={"X-CSRF-Token": page.props["csrfToken"]},
+    )
+    assert response.status_code == 404
+    await users_db.refresh(link)
+    assert link.user_id == actor_id
 
 
 async def test_delegate_can_manage_ordinary_user(delegated_client, users_db):

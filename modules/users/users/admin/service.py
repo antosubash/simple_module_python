@@ -289,10 +289,10 @@ class UserService(_UserAdminSafety):
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"
 
     async def unlink_sign_in(self, user_id: uuid.UUID, link_id: uuid.UUID) -> None:
-        await self._require_manageable_user(user_id)
         link = await self._db.get(OAuthAccount, link_id)
         if link is None or link.user_id != user_id:
             raise UserNotFoundError(user_id)
+        await self._require_manageable_user(user_id)
         # ORM deletion uses the same audit capture as admin detail edits.
         await self._db.delete(link)
         await self._db.flush()
