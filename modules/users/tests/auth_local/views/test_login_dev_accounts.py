@@ -7,7 +7,12 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from simple_module_hosting.frontend.inertia_deps import get_inertia
-from simple_module_inertia import Inertia, InertiaConfig, InertiaMiddleware, inertia_dependency_factory
+from simple_module_inertia import (
+    Inertia,
+    InertiaConfig,
+    InertiaMiddleware,
+    inertia_dependency_factory,
+)
 from simple_module_test import inertia_page
 from starlette.middleware.sessions import SessionMiddleware
 from users.auth_local.views import login_page
