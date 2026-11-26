@@ -143,7 +143,9 @@ def remove_env(ctx: click.Context, name: str) -> None:
     was_current = config.current == name
     # Tenants the config has seen (before this env is dropped): legacy keyring keys to try.
     tenants = sorted(
-        {e.tenant for e in config.envs.values() if e.tenant} | ({state.flag_tenant} - {None})
+        {e.tenant for e in config.envs.values() if e.tenant}
+        | ({state.flag_tenant} if state.flag_tenant else set())
+    )
     )
     config.user_envs.discard(name)
     config.overrides.pop(name, None)
