@@ -558,6 +558,9 @@ open **Users → the user → Linked sign-ins** in the admin area and use **Remo
 on the old identity, then confirm. This removes only that link; the user, roles
 and existing sessions stay intact. The next sign-in can link the new identity
 when the provider proves the matching email address.
+Removing the last linked sign-in is allowed, but the confirmation warns that the
+user then needs a provider identity with a matching verified email address or
+another sign-in method to sign in again.
 
 The Edit page warns when a user has multiple links for the same provider. Review
 the identities and remove the obsolete links individually. To find existing

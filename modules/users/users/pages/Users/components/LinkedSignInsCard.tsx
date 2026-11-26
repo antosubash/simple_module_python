@@ -105,7 +105,12 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
         onOpenChange={(open) => !removing && !open && setPending(null)}
         icon={TriangleAlert}
         title={t(keys.users.linked_sign_ins.confirm_title, { provider: pending?.provider ?? '' })}
-        description={t(keys.users.linked_sign_ins.confirm_body)}
+        description={
+          <>
+            {t(keys.users.linked_sign_ins.confirm_body)}
+            {links.length === 1 && <> {t(keys.users.linked_sign_ins.last_link_warning)}</>}
+          </>
+        }
         confirmLabel={t(keys.users.linked_sign_ins.remove)}
         cancelLabel={t(keys.users.common.cancel)}
         busy={removing}

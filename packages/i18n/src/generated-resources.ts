@@ -1331,6 +1331,7 @@ export default {
     'users.linked_sign_ins.confirm_body': '',
     'users.linked_sign_ins.confirm_title': '',
     'users.linked_sign_ins.duplicates': '',
+    'users.linked_sign_ins.last_link_warning': '',
     'users.linked_sign_ins.last_sign_in': '',
     'users.linked_sign_ins.never': '',
     'users.linked_sign_ins.remove': '',

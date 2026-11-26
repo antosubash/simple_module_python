@@ -19,6 +19,8 @@ configureI18n({
     'users.linked_sign_ins.remove': 'Remove',
     'users.linked_sign_ins.confirm_title': 'Remove {provider} sign-in?',
     'users.linked_sign_ins.confirm_body': 'This identity will no longer sign in as this user.',
+    'users.linked_sign_ins.last_link_warning':
+      'This is the last linked sign-in, so the user will need a provider identity with a verified email address matching this account, or another sign-in method, to sign in again.',
     'users.linked_sign_ins.removed': 'Sign-in removed',
     'users.linked_sign_ins.remove_failed': 'Could not remove sign-in',
     'users.linked_sign_ins.duplicates': 'Multiple identities are linked for the same provider.',
@@ -81,6 +83,26 @@ test('duplicate callout follows the server prop', () => {
   expect(screen.getByRole('alert')).toHaveTextContent(/Multiple identities/);
   rerender(<LinkedSignInsCard userId="user-1" links={links} hasDuplicates={false} />);
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+test.each([1, 2])('last-link warning appears only with one link (%i links)', (count) => {
+  render(
+    <LinkedSignInsCard
+      userId="user-1"
+      links={[links[0], { ...links[0], id: 'link-2' }].slice(0, count)}
+      hasDuplicates={false}
+    />,
+  );
+  fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]);
+  const dialog = screen.getByRole('alertdialog');
+  expect(dialog).toHaveTextContent('This identity will no longer sign in as this user.');
+  const warning = within(dialog).queryByText(/This is the last linked sign-in/);
+  if (count === 1) {
+    expect(warning).toHaveTextContent(/verified email address matching this account/);
+    expect(warning).toHaveTextContent(/or another sign-in method/);
+  } else {
+    expect(warning).not.toBeInTheDocument();
+  }
 });
 
 test('cancel keeps the link; confirm deletes its view URL and reports success', () => {

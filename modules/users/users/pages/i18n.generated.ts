@@ -227,6 +227,7 @@ export const keys = {
       confirm_body: 'users.linked_sign_ins.confirm_body',
       confirm_title: 'users.linked_sign_ins.confirm_title',
       duplicates: 'users.linked_sign_ins.duplicates',
+      last_link_warning: 'users.linked_sign_ins.last_link_warning',
       last_sign_in: 'users.linked_sign_ins.last_sign_in',
       never: 'users.linked_sign_ins.never',
       remove: 'users.linked_sign_ins.remove',
@@ -642,6 +643,7 @@ type ModuleTranslationResources = {
   readonly 'users.linked_sign_ins.confirm_body': '';
   readonly 'users.linked_sign_ins.confirm_title': '';
   readonly 'users.linked_sign_ins.duplicates': '';
+  readonly 'users.linked_sign_ins.last_link_warning': '';
   readonly 'users.linked_sign_ins.last_sign_in': '';
   readonly 'users.linked_sign_ins.never': '';
   readonly 'users.linked_sign_ins.remove': '';

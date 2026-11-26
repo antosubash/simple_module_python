@@ -435,6 +435,7 @@
     "remove": "Entfernen",
     "confirm_title": "{provider}-Anmeldung entfernen?",
     "confirm_body": "Dies entfernt nur diese verknüpfte Anmeldung. Benutzer, Rollen und bestehende Sitzungen bleiben erhalten. Eine spätere Anmeldung kann erneut eine Identität verknüpfen, wenn der Anbieter die übereinstimmende E-Mail-Adresse bestätigt.",
+    "last_link_warning": "Dies ist die letzte verknüpfte Anmeldung; um sich erneut anzumelden, benötigt der Benutzer daher eine Anbieteridentität mit einer bestätigten E-Mail-Adresse, die mit der dieses Kontos übereinstimmt, oder eine andere Anmeldemethode.",
     "removed": "Anmeldung entfernt",
     "remove_failed": "Anmeldung konnte nicht entfernt werden",
     "duplicates": "Mehrere Identitäten desselben Anbieters sind verknüpft. Prüfen Sie die verknüpften Anmeldungen und entfernen Sie veraltete Identitäten.",
