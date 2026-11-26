@@ -125,7 +125,10 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
     elif is_single_tenant(who):
         report.ok("tenant", "single-tenant server; --tenant is ignored")
     elif tenant_matches(wanted, who):
-        report.ok("tenant", f"token is pinned to {wanted}")
+        report.ok(
+            "tenant",
+            f"token is pinned to {describe_tenant(who.get('tenant_slug'), who.get('tenant_id'))}",
+        )
     else:
         report.fail(
             "tenant",

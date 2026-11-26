@@ -14,9 +14,9 @@ from simple_module_remote.config.credentials import (
     CredentialStore,
     StoredCredential,
     credential_key,
-    resolve_token,
 )
 from simple_module_remote.config.environments import Environment
+from simple_module_remote.config.resolve import resolve_token
 
 CLI = "smdev"
 SECRET = "s3cr3t-token-value"

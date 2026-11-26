@@ -104,7 +104,7 @@ def _auth_hint(ctx: RunContext, text: str) -> None:
     detail = _detail(text)
     lowered = detail.lower()
     shown = ctx.redact(detail)[:ERROR_BODY_CHARS]  # redact the whole text, then cut
-    if "tenant" in lowered:
+    if "tenant" in lowered or "organisation" in lowered or "organization" in lowered:
         say(
             ctx,
             f"hint: the server needs a tenant: {shown}; pass --tenant or use a token pinned to one",
@@ -211,7 +211,7 @@ def _refuse_render_flags(ctx: RunContext, response: httpx.Response, values: dict
     if given:
         kind = response.headers.get("Content-Type", "").split(";", 1)[0]
         raise click.ClickException(
-            f"{'/'.join(given)} do not apply: the response is {kind}, not JSON "
+            f"{'/'.join(given)} cannot be used here: the response is {kind}, not JSON "
             "(redirect stdout or use --out FILE)"
         )
 

@@ -114,11 +114,14 @@ def test_env_add_without_url_for_new_env_needs_url(make_cli):
     assert result.exit_code == 1 and "--url is required" in result.output
 
 
-def test_env_add_warns_when_url_or_tenant_change(make_cli):
+def test_env_add_warns_only_when_a_login_is_stored(make_cli):
     cli, runner = make_cli(), CliRunner()
     runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
-    moved = runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:9000"])
-    assert "stored login" in moved.output and "login" in moved.output
+    quiet = runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:9000"])
+    assert "stored login" not in quiet.output  # no login exists yet
+    runner.invoke(cli, ["--env", "dev", "login", "--token-stdin"], input="tok\n")
+    moved = runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:9100"])
+    assert "stored login" in moved.output and "--token-stdin" in moved.output
     retenant = runner.invoke(cli, ["env", "add", "dev", "--tenant", "acme"])
     assert "stored login" in retenant.output
 

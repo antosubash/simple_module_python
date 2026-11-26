@@ -19,7 +19,6 @@ from simple_module_remote.config.credentials import (
     CredentialStore,
     KeyringBackend,
     login_hint,
-    resolve_token,
 )
 from simple_module_remote.config.environments import (
     Config,
@@ -29,6 +28,7 @@ from simple_module_remote.config.environments import (
     select_env,
     validate_tenant,
 )
+from simple_module_remote.config.resolve import ResolvedToken, resolve_credential
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.generate.execute import run_operation
 from simple_module_remote.generate.operations import Operation
@@ -63,7 +63,7 @@ class AppState:
     flag_env: str | None = None
     flag_tenant: str | None = None
     _store: CredentialStore | None = None
-    _tokens: dict[tuple[str, str | None, str], str] = field(default_factory=dict)
+    _tokens: dict[tuple[str, str | None, str], ResolvedToken] = field(default_factory=dict)
 
     @property
     def user_agent(self) -> str:
@@ -112,14 +112,17 @@ class AppState:
                 self._store = CredentialStore(self.cli, backend=self.backend)
         return self._store
 
-    def token(self, env: Environment, explicit: bool) -> str:
+    def _resolved(self, env: Environment, explicit: bool) -> ResolvedToken:
         key = (env.name, self.tenant(env), env.origin)
         if key not in self._tokens:
             with self.guard():
-                self._tokens[key] = resolve_token(
+                self._tokens[key] = resolve_credential(
                     self.store(), env, self.tenant(env), self.environ, self.cli, explicit
                 )
         return self._tokens[key]
+
+    def token(self, env: Environment, explicit: bool) -> str:
+        return self._resolved(env, explicit).token
 
     def client(self, env: Environment, token: str | None) -> ApiClient:
         with self.guard():
@@ -134,9 +137,14 @@ class AppState:
             )
 
     def run_context(self, env: Environment, explicit: bool) -> RunContext:
-        return RunContext(
+        def make_client() -> ApiClient:
+            client = self.client(env, self.token(env, explicit))
+            run_ctx.tenant = self._resolved(env, explicit).tenant_label  # one canonical name
+            return client
+
+        run_ctx = RunContext(
             env=env,
-            client_factory=lambda: self.client(env, self.token(env, explicit)),
+            client_factory=make_client,
             is_tty=sys.stdout.isatty(),
             interactive=sys.stdin.isatty() and sys.stderr.isatty(),
             login_hint=login_hint(self.cli, env, self.tenant(env)),
@@ -147,6 +155,7 @@ class AppState:
             prompt=lambda text: click.prompt(text, default="", show_default=False, err=True),
             root=self.root,
         )
+        return run_ctx
 
     def run(self, op: Operation, values: dict[str, Any]) -> int:
         """Select the environment and execute ``op``; returns the process exit code."""

@@ -17,8 +17,7 @@ from simple_module_remote.config._file_store import (
     FileStoreError,
 )
 from simple_module_remote.config.environments import Environment
-from simple_module_remote.config.paths import env_prefix, env_var_name
-from simple_module_remote.http.safety import normalize_origin
+from simple_module_remote.config.paths import env_prefix
 
 TOKEN_ENV_SUFFIX = "_TOKEN"
 MASK = "***"
@@ -187,19 +186,25 @@ class CredentialStore:
         except keyring.errors.KeyringError:
             raise CredentialError("the OS keyring could not be written") from None
 
-    def delete_env(self, env: str) -> list[str]:
-        """Delete every credential of ``env`` (``env`` and ``env/<tenant>``); the keys removed."""
+    def keys_for_env(self, env: str) -> list[str]:
+        """The stored logins of ``env``: its own key and every ``env/<tenant>`` key."""
         try:
             if (file := self._file_store()) is not None:
                 candidates = file.keys()
             else:
-                candidates = [env, *self._index()]
+                backend = self._require_backend()
+                candidates = [
+                    k for k in [env, *self._index()] if backend.get_password(self._service, k)
+                ]
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
         except keyring.errors.KeyringError:
             raise CredentialError("the OS keyring could not be read") from None
-        wanted = [k for k in dict.fromkeys(candidates) if k == env or k.startswith(env + "/")]
-        return [key for key in wanted if self.delete(key)]
+        return [k for k in dict.fromkeys(candidates) if k == env or k.startswith(env + "/")]
+
+    def delete_env(self, env: str) -> list[str]:
+        """Delete every credential of ``env`` (``env`` and ``env/<tenant>``); the keys removed."""
+        return [key for key in self.keys_for_env(env) if self.delete(key)]
 
     def delete(self, key: str) -> bool:
         try:
@@ -231,45 +236,3 @@ def login_hint(cli: str, env: Environment, tenant: str | None) -> str:
     hint = f"{cli} --env {env.name}"
     hint = f"{hint} --tenant {tenant}" if tenant else hint
     return f"{hint} login --token"
-
-
-def resolve_token(
-    store: CredentialStore,
-    env: Environment,
-    tenant: str | None,
-    environ: Mapping[str, str],
-    cli: str,
-    explicit: bool,
-) -> str:
-    var = token_env_var(cli)
-    from_env = environ.get(var)
-    if from_env:
-        if explicit:
-            return validate_token(from_env, source=var)
-        raise CredentialError(
-            f"{var} is set but not used: it is only honoured when the environment is chosen "
-            f"explicitly (pass --env or set {env_var_name(cli)})"
-        )
-    cred = store.get(credential_key(env.name, tenant))
-    hint = login_hint(cli, env, tenant)
-    if cred is None:
-        raise CredentialError(f"no stored credentials for {env.name!r}: run `{hint}`")
-    if (
-        normalize_origin(cred.origin) != env.origin
-    ):  # tolerates credentials stored pre-normalisation
-        raise CredentialError(
-            f"the stored token for {env.name!r} was issued for {cred.origin}, "
-            f"but the environment now points at {env.origin}: run `{hint}`"
-        )
-    pinned = {"tenant_id": cred.tenant_id, "tenant_slug": cred.tenant_slug}
-    if (
-        tenant
-        and cred.tenant_id is not None
-        and not is_single_tenant(pinned)
-        and tenant not in (cred.tenant_id, cred.tenant_slug)
-    ):
-        raise CredentialError(
-            f"the stored token for {credential_key(env.name, tenant)!r} is pinned to tenant "
-            f"{describe_tenant(cred.tenant_slug, cred.tenant_id)}, not {tenant!r}: run `{hint}`"
-        )
-    return cred.token

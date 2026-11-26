@@ -102,10 +102,12 @@ def add_env(
     with state.guard():
         save_config(state.cli, config)
     click.echo(f"{'updated' if existing else 'added'} environment {name} ({sanitize(url)})")
-    if changed:
+    with state.guard():
+        has_login = changed and bool(state.store().keys_for_env(name))
+    if has_login:
         click.echo(
             f"warning: the stored login for {name} was issued for the old url/tenant and may "
-            f"no longer apply; run `{state.cli} --env {name} login --token` again",
+            f"no longer apply; run `{state.cli} --env {name} login --token-stdin` again",
             err=True,
         )
 

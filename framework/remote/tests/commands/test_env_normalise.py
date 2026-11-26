@@ -1,11 +1,8 @@
 import pytest
 from click.testing import CliRunner
-from simple_module_remote.config.credentials import (
-    CredentialStore,
-    StoredCredential,
-    resolve_token,
-)
+from simple_module_remote.config.credentials import CredentialStore, StoredCredential
 from simple_module_remote.config.environments import Environment
+from simple_module_remote.config.resolve import resolve_token
 from simple_module_remote.http.safety import normalize_url
 
 

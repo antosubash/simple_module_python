@@ -39,7 +39,10 @@ uv run smdev env use staging
 uv run smdev env list
 ```
 
-Plain `http://` is accepted only for loopback hosts. URLs may not contain
+Environment URLs are stored canonical: lowercase scheme and host, no default
+port (`:443`, `:80`), no trailing slash, and no userinfo (not even an empty
+`user@`). Logins stored before this normalisation still match: the credential's
+origin is normalised when compared. Plain `http://` is accepted only for loopback hosts. URLs may not contain
 whitespace, control characters or backslashes; environment names are 1-40
 lowercase letters, digits or `-`, starting with a letter or digit. `local` exists
 before you add anything: `smdev env use local` is all a dev checkout needs. The environment is chosen by
@@ -103,7 +106,7 @@ says "the server needs a tenant" instead of suggesting a new login.
 Flags: `--dry-run`, `-o`/`--output`, `--columns`, `-q`, `--out FILE` and `--yes` on
 every command (`--yes` only matters on a protected environment); body flags exist
 only on commands with a body: `--json`, `--file` (body, `-` for
-stdin), `--set key=value`, `--set-json key=<json>` (NaN and Infinity are
+stdin), `--set key=value`, `--set-json key=<json>` (NaN, Infinity and numbers that overflow, like `1e999`, are
 refused); `--dry-run` prints the request and sends nothing. A body that is required but has only
 optional fields is sent as `{}` when no body flag is given. `-o id` and `-q`
 print `id`, else `name`, `key`, `slug` or `email`, and fail with a hint to use
@@ -188,4 +191,4 @@ sequences, bidi overrides) before the token is redacted from it, and long error
 bodies are cut at 500 characters. A 429 answer is retried up to three times and
 the wait is announced on stderr. On a protected environment the typed name must
 match exactly. `--tenant` is ignored (with a note at login) on a single-tenant
-server, and `logout` with no stored token exits 1.
+server, whose login is kept in the plain environment slot, and `logout` with no stored token exits 1.

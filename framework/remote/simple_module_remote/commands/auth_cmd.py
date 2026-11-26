@@ -17,6 +17,7 @@ from simple_module_remote.config.credentials import (
     tenant_matches,
     validate_token,
 )
+from simple_module_remote.config.resolve import find_credential
 from simple_module_remote.http.errors import AUTH_STATUSES, ApiError, exit_code_for
 from simple_module_remote.output.sanitize import sanitize
 
@@ -88,7 +89,8 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
             ) from None
         raise _api_failure(exc, "the token was not accepted; nothing was stored") from None
     wanted = state.tenant(env)
-    if wanted and is_single_tenant(who):
+    single = bool(wanted) and is_single_tenant(who)
+    if single:
         click.echo(
             f"note: {env.name} is a single-tenant server; --tenant {sanitize(wanted)} is ignored",
             err=True,
@@ -100,7 +102,7 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
             "nothing was stored"
         )
     store = state.store()
-    where = credential_key(env.name, wanted)
+    where = credential_key(env.name, None if single else wanted)  # the plain slot when ignored
     pin_id, pin_slug = who.get("tenant_id"), who.get("tenant_slug")
     with state.guard():
         store.put(
@@ -122,8 +124,11 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
 def logout(ctx: click.Context) -> None:
     state = state_of(ctx)
     env, _ = state.select()
-    where = credential_key(env.name, state.tenant(env))
+    tenant = state.tenant(env)
+    where = credential_key(env.name, tenant)
     try:
+        found = find_credential(state.store(), env, tenant)
+        where = found[0] if found else where
         removed = state.store().delete(where)
     except CredentialError as exc:
         raise CliError(str(exc)) from None
