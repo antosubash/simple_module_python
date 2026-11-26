@@ -26,6 +26,7 @@ FRAMEWORK_DISTRIBUTIONS = frozenset(
         "simple_module_db",
         "simple_module_hosting",
         "simple_module_inertia",
+        "simple_module_remote",
         "simple_module_test",
         "simple_module_api_tokens",
         "simple_module_audit_log",
