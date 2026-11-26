@@ -96,3 +96,54 @@ def test_bool_description_stays_while_stored_value_overrides(
         expect(revert).to_have_count(0)
     expect(description).to_be_visible()
     expect(toggle).to_have_accessible_description(described)
+
+
+def test_module_url_search_and_draft_guard(
+    page: Page, e2e_username: str, e2e_password: str
+) -> None:
+    """The selected module lives in ``?module=``, an empty search says so, and
+    switching module with a draft asks before discarding it (#1159)."""
+    page.goto("/")
+    _login(page, e2e_username, e2e_password)
+    page.goto("/admin/settings/?module=tenants")
+    expect(page.get_by_role("heading", name=re.compile(r"^tenants settings"))).to_be_visible()
+
+    search = page.get_by_role("searchbox")
+    search.fill("zzzz-no-such-module")
+    expect(page.get_by_role("status").filter(has_text="No matching modules")).to_be_visible()
+    search.fill("")
+
+    page.get_by_label("subdomain_base", exact=True).fill("draft.example.com")
+    page.get_by_role("button", name=re.compile(r"^mail\b")).click()
+    dialog = page.get_by_role("alertdialog")
+    expect(dialog).to_be_visible()
+    dialog.get_by_role("button", name="Cancel").click()
+    expect(page.get_by_label("subdomain_base", exact=True)).to_have_value("draft.example.com")
+
+    page.get_by_role("button", name=re.compile(r"^mail\b")).click()
+    page.get_by_role("alertdialog").get_by_role("button", name=re.compile("Discard")).click()
+    expect(page).to_have_url(re.compile(r"[?&]module=mail\b"))
+    expect(page.get_by_role("heading", name=re.compile(r"^mail settings"))).to_be_visible()
+
+
+def test_rejected_field_error_is_linked_and_focused(
+    page: Page, e2e_username: str, e2e_password: str
+) -> None:
+    """A 422 field error is announced, linked to its control and focused (#1156)."""
+    page.goto("/")
+    _login(page, e2e_username, e2e_password)
+    page.goto("/admin/settings/?module=tenants")
+    control = page.get_by_label("subdomain_base", exact=True)
+    control.fill("example.com:8080")
+    page.get_by_role("button", name="Save").click()
+
+    expect(control).to_have_attribute("aria-invalid", "true")
+    expect(control).to_be_focused()
+    error = page.get_by_role("alert").filter(has_text="subdomain_base")
+    expect(error).to_be_visible()
+    error_id = error.get_attribute("id")
+    assert error_id
+    expect(control).to_have_attribute("aria-describedby", re.compile(rf"\b{error_id}\b"))
+
+    control.fill("")
+    expect(control).not_to_have_attribute("aria-invalid", "true")
