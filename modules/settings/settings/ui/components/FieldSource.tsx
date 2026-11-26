@@ -1,109 +1,107 @@
-import { keys, useT } from '@simple-module-py/i18n';
+import { keys, type TranslationKey, useT } from '@simple-module-py/i18n';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { cn, TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import type { FieldMeta } from './FieldInput';
 
 function isBlank(value: unknown): boolean {
   return value === null || value === undefined || value === '';
 }
 
-/**
- * Whether the trailing column shows a toggle's description. A stored override
- * or a secret takes that column over, so the row must print the description
- * elsewhere: a description can carry a safety warning that matters most
- * exactly when someone has changed the setting.
- */
-export function sourceShowsDescription(field: FieldMeta): boolean {
-  return (
-    !field.db_override &&
-    !field.is_secret &&
-    (field.input_type ?? field.type) === 'bool' &&
-    !!field.description
-  );
+function display(value: unknown): string {
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+}
+
+type Tone = 'neutral' | 'primary' | 'amber';
+
+const TONES: Record<Tone, string> = {
+  neutral: 'bg-muted text-muted-foreground',
+  primary: 'bg-primary-600/10 text-primary-text',
+  amber: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300',
+};
+
+/** First match wins: an unsaved edit, then env (which beats a stored row), then the stored row. */
+function source(field: FieldMeta, modified: boolean): [Tone, TranslationKey] {
+  const m = keys.settings.modules;
+  if (modified) return ['amber', m.source_unsaved];
+  if (field.env_set)
+    return ['amber', field.db_override ? m.source_db_ignored_for_env : m.source_env];
+  if (field.db_override) return ['primary', m.source_db];
+  return ['neutral', field.is_secret ? m.secret_write_only : m.source_default];
 }
 
 /**
- * The trailing column of a settings row: where this value came from, and the
- * one action that applies to it.
+ * The line under a settings control: where the value comes from, the default
+ * once the value has moved away from it, and Reset when a stored row exists.
  *
- * Without this, a field whose `SM_*` env var is set in the deployment looks
- * identical to one running on its default, and a stored override that the
- * env var quietly overrules (env → DB → default) looks like nothing at all.
- * Both produce the same support question — "I changed the setting and nothing happened" —
- * which this answers on the screen.
+ * Without it a field whose env var is set looks identical to one on its
+ * default, and a stored override that env quietly overrules (env → DB →
+ * default) looks like nothing at all — the "I changed it and nothing
+ * happened" support question this answers on screen. The `SM_*` name appears
+ * only when the environment really supplies the value; for DB-only modules it
+ * is a label nobody can act on.
  */
 export function FieldSource({
   field,
-  descriptionId,
+  label,
+  value,
+  modified,
   onReset,
+  format = display,
 }: {
   field: FieldMeta;
-  descriptionId?: string;
+  /** The field's display label, for the Reset button's accessible name. */
+  label: string;
+  /** The current draft value. */
+  value: unknown;
+  modified: boolean;
   onReset: () => void;
+  /** Renders the default the way the control shows values (choice labels, On/Off). */
+  format?: (value: unknown) => string;
 }) {
   const { t } = useT();
 
-  // Revert is gated on `db_override`, not on "differs from the default": a
-  // field reading an env var that differs from its default has no stored row
-  // to delete, and a stored override that happens to equal the default is
-  // still an override someone has to be able to remove.
-  if (field.db_override) {
-    return (
-      <span className="text-[11.5px] max-lg:text-xs font-medium text-primary-text">
-        {field.env_set
-          ? t(keys.settings.modules.source_db_ignored_for_env)
-          : t(keys.settings.modules.source_db)}
-        <span aria-hidden="true"> · </span>
+  const [tone, sourceKey] = source(field, modified);
+
+  // The default is worth showing only once the value has moved away from it;
+  // otherwise it repeats the control above. A secret's default stays hidden.
+  const showDefault =
+    !field.is_secret && !isBlank(field.default) && display(field.default) !== display(value);
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      <Badge
+        variant="secondary"
+        className={cn('max-w-full shrink font-semibold whitespace-normal', TONES[tone])}
+      >
+        {t(sourceKey)}
+      </Badge>
+      {field.env_source_var && (
+        <code
+          className="min-w-0 [overflow-wrap:anywhere] font-mono text-[11px] text-muted-foreground"
+          title={t(keys.settings.modules.env_var_hint)}
+        >
+          {field.env_source_var}
+        </code>
+      )}
+      {showDefault && (
+        <span className="min-w-0 [overflow-wrap:anywhere] text-muted-foreground">
+          {t(keys.settings.modules.default_value, { value: format(field.default) })}
+        </span>
+      )}
+      {/* Gated on `db_override`, not "differs from the default": a stored
+          override equal to the default is still an override someone must be
+          able to remove. Not while env pins the field: the server refuses that
+          delete (422), so the button could only fail. */}
+      {field.db_override && !field.env_set && (
         <button
           type="button"
           onClick={onReset}
-          aria-label={t(keys.settings.modules_form.revert_field, { field: field.name })}
-          className="font-medium hover:underline max-lg:min-h-11 max-lg:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+          aria-label={t(keys.settings.modules_form.revert_field, { field: label })}
+          className={`ml-auto font-semibold text-primary-text hover:underline ${TOUCH_TARGET_CLASS}`}
         >
           {t(keys.settings.modules_form.reset_to_default)}
         </button>
-      </span>
-    );
-  }
-
-  if (field.is_secret) {
-    return (
-      <span className="text-[11.5px] max-lg:text-xs text-muted-foreground">
-        {t(keys.settings.modules.secret_write_only)}
-      </span>
-    );
-  }
-
-  // A toggle's env var name says nothing a reader wants; what the switch
-  // currently means does.
-  if (sourceShowsDescription(field)) {
-    return (
-      <span id={descriptionId} className="text-[11.5px] max-lg:text-xs text-muted-foreground">
-        {field.description}
-      </span>
-    );
-  }
-
-  // The default is only worth showing when the live value has moved away from
-  // it — otherwise the row repeats the control next to it.
-  const showDefault = !isBlank(field.default) && String(field.default) !== String(field.value);
-  return (
-    // Wraps rather than clips: `SM_FILE_STORAGE_QUOTA_BYTES` has no space to
-    // break at, and as an unbreakable token it would set the column's minimum
-    // width; `overflow-wrap:anywhere` lets it break inside the identifier.
-    <span
-      className="block [overflow-wrap:anywhere] font-mono text-[11.5px] max-lg:text-xs leading-snug text-muted-foreground"
-      title={
-        field.env_readable
-          ? t(keys.settings.modules.env_var_hint)
-          : t(keys.settings.modules.env_var_not_read_hint, { env_var: field.env_var })
-      }
-    >
-      {field.env_var}
-      {showDefault && (
-        <>
-          <span aria-hidden="true"> · </span>
-          {String(field.default)}
-        </>
       )}
-    </span>
+    </div>
   );
 }

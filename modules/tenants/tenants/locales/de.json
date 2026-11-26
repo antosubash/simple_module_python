@@ -162,5 +162,27 @@
     "toast_failed": "Einstellung konnte nicht gespeichert werden",
     "toast_uploaded": "Bild hochgeladen"
   },
-  "permission_group": "Mandanten"
+  "permission_group": "Mandanten",
+  "settings_form": {
+    "title": "Mandanten",
+    "description": "Wie Organisationen angelegt werden und wie Einladungen und Subdomains funktionieren.",
+    "fields": {
+      "allow_self_service": {
+        "label": "Selbst angelegte Organisationen erlauben",
+        "help": "Jeder angemeldete Benutzer darf eine Organisation anlegen. Wenn aus, nur Benutzer mit der Berechtigung, Organisationen plattformweit zu verwalten."
+      },
+      "public_base_url": {
+        "label": "Öffentliche Basis-URL",
+        "help": "Adresse, auf der Einladungslinks aufbauen, z. B. https://app.example.com. Leer: die öffentliche Adresse der Website wird verwendet; ist auch diese leer, sind die Links relativ und Einladungs-E-Mails werden nicht versendet."
+      },
+      "subdomain_base": {
+        "label": "Basisdomain für Subdomains",
+        "help": "Wählt im Mehrmandantenmodus den Mandanten über die Adresse: mit example.com öffnet acme.example.com den aktiven Mandanten acme, auch auf öffentlichen Seiten für Nicht-Mitglieder. API-Tokens behalten ihren eigenen Mandanten. Leer schaltet es aus."
+      },
+      "invitation_ttl_hours": {
+        "label": "Gültigkeit von Einladungen (Stunden)",
+        "help": "Wie lange ein Einladungslink gültig bleibt, von 1 bis 720 Stunden."
+      }
+    }
+  }
 }

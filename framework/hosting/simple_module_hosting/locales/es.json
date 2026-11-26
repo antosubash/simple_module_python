@@ -33,5 +33,183 @@
     "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
     "empty": "No hay herramientas de administración disponibles para tu cuenta."
   },
-  "permission_group": "Sistema anfitrión"
+  "permission_group": "Sistema anfitrión",
+  "settings_form": {
+    "title": "Aplicación",
+    "description": "Ajustes de toda la aplicación para inquilinos, idioma, registros, seguridad, límites de solicitudes, la API y la conexión a la base de datos.",
+    "groups": {
+      "tenancy": "Inquilinos",
+      "localization": "Localización",
+      "logging": "Registros",
+      "security": "Seguridad",
+      "authentication": "Autenticación",
+      "routing": "Enrutamiento",
+      "request_guards": "Protección de solicitudes",
+      "cors": "CORS",
+      "api": "API",
+      "database": "Base de datos"
+    },
+    "fields": {
+      "multi_tenant": {
+        "label": "Modo multiinquilino",
+        "help": "Atiende a varios inquilinos desde una sola instalación. Si está desactivado, las solicitudes usan el inquilino predeterminado, si hay uno."
+      },
+      "tenant_header": {
+        "label": "Encabezado del inquilino",
+        "help": "Cabecera de la solicitud que elige el inquilino en modo multiinquilino. Vacía desactiva la selección por cabecera. Un token de API o un subdominio de inquilino tiene prioridad."
+      },
+      "default_tenant": {
+        "label": "Inquilino predeterminado",
+        "help": "Inquilino con el que actúan todas las solicitudes cuando el modo multiinquilino está desactivado. Se ignora si está activado."
+      },
+      "maintenance_mode": {
+        "label": "Modo de mantenimiento",
+        "help": "Muestra una página de mantenimiento en lugar de la aplicación. Los administradores, las páginas públicas y las comprobaciones de estado siguen accesibles. Se aplica sin reiniciar."
+      },
+      "maintenance_message": {
+        "label": "Mensaje de mantenimiento",
+        "help": "Nota opcional que se muestra en la página de mantenimiento. Déjelo vacío para mostrar el texto estándar."
+      },
+      "i18n_default_locale": {
+        "label": "Idioma predeterminado",
+        "help": "Idioma de reserva cuando ni la elección guardada del visitante ni su navegador coinciden con un idioma admitido. Debe ser uno de los idiomas admitidos."
+      },
+      "i18n_supported_locales": {
+        "label": "Idiomas admitidos",
+        "help": "Códigos de idioma entre los que pueden elegir los visitantes, por ejemplo en o de."
+      },
+      "i18n_cookie_name": {
+        "label": "Nombre de la cookie de idioma",
+        "help": "Nombre de la cookie que recuerda el idioma del visitante."
+      },
+      "public_base_url": {
+        "label": "Dirección pública del sitio",
+        "help": "La dirección pública del sitio, por ejemplo https://example.org. Convierte los enlaces canónicos y de compartir relativos en completos y sirve de respaldo para los enlaces de cuenta e invitación. Si está vacía, se omiten los enlaces canónicos y de compartir relativos."
+      },
+      "log_level": {
+        "label": "Nivel de registro",
+        "help": "Cuánto escribe la aplicación en su registro, por ejemplo INFO o WARNING."
+      },
+      "log_format": {
+        "label": "Formato del registro",
+        "help": "Si las líneas del registro se escriben como JSON estructurado o como texto sin formato.",
+        "choices": {
+          "json": "JSON",
+          "text": "Texto sin formato"
+        }
+      },
+      "trusted_proxy": {
+        "label": "Proxy de confianza",
+        "help": "Proxies cuyos encabezados reenviados de dirección y protocolo son de confianza: * para cualquiera, o una lista separada por comas de direcciones IP o rangos. Déjelo vacío si no hay proxy."
+      },
+      "session_cookie_secure": {
+        "label": "Cookies de sesión seguras",
+        "help": "Envía las cookies de sesión solo por HTTPS. Sin definir, se activa en todas partes salvo en los entornos de desarrollo y de pruebas."
+      },
+      "login_redirect_url": {
+        "label": "Página tras iniciar sesión",
+        "help": "Adónde llegan los usuarios tras iniciar sesión. Debe ser una ruta de este sitio, como /dashboard."
+      },
+      "auth_provider": {
+        "label": "Proveedor de autenticación",
+        "help": "Qué módulo de inicio de sesión está activo cuando hay varios instalados, por ejemplo users o keycloak."
+      },
+      "auth_public_paths": {
+        "label": "Prefijos de rutas públicas",
+        "help": "Prefijos de ruta que se pueden abrir sin iniciar sesión. Úselo solo para rutas que ningún módulo cubre."
+      },
+      "native_link_prefixes": {
+        "label": "Prefijos de enlaces de página completa",
+        "help": "Prefijos de ruta cuyos enlaces se abren como una carga normal de página en lugar de una navegación dentro de la aplicación, por ejemplo /docs/."
+      },
+      "max_request_body_bytes": {
+        "label": "Tamaño máximo de solicitud (bytes)",
+        "help": "Límite predeterminado del tamaño del cuerpo de las solicitudes; las mayores se rechazan. Las rutas con su propio límite, como las subidas de archivos, lo conservan. 0 elimina solo este valor predeterminado."
+      },
+      "rate_limit_public": {
+        "label": "Límite para solicitudes anónimas",
+        "help": "Límite predeterminado por dirección de visitante para solicitudes anónimas a rutas públicas, por ejemplo 120/minute. Déjelo vacío o escriba off para desactivar este valor; las rutas con su propio límite lo conservan."
+      },
+      "rate_limit_authenticated": {
+        "label": "Límite para usuarios con sesión",
+        "help": "Límite opcional de solicitudes para usuarios con sesión iniciada, en el mismo formato. Se cuenta por usuario, o por dirección cuando no se conoce el usuario. Déjelo vacío para no limitar."
+      },
+      "forwarded_host_allowlist": {
+        "label": "Hosts reenviados permitidos",
+        "help": "Nombres de host que un proxy de confianza puede transmitir, como example.com o *.example.com. Vacío ignora el encabezado. Requiere un proxy de confianza."
+      },
+      "cors_allow_origins": {
+        "label": "Orígenes permitidos",
+        "help": "Sitios web a los que la política de API predeterminada permite llamar a la API desde el navegador. Vacío desactiva esa política; las rutas con su propia política la conservan. * no se permite mientras las credenciales estén activadas."
+      },
+      "cors_allow_credentials": {
+        "label": "Permitir credenciales",
+        "help": "Permite que los navegadores envíen credenciales, como cookies, en solicitudes de origen cruzado desde sitios permitidos."
+      },
+      "cors_allow_methods": {
+        "label": "Métodos permitidos",
+        "help": "Métodos HTTP que pueden usar las solicitudes de origen cruzado."
+      },
+      "cors_allow_headers": {
+        "label": "Encabezados de solicitud permitidos",
+        "help": "Encabezados de solicitud que pueden enviar las solicitudes de origen cruzado."
+      },
+      "cors_expose_headers": {
+        "label": "Encabezados de respuesta expuestos",
+        "help": "Encabezados de respuesta que los scripts de otros sitios pueden leer en el navegador."
+      },
+      "cors_max_age": {
+        "label": "Tiempo de caché de la comprobación previa (segundos)",
+        "help": "Cuánto tiempo pueden guardar los navegadores la respuesta a una comprobación de origen cruzado."
+      },
+      "api_title": {
+        "label": "Título de la API",
+        "help": "Título que aparece en la documentación generada de la API."
+      },
+      "api_version": {
+        "label": "Versión de la API",
+        "help": "Versión que se muestra en la documentación de la API. Por defecto, la versión de la aplicación anfitriona, o 0.0.0 si no se conoce."
+      },
+      "api_description": {
+        "label": "Descripción de la API",
+        "help": "Descripción breve que aparece en la documentación de la API."
+      },
+      "openapi_public": {
+        "label": "Publicar el esquema de la API",
+        "help": "Ofrece el esquema de la API a cualquiera fuera del desarrollo. Enumera los endpoints documentados de la API, así que déjelo desactivado salvo que quiera hacerlos públicos."
+      },
+      "db_pool_size": {
+        "label": "Tamaño del grupo de conexiones",
+        "help": "Número máximo de conexiones a la base de datos que se conservan para reutilizar. 0 significa sin límite. No se usa con SQLite."
+      },
+      "db_max_overflow": {
+        "label": "Conexiones adicionales",
+        "help": "Conexiones adicionales permitidas por encima del tamaño del pool en momentos de carga. -1 significa sin tope. No se usa con SQLite."
+      },
+      "db_pool_pre_ping": {
+        "label": "Comprobar conexiones antes de usarlas",
+        "help": "Prueba cada conexión del grupo antes de usarla para reemplazar las que se hayan cerrado."
+      },
+      "db_pool_recycle": {
+        "label": "Vida útil de la conexión (segundos)",
+        "help": "Las conexiones más antiguas se sustituyen la próxima vez que se toman del pool. -1 desactiva la sustitución. No se usa con SQLite."
+      },
+      "db_pool_timeout": {
+        "label": "Espera en el grupo (segundos)",
+        "help": "Cuánto espera una solicitud una conexión libre antes de fallar."
+      },
+      "db_connect_timeout": {
+        "label": "Tiempo de conexión (segundos)",
+        "help": "Cuánto se espera a que se abra una conexión nueva con la base de datos. Solo PostgreSQL."
+      },
+      "db_statement_timeout_ms": {
+        "label": "Tiempo máximo de consulta (milisegundos)",
+        "help": "Cancela las sentencias de PostgreSQL que duren más que esto. 0 mantiene el límite que ya fije la base de datos."
+      },
+      "db_idle_in_tx_timeout_ms": {
+        "label": "Tiempo máximo de transacción inactiva (milisegundos)",
+        "help": "Cierra las sesiones de PostgreSQL que permanezcan inactivas dentro de una transacción más tiempo que esto. 0 mantiene el límite que ya fije la base de datos."
+      }
+    }
+  }
 }

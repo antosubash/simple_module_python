@@ -25,7 +25,7 @@ interface DemoSignInProps {
 interface Props {
   allow_signup: boolean;
   demo_signin: DemoSignInProps;
-  dev_accounts: DevAccount[];
+  dev_accounts?: DevAccount[];
   keycloak_installed?: boolean;
   login_redirect_url: string;
   oauth_providers: OAuthProvider[];

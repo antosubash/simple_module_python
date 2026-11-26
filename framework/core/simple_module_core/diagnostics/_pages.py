@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import ast
+from importlib.util import resolve_name
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
+from simple_module_core.modules._module_conventions import get_module_package_name
 
 if TYPE_CHECKING:
     from simple_module_core.modules.module import ModuleBase
@@ -70,9 +72,40 @@ def _resolve_fstring_consts(tree: ast.Module, consts: dict[str, str]) -> dict[st
     return resolved
 
 
-def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[str]:
-    """Yield ``X.render(component, ...)`` first-arg values, resolving Name references."""
-    found: list[str] = []
+def _imported_str_consts(
+    tree: ast.Module, package: str, modules: dict[str, dict[str, str]]
+) -> dict[str, str]:
+    """Bind imported names and module attributes using only scanned source."""
+    imported: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                prefix = alias.asname or alias.name
+                imported.update(
+                    {f"{prefix}.{k}": v for k, v in modules.get(alias.name, {}).items()}
+                )
+        elif isinstance(node, ast.ImportFrom):
+            try:
+                name = resolve_name("." * node.level + (node.module or ""), package)
+            except (ImportError, ValueError):
+                continue
+            for alias in node.names:
+                bound = alias.asname or alias.name
+                if alias.name in modules.get(name, {}):
+                    imported[bound] = modules[name][alias.name]
+                else:
+                    imported.update(
+                        {
+                            f"{bound}.{k}": v
+                            for k, v in modules.get(f"{name}.{alias.name}", {}).items()
+                        }
+                    )
+    return imported
+
+
+def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[str | None]:
+    """Read render targets; ``None`` records a target that cannot be resolved."""
+    found: list[str | None] = []
     for node in ast.walk(tree):
         if not (
             isinstance(node, ast.Call)
@@ -84,8 +117,16 @@ def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[st
         first = node.args[0]
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
             found.append(first.value)
-        elif isinstance(first, ast.Name) and first.id in consts:
-            found.append(consts[first.id])
+            continue
+        resolved = (
+            consts.get(ast.unparse(first)) if isinstance(first, (ast.Name, ast.Attribute)) else None
+        )
+        if resolved is not None:
+            found.append(resolved)
+        elif "inertia" in ast.unparse(node.func.value).lower():
+            # Only an unresolved *Inertia* target makes the page check uncertain;
+            # template.render(context) and similar calls are not page renders.
+            found.append(None)
     return found
 
 
@@ -121,59 +162,72 @@ def collect_tsx_pages(pages_dir: Path) -> set[str]:
     return pages
 
 
-def find_render_calls(mod: ModuleBase, src_dir: Path) -> set[str]:
-    """Find inertia.render("Module/Page") calls in this module's source tree.
+def find_render_calls(mod: ModuleBase, src_dir: Path) -> tuple[set[str], bool]:
+    """Find rendered pages and whether any target is unresolved.
 
-    Resolves ``inertia.render(NAME)`` where ``NAME`` is a string constant
-    defined at module scope in any sibling .py file (e.g. ``constants.py``).
-    Each .py file is parsed once: a first pass collects every module-level
-    string const, a second pass walks render calls against the merged map.
+    Cache each source tree and its constants for this scan. Imports only bind
+    constants from this package; no imported code is executed.
     """
-    trees: list[ast.Module] = []
+    root_package = get_module_package_name(mod)
+    trees: dict[str, ast.Module] = {}
+    packages: dict[str, str] = {}
     for py_file in src_dir.rglob("*.py"):
         try:
-            trees.append(ast.parse(py_file.read_text(), filename=str(py_file)))
-        except (SyntaxError, OSError):
+            if not py_file.resolve().is_relative_to(src_dir.resolve()):
+                continue
+            parts = py_file.relative_to(src_dir).with_suffix("").parts
+            package = ".".join((root_package, *parts[:-1]))
+            name = package if parts[-1] == "__init__" else f"{package}.{parts[-1]}"
+            trees[name] = ast.parse(py_file.read_text(), filename=str(py_file))
+            packages[name] = package
+        except (SyntaxError, OSError, UnicodeError, RuntimeError):
             continue
-    consts: dict[str, str] = {}
-    for tree in trees:
-        consts.update(_module_level_str_consts(tree))
-    # Then f-string constants built from the plain ones above
-    # (``PAGE = f"{MODULE_NAME}/Browse"`` is the conventional shape). Repeat to
-    # a fixed point so a chain — ``PREFIX = f"{NAME}/sub"`` then
-    # ``PAGE = f"{PREFIX}/Browse"`` — resolves too; one pass would only learn
-    # the first hop and report the page as an SM003 orphan.
+    modules = {name: _module_level_str_consts(tree) for name, tree in trees.items()}
     while True:
-        resolved: dict[str, str] = {}
-        for tree in trees:
-            resolved.update(_resolve_fstring_consts(tree, consts))
-        new = {k: v for k, v in resolved.items() if consts.get(k) != v}
-        if not new:
+        changed = False
+        for name, tree in trees.items():
+            consts = modules[name]
+            imported = _imported_str_consts(tree, packages[name], modules)
+            # Only plain bindings are exports; dotted aliases can grow through cycles.
+            resolved = {k: v for k, v in imported.items() if "." not in k}
+            resolved.update(_resolve_fstring_consts(tree, {**imported, **consts}))
+            new = {k: v for k, v in resolved.items() if k not in consts}
+            consts.update(new)
+            changed |= bool(new)
+        if not changed:
             break
-        consts.update(new)
 
     prefix = f"{mod.meta.name}/"
     rendered: set[str] = set()
-    for tree in trees:
+    unresolved = False
+    for name, tree in trees.items():
+        consts = {**_imported_str_consts(tree, packages[name], modules), **modules[name]}
         for component in _iter_render_components(tree, consts):
-            if component.startswith(prefix):
+            if component is None:
+                unresolved = True
+            elif component.startswith(prefix):
                 rendered.add(component[len(prefix) :])
-    return rendered
+    return rendered, unresolved
 
 
 def check_pages(
     mod: ModuleBase,
     src_dir: Path,
     rendered_pages: set[str],
+    *,
+    unresolved_renders: bool = False,
 ) -> list[Diagnostic]:
     """Diff .tsx pages against rendered_pages — emits SM003 + SM004 in one pass."""
     pages_dir = src_dir / "pages"
     tsx_pages = collect_tsx_pages(pages_dir)
     diags: list[Diagnostic] = [
         Diagnostic(
-            level=DiagnosticLevel.WARNING,
+            level=DiagnosticLevel.INFO if unresolved_renders else DiagnosticLevel.WARNING,
             code="SM003",
-            message=f"Page '{name}.tsx' exists but no matching inertia.render() found",
+            message=(
+                f"Page '{name}.tsx' exists but no matching inertia.render() found"
+                + (" (some render targets could not be resolved)" if unresolved_renders else "")
+            ),
             module_name=mod.meta.name,
             file=str(pages_dir / f"{name}.tsx"),
             suggestion=f'Add inertia.render("{mod.meta.name}/{name}", ...) in a view endpoint',

@@ -66,7 +66,10 @@ test('a closed search dialog contributes no heading before the page heading', ()
 });
 
 test('each settings Revert button names the field it resets', () => {
-  for (const name of ['smtp_host', 'sender']) {
+  for (const [name, label] of [
+    ['smtp_host', 'SMTP host'],
+    ['sender', 'Sender'],
+  ]) {
     render(
       <FieldSource
         field={{
@@ -81,10 +84,13 @@ test('each settings Revert button names the field it resets', () => {
           group: null,
           env_var: 'SM_TEST_SETTING',
         }}
+        label={label}
+        value=""
+        modified={false}
         onReset={() => {}}
       />,
     );
-    expect(screen.getByRole('button', { name: `Revert ${name}` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Revert ${label}` })).toBeInTheDocument();
   }
 });
 

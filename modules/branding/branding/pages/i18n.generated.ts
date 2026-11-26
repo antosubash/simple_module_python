@@ -63,6 +63,10 @@ export const keys = {
       branding: 'branding.nav.branding',
     },
     permission_group: 'branding.permission_group',
+    settings_form: {
+      description: 'branding.settings_form.description',
+      title: 'branding.settings_form.title',
+    },
     tenant_setting_labels: {
       app_name: 'branding.tenant_setting_labels.app_name',
       design_pack: 'branding.tenant_setting_labels.design_pack',
@@ -138,6 +142,8 @@ type ModuleTranslationResources = {
   readonly 'branding.manage.upload_error_toast': '';
   readonly 'branding.nav.branding': '';
   readonly 'branding.permission_group': '';
+  readonly 'branding.settings_form.description': '';
+  readonly 'branding.settings_form.title': '';
   readonly 'branding.tenant_setting_labels.app_name': '';
   readonly 'branding.tenant_setting_labels.design_pack': '';
   readonly 'branding.tenant_setting_labels.favicon_file_id': '';

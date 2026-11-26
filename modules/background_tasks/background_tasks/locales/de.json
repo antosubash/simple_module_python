@@ -222,5 +222,152 @@
     "empty_description": "Es gibt keine Treffer. Die Protokollspeicherung ist standardmäßig deaktiviert: Aktivieren Sie log_sink_enabled in den Einstellungen für Hintergrundaufgaben und starten Sie anschließend den Webprozess und die Worker neu.",
     "load_failed": "Protokollzeilen konnten nicht geladen werden",
     "platform": "Plattform"
+  },
+  "settings_form": {
+    "title": "Hintergrundaufgaben",
+    "description": "Wie Aufgaben eingereiht, ausgeführt und nachverfolgt werden und wie lange ihre Datensätze aufbewahrt werden.",
+    "groups": {
+      "celery": "Aufgabenausführung",
+      "logs": "Gespeicherte Logs",
+      "database": "Worker-Datenbank"
+    },
+    "fields": {
+      "execution_tracking": {
+        "label": "Ausführungsverfolgung",
+        "help": "Standard dafür, wie viel jedes Aufgabenlaufs aufgezeichnet wird: alles, nur Endzustände, nur Fehler (und Widerrufe) oder nichts. Einzelne Aufgaben können das überschreiben. Änderungen erfordern einen Neustart."
+      },
+      "track_publish": {
+        "label": "Einreihen verfolgen",
+        "help": "Aufzeichnen, wann eine Aufgabe eingereiht wird, nicht nur wann sie läuft. Gilt für Aufgaben mit vollständiger Verfolgung."
+      },
+      "outbox_mode": {
+        "label": "Modus der Ereigniszustellung",
+        "help": "Ob dauerhafte Ereignisse vom Task-Runner oder im Webprozess zugestellt werden. Laufen Aufgaben sofort, stellt immer der Webprozess zu.",
+        "choices": {
+          "celery": "Task-Runner (Celery)",
+          "inprocess": "Im Webprozess"
+        }
+      },
+      "outbox_max_attempts": {
+        "label": "Maximale Zustellversuche",
+        "help": "Zustellversuche, bevor ein dauerhaftes Ereignis als gescheitert markiert wird, von 1 bis 100."
+      },
+      "outbox_sweep_interval_seconds": {
+        "label": "Prüfintervall für Ereignisse (Sekunden)",
+        "help": "Wie oft nach zuzustellenden Ereignissen gesucht wird."
+      },
+      "outbox_lease_seconds": {
+        "label": "Reservierungsdauer für Ereignisse (Sekunden)",
+        "help": "Wie lange eine reservierte Zustellung laufen darf, bevor ein anderer Worker sie übernehmen kann."
+      },
+      "outbox_handler_timeout_seconds": {
+        "label": "Zeitlimit für Ereignis-Handler (Sekunden)",
+        "help": "Wie lange ein Handler pro Versuch laufen darf. Leer lassen für den längsten Wert, den die Reservierung zulässt."
+      },
+      "log_sink_enabled": {
+        "label": "Logs in der Datenbank speichern",
+        "help": "Anwendungs- und Aufgaben-Logzeilen in der Datenbank ablegen. Erfordert einen Neustart von Web-App und Workern."
+      },
+      "log_sink_level": {
+        "label": "Niedrigste gespeicherte Log-Stufe",
+        "help": "Logzeilen unterhalb dieser Stufe werden verworfen. Möglich sind DEBUG, INFO, WARNING, ERROR oder CRITICAL."
+      },
+      "log_retention_days": {
+        "label": "Aufbewahrung von Logs (Tage)",
+        "help": "Wie lange gespeicherte Logzeilen aufbewahrt werden, von 1 bis 3650 Tagen."
+      },
+      "db_pool_size": {
+        "label": "Größe des Verbindungspools",
+        "help": "Höchstzahl an Datenbankverbindungen, die der Aufgaben-Datenbankpool pro Prozess zur Wiederverwendung hält. Wird bei SQLite nicht verwendet."
+      },
+      "db_max_overflow": {
+        "label": "Zusätzliche Verbindungen",
+        "help": "Zusätzliche Verbindungen, die der Aufgaben-Datenbankpool pro Prozess öffnen darf, wenn alle regulären belegt sind. Wird bei SQLite nicht verwendet."
+      },
+      "db_recycle": {
+        "label": "Wiederverwendungsdauer von Verbindungen (Sekunden)",
+        "help": "Verbindungen, die älter als diese Anzahl Sekunden sind, werden bei der nächsten Nutzung ersetzt. 0 ersetzt eine Verbindung bei jeder Entnahme aus dem Pool."
+      },
+      "db_statement_timeout_ms": {
+        "label": "Statement-Zeitlimit (ms)",
+        "help": "Maximale Laufzeit einer PostgreSQL-Anweisung aus Hintergrundaufgaben. Leer lassen, um das Limit der Anwendung zu verwenden; 0 behält das Limit der Datenbank bei."
+      },
+      "broker_url": {
+        "label": "Broker-URL",
+        "help": "Adresse des Message-Brokers, der Aufgaben einreiht, meist Redis. Eine Änderung erfordert einen Neustart."
+      },
+      "result_backend": {
+        "label": "URL des Ergebnisspeichers",
+        "help": "Adresse, unter der Aufgabenergebnisse gespeichert werden, meist Redis."
+      },
+      "task_default_queue": {
+        "label": "Standard-Warteschlange",
+        "help": "Warteschlange für Aufgaben ohne eigene Route."
+      },
+      "task_routes_override": {
+        "label": "Routen-Überschreibungen für Aufgaben",
+        "help": "Aufgaben ohne Codeänderung in andere Warteschlangen leiten. JSON, das ein Aufgabennamen-Muster einer Warteschlange zuordnet."
+      },
+      "visibility_timeout_seconds": {
+        "label": "Sichtbarkeits-Timeout (Sekunden)",
+        "help": "Nur beim Redis-Broker: Aufgaben, die länger laufen, werden erneut vergeben und laufen eventuell doppelt. Leer lassen für den Redis-Standard von einer Stunde."
+      },
+      "worker_max_tasks_per_child": {
+        "label": "Aufgaben pro Worker-Prozess",
+        "help": "Einen Worker-Prozess nach dieser Anzahl Aufgaben neu starten. Leer lassen für kein Limit."
+      },
+      "worker_max_memory_per_child_kb": {
+        "label": "Speicherlimit pro Worker-Prozess (KB)",
+        "help": "Einen Worker-Prozess ersetzen, nachdem er eine Aufgabe beendet hat, wenn er mehr Speicher belegt. Eine laufende Aufgabe wird nicht unterbrochen. Leer lassen für kein Limit."
+      },
+      "task_reject_on_worker_lost": {
+        "label": "Aufgaben bei Worker-Verlust erneut einreihen",
+        "help": "Eine Aufgabe wieder einreihen, wenn ihr Worker mitten im Lauf abstürzt. Sie kann dann mehrfach laufen."
+      },
+      "task_soft_time_limit": {
+        "label": "Weiches Zeitlimit (Sekunden)",
+        "help": "Nach dieser Zeit wird eine Aufgabe gebeten, geordnet zu stoppen, und kann aufräumen. Ist auch ein hartes Limit gesetzt, muss dieser Wert niedriger sein."
+      },
+      "task_time_limit": {
+        "label": "Hartes Zeitlimit (Sekunden)",
+        "help": "Nach dieser Zeit wird eine Aufgabe zwangsweise gestoppt, sofern der Worker-Pool das unterstützt. Ist auch ein weiches Limit gesetzt, muss dieser Wert höher sein."
+      },
+      "worker_concurrency": {
+        "label": "Parallelität pro Worker",
+        "help": "Wie viele Aufgaben ein Worker gleichzeitig ausführt. Leer lassen für den Standard."
+      },
+      "broadcast_invalidations": {
+        "label": "Cache-Invalidierungen zwischen Prozessen teilen",
+        "help": "Lässt jeden Webprozess über Redis erfahren, wenn ein anderer einen Cache leert. Ohne diese Option, und in eigenständigen Task-Workern, behalten Caches veraltete Daten bis zum Ablauf."
+      },
+      "invalidation_channel": {
+        "label": "Invalidierungs-Kanal",
+        "help": "Name des Kanals, über den Cache-Invalidierungen laufen. Leer lassen, um ihn aus der Datenbank abzuleiten."
+      },
+      "task_always_eager": {
+        "label": "Aufgaben sofort ausführen",
+        "help": "Aufgaben sofort im aufrufenden Prozess ausführen, statt sie einzureihen. Per Name gesendete Aufgaben gehen weiterhin in die Warteschlange. Für Tests gedacht."
+      },
+      "task_eager_propagates": {
+        "label": "Fehler sofort ausgeführter Aufgaben weitergeben",
+        "help": "Bei sofortiger Ausführung Fehler der Aufgabe an den Aufrufer weiterreichen."
+      },
+      "stuck_after_seconds": {
+        "label": "Als hängend markieren nach (Sekunden)",
+        "help": "Standardzeit ohne Lebenszeichen, nach der eine laufende Aufgabe als hängend markiert wird. Einzelne Aufgaben können eigene Werte setzen."
+      },
+      "stuck_sweep_interval_seconds": {
+        "label": "Prüfintervall für hängende Aufgaben (Sekunden)",
+        "help": "Wie oft laufende Aufgaben auf Hängen geprüft werden."
+      },
+      "purge_interval_seconds": {
+        "label": "Bereinigungsintervall (Sekunden)",
+        "help": "Wie oft abgelaufene Aufgabeneinträge, zugestellte Ereigniseinträge und aufbewahrte Protokolle bereinigt werden."
+      },
+      "retention_days": {
+        "label": "Aufbewahrung von Aufgabendatensätzen (Tage)",
+        "help": "Alter, ab dem abgeschlossene Aufgabeneinträge und zugestellte Ereigniseinträge bereinigt werden, von 1 bis 3650 Tagen."
+      }
+    }
   }
 }

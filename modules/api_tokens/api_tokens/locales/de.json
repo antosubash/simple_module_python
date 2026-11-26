@@ -101,5 +101,15 @@
     "confirm": "Alle widerrufen",
     "cancel": "Abbrechen"
   },
-  "permission_group": "API-Tokens"
+  "permission_group": "API-Tokens",
+  "settings_form": {
+    "title": "API-Tokens",
+    "description": "Grenzen für persönliche Zugriffstokens und Dienstschlüssel.",
+    "fields": {
+      "max_lifetime_days": {
+        "label": "Maximale Token-Gültigkeit (Tage)",
+        "help": "Die längste Laufzeit, die ein neues Token erhalten kann. Bestehende Tokens behalten ihr Ablaufdatum."
+      }
+    }
+  }
 }

@@ -11,7 +11,7 @@ keywords = ["simple-module", "mail", "smtp", "email"]
 dependencies = [
     "simple_module_core==0.0.49",
     "simple_module_settings==0.0.49",
-    "aiosmtplib>=3.0,<6",
+    "aiosmtplib>=4.0,<6",
 ]
 
 [project.entry-points.simple_module]

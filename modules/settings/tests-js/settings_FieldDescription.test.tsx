@@ -35,12 +35,13 @@ test.each([false, true])(
   'a boolean announces its description with db_override=%s',
   (db_override) => {
     render(row({ ...field, type: 'bool', value: false, db_override }));
-    const control = screen.getByRole('switch', { name: 'setting' });
+    const control = screen.getByRole('switch', { name: 'Setting' });
     const description = screen.getByText('Help for this setting.');
     expect(control).toHaveAccessibleDescription('Help for this setting.');
     expect(description.id).not.toBe('');
     expect(control).toHaveAttribute('aria-describedby', description.id);
-    expect(screen.getByText('setting').parentElement?.contains(description)).toBe(db_override);
+    // Help always sits under the label, overridden or not.
+    expect(screen.getByText('Setting').parentElement?.contains(description)).toBe(true);
   },
 );
 
@@ -53,7 +54,7 @@ test.each<[string, Partial<FieldMeta>, string]>([
   ['nullable boolean', { type: 'bool', nullable: true, value: null }, 'combobox'],
 ])('a %s field announces its description', (_kind, overrides, role) => {
   render(row({ ...field, ...overrides }));
-  const control = screen.getByRole(role, { name: 'setting' });
+  const control = screen.getByRole(role, { name: 'Setting' });
   const description = screen.getByText('Help for this setting.');
   expect(control).toHaveAccessibleDescription('Help for this setting.');
   expect(description.id).not.toBe('');
@@ -62,14 +63,14 @@ test.each<[string, Partial<FieldMeta>, string]>([
 
 test('a secret keeps its description when setting a new value', () => {
   render(row({ ...field, is_secret: true }));
-  expect(screen.getByLabelText('setting')).toHaveAccessibleDescription('Help for this setting.');
+  expect(screen.getByLabelText('Setting')).toHaveAccessibleDescription('Help for this setting.');
   fireEvent.click(screen.getByRole('button'));
-  expect(screen.getByLabelText('setting')).toHaveAccessibleDescription('Help for this setting.');
+  expect(screen.getByLabelText('Setting')).toHaveAccessibleDescription('Help for this setting.');
 });
 
 test('a field without a description has no aria-describedby', () => {
   render(row({ ...field, description: '' }));
-  expect(screen.getByRole('textbox', { name: 'setting' })).not.toHaveAttribute('aria-describedby');
+  expect(screen.getByRole('textbox', { name: 'Setting' })).not.toHaveAttribute('aria-describedby');
 });
 
 test('description IDs are unique per row and stable when the description moves columns', () => {
@@ -77,19 +78,19 @@ test('description IDs are unique per row and stable when the description moves c
   const { rerender } = render(
     <>
       {row(boolean)}
-      {row({ ...field, name: 'other' })}
+      {row({ ...field, name: 'Other' })}
     </>,
   );
-  const control = screen.getByRole('switch', { name: 'setting' });
+  const control = screen.getByRole('switch', { name: 'Setting' });
   const descriptionId = control.getAttribute('aria-describedby');
   expect(descriptionId).toBeTruthy();
-  expect(screen.getByRole('textbox', { name: 'other' }).getAttribute('aria-describedby')).not.toBe(
+  expect(screen.getByRole('textbox', { name: 'Other' }).getAttribute('aria-describedby')).not.toBe(
     descriptionId,
   );
   rerender(
     <>
       {row({ ...boolean, db_override: true })}
-      {row({ ...field, name: 'other' })}
+      {row({ ...field, name: 'Other' })}
     </>,
   );
   expect(control).toHaveAttribute('aria-describedby', descriptionId);

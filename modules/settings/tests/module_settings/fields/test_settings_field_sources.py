@@ -8,7 +8,8 @@ which one was in force, so "I set SM_USERS_SMTP_HOST and nothing changed"
 from __future__ import annotations
 
 import pytest
-from settings.module_settings.discovery import ModuleSettingField
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from settings.module_settings.discovery import ModuleSettingField, _field_view
 
 
 def _first_field(instance) -> str:
@@ -175,3 +176,32 @@ class TestSecretMaskingIsTypeAware:
         assert field.type == "json"
         assert field.is_secret is True
         assert field.value == SECRET_MASK
+
+
+def test_env_source_var_names_only_a_variable_that_is_set(monkeypatch):
+    class EnvSettings(BaseSettings):
+        model_config = SettingsConfigDict(env_prefix="SM_DEMOX_")
+        host: str = ""
+        broker: str = ""
+
+    monkeypatch.setenv("SM_DEMOX_HOST", "mail.example")
+    settings = EnvSettings()
+    # ``broker`` reported env-supplied without its own variable, as when a
+    # shared SM_REDIS_URL feeds it: the badge must not name SM_DEMOX_BROKER.
+    supplied = frozenset({"host", "broker"})
+    host = _field_view("host", settings, "SM_DEMOX_", env_supplied=supplied)
+    broker = _field_view("broker", settings, "SM_DEMOX_", env_supplied=supplied)
+    assert host.env_source_var == "SM_DEMOX_HOST"
+    assert broker.env_set and broker.env_source_var is None
+
+
+def test_an_aliased_field_never_claims_the_conventional_variable(monkeypatch):
+    from pydantic import Field
+
+    class AliasSettings(BaseSettings):
+        model_config = SettingsConfigDict(env_prefix="SM_DEMOY_")
+        host: str = Field(default="", validation_alias="DEMOY_REAL_HOST")
+
+    monkeypatch.setenv("SM_DEMOY_HOST", "unused")
+    view = _field_view("host", AliasSettings(), "SM_DEMOY_", env_supplied=frozenset({"host"}))
+    assert view.env_source_var is None

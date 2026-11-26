@@ -66,7 +66,7 @@ describe('JSON-typed fields (GH #487)', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderForm([field({ name: 'task_routes_override', value: {}, input_type: 'json' })]);
 
-    fireEvent.change(screen.getByLabelText('task_routes_override'), {
+    fireEvent.change(screen.getByLabelText('Task routes override'), {
       target: { value: '{"reports.*": "heavy"}' },
     });
 
@@ -76,7 +76,7 @@ describe('JSON-typed fields (GH #487)', () => {
   test('unparseable JSON is flagged before save', () => {
     renderForm([field({ name: 'task_routes_override', value: {}, input_type: 'json' })]);
 
-    fireEvent.change(screen.getByLabelText('task_routes_override'), { target: { value: '{' } });
+    fireEvent.change(screen.getByLabelText('Task routes override'), { target: { value: '{' } });
 
     expect(screen.getByText('Not valid JSON')).toBeVisible();
   });
@@ -86,7 +86,7 @@ describe('JSON-typed fields (GH #487)', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderForm([field({ name: 'worker_concurrency', input_type: 'int', nullable: true })]);
 
-    const input = screen.getByLabelText('worker_concurrency');
+    const input = screen.getByLabelText('Worker concurrency');
     expect(input).toHaveValue(null);
     expect(input).toHaveAttribute('type', 'number');
 
@@ -101,7 +101,7 @@ describe('JSON-typed fields (GH #487)', () => {
       field({ name: 'worker_concurrency', value: 4, input_type: 'int', nullable: true }),
     ]);
 
-    fireEvent.change(screen.getByLabelText('worker_concurrency'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Worker concurrency'), { target: { value: '' } });
     expect(await savedBody(fetchMock)).toEqual({ worker_concurrency: null });
   });
 
