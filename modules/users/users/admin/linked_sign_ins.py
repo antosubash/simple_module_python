@@ -15,10 +15,11 @@ from users.models import OAuthAccount
 
 async def linked_sign_ins_for(
     request: Request, user_id: uuid.UUID, db: AsyncSession
-) -> list[dict[str, Any]]:
-    """Provider, IdP username, subject and last sign-in per link, read-only."""
+) -> tuple[list[dict[str, Any]], bool]:
+    """Display links with stable row IDs, plus duplicate raw-provider detection."""
     stmt = (
         select(
+            OAuthAccount.id,
             OAuthAccount.oauth_name,
             OAuthAccount.username,
             OAuthAccount.subject,
@@ -28,12 +29,15 @@ async def linked_sign_ins_for(
         .order_by(col(OAuthAccount.oauth_name))
     )
     clients = request.app.state.users.oauth_clients
+    rows = (await db.execute(stmt)).all()
+    names = [row.oauth_name for row in rows]
     return [
         {
+            "id": str(link_id),
             "provider": clients[name].display_name if name in clients else name,
             "username": username,
             "subject": subject,
             "last_sign_in_at": last.isoformat() if last else None,
         }
-        for name, username, subject, last in (await db.execute(stmt)).all()
-    ]
+        for link_id, name, username, subject, last in rows
+    ], len(names) != len(set(names))

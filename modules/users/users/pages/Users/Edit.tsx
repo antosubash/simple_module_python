@@ -4,6 +4,7 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Slot, slots } from '@simple-module-py/ui/extensions';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { initials } from '@simple-module-py/ui/lib/initials';
+import { useEffect, useState } from 'react';
 import { StatusPill } from '../../admin/components/StatusPill';
 import { deriveState, type UserListItem } from '../../admin/components/user-list-item';
 import { AccountCard } from './components/AccountCard';
@@ -23,6 +24,7 @@ interface Props {
   /** `null` when the audit_log module is not installed. */
   recent_activity: ActivityEntry[] | null;
   linked_sign_ins: LinkedSignIn[];
+  has_duplicate_linked_sign_ins: boolean;
   auth?: { user?: { id?: string } };
 }
 
@@ -48,11 +50,16 @@ function Edit({
   has_permissions_module,
   recent_activity: recentActivity,
   linked_sign_ins: linkedSignIns,
+  has_duplicate_linked_sign_ins: hasDuplicateLinkedSignIns,
   auth,
 }: Props) {
   const { t } = useT();
   const { ago } = useRelativeTime();
   const isSelf = auth?.user?.id === user.id;
+  const [hadLinkedSignIns, setHadLinkedSignIns] = useState(linkedSignIns.length > 0);
+  useEffect(() => {
+    if (linkedSignIns.length > 0) setHadLinkedSignIns(true);
+  }, [linkedSignIns]);
 
   const form = useEditUserForm(user);
   const actions = useUserActions(
@@ -126,8 +133,14 @@ function Edit({
             <RecentActivityCard entries={recentActivity} userId={user.id} />
           )}
 
-          {/* Only accounts that sign in through an identity provider have any. */}
-          {linkedSignIns.length > 0 && <LinkedSignInsCard links={linkedSignIns} />}
+          {/* Keep the heading as a focus target after removing the final link. */}
+          {(hadLinkedSignIns || linkedSignIns.length > 0) && (
+            <LinkedSignInsCard
+              userId={user.id}
+              links={linkedSignIns}
+              hasDuplicates={hasDuplicateLinkedSignIns}
+            />
+          )}
 
           <Slot name={slots.usersEditPanels} props={{ userId: user.id }} />
           <DangerZone userId={user.id} email={user.email} isSelf={isSelf} />
@@ -137,4 +150,6 @@ function Edit({
   );
 }
 
-export default Edit;
+export default function EditPage(props: Props) {
+  return <Edit key={props.user.id} {...props} />;
+}

@@ -1,11 +1,13 @@
+import type { PendingVisit } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { adminFailureMessage } from '../../../ui/utils/failureMessage';
 import { api } from '../../api.generated';
+import { LINKED_SIGN_IN_PROPS } from './LinkedSignInsCard';
 
 export interface EditableUser {
   id: string;
@@ -74,7 +76,32 @@ export function useEditUserForm(user: EditableUser) {
   // React has not re-rendered with the advanced baseline at that point.
   const savingRef = useRef(false);
 
-  useLeaveGuard(dirtyCount > 0, t(keys.users.edit.leave_warning), savingRef);
+  const allowLinkedSignInVisit = useCallback(
+    (visit: PendingVisit) => {
+      if (
+        visit.preserveState !== true ||
+        visit.only.length === 0 ||
+        !visit.only.every((prop) => LINKED_SIGN_IN_PROPS.includes(prop)) ||
+        visit.url.origin !== window.location.origin
+      )
+        return false;
+      const editPath = `/admin/users/${encodeURIComponent(user.id)}`;
+      return (
+        (visit.method === 'get' &&
+          visit.url.pathname === editPath &&
+          visit.url.search === window.location.search) ||
+        (visit.method === 'delete' &&
+          visit.url.pathname.match(/^(.*)\/linked-sign-ins\/[^/]+$/)?.[1] === editPath)
+      );
+    },
+    [user.id],
+  );
+  useLeaveGuard(
+    dirtyCount > 0,
+    t(keys.users.edit.leave_warning),
+    savingRef,
+    allowLinkedSignInVisit,
+  );
 
   const toggleRole = (roleName: string) =>
     setForm((prev) => ({

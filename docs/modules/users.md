@@ -94,6 +94,7 @@ Admin (`users.manage`) — served from the module's `admin_view_prefix`, `/admin
 - `GET /admin/users/` → `Users/Users/Index`
 - `GET /admin/users/add` → `Users/Users/AddPeople` — one form for both flows; `?mode=create|invite` picks which
 - `GET /admin/users/{user_id}` → `Users/Users/Edit`
+- `DELETE /admin/users/{user_id}/linked-sign-ins/{oauth_account_id}` → 303 back to Edit; requires `users.manage` and the session CSRF token, removes only the owned OAuth link (404 otherwise)
 
 The separate Create and Invite pages merged into `AddPeople`. Their old paths survive as 307 redirects carrying the mode: `GET /admin/users/invite` → `/admin/users/add?mode=invite`, and `GET /admin/users/create` → `/admin/users/add?mode=create`.
 
@@ -552,7 +553,30 @@ different identity from the same provider, sign-in is refused with
 This applies to every provider, including custom ones. For example, reassigning
 an Entra UPN to a new directory user does not transfer access to the previous
 user's local account. The login page shows a generic failure, and the server logs
-the reason code and provider at warning level.
+the reason code and provider at warning level. For a legitimate reassignment,
+open **Users → the user → Linked sign-ins** in the admin area and use **Remove**
+on the old identity, then confirm. This removes only that link; the user, roles
+and existing sessions stay intact. The next sign-in can link the new identity
+when the provider proves the matching email address.
+Removing the last linked sign-in is allowed, but the confirmation warns that the
+user then needs a provider identity with a matching verified email address or
+another sign-in method to sign in again.
+
+The Edit page warns when a user has multiple links for the same provider. Review
+the identities and remove the obsolete links individually. To find existing
+cases before reviewing them in the admin UI, run this read-only query once:
+
+```sql
+SELECT u.id AS user_id, u.email, oa.oauth_name, COUNT(*) AS link_count
+FROM users_user AS u
+JOIN users_oauth_account AS oa ON oa.user_id = u.id
+GROUP BY u.id, u.email, oa.oauth_name
+HAVING COUNT(*) > 1
+ORDER BY u.email, oa.oauth_name;
+```
+
+This reports duplicate provider links; it does not change data or enforce a
+uniqueness constraint.
 
 ### Custom providers
 

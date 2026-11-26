@@ -108,3 +108,33 @@ async def test_unverified_microsoft_identity_cannot_link(users_app, anon_client,
     assert response.status_code == 400
     assert response.json()["detail"] == "OAUTH_USER_ALREADY_EXISTS"
     assert await _account_state(users_app) == (local_account, {"oauth-test-role"}, {})
+
+
+@pytest.mark.anyio
+async def test_admin_unlink_allows_new_verified_identity(
+    users_app, anon_client, admin_client, local_account
+):
+    install_microsoft(users_app)
+    assert (await oauth_callback(anon_client, "microsoft")).status_code == 303
+    anon_client.cookies.clear()
+    install_microsoft(users_app, oid=_OTHER_OID)
+    assert (await oauth_callback(anon_client, "microsoft")).status_code == 403
+    anon_client.cookies.clear()
+
+    async with users_app.state.sm.db.session_factory() as db:
+        link = (await db.execute(select(OAuthAccount))).scalar_one()
+        link_id = link.id
+    page = await admin_client.get(f"/admin/users/{local_account}", headers={"X-Inertia": "true"})
+    response = await admin_client.delete(
+        f"/admin/users/{local_account}/linked-sign-ins/{link_id}",
+        headers={"X-CSRF-Token": page.json()["props"]["csrfToken"]},
+    )
+    assert response.status_code == 303
+    assert await _account_state(users_app) == (local_account, {"oauth-test-role"}, {})
+
+    response = await oauth_callback(anon_client, "microsoft")
+    assert response.status_code == 303
+    assert users_app.state.users.settings.cookie_name in response.cookies
+    user_id, roles, links = await _account_state(users_app)
+    assert (user_id, roles) == (local_account, {"oauth-test-role"})
+    assert set(links) == {("microsoft", _OTHER_OID)}

@@ -224,8 +224,15 @@ export const keys = {
       toast_copied: 'users.invite_results.toast_copied',
     },
     linked_sign_ins: {
+      confirm_body: 'users.linked_sign_ins.confirm_body',
+      confirm_title: 'users.linked_sign_ins.confirm_title',
+      duplicates: 'users.linked_sign_ins.duplicates',
+      last_link_warning: 'users.linked_sign_ins.last_link_warning',
       last_sign_in: 'users.linked_sign_ins.last_sign_in',
       never: 'users.linked_sign_ins.never',
+      remove: 'users.linked_sign_ins.remove',
+      remove_failed: 'users.linked_sign_ins.remove_failed',
+      removed: 'users.linked_sign_ins.removed',
       subject: 'users.linked_sign_ins.subject',
       title: 'users.linked_sign_ins.title',
     },
@@ -633,8 +640,15 @@ type ModuleTranslationResources = {
   readonly 'users.invite_results.retrying': '';
   readonly 'users.invite_results.title': '';
   readonly 'users.invite_results.toast_copied': '';
+  readonly 'users.linked_sign_ins.confirm_body': '';
+  readonly 'users.linked_sign_ins.confirm_title': '';
+  readonly 'users.linked_sign_ins.duplicates': '';
+  readonly 'users.linked_sign_ins.last_link_warning': '';
   readonly 'users.linked_sign_ins.last_sign_in': '';
   readonly 'users.linked_sign_ins.never': '';
+  readonly 'users.linked_sign_ins.remove': '';
+  readonly 'users.linked_sign_ins.remove_failed': '';
+  readonly 'users.linked_sign_ins.removed': '';
   readonly 'users.linked_sign_ins.subject': '';
   readonly 'users.linked_sign_ins.title': '';
   readonly 'users.login.aside_body': '';

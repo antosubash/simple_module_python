@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.pagination import PageParams, clamp_page
+from simple_module_hosting.auth.csrf import RequiresCsrf
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.frontend.pagination import lenient_page_params
@@ -185,6 +186,7 @@ async def admin_edit_page(
     except UserNotFoundError:
         raise HTTPException(status_code=404) from None
     has_permissions = any(m.meta.name == "Permissions" for m in request.app.state.sm.modules)
+    linked_sign_ins, has_duplicates = await linked_sign_ins_for(request, uid, db)
     return await inertia.render(
         _PAGE_ADMIN_EDIT,
         {
@@ -195,6 +197,23 @@ async def admin_edit_page(
             # is then absent rather than empty, which is the honest rendering
             # of "this deployment does not record activity".
             "recent_activity": await recent_activity_for(request, uid, db, t),
-            "linked_sign_ins": await linked_sign_ins_for(request, uid, db),
+            "linked_sign_ins": linked_sign_ins,
+            "has_duplicate_linked_sign_ins": has_duplicates,
         },
     )
+
+
+@router.delete(
+    "/{user_id}/linked-sign-ins/{oauth_account_id}",
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE)), Depends(RequiresCsrf())],
+)
+async def admin_unlink_sign_in(
+    user_id: uuid.UUID,
+    oauth_account_id: uuid.UUID,
+    service: UserService = Depends(get_user_service),
+) -> RedirectResponse:
+    try:
+        await service.unlink_sign_in(user_id, oauth_account_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return RedirectResponse(f"/admin/users/{user_id}", status_code=303)

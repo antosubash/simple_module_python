@@ -432,6 +432,13 @@
   },
   "linked_sign_ins": {
     "title": "Linked sign-ins",
+    "remove": "Remove",
+    "confirm_title": "Remove {provider} sign-in?",
+    "confirm_body": "This removes only this linked sign-in. The user, roles and existing sessions are kept. A later sign-in may link an identity again if the provider verifies the matching email address.",
+    "last_link_warning": "This is the last linked sign-in, so the user will need a provider identity with a verified email address matching this account, or another sign-in method, to sign in again.",
+    "removed": "Sign-in removed",
+    "remove_failed": "Could not remove sign-in",
+    "duplicates": "Multiple identities are linked for the same provider. Review the linked sign-ins and remove any obsolete identities.",
     "last_sign_in": "Last signed in {when}",
     "never": "Not signed in through it yet",
     "subject": "Subject"
