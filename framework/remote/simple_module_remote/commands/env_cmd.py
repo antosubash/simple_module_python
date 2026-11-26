@@ -136,15 +136,22 @@ def remove_env(ctx: click.Context, name: str) -> None:
             else "does not exist"
         )
         raise CliError(f"environment {name!r} {known}")
+    was_current = config.current == name
     config.user_envs.discard(name)
     config.overrides.pop(name, None)
     config.envs.pop(name, None)
-    if config.current == name:
+    if was_current:
         config.current = None
     with state.guard():
         save_config(state.cli, config)
         removed = state.store().delete_env(name)
-    click.echo(f"removed environment {name}")
+        reset = name in state.config().envs  # a project default of the same name remains
+    if reset:
+        click.echo(f"reset environment {name} to the project default")
+    else:
+        click.echo(f"removed environment {name}")
+    if was_current:
+        click.echo("no environment is selected now: run `env use <name>`", err=True)
     for key in removed:
         click.echo(f"removed stored login {key}")
 

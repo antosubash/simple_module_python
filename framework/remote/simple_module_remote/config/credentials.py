@@ -246,7 +246,7 @@ def resolve_token(
         if explicit:
             return validate_token(from_env, source=var)
         raise CredentialError(
-            f"{var} is set but ignored: it is only honoured when the environment is chosen "
+            f"{var} is set but not used: it is only honoured when the environment is chosen "
             f"explicitly (pass --env or set {env_var_name(cli)})"
         )
     cred = store.get(credential_key(env.name, tenant))

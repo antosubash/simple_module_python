@@ -100,16 +100,32 @@ def _detail(text: str) -> str:
 
 
 def _auth_hint(ctx: RunContext, text: str) -> None:
-    """Point at re-login only when the token is the problem, not a missing tenant."""
+    """Point at re-login only when the token itself is the problem."""
     detail = _detail(text)
-    if "tenant" in detail.lower():
-        shown = ctx.redact(detail)[:ERROR_BODY_CHARS]  # redact the whole text, then cut
+    lowered = detail.lower()
+    shown = ctx.redact(detail)[:ERROR_BODY_CHARS]  # redact the whole text, then cut
+    if "tenant" in lowered:
         say(
             ctx,
             f"hint: the server needs a tenant: {shown}; pass --tenant or use a token pinned to one",
         )
+    elif "permission" in lowered or "scope" in lowered:
+        say(
+            ctx,
+            "hint: the token lacks the permission named above; create one with the needed scopes",
+        )
+    elif "session" in lowered:
+        cli = ctx.login_hint.split()[0] if ctx.login_hint else "the CLI"
+        say(
+            ctx,
+            f"hint: tokens cannot call this route; `{cli} api --session-only` lists such routes",
+        )
     elif ctx.login_hint:
-        say(ctx, f"hint: the token may be missing, expired or lack access; run `{ctx.login_hint}`")
+        say(
+            ctx,
+            f"hint: the token may be missing or expired; run `{ctx.login_hint}` "
+            "(or pipe it to --token-stdin)",
+        )
 
 
 def print_error(ctx: RunContext, response: httpx.Response) -> None:

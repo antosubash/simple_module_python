@@ -6,20 +6,28 @@ import sys
 
 import click
 
-from simple_module_remote.commands.runtime import CliError, fetch_whoami, state_of
+from simple_module_remote.commands.runtime import WHOAMI_PATH, CliError, fetch_whoami, state_of
 from simple_module_remote.config.credentials import (
     CredentialError,
     StoredCredential,
     credential_key,
     describe_tenant,
     is_single_tenant,
+    login_hint,
     tenant_matches,
     validate_token,
 )
-from simple_module_remote.http.errors import ApiError, exit_code_for
+from simple_module_remote.http.errors import AUTH_STATUSES, ApiError, exit_code_for
 from simple_module_remote.output.sanitize import sanitize
 
 __all__ = ["login", "logout", "whoami"]
+
+MAX_TOKEN_CHARS = 4096
+NOT_FOUND = 404
+
+
+def _stdin_is_tty() -> bool:
+    return sys.stdin.isatty()
 
 
 def _api_failure(exc: ApiError, what: str) -> click.ClickException:
@@ -53,8 +61,12 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
         raise CliError("browser login arrives in a later release: use --token or --token-stdin")
     env, _ = state.select()
     if token_stdin:
-        candidate = sys.stdin.readline().strip()
+        candidate = sys.stdin.readline(MAX_TOKEN_CHARS + 2).strip()
+        if len(candidate) > MAX_TOKEN_CHARS:
+            raise CliError(f"the token is longer than {MAX_TOKEN_CHARS} characters")
     else:
+        if not _stdin_is_tty():
+            raise CliError("stdin is not a terminal: pipe the token to --token-stdin instead")
         candidate = click.prompt("Token", hide_input=True, err=True).strip()
     if not candidate:
         raise CliError("no token provided")
@@ -67,6 +79,12 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
         if exc.status == 0:
             raise _api_failure(
                 exc, f"cannot reach {env.name} ({env.url}); nothing was stored"
+            ) from None
+        if exc.status == NOT_FOUND:
+            raise _api_failure(
+                exc,
+                f"{env.url} has no {WHOAMI_PATH}: check the URL and any path prefix; "
+                "nothing was stored",
             ) from None
         raise _api_failure(exc, "the token was not accepted; nothing was stored") from None
     wanted = state.tenant(env)
@@ -124,7 +142,10 @@ def whoami(ctx: click.Context) -> None:
         with state.client(env, token) as client:
             who = fetch_whoami(client)
     except ApiError as exc:
-        raise _api_failure(exc, "whoami failed") from None
+        failure = _api_failure(exc, "whoami failed")
+        if exc.status in AUTH_STATUSES:
+            failure.message += f"\nhint: run `{login_hint(state.cli, env, state.tenant(env))}`"
+        raise failure from None
     if env.protected:
         click.echo("*** PROTECTED ENVIRONMENT ***")
     scopes = who.get("scopes")

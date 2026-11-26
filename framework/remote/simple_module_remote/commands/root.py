@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import click
 import httpx
 
+from simple_module_remote import __version__ as engine_version
 from simple_module_remote.commands.api_cmd import api
 from simple_module_remote.commands.auth_cmd import login, logout, whoami
 from simple_module_remote.commands.doctor_cmd import doctor
@@ -31,12 +33,16 @@ class _RootGroup(click.Group):
     def make_context(self, *args: Any, **kwargs: Any) -> click.Context:
         try:
             return super().make_context(*args, **kwargs)
+        except click.exceptions.NoArgsIsHelpError:
+            raise  # click's own behaviour: show the help (exit 2 in click 8.2+)
         except click.UsageError as exc:
             raise self._as_cli_error(exc) from None
 
     def invoke(self, ctx: click.Context) -> Any:
         try:
             return super().invoke(ctx)
+        except click.exceptions.NoArgsIsHelpError:
+            raise
         except click.UsageError as exc:
             raise self._as_cli_error(exc) from None
 
@@ -45,7 +51,20 @@ class _RootGroup(click.Group):
         if exc.ctx is not None and exc.ctx.command.name == LOGIN_COMMAND:
             # Arguments of `login` may be a token: never echo them back.
             return CliError("invalid use of login: see `login --help`")
-        return CliError(f"{exc.format_message()} (see --help)")
+        # Only click's own parse errors point at --help; our own refusals are not usage slips.
+        hint = " (see --help)" if type(exc) is not click.UsageError else ""
+        return CliError(f"{exc.format_message()}{hint}")
+
+
+def _show_version(
+    name: str, version: str
+) -> Callable[[click.Context, click.Parameter, bool], None]:
+    def callback(ctx: click.Context, param: click.Parameter, value: bool) -> None:
+        if value and not ctx.resilient_parsing:
+            click.echo(f"{name} {version} (simple_module_remote {engine_version})")
+            ctx.exit()
+
+    return callback
 
 
 def build_cli(
@@ -75,7 +94,15 @@ def build_cli(
         callback=state.begin,
         params=[
             click.Option(["--env", "-e", "env"], help="Environment to use."),
-            click.Option(["--tenant", "tenant"], help="Tenant to act for."),
+            click.Option(["--tenant", "tenant"], help="Tenant (slug or id) to act for."),
+            click.Option(
+                ["--version"],
+                is_flag=True,
+                is_eager=True,
+                expose_value=False,
+                callback=_show_version(name, version),
+                help="Show the version and exit.",
+            ),
             click.Option(
                 ["--schema", "schema_source"],
                 type=click.Choice(SCHEMA_SOURCES),

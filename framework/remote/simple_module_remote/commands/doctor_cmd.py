@@ -88,6 +88,8 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
                 f"pass --env {env.name} or set {env_var_name(state.cli)}={env.name} "
                 f"so {var} is used"
             )
+        elif "chmod" in exc.message:
+            fix = exc.message[exc.message.index("run `") + 5 :].split("`")[0]
         else:
             fix = (
                 f"create a token at {env.url.rstrip('/')}/api-tokens/, then "
@@ -104,11 +106,22 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
         with state.client(env, token) as client:
             who = fetch_whoami(client)
     except ApiError as exc:
-        report.fail("whoami", exc.message, login_hint(state.cli, env, wanted))
+        fix = (
+            "check the URL, your network and VPN"
+            if exc.status == 0
+            else login_hint(state.cli, env, wanted)
+        )
+        report.fail("whoami", exc.message, fix)
         return
     report.ok("whoami", str(who.get("email")))
     if wanted is None:
-        report.ok("tenant", "no tenant selected")
+        pinned = who.get("tenant_id")
+        report.ok(
+            "tenant",
+            f"token tenant {describe_tenant(who.get('tenant_slug'), pinned)}"
+            if pinned
+            else "no tenant selected",
+        )
     elif is_single_tenant(who):
         report.ok("tenant", "single-tenant server; --tenant is ignored")
     elif tenant_matches(wanted, who):

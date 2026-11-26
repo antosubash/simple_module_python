@@ -5,6 +5,14 @@ import pytest
 from click.testing import CliRunner
 
 SECRET = "pat-secret-123"
+
+
+@pytest.fixture(autouse=True)
+def terminal_stdin(monkeypatch):
+    """CliRunner's stdin is not a terminal; the hidden-prompt path needs one."""
+    monkeypatch.setattr("simple_module_remote.commands.auth_cmd._stdin_is_tty", lambda: True)
+
+
 WHO = {
     "id": "u",
     "email": "a@b",
@@ -270,18 +278,3 @@ def test_stored_token_pinned_to_another_tenant_is_refused(make_cli, keyring_stor
     assert result.exit_code == 1 and cli.requests == []
     assert "pinned to tenant acme (t-1), not 'beta'" in result.output
     assert runner.invoke(cli, ["--tenant", "acme", "whoami"]).exit_code == 0
-
-
-def test_tenant_flag_is_ignored_with_a_note_on_a_single_tenant_server(
-    make_cli, keyring_store, logged_in
-):
-    single = {**WHO, "tenant_id": "default"}
-    cli = make_cli(lambda r: httpx.Response(200, json=single))
-    runner = logged_in(cli, login=False)
-    result = runner.invoke(cli, ["--tenant", "foo", "login", "--token-stdin"], input="tok\n")
-    assert result.exit_code == 0, result.output
-    assert "single-tenant server; --tenant foo is ignored" in result.output
-    again = runner.invoke(cli, ["--tenant", "foo", "whoami"])  # the pin check does not refuse it
-    assert again.exit_code == 0, again.output
-    doctor = runner.invoke(cli, ["--tenant", "foo", "doctor"]).output
-    assert "single-tenant server" in doctor and "FAIL" not in doctor

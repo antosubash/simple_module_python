@@ -170,3 +170,38 @@ def test_origin_is_normalised(make_cli):
 
     assert Environment("a", "https://EXAMPLE.com:443/x").origin == "https://example.com"
     assert Environment("a", "http://localhost:8000").origin == "http://localhost:8000"
+
+
+def test_no_subcommand_shows_help_not_an_error(make_cli):
+    for args in ([], ["env"], ["users"]):
+        result = CliRunner().invoke(make_cli(), args)
+        assert "Usage:" in result.output and "Error" not in result.output
+        assert result.exit_code in (0, 2)
+
+
+def test_see_help_suffix_only_on_click_usage_errors(make_cli):
+    cli = make_cli()
+    bad_option = CliRunner().invoke(cli, ["env", "add", "x", "--nope"])
+    assert "(see --help)" in bad_option.output
+    refusal = CliRunner().invoke(cli, ["env", "add", "fresh"])  # our own refusal
+    assert "--url is required" in refusal.output and "(see --help)" not in refusal.output
+    protected = CliRunner().invoke(cli, ["users", "list-users", "--page", "x"])
+    assert "(see --help)" in protected.output
+
+
+def test_version_flag(make_cli):
+    result = CliRunner().invoke(make_cli(), ["--version"])
+    assert result.exit_code == 0 and result.output.startswith("smdev 1.2 (simple_module_remote ")
+
+
+def test_remove_says_reset_for_a_project_default_and_warns_about_current(make_cli, tmp_path):
+    defaults = tmp_path / "defaults.toml"
+    defaults.write_text('[env.local]\nurl = "http://localhost:8000"\n')
+    cli = make_cli()
+    cli.context_settings["obj"].defaults_path = defaults
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "local", "--url", "http://127.0.0.1:8247"])
+    runner.invoke(cli, ["env", "use", "local"])
+    result = runner.invoke(cli, ["env", "remove", "local"])
+    assert "reset environment local to the project default" in result.output
+    assert "no environment is selected now" in result.output

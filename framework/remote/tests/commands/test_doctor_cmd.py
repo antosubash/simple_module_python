@@ -79,3 +79,31 @@ def test_login_usage_and_doctor_hints_say_token(make_cli, logged_in):
     assert f"then {TOKEN_HINT}" in doctor
     fresh = CliRunner().invoke(make_cli(), ["users", "list-users", "--page", "1"], env={})
     assert "login --token`" in fresh.output or "env add" in fresh.output
+
+
+def test_doctor_unreachable_server_does_not_blame_the_token(make_cli, logged_in):
+    def boom(req):
+        raise httpx.ConnectError("down")
+
+    runner = logged_in(make_cli(), login=True)
+    cli = make_cli(boom)
+    out = runner.invoke(cli, ["doctor"]).output
+    assert "check the URL, your network and VPN" in out.split("FAIL  whoami")[-1]
+
+
+def test_doctor_tenant_line_matches_whoami(make_cli, logged_in):
+    cli = make_cli()
+    out = logged_in(cli).invoke(cli, ["doctor"]).output
+    assert "ok    tenant: token tenant t-1" in out
+
+
+def test_doctor_loose_credentials_file_fix_is_the_chmod(make_cli, fail_keyring, tmp_path):
+    cli = make_cli(backend=fail_keyring)
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    runner.invoke(cli, ["env", "use", "dev"])
+    runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
+    creds = tmp_path / "config" / "smdev" / "credentials.toml"
+    creds.chmod(0o644)
+    out = runner.invoke(cli, ["doctor"]).output
+    assert f"fix: chmod 600 {creds}" in out
