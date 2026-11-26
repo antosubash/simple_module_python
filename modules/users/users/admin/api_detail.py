@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 from simple_module_db.engine.deps import get_db
+from simple_module_hosting.auth.csrf import RequiresCsrf
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
@@ -80,7 +81,9 @@ async def admin_list_linked_sign_ins(
 
 
 @detail_router.delete(
-    "/{user_id}/linked-sign-ins/{link_id}", status_code=http_status.HTTP_204_NO_CONTENT
+    "/{user_id}/linked-sign-ins/{link_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(RequiresCsrf())],
 )
 async def admin_unlink_sign_in_api(
     user_id: uuid.UUID,
