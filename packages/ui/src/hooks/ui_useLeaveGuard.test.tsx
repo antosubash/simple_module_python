@@ -8,7 +8,7 @@
  */
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { createRef } from 'react';
+import { createRef, StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const handlers: Array<(event: { detail: { visit: { prefetch: boolean } } }) => boolean> = [];
@@ -160,29 +160,34 @@ describe('browser history', () => {
 
   afterEach(() => window.removeEventListener('popstate', restore));
 
-  function edit(dirty = true) {
+  function edit(dirty = true, allowVisit?: Parameters<typeof useLeaveGuard>[3]) {
     const view = render(
-      <>
-        <Harness dirty={dirty} saving={saveFlag()} />
+      <StrictMode>
+        <Harness dirty={dirty} saving={saveFlag()} allowVisit={allowVisit} />
         <input aria-label="Name" defaultValue="Saved" />
-      </>,
+      </StrictMode>,
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Draft' } });
     return view;
   }
 
-  test('dirty Back prompts before restoration; cancel keeps the URL, state and draft', async () => {
-    edit();
-    confirm.mockReturnValue(false);
-    window.history.back();
+  test.each([false, true])(
+    'dirty Back keeps URL, state and draft on cancel (allowVisit supplied: %s)',
+    async (withAllowVisit) => {
+      const allowVisit = vi.fn(() => true);
+      edit(true, withAllowVisit ? allowVisit : undefined);
+      confirm.mockReturnValue(false);
+      window.history.back();
 
-    await waitFor(() => expect(confirm).toHaveBeenCalledWith(MESSAGE));
-    expect(confirm).toHaveBeenCalledTimes(1);
-    expect(restore).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/edit');
-    expect(window.history.state).toEqual(editState);
-    expect(screen.getByRole('textbox')).toHaveValue('Draft');
-  });
+      await waitFor(() => expect(confirm).toHaveBeenCalledWith(MESSAGE));
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(allowVisit).not.toHaveBeenCalled();
+      expect(restore).not.toHaveBeenCalled();
+      expect(window.location.pathname).toBe('/edit');
+      expect(window.history.state).toEqual(editState);
+      expect(screen.getByRole('textbox')).toHaveValue('Draft');
+    },
+  );
 
   test('confirming Back proceeds with one prompt', async () => {
     edit();
@@ -206,20 +211,25 @@ describe('browser history', () => {
     expect(window.history.length).toBe(length);
   });
 
-  test('dirty Forward prompts and can be cancelled', async () => {
-    window.history.back();
-    await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
-    restore.mockClear();
-    edit();
-    confirm.mockReturnValue(false);
-    window.history.forward();
+  test.each([false, true])(
+    'dirty Forward prompts and can be cancelled (allowVisit supplied: %s)',
+    async (withAllowVisit) => {
+      window.history.back();
+      await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
+      restore.mockClear();
+      const allowVisit = vi.fn(() => true);
+      edit(true, withAllowVisit ? allowVisit : undefined);
+      confirm.mockReturnValue(false);
+      window.history.forward();
 
-    await waitFor(() => expect(confirm).toHaveBeenCalledWith(MESSAGE));
-    expect(restore).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/other');
-    expect(window.history.state).toEqual(otherState);
-    expect(screen.getByRole('textbox')).toHaveValue('Draft');
-  });
+      await waitFor(() => expect(confirm).toHaveBeenCalledWith(MESSAGE));
+      expect(allowVisit).not.toHaveBeenCalled();
+      expect(restore).not.toHaveBeenCalled();
+      expect(window.location.pathname).toBe('/other');
+      expect(window.history.state).toEqual(otherState);
+      expect(screen.getByRole('textbox')).toHaveValue('Draft');
+    },
+  );
 
   test.each(['inertia:finish', 'inertia:navigate', 'inertia:clientVisit'])(
     'cancel restores the latest entry after %s, including replacements',
@@ -239,6 +249,30 @@ describe('browser history', () => {
     },
   );
 
+  test.each(['recovery', 'post', 'otherUrl'])('history approval scope: %s', async (mode) => {
+    restore.mockImplementation(() => {});
+    edit();
+    const before = handlers[handlers.length - 1];
+    window.history.back();
+    await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
+    const visit = {
+      prefetch: false,
+      url: new URL(
+        mode === 'otherUrl' ? '/unrelated' : window.location.href,
+        window.location.origin,
+      ),
+      method: mode === 'post' ? 'post' : 'get',
+      replace: true,
+      preserveState: true,
+      preserveScroll: true,
+    };
+    confirm.mockReturnValue(false);
+    expect(before({ detail: { visit } })).toBe(mode === 'recovery');
+    expect(confirm).toHaveBeenCalledTimes(mode === 'recovery' ? 1 : 2);
+    expect(before({ detail: { visit } })).toBe(false);
+    expect(confirm).toHaveBeenCalledTimes(mode === 'recovery' ? 2 : 3);
+  });
+
   test('saving bypasses the history prompt too', async () => {
     render(<Harness dirty={true} saving={saveFlag(true)} />);
     window.history.back();
@@ -252,7 +286,8 @@ describe('browser history', () => {
     '%s removes the history guard without trapping Back',
     async (action) => {
       const view = edit();
-      if (action === 'clean') view.rerender(<Harness dirty={false} saving={saveFlag()} />);
+      const clean = <Harness dirty={false} saving={saveFlag()} />;
+      if (action === 'clean') view.rerender(<StrictMode>{clean}</StrictMode>);
       else view.unmount();
       window.history.back();
 
