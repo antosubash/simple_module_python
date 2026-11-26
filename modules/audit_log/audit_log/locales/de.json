@@ -69,5 +69,15 @@
   "nav": {
     "audit_log": "Änderungsprotokoll"
   },
-  "permission_group": "Audit-Log"
+  "permission_group": "Audit-Log",
+  "settings_form": {
+    "title": "Audit-Log",
+    "description": "Legt fest, wie streng Änderungen an protokollierten Datensätzen aufgezeichnet werden.",
+    "fields": {
+      "refuse_unaudited_dml": {
+        "label": "Nicht protokollierte Schreibvorgänge ablehnen",
+        "help": "Wenn aktiv, wird ein Masseneinfügen, -ändern oder -löschen auf einer protokollierten Tabelle abgelehnt, das die Protokollierung ausdrücklich abschaltet. Rohe SQL-Schreibvorgänge sind nicht abgedeckt und müssen ihre Audit-Einträge selbst schreiben."
+      }
+    }
+  }
 }

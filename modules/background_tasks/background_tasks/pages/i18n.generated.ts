@@ -140,6 +140,153 @@ export const keys = {
       retried_before_other: 'background_tasks.retry_dialog.retried_before_other',
       title: 'background_tasks.retry_dialog.title',
     },
+    settings_form: {
+      description: 'background_tasks.settings_form.description',
+      fields: {
+        broadcast_invalidations: {
+          help: 'background_tasks.settings_form.fields.broadcast_invalidations.help',
+          label: 'background_tasks.settings_form.fields.broadcast_invalidations.label',
+        },
+        broker_url: {
+          help: 'background_tasks.settings_form.fields.broker_url.help',
+          label: 'background_tasks.settings_form.fields.broker_url.label',
+        },
+        db_max_overflow: {
+          help: 'background_tasks.settings_form.fields.db_max_overflow.help',
+          label: 'background_tasks.settings_form.fields.db_max_overflow.label',
+        },
+        db_pool_size: {
+          help: 'background_tasks.settings_form.fields.db_pool_size.help',
+          label: 'background_tasks.settings_form.fields.db_pool_size.label',
+        },
+        db_recycle: {
+          help: 'background_tasks.settings_form.fields.db_recycle.help',
+          label: 'background_tasks.settings_form.fields.db_recycle.label',
+        },
+        db_statement_timeout_ms: {
+          help: 'background_tasks.settings_form.fields.db_statement_timeout_ms.help',
+          label: 'background_tasks.settings_form.fields.db_statement_timeout_ms.label',
+        },
+        execution_tracking: {
+          help: 'background_tasks.settings_form.fields.execution_tracking.help',
+          label: 'background_tasks.settings_form.fields.execution_tracking.label',
+        },
+        invalidation_channel: {
+          help: 'background_tasks.settings_form.fields.invalidation_channel.help',
+          label: 'background_tasks.settings_form.fields.invalidation_channel.label',
+        },
+        log_retention_days: {
+          help: 'background_tasks.settings_form.fields.log_retention_days.help',
+          label: 'background_tasks.settings_form.fields.log_retention_days.label',
+        },
+        log_sink_enabled: {
+          help: 'background_tasks.settings_form.fields.log_sink_enabled.help',
+          label: 'background_tasks.settings_form.fields.log_sink_enabled.label',
+        },
+        log_sink_level: {
+          help: 'background_tasks.settings_form.fields.log_sink_level.help',
+          label: 'background_tasks.settings_form.fields.log_sink_level.label',
+        },
+        outbox_handler_timeout_seconds: {
+          help: 'background_tasks.settings_form.fields.outbox_handler_timeout_seconds.help',
+          label: 'background_tasks.settings_form.fields.outbox_handler_timeout_seconds.label',
+        },
+        outbox_lease_seconds: {
+          help: 'background_tasks.settings_form.fields.outbox_lease_seconds.help',
+          label: 'background_tasks.settings_form.fields.outbox_lease_seconds.label',
+        },
+        outbox_max_attempts: {
+          help: 'background_tasks.settings_form.fields.outbox_max_attempts.help',
+          label: 'background_tasks.settings_form.fields.outbox_max_attempts.label',
+        },
+        outbox_mode: {
+          choices: {
+            celery: 'background_tasks.settings_form.fields.outbox_mode.choices.celery',
+            inprocess: 'background_tasks.settings_form.fields.outbox_mode.choices.inprocess',
+          },
+          help: 'background_tasks.settings_form.fields.outbox_mode.help',
+          label: 'background_tasks.settings_form.fields.outbox_mode.label',
+        },
+        outbox_sweep_interval_seconds: {
+          help: 'background_tasks.settings_form.fields.outbox_sweep_interval_seconds.help',
+          label: 'background_tasks.settings_form.fields.outbox_sweep_interval_seconds.label',
+        },
+        purge_interval_seconds: {
+          help: 'background_tasks.settings_form.fields.purge_interval_seconds.help',
+          label: 'background_tasks.settings_form.fields.purge_interval_seconds.label',
+        },
+        result_backend: {
+          help: 'background_tasks.settings_form.fields.result_backend.help',
+          label: 'background_tasks.settings_form.fields.result_backend.label',
+        },
+        retention_days: {
+          help: 'background_tasks.settings_form.fields.retention_days.help',
+          label: 'background_tasks.settings_form.fields.retention_days.label',
+        },
+        stuck_after_seconds: {
+          help: 'background_tasks.settings_form.fields.stuck_after_seconds.help',
+          label: 'background_tasks.settings_form.fields.stuck_after_seconds.label',
+        },
+        stuck_sweep_interval_seconds: {
+          help: 'background_tasks.settings_form.fields.stuck_sweep_interval_seconds.help',
+          label: 'background_tasks.settings_form.fields.stuck_sweep_interval_seconds.label',
+        },
+        task_always_eager: {
+          help: 'background_tasks.settings_form.fields.task_always_eager.help',
+          label: 'background_tasks.settings_form.fields.task_always_eager.label',
+        },
+        task_default_queue: {
+          help: 'background_tasks.settings_form.fields.task_default_queue.help',
+          label: 'background_tasks.settings_form.fields.task_default_queue.label',
+        },
+        task_eager_propagates: {
+          help: 'background_tasks.settings_form.fields.task_eager_propagates.help',
+          label: 'background_tasks.settings_form.fields.task_eager_propagates.label',
+        },
+        task_reject_on_worker_lost: {
+          help: 'background_tasks.settings_form.fields.task_reject_on_worker_lost.help',
+          label: 'background_tasks.settings_form.fields.task_reject_on_worker_lost.label',
+        },
+        task_routes_override: {
+          help: 'background_tasks.settings_form.fields.task_routes_override.help',
+          label: 'background_tasks.settings_form.fields.task_routes_override.label',
+        },
+        task_soft_time_limit: {
+          help: 'background_tasks.settings_form.fields.task_soft_time_limit.help',
+          label: 'background_tasks.settings_form.fields.task_soft_time_limit.label',
+        },
+        task_time_limit: {
+          help: 'background_tasks.settings_form.fields.task_time_limit.help',
+          label: 'background_tasks.settings_form.fields.task_time_limit.label',
+        },
+        track_publish: {
+          help: 'background_tasks.settings_form.fields.track_publish.help',
+          label: 'background_tasks.settings_form.fields.track_publish.label',
+        },
+        visibility_timeout_seconds: {
+          help: 'background_tasks.settings_form.fields.visibility_timeout_seconds.help',
+          label: 'background_tasks.settings_form.fields.visibility_timeout_seconds.label',
+        },
+        worker_concurrency: {
+          help: 'background_tasks.settings_form.fields.worker_concurrency.help',
+          label: 'background_tasks.settings_form.fields.worker_concurrency.label',
+        },
+        worker_max_memory_per_child_kb: {
+          help: 'background_tasks.settings_form.fields.worker_max_memory_per_child_kb.help',
+          label: 'background_tasks.settings_form.fields.worker_max_memory_per_child_kb.label',
+        },
+        worker_max_tasks_per_child: {
+          help: 'background_tasks.settings_form.fields.worker_max_tasks_per_child.help',
+          label: 'background_tasks.settings_form.fields.worker_max_tasks_per_child.label',
+        },
+      },
+      groups: {
+        celery: 'background_tasks.settings_form.groups.celery',
+        database: 'background_tasks.settings_form.groups.database',
+        logs: 'background_tasks.settings_form.groups.logs',
+      },
+      title: 'background_tasks.settings_form.title',
+    },
     status: {
       failed: 'background_tasks.status.failed',
       queued: 'background_tasks.status.queued',
@@ -353,6 +500,79 @@ type ModuleTranslationResources = {
   readonly 'background_tasks.retry_dialog.retried_before_one': '';
   readonly 'background_tasks.retry_dialog.retried_before_other': '';
   readonly 'background_tasks.retry_dialog.title': '';
+  readonly 'background_tasks.settings_form.description': '';
+  readonly 'background_tasks.settings_form.fields.broadcast_invalidations.help': '';
+  readonly 'background_tasks.settings_form.fields.broadcast_invalidations.label': '';
+  readonly 'background_tasks.settings_form.fields.broker_url.help': '';
+  readonly 'background_tasks.settings_form.fields.broker_url.label': '';
+  readonly 'background_tasks.settings_form.fields.db_max_overflow.help': '';
+  readonly 'background_tasks.settings_form.fields.db_max_overflow.label': '';
+  readonly 'background_tasks.settings_form.fields.db_pool_size.help': '';
+  readonly 'background_tasks.settings_form.fields.db_pool_size.label': '';
+  readonly 'background_tasks.settings_form.fields.db_recycle.help': '';
+  readonly 'background_tasks.settings_form.fields.db_recycle.label': '';
+  readonly 'background_tasks.settings_form.fields.db_statement_timeout_ms.help': '';
+  readonly 'background_tasks.settings_form.fields.db_statement_timeout_ms.label': '';
+  readonly 'background_tasks.settings_form.fields.execution_tracking.help': '';
+  readonly 'background_tasks.settings_form.fields.execution_tracking.label': '';
+  readonly 'background_tasks.settings_form.fields.invalidation_channel.help': '';
+  readonly 'background_tasks.settings_form.fields.invalidation_channel.label': '';
+  readonly 'background_tasks.settings_form.fields.log_retention_days.help': '';
+  readonly 'background_tasks.settings_form.fields.log_retention_days.label': '';
+  readonly 'background_tasks.settings_form.fields.log_sink_enabled.help': '';
+  readonly 'background_tasks.settings_form.fields.log_sink_enabled.label': '';
+  readonly 'background_tasks.settings_form.fields.log_sink_level.help': '';
+  readonly 'background_tasks.settings_form.fields.log_sink_level.label': '';
+  readonly 'background_tasks.settings_form.fields.outbox_handler_timeout_seconds.help': '';
+  readonly 'background_tasks.settings_form.fields.outbox_handler_timeout_seconds.label': '';
+  readonly 'background_tasks.settings_form.fields.outbox_lease_seconds.help': '';
+  readonly 'background_tasks.settings_form.fields.outbox_lease_seconds.label': '';
+  readonly 'background_tasks.settings_form.fields.outbox_max_attempts.help': '';
+  readonly 'background_tasks.settings_form.fields.outbox_max_attempts.label': '';
+  readonly 'background_tasks.settings_form.fields.outbox_mode.choices.celery': '';
+  readonly 'background_tasks.settings_form.fields.outbox_mode.choices.inprocess': '';
+  readonly 'background_tasks.settings_form.fields.outbox_mode.help': '';
+  readonly 'background_tasks.settings_form.fields.outbox_mode.label': '';
+  readonly 'background_tasks.settings_form.fields.outbox_sweep_interval_seconds.help': '';
+  readonly 'background_tasks.settings_form.fields.outbox_sweep_interval_seconds.label': '';
+  readonly 'background_tasks.settings_form.fields.purge_interval_seconds.help': '';
+  readonly 'background_tasks.settings_form.fields.purge_interval_seconds.label': '';
+  readonly 'background_tasks.settings_form.fields.result_backend.help': '';
+  readonly 'background_tasks.settings_form.fields.result_backend.label': '';
+  readonly 'background_tasks.settings_form.fields.retention_days.help': '';
+  readonly 'background_tasks.settings_form.fields.retention_days.label': '';
+  readonly 'background_tasks.settings_form.fields.stuck_after_seconds.help': '';
+  readonly 'background_tasks.settings_form.fields.stuck_after_seconds.label': '';
+  readonly 'background_tasks.settings_form.fields.stuck_sweep_interval_seconds.help': '';
+  readonly 'background_tasks.settings_form.fields.stuck_sweep_interval_seconds.label': '';
+  readonly 'background_tasks.settings_form.fields.task_always_eager.help': '';
+  readonly 'background_tasks.settings_form.fields.task_always_eager.label': '';
+  readonly 'background_tasks.settings_form.fields.task_default_queue.help': '';
+  readonly 'background_tasks.settings_form.fields.task_default_queue.label': '';
+  readonly 'background_tasks.settings_form.fields.task_eager_propagates.help': '';
+  readonly 'background_tasks.settings_form.fields.task_eager_propagates.label': '';
+  readonly 'background_tasks.settings_form.fields.task_reject_on_worker_lost.help': '';
+  readonly 'background_tasks.settings_form.fields.task_reject_on_worker_lost.label': '';
+  readonly 'background_tasks.settings_form.fields.task_routes_override.help': '';
+  readonly 'background_tasks.settings_form.fields.task_routes_override.label': '';
+  readonly 'background_tasks.settings_form.fields.task_soft_time_limit.help': '';
+  readonly 'background_tasks.settings_form.fields.task_soft_time_limit.label': '';
+  readonly 'background_tasks.settings_form.fields.task_time_limit.help': '';
+  readonly 'background_tasks.settings_form.fields.task_time_limit.label': '';
+  readonly 'background_tasks.settings_form.fields.track_publish.help': '';
+  readonly 'background_tasks.settings_form.fields.track_publish.label': '';
+  readonly 'background_tasks.settings_form.fields.visibility_timeout_seconds.help': '';
+  readonly 'background_tasks.settings_form.fields.visibility_timeout_seconds.label': '';
+  readonly 'background_tasks.settings_form.fields.worker_concurrency.help': '';
+  readonly 'background_tasks.settings_form.fields.worker_concurrency.label': '';
+  readonly 'background_tasks.settings_form.fields.worker_max_memory_per_child_kb.help': '';
+  readonly 'background_tasks.settings_form.fields.worker_max_memory_per_child_kb.label': '';
+  readonly 'background_tasks.settings_form.fields.worker_max_tasks_per_child.help': '';
+  readonly 'background_tasks.settings_form.fields.worker_max_tasks_per_child.label': '';
+  readonly 'background_tasks.settings_form.groups.celery': '';
+  readonly 'background_tasks.settings_form.groups.database': '';
+  readonly 'background_tasks.settings_form.groups.logs': '';
+  readonly 'background_tasks.settings_form.title': '';
   readonly 'background_tasks.status.failed': '';
   readonly 'background_tasks.status.queued': '';
   readonly 'background_tasks.status.retrying': '';

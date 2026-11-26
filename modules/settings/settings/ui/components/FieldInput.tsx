@@ -21,7 +21,10 @@ import { SecretInput } from './SecretInput';
 export type { FieldType } from '@simple-module-py/ui/extensions';
 export type FieldMeta = SettingsFieldMeta;
 const UNSET = '__unset__';
-type Props = SettingsFieldRendererProps;
+type Props = SettingsFieldRendererProps & {
+  /** Display text for a choice value; the raw value when omitted. */
+  choiceLabel?: (value: string) => string;
+};
 
 /** A stored override is the one thing on this screen someone put there. */
 const OVERRIDDEN = 'border-primary ring-[3px] ring-primary/10';
@@ -33,6 +36,7 @@ export function FieldInput({
   id,
   'aria-describedby': describedBy,
   'aria-invalid': invalid,
+  choiceLabel = (value) => value,
 }: Props) {
   const registry = useExtensions();
   const { t } = useT();
@@ -124,7 +128,7 @@ export function FieldInput({
         <SelectContent>
           {field.choices.map((choice) => (
             <SelectItem key={choice} value={choice}>
-              {choice}
+              {choiceLabel(choice)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -144,7 +148,7 @@ export function FieldInput({
         onChange={(e) =>
           onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
         }
-        className={`w-[120px] font-mono ${TOUCH_TARGET_CLASS} ${highlight}`}
+        className={`w-full max-w-[200px] tabular-nums ${TOUCH_TARGET_CLASS} ${highlight}`}
       />
     );
   }
@@ -174,7 +178,7 @@ export function FieldInput({
       onChange={(e) =>
         onChange(field.name, nullable && e.target.value === '' ? null : e.target.value)
       }
-      className={`font-mono ${highlight}`}
+      className={highlight}
     />
   );
 }

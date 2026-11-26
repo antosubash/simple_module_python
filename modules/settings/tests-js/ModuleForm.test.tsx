@@ -74,7 +74,7 @@ describe('ModuleForm', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<ModuleForm module={moduleView([retentionDays])} />);
 
-    fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Retention days'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(screen.getByRole('status')).toBeVisible());
@@ -98,15 +98,15 @@ describe('ModuleForm', () => {
       ),
     );
     render(<ModuleForm module={moduleView([retentionDays])} />);
-    fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Retention days'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByText(/item rejected/)).toBeVisible());
     expect(screen.getByRole('alert')).toHaveTextContent('item rejected');
     // The error is a row of its own beneath the control, not a child of the
     // control's cell, where it wrapped a word per line.
     const error = screen.getByText(/item rejected/);
-    expect(error.contains(screen.getByLabelText('retention_days'))).toBe(false);
-    expect(error.className).toContain('@xl:col-span-2');
+    expect(error.contains(screen.getByLabelText('Retention days'))).toBe(false);
+    expect(error.className).toContain('@xl:col-start-2');
   });
 
   test('shows an error whose loc names no field at form level', async () => {
@@ -121,7 +121,7 @@ describe('ModuleForm', () => {
       ),
     );
     render(<ModuleForm module={moduleView([retentionDays])} />);
-    fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Retention days'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('String too long'));
   });
@@ -135,10 +135,10 @@ describe('ModuleForm', () => {
 
     expect(screen.queryByText('1 unsaved')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Retention days'), { target: { value: '30' } });
     expect(screen.getByText('1 unsaved')).toBeVisible();
 
-    fireEvent.change(screen.getByLabelText('smtp_host'), { target: { value: 'mail.test' } });
+    fireEvent.change(screen.getByLabelText('SMTP host'), { target: { value: 'mail.test' } });
     expect(screen.getByText('2 unsaved')).toBeVisible();
   });
 
@@ -152,8 +152,8 @@ describe('ModuleForm', () => {
       />,
     );
 
-    expect(screen.getByLabelText('smtp_host')).toBeDisabled();
-    expect(screen.getByLabelText('retention_days')).toBeEnabled();
+    expect(screen.getByLabelText('SMTP host')).toBeDisabled();
+    expect(screen.getByLabelText('Retention days')).toBeEnabled();
   });
 });
 
@@ -168,7 +168,7 @@ describe('Revert', () => {
     );
 
     expect(screen.getByText('overridden in DB')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Revert smtp_host' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Revert SMTP host' })).toBeVisible();
   });
 
   test('is not offered when an env var, not the database, moved the value', () => {
@@ -189,7 +189,7 @@ describe('Revert', () => {
       />,
     );
 
-    expect(screen.queryByRole('button', { name: 'Revert smtp_host' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Revert SMTP host' })).not.toBeInTheDocument();
   });
 
   test('is offered even when the stored override equals the default', () => {
@@ -201,7 +201,7 @@ describe('Revert', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Revert smtp_host' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Revert SMTP host' })).toBeVisible();
   });
 
   test('clears the override and reloads the props', async () => {
@@ -213,7 +213,7 @@ describe('Revert', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Revert smtp_host' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revert SMTP host' }));
 
     await waitFor(() => expect(mocks.reload).toHaveBeenCalled());
     const [req] = fetchMock.mock.calls[0] as unknown as [Request];
@@ -262,15 +262,16 @@ describe('Controls follow the declared field', () => {
     expect(screen.getByRole('button', { name: 'Set new value' })).toBeVisible();
     // The row's label has to point at a real control, and it must not swallow
     // the button's own name in the process.
-    expect(screen.getByLabelText('smtp_password')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('SMTP password')).toHaveAttribute('readonly');
   });
 });
 
 describe('Test connection', () => {
-  test('names the single check it is about to run', () => {
+  test('names the single check after the module it belongs to', () => {
     render(<ModuleForm module={moduleView([retentionDays])} checks={['users.mailer']} />);
 
-    expect(screen.getByRole('button', { name: /Test mailer connection/ })).toBeVisible();
+    // The module's display title, translatable, rather than the raw check id.
+    expect(screen.getByRole('button', { name: /Test Users connection/ })).toBeVisible();
   });
 
   test('falls back to the generic label when a module registered several', () => {

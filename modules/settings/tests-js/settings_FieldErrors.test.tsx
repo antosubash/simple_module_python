@@ -58,7 +58,7 @@ test.each<Partial<FieldMeta>>([
   rerender(
     <ExtensionsProvider registry={registry}>{row(overrides, 'Out of range')}</ExtensionsProvider>,
   );
-  const control = screen.getByLabelText('setting');
+  const control = screen.getByLabelText('Setting');
   const description = screen.getByText('Help text.');
   const error = screen.getByRole('alert');
   expect(error).toHaveTextContent('Out of range');
@@ -78,7 +78,7 @@ test.each([false, true])(
   'only describes mounted feedback without a description (error=%s)',
   (hasError) => {
     render(row({ description: '' }, hasError ? 'Rejected' : undefined));
-    const control = screen.getByLabelText('setting');
+    const control = screen.getByLabelText('Setting');
     const ids = control.getAttribute('aria-describedby')?.split(' ') ?? [];
     expect(ids).toHaveLength(hasError ? 1 : 0);
     for (const id of ids) expect(document.getElementById(id)).toHaveTextContent('Rejected');
@@ -87,7 +87,7 @@ test.each([false, true])(
 
 test('appends the JSON hint after description and server error, and removes it when valid', () => {
   render(row({ type: 'json', value: {} }, 'Rejected'));
-  const control = screen.getByLabelText('setting');
+  const control = screen.getByLabelText('Setting');
   fireEvent.change(control, { target: { value: '{' } });
   const hint = screen.getByText('Invalid JSON');
   const description = screen.getByText('Help text.');
@@ -119,7 +119,7 @@ test('a rejected save focuses the first invalid field and editing clears its err
       }}
     />,
   );
-  const control = screen.getByLabelText('setting');
+  const control = screen.getByLabelText('Setting');
   fireEvent.change(control, { target: { value: 'bad' } });
   fireEvent.click(screen.getByRole('button', { name: /save/i }));
   await waitFor(() => expect(control).toHaveAttribute('aria-invalid', 'true'));

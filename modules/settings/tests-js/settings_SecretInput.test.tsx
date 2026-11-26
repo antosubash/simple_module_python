@@ -38,9 +38,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 test('new secrets stay hidden, toggle visibility, and Cancel restores the unchanged mask', () => {
   render(<ModuleForm module={module} />);
-  const maskedValue = (screen.getByLabelText('password') as HTMLInputElement).value;
+  const maskedValue = (screen.getByLabelText('Password') as HTMLInputElement).value;
   fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
-  const control = screen.getByLabelText('password');
+  const control = screen.getByLabelText('Password');
   expect(control).toHaveAttribute('type', 'password');
   expect(control).not.toHaveAttribute('readonly');
   expect(control).toHaveAttribute('autocomplete', 'new-password');
@@ -52,12 +52,12 @@ test('new secrets stay hidden, toggle visibility, and Cancel restores the unchan
   expect(control).toHaveAttribute('type', 'password');
   fireEvent.click(screen.getByRole('button', { name: 'Show secret' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.getByLabelText('password')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('password')).toHaveValue(maskedValue);
+  expect(screen.getByLabelText('Password')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Password')).toHaveValue(maskedValue);
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
-  expect(screen.getByLabelText('password')).toHaveAttribute('type', 'password');
-  expect(screen.getByLabelText('password')).toHaveValue('');
+  expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password');
+  expect(screen.getByLabelText('Password')).toHaveValue('');
 });
 
 test('a saved secret returns to its mask and an empty draft is never sent', async () => {
@@ -71,16 +71,16 @@ test('a saved secret returns to its mask and an empty draft is never sent', asyn
   vi.stubGlobal('fetch', fetchMock);
   render(<ModuleForm module={module} />);
   fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
-  fireEvent.change(screen.getByLabelText('password'), { target: { value: 'new-secret' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'new-secret' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   const cancel = screen.getByRole('button', { name: 'Cancel' });
   expect(cancel).toBeDisabled();
-  expect(screen.getByLabelText('password')).toBeDisabled();
+  expect(screen.getByLabelText('Password')).toBeDisabled();
   act(() => cancel.click());
   await act(async () => resolve(new Response('{}', { status: 200 })));
-  expect(screen.getByLabelText('password')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('password')).toHaveValue('••••••••••');
+  expect(screen.getByLabelText('Password')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Password')).toHaveValue('••••••••••');
   expect(screen.queryByDisplayValue('new-secret')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
@@ -88,12 +88,12 @@ test('a saved secret returns to its mask and an empty draft is never sent', asyn
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   const request = fetchMock.mock.calls[0]?.[0] as Request | undefined;
   expect(await request?.json()).toEqual({ password: 'new-secret' });
-  fireEvent.change(screen.getByLabelText('password'), { target: { value: 'second-secret' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'second-secret' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-  expect(screen.getByLabelText('password')).toBeDisabled();
+  expect(screen.getByLabelText('Password')).toBeDisabled();
   await act(async () => resolve(new Response('{}', { status: 200 })));
-  expect(screen.getByLabelText('password')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Password')).toHaveAttribute('readonly');
   expect(await fetchMock.mock.calls[1]?.[0].json()).toEqual({ password: 'second-secret' });
 });
 
@@ -111,7 +111,7 @@ test.each(['validation', 'server', 'network'])(
     vi.stubGlobal('fetch', fetchMock);
     render(<ModuleForm module={module} />);
     fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
-    const control = screen.getByLabelText('password');
+    const control = screen.getByLabelText('Password');
     fireEvent.change(control, { target: { value: 'new-secret' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
@@ -126,10 +126,10 @@ test.each(['validation', 'server', 'network'])(
     for (const id of ids) expect(document.getElementById(id)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByLabelText('password')).toHaveAttribute('readonly'));
+    await waitFor(() => expect(screen.getByLabelText('Password')).toHaveAttribute('readonly'));
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    expect(screen.getByLabelText('password')).toHaveAccessibleDescription('Mail password');
-    expect(screen.getByLabelText('password')).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Password')).toHaveAccessibleDescription('Mail password');
+    expect(screen.getByLabelText('Password')).not.toHaveAttribute('aria-invalid', 'true');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     for (const [request] of fetchMock.mock.calls) {
       expect(await (request as Request).json()).toEqual({ password: 'new-secret' });

@@ -69,5 +69,15 @@
   "nav": {
     "audit_log": "Audit log"
   },
-  "permission_group": "Audit log"
+  "permission_group": "Audit log",
+  "settings_form": {
+    "title": "Audit log",
+    "description": "Controls how strictly changes to audited records are recorded.",
+    "fields": {
+      "refuse_unaudited_dml": {
+        "label": "Refuse unaudited writes",
+        "help": "When on, a bulk insert, update or delete on an audited table that explicitly opts out of auditing is rejected. Raw SQL writes are not covered and must record their own audit entries."
+      }
+    }
+  }
 }

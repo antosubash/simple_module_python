@@ -1,13 +1,14 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { apiResult } from '@simple-module-py/ui/lib/api';
-import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../pages/api.generated';
+import { useSettingsText } from '../utils/field-text';
+import { groupFields, notEqual } from '../utils/form-state';
 import type { FieldMeta } from './FieldInput';
 import { ModuleFieldRow } from './ModuleFieldRow';
+import { SaveBar } from './SaveBar';
 import { TestConnectionButton } from './TestConnectionButton';
 import { splitValidationErrors } from './validation-errors';
 
@@ -28,16 +29,10 @@ type Props = {
   onDirtyChange?: (dirty: boolean) => void;
 };
 
-function notEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return false;
-  if (typeof a === 'object' || typeof b === 'object') {
-    return JSON.stringify(a) !== JSON.stringify(b);
-  }
-  return true;
-}
-
 export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
   const { t } = useT();
+  const text = useSettingsText(m.package);
+  const description = text.description();
   const initial = useMemo(() => {
     const o: Record<string, unknown> = {};
     for (const f of m.fields) o[f.name] = f.value;
@@ -54,12 +49,16 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
   // Bumped after each successful save so secret editors remount masked.
   const [savedGeneration, setSavedGeneration] = useState(0);
   const fieldsRef = useRef<HTMLDivElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const focusFirstError = useRef(false);
 
   useEffect(() => {
     if (!focusFirstError.current) return;
     focusFirstError.current = false;
-    fieldsRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    const invalid = fieldsRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    invalid?.focus();
+    // Centre it so the sticky save bar cannot cover the field or its error.
+    invalid?.scrollIntoView?.({ block: 'center' });
   }, [errors]);
 
   // Refresh saved values without discarding drafts in other fields (#637).
@@ -91,18 +90,7 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
   const dirty = modifiedFields.size > 0;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
-  // Grouped only where the module said so: a lone "General" heading carries no
-  // information and costs a row per module.
-  const groups = useMemo(() => {
-    const g = new Map<string, FieldMeta[]>();
-    for (const f of m.fields) {
-      const key = f.group ?? '';
-      const bucket = g.get(key);
-      if (bucket) bucket.push(f);
-      else g.set(key, [f]);
-    }
-    return [...g.entries()];
-  }, [m.fields]);
+  const groups = useMemo(() => groupFields(m.fields), [m.fields]);
 
   function handleFailure(result: { status?: number; error?: unknown }) {
     if (result.status === 422) {
@@ -184,8 +172,9 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
       ...prev,
       values: { ...prev.values, [name]: prev.baseline[name] },
     }));
-    // Take the live value from the reload: without a reload since the save the
-    // props are unchanged, so the [initial] effect would leave the old value.
+    // Take the field's live value from the reload itself: when the page never
+    // reloaded after a save, the fresh props equal the old ones and the
+    // [initial] effect does not fire, leaving the reverted value on screen.
     router.reload({
       only: ['modules'],
       onSuccess: (page) => {
@@ -205,35 +194,31 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
     return true;
   }
 
+  function onDiscard() {
+    setBuffer((prev) => ({ ...prev, values: prev.baseline }));
+    setErrors({});
+    setFormErrors([]);
+    setSaved(false);
+    // Secret editors remount masked rather than keep a half-typed value.
+    setSavedGeneration((n) => n + 1);
+    // Discard unmounts the focused button; land on the module heading instead
+    // of dropping focus to the page.
+    heading.current?.focus();
+  }
+
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4">
-      {/* Outside the card: the heading names the pane, and the deck keeps the
-          card for the fields alone. */}
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight">
-            <code className="font-mono text-[22px]">{m.package}</code>{' '}
-            {t(keys.settings.modules.heading_suffix)}
-          </h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {t(keys.settings.modules.description)}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2.5">
-          {saved && (
-            <p role="status" className="text-sm font-medium text-primary-text">
-              {t(keys.settings.modules_form.saved_toast)}
-            </p>
-          )}
-          {dirty && (
-            <p className="text-[13px] text-muted-foreground">
-              {t(keys.settings.modules.unsaved_count, { count: modifiedFields.size })}
-            </p>
-          )}
-          <Button disabled={!dirty || busy} onClick={onSave} className={TOUCH_TARGET_CLASS}>
-            {busy ? t(keys.settings.modules_form.saving) : t(keys.settings.modules_form.save)}
-          </Button>
-        </div>
+    <div className="flex min-w-0 flex-1 flex-col gap-5">
+      <header>
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="font-display text-2xl font-bold tracking-tight focus:outline-none"
+        >
+          {text.title()}
+        </h2>
+        {description && (
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p>
+        )}
       </header>
 
       {formErrors.length > 0 && (
@@ -250,13 +235,23 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
         </div>
       )}
 
-      <Card className="@container flex min-w-0 flex-1 flex-col gap-4 border-border p-6">
-        {/* No inner scroller: the card grows and the page scrolls, which is
-            one scrollbar for the screen instead of three nested ones. */}
-        <div ref={fieldsRef} className="flex flex-col gap-4">
-          {groups.map(([group, fields]) => (
-            <section key={group} className="flex flex-col gap-4">
-              {group && <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>}
+      {/* No inner scroller: the cards grow and the page scrolls, which is one
+          scrollbar for the screen instead of nested ones. The scroll margin
+          keeps a field tabbed into view clear of the sticky save bar. */}
+      <div ref={fieldsRef} className="flex flex-col gap-5 [&_*]:scroll-mb-28">
+        {groups.map(([group, fields]) => (
+          <Card
+            key={group}
+            role="group"
+            aria-label={group ? text.group(group) : undefined}
+            className="@container gap-0 overflow-hidden border-border p-0"
+          >
+            {group && (
+              <h3 className="border-b border-border px-4 py-3 text-sm font-semibold text-muted-foreground @lg:px-6">
+                {text.group(group)}
+              </h3>
+            )}
+            <div className="divide-y divide-border/70">
               {fields.map((f) => (
                 <ModuleFieldRow
                   key={f.is_secret ? `${f.name}:${savedGeneration}` : f.name}
@@ -282,16 +277,22 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
                   }}
                 />
               ))}
-            </section>
-          ))}
-        </div>
+            </div>
+          </Card>
+        ))}
+      </div>
 
-        {checks.length > 0 && (
-          <div className="mt-auto border-t pt-4">
-            <TestConnectionButton pkg={m.package} checks={checks} />
-          </div>
-        )}
-      </Card>
+      {checks.length > 0 && (
+        <TestConnectionButton pkg={m.package} checks={checks} title={text.title()} />
+      )}
+
+      <SaveBar
+        unsaved={modifiedFields.size}
+        busy={busy}
+        saved={saved}
+        onSave={onSave}
+        onDiscard={onDiscard}
+      />
     </div>
   );
 }
