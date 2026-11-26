@@ -372,3 +372,20 @@ def test_oversized_json_is_refused_with_a_hint(make_op, monkeypatch):
     )
     assert h.run(make_op()) == 1
     assert "--out" in h.err.getvalue() and h.out.getvalue() == ""
+
+
+def test_403_tenant_required_says_tenant_not_relogin(make_op):
+    h = Harness(lambda r: httpx.Response(403, json={"detail": "tenant_required"}))
+    h.ctx.login_hint = "smdev login --token"
+    assert h.run(make_op()) == 4
+    err = h.err.getvalue()
+    assert "the server needs a tenant: tenant_required" in err
+    assert "login" not in err
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_auth_failure_still_suggests_login(make_op, status):
+    h = Harness(lambda r: httpx.Response(status, json={"detail": "Not authenticated"}))
+    h.ctx.login_hint = "smdev login --token"
+    assert h.run(make_op()) == 4
+    assert "run `smdev login --token`" in h.err.getvalue()

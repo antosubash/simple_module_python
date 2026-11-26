@@ -84,6 +84,27 @@ def _safe_location(ctx: RunContext, location: str) -> str:
     return location
 
 
+def _detail(text: str) -> str:
+    try:
+        detail = json.loads(text).get("detail")
+    except (ValueError, AttributeError):
+        return ""
+    return detail if isinstance(detail, str) else ""
+
+
+def _auth_hint(ctx: RunContext, text: str) -> None:
+    """Point at re-login only when the token is the problem, not a missing tenant."""
+    detail = _detail(text)
+    if "tenant" in detail.lower():
+        say_server(
+            ctx,
+            f"hint: the server needs a tenant: {detail[:ERROR_BODY_CHARS]}; "
+            "pass --tenant or use a token pinned to one",
+        )
+    elif ctx.login_hint:
+        say(ctx, f"hint: the token may be missing, expired or lack access; run `{ctx.login_hint}`")
+
+
 def print_error(ctx: RunContext, response: httpx.Response) -> None:
     response.read()
     text = response.text
@@ -100,8 +121,8 @@ def print_error(ctx: RunContext, response: httpx.Response) -> None:
     redirected = ApiClient.was_redirected(response)
     if response.status_code == 401 and redirected:
         say(ctx, REDIRECT_HINT)
-    elif response.status_code in AUTH_STATUSES and ctx.login_hint:
-        say(ctx, f"hint: the token may be missing, expired or lack access; run `{ctx.login_hint}`")
+    elif response.status_code in AUTH_STATUSES:
+        _auth_hint(ctx, text)
 
 
 def _write_file(response: httpx.Response, target: str) -> None:
