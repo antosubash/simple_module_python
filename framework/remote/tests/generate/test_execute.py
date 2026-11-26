@@ -103,7 +103,7 @@ def test_protected_prompt_must_match_name(post):
     with pytest.raises(click.UsageError):
         h.run(post, sets=("n=1",))
     assert h.requests == []
-    assert h.prompts[0] == ('Type "prod" to run POST /api/x on prod (https://app.example):')
+    assert h.prompts[0] == ('Type "prod" to run POST /api/x on prod (https://app.example)')
     assert h.run(post, sets=("n=1",)) == 0 and len(h.requests) == 1
 
 

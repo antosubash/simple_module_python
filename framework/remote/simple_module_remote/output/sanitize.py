@@ -13,7 +13,8 @@ _ESCAPES = re.compile(
     r"|\x1b\[[0-?]*[ -/]*[@-~]"  # CSI
     r"|\x1b[ -/]*[0-~]?"  # other escapes, incl. a lone ESC
 )
-_CONTROLS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+# C0/C1 controls (not newline/tab), bidi overrides/isolates, line and paragraph separators.
+_CONTROLS = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069\u2028\u2029]")
 
 
 def sanitize(text: str) -> str:

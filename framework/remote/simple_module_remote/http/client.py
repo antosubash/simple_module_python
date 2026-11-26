@@ -1,5 +1,6 @@
 """The guarded HTTP client: every CLI request goes through ApiClient."""
 
+import ipaddress
 import time
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
@@ -14,6 +15,7 @@ import httpx
 from simple_module_remote.config.environments import Environment
 from simple_module_remote.http.errors import ApiError, UnsafePathError
 from simple_module_remote.http.safety import (
+    LOOPBACK_HOSTS,
     validate_api_path,
     validate_base_url,
     validate_request_url,
@@ -26,6 +28,7 @@ MAX_WAIT_SECONDS = 30.0
 DEFAULT_RETRY_AFTER = 1.0
 TOO_MANY_REQUESTS = 429
 TIMEOUT_SECONDS = 30.0
+METADATA_HOSTS = frozenset({"metadata.google.internal", "metadata"})
 REDIRECTED_EXTENSION = "smr_redirected"
 _STRIPPED_HEADERS = frozenset({"authorization", "cookie", "host", "user-agent"})
 
@@ -54,7 +57,9 @@ class ApiClient:
         user_agent: str,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        on_wait: Callable[[float], None] | None = None,
     ) -> None:
+        self._on_wait = on_wait
         self._base = validate_base_url(env.url).rstrip("/")
         self._sleep = sleep
         self._token = token
@@ -159,7 +164,10 @@ class ApiClient:
             if response.status_code != TOO_MANY_REQUESTS or attempts >= MAX_RETRIES:
                 break
             attempts += 1
-            self._sleep(_retry_delay(response.headers.get("Retry-After")))
+            delay = _retry_delay(response.headers.get("Retry-After"))
+            if self._on_wait is not None:
+                self._on_wait(delay)
+            self._sleep(delay)
             response.close()
         if follow and verb == "GET" and response.status_code in REDIRECT_STATUSES:
             return self._follow(response, stream)
@@ -190,6 +198,37 @@ class ApiClient:
         decoded = (target, unquote(target), unquote(unquote(target)))
         return bool(self._token) and any(self._token in text for text in decoded)
 
+    def _is_local(self, host: str) -> bool:
+        """Whether the environment itself is on loopback or a private address."""
+        if host in LOOPBACK_HOSTS:
+            return True
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            return False
+        return ip.is_private or ip.is_loopback
+
+    def _blocked_hop(self, target: str) -> str | None:
+        """Why the tokenless follower must not fetch ``target``, or ``None`` when it may."""
+        parts = urlsplit(target)
+        host = (parts.hostname or "").lower()
+        if parts.scheme == "http" and host not in LOOPBACK_HOSTS:
+            return "plain http to a non-loopback host"
+        if host in METADATA_HOSTS:
+            return "a metadata service address"
+        env_local = self._is_local((urlsplit(self._base).hostname or "").lower())
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            return None if host not in LOOPBACK_HOSTS or env_local else "a loopback address"
+        if ip.is_link_local:
+            return "a link-local address"
+        if (ip.is_private or ip.is_loopback or ip.is_unspecified or ip.is_reserved) and (
+            not env_local
+        ):
+            return "a private or loopback address"
+        return None
+
     def _stays_in_api(self, target: str) -> bool:
         """True for a redirect target on the environment's origin under its /api/ prefix."""
         try:
@@ -219,6 +258,8 @@ class ApiClient:
             # Same origin and still under the env's /api/: the token travels with it.
             # Anything else goes out bare, through the client that holds no credentials.
             keep_token = self._stays_in_api(target)
+            if not keep_token and (why := self._blocked_hop(target)):
+                raise ApiError(0, message=f"redirect refused: it points at {why}")
             client = self._client if keep_token else self._follower
             client.cookies.clear()
             try:

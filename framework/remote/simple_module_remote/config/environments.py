@@ -16,7 +16,8 @@ from simple_module_remote.http.errors import UnsafePathError
 from simple_module_remote.http.safety import validate_base_url
 
 CONFIG_FILENAME = "config.toml"
-ENV_NAME_RE = re.compile(r"^[a-z0-9-]+$")
+ENV_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+MAX_TENANT_LEN = 128
 ENV_TABLE = "env"
 
 
@@ -26,8 +27,25 @@ class ConfigError(Exception):
 
 def validate_env_name(name: str) -> str:
     if not ENV_NAME_RE.fullmatch(name):
-        raise ConfigError(f"invalid environment name {name!r}: use lowercase letters, digits, '-'")
+        raise ConfigError(
+            f"invalid environment name {name!r}: 1-40 lowercase letters, digits or '-', "
+            "starting with a letter or digit"
+        )
     return name
+
+
+def validate_tenant(tenant: str) -> str:
+    """A tenant slug or id: printable, no whitespace, bounded."""
+    if (
+        not tenant
+        or len(tenant) > MAX_TENANT_LEN
+        or not tenant.isprintable()
+        or any(ch.isspace() for ch in tenant)
+    ):
+        raise ConfigError(
+            f"invalid tenant {tenant!r}: up to {MAX_TENANT_LEN} printable characters, no spaces"
+        )
+    return tenant
 
 
 @dataclass(frozen=True)
@@ -40,7 +58,16 @@ class Environment:
     @property
     def origin(self) -> str:
         parts = urlsplit(self.url)
-        return f"{parts.scheme}://{parts.netloc}"
+        host = parts.hostname or ""
+        if ":" in host:
+            host = f"[{host}]"
+        default = {"http": 80, "https": 443}.get(parts.scheme)
+        try:
+            number = parts.port
+        except ValueError:  # rejected by validate_base_url before any request
+            number = None
+        port = f":{number}" if number and number != default else ""
+        return f"{parts.scheme.lower()}://{host}{port}"
 
 
 @dataclass

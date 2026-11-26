@@ -193,3 +193,35 @@ def test_mutation_banner_names_the_tenant(post):
     h.ctx.tenant = "acme"
     h.run(post, sets=("n=1",), yes=True)
     assert h.err.getvalue().startswith("[prod/acme]")
+
+
+def test_confirmation_must_match_exactly(post):
+    for answer in (" prod ", "prod ", " prod", "PROD"):
+        h = Harness(ok, protected=True, tty=True, answers=[answer])
+        with pytest.raises(click.UsageError):
+            h.run(post, sets=("n=1",))
+        assert h.requests == []
+    h = Harness(ok, protected=True, tty=True, answers=["prod\n"])
+    assert h.run(post, sets=("n=1",)) == 0
+    assert h.prompts[0] == 'Type "prod" to run POST /api/x on prod (https://app.example)'
+
+
+def test_sanitise_before_redact_defeats_interleaved_controls(make_op, make_tty):
+    body = "bad " + "\x1b[0m".join("tok") + " end"  # the token "tok" split by escapes
+    h = Harness(lambda r: httpx.Response(500, text=body))
+    h.err = h.ctx.stderr = make_tty()
+    assert h.run(make_op()) == 3
+    assert "tok" not in h.err.getvalue() and "\x1b" not in h.err.getvalue()
+
+
+def test_large_json_error_body_is_truncated_after_redaction(make_op):
+    h = Harness(lambda r: httpx.Response(500, json={"detail": "y" * 5000}))
+    h.run(make_op())
+    assert len(h.err.getvalue()) < ERROR_BODY_CHARS + 100
+
+
+def test_empty_out_is_a_usage_error(make_op):
+    h = Harness(lambda r: pytest.fail("sent"))
+    with pytest.raises(click.UsageError, match="--out"):
+        h.run(make_op(), out="")
+    assert h.requests == []

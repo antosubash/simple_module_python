@@ -121,3 +121,52 @@ def test_env_add_warns_when_url_or_tenant_change(make_cli):
     assert "stored login" in moved.output and "login" in moved.output
     retenant = runner.invoke(cli, ["env", "add", "dev", "--tenant", "acme"])
     assert "stored login" in retenant.output
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://a.com\n/x",
+        "https://exa mple.com",
+        "https://a.com\\b.com",
+        "https://a.com/\x1b]0;x\x07",
+    ],
+)
+def test_env_add_rejects_whitespace_control_and_backslash_urls(make_cli, url):
+    result = CliRunner().invoke(make_cli(), ["env", "add", "bad", "--url", url])
+    assert result.exit_code == 1 and "\x1b" not in result.output
+
+
+def test_env_list_and_show_sanitise_hand_edited_values(make_cli, xdg_config):
+    (xdg_config / "config.toml").write_text(
+        '[env.evil]\nurl = "https://a.com/\\u001b]0;PWN\\u0007x"\ntenant = "t"\n'
+    )
+    cli = make_cli()
+    for args in (["env", "list"], ["env", "show", "evil"]):
+        out = CliRunner().invoke(cli, args).output
+        assert "\x1b" not in out and "\x07" not in out
+
+
+@pytest.mark.parametrize("tenant", ["a b", "a\nb", "x" * 200])
+def test_tenant_is_validated(make_cli, tenant):
+    runner = CliRunner()
+    assert (
+        runner.invoke(
+            make_cli(), ["env", "add", "t", "--url", "https://x.example", "--tenant", tenant]
+        ).exit_code
+        == 1
+    )
+    assert runner.invoke(make_cli(), ["--tenant", tenant, "whoami"]).exit_code == 1
+
+
+@pytest.mark.parametrize("name", ["-", "--x", "a" * 41])
+def test_env_names_are_bounded_and_start_alphanumeric(make_cli, name):
+    result = CliRunner().invoke(make_cli(), ["env", "add", name, "--url", "https://x.example"])
+    assert result.exit_code != 0
+
+
+def test_origin_is_normalised(make_cli):
+    from simple_module_remote.config.environments import Environment
+
+    assert Environment("a", "https://EXAMPLE.com:443/x").origin == "https://example.com"
+    assert Environment("a", "http://localhost:8000").origin == "http://localhost:8000"

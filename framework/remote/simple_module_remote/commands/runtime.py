@@ -27,6 +27,7 @@ from simple_module_remote.config.environments import (
     Environment,
     load_config,
     select_env,
+    validate_tenant,
 )
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.generate.execute import run_operation
@@ -70,6 +71,9 @@ class AppState:
 
     def begin(self, env: str | None, tenant: str | None) -> None:
         """Start an invocation: set the root flags and forget tokens from earlier ones."""
+        if tenant is not None:
+            with self.guard():
+                validate_tenant(tenant)
         self.flag_env = env
         self.flag_tenant = tenant
         self._tokens.clear()
@@ -119,7 +123,15 @@ class AppState:
 
     def client(self, env: Environment, token: str | None) -> ApiClient:
         with self.guard():
-            return ApiClient(env, token, user_agent=self.user_agent, transport=self.transport)
+            return ApiClient(
+                env,
+                token,
+                user_agent=self.user_agent,
+                transport=self.transport,
+                on_wait=lambda delay: click.echo(
+                    f"rate limited (HTTP 429): waiting {delay:g}s before retrying", err=True
+                ),
+            )
 
     def run_context(self, env: Environment, explicit: bool) -> RunContext:
         return RunContext(

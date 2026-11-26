@@ -38,7 +38,9 @@ def say(ctx: RunContext, text: str) -> None:
 
 def say_server(ctx: RunContext, text: str, *, limit: int | None = None) -> None:
     """Like :func:`say` for text the server sent: the token is stripped, then ``limit`` applied."""
-    clean = ctx.redact(text)
+    # Sanitise first, then redact both forms: control characters interleaved into the token
+    # would otherwise be stripped afterwards and reassemble it on a terminal.
+    clean = ctx.redact(sanitize_for(ctx.stderr, ctx.redact(text)))
     say(ctx, clean if limit is None else clean[:limit])
 
 
@@ -112,7 +114,11 @@ def print_error(ctx: RunContext, response: httpx.Response) -> None:
     if text.strip():
         try:
             # Redact the final text: JSON escapes decode back to the token when pretty-printed.
-            say_server(ctx, json.dumps(json.loads(text), indent=2, ensure_ascii=False))
+            say_server(
+                ctx,
+                json.dumps(json.loads(text), indent=2, ensure_ascii=False),
+                limit=ERROR_BODY_CHARS,
+            )
         except ValueError:
             say_server(ctx, text, limit=ERROR_BODY_CHARS)
     location = response.headers.get("Location")

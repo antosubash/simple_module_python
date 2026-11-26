@@ -10,8 +10,10 @@ from simple_module_remote.config.environments import (
     Environment,
     save_config,
     validate_env_name,
+    validate_tenant,
 )
 from simple_module_remote.http.safety import validate_base_url
+from simple_module_remote.output.sanitize import sanitize
 
 __all__ = ["env_group"]
 
@@ -22,7 +24,8 @@ def _describe(env: Environment) -> str:
         extras.append(f"tenant={env.tenant}")
     if env.protected:
         extras.append("PROTECTED")
-    return f"{env.name}  {env.url}" + (f"  [{', '.join(extras)}]" if extras else "")
+    line = f"{env.name}  {env.url}" + (f"  [{', '.join(extras)}]" if extras else "")
+    return sanitize(line)
 
 
 def _known(state: AppState, config: Config, name: str) -> Environment:
@@ -68,6 +71,8 @@ def add_env(
         validate_env_name(name)
         if url is not None:
             validate_base_url(url)
+        if tenant:
+            validate_tenant(tenant)
     config = state.config()
     existing = config.envs.get(name)
     if url is None:
@@ -96,7 +101,7 @@ def add_env(
     config.user_envs.add(name)
     with state.guard():
         save_config(state.cli, config)
-    click.echo(f"{'updated' if existing else 'added'} environment {name} ({url})")
+    click.echo(f"{'updated' if existing else 'added'} environment {name} ({sanitize(url)})")
     if changed:
         click.echo(
             f"warning: the stored login for {name} was issued for the old url/tenant and may "
@@ -153,7 +158,7 @@ def show_env(ctx: click.Context, name: str | None) -> None:
         env, _ = state.select()
     else:
         env = _known(state, state.config(), name)
-    click.echo(f"name:      {env.name}")
-    click.echo(f"url:       {env.url}")
-    click.echo(f"tenant:    {env.tenant or '-'}")
+    click.echo(f"name:      {sanitize(env.name)}")
+    click.echo(f"url:       {sanitize(env.url)}")
+    click.echo(f"tenant:    {sanitize(env.tenant or '-')}")
     click.echo(f"protected: {'yes' if env.protected else 'no'}")

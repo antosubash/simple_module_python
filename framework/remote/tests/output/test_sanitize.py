@@ -8,3 +8,7 @@ def test_strips_escapes_and_controls_keeps_newline_tab():
 
 def test_lone_escape_removed():
     assert sanitize("x\x1b") == "x"
+
+
+def test_strips_bidi_overrides_and_line_separators():
+    assert sanitize("a\u202eb\u2066c\u2069d\u2028e\u2029f") == "abcdef"

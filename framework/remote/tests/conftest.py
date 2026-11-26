@@ -156,3 +156,11 @@ class Tty(io.StringIO):
 def make_tty():
     """``make_tty()``: a StringIO that reports itself as a terminal."""
     return Tty
+
+
+@pytest.fixture
+def xdg_config(tmp_path):
+    """The CLI's config directory (``$XDG_CONFIG_HOME/smdev``), created."""
+    path = tmp_path / "config" / CLI
+    path.mkdir(parents=True)
+    return path

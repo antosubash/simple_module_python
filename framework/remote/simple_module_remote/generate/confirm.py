@@ -33,6 +33,6 @@ def confirm_protected(
             f"environment {env.name!r} is protected: pass --yes to run {method} {path} "
             "non-interactively"
         )
-    answer = prompt(f'Type "{env.name}" to run {method} {path} on {env.name} ({env.url}):')
-    if answer.strip() != env.name:
+    answer = prompt(f'Type "{env.name}" to run {method} {path} on {env.name} ({env.url})')
+    if answer.rstrip("\r\n") != env.name:  # exact: no other whitespace is forgiven
         raise click.UsageError(f"confirmation did not match {env.name!r}; nothing was sent")

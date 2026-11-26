@@ -149,6 +149,8 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
     """Execute ``op`` with click ``values``; returns the process exit code."""
     mutation = op.method not in SAFE_METHODS
     with ExitStack() as stack:
+        if values.get("out") == "":
+            raise click.UsageError("--out needs a file name")
         if values.get("out") and (values.get("all_pages") or values.get("limit")):
             raise click.UsageError("--all and --limit print rows to stdout and cannot use --out")
         try:

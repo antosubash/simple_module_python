@@ -32,6 +32,10 @@ def _redacted(parts: SplitResult) -> str:
 
 
 def validate_base_url(url: str) -> str:
+    if not url.isprintable() or any(ch.isspace() for ch in url) or "\\" in url:
+        raise UnsafePathError(
+            "environment url must not contain whitespace, control characters or backslashes"
+        )
     try:
         parts = urlsplit(url)
     except ValueError:
