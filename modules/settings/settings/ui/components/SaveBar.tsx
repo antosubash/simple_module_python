@@ -34,7 +34,7 @@ export function SaveBar({ unsaved, busy, saved, onSave, onDiscard }: Props) {
             {t(keys.settings.modules.unsaved_count, { count: unsaved })}
           </span>
         ) : saved ? (
-          <p role="status" className="font-medium text-primary-700 dark:text-primary-300">
+          <p role="status" className="font-medium text-primary-text">
             {t(keys.settings.modules_form.saved_toast)}
           </p>
         ) : null}

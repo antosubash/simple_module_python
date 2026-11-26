@@ -11,6 +11,9 @@
   --color-primary-700: oklch(0.5 0.11 168);
   --color-primary-800: oklch(0.42 0.09 175);
   --color-primary-900: oklch(0.35 0.07 178);
+  /* Foreground shades vary with the surface; keep the brand palette stable. */
+  --color-primary-text: var(--color-primary-700);
+  --color-primary-text-hover: var(--color-primary-800);
 
   /* Cool neutrals for surfaces */
   --color-surface: oklch(0.985 0.003 250);
@@ -75,7 +78,7 @@
   --popover-foreground: oklch(0.2 0.02 250);
 
   /* Primary (emerald) */
-  --primary: oklch(0.59 0.14 158);
+  --primary: oklch(0.5 0.11 158);
   --primary-foreground: oklch(1 0 0);
 
   /* Secondary */
@@ -108,7 +111,7 @@
   /* Sidebar (shadcn sidebar component) */
   --sidebar: oklch(0.985 0.003 250);
   --sidebar-foreground: oklch(0.25 0.02 250);
-  --sidebar-primary: oklch(0.59 0.14 158);
+  --sidebar-primary: oklch(0.5 0.11 158);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.96 0.005 250);
   --sidebar-accent-foreground: oklch(0.25 0.02 250);
@@ -119,6 +122,10 @@
 }
 
 .dark {
+  /* Primary text and its hover remain readable on dark settings surfaces (#1184). */
+  --color-primary-text: var(--color-primary-400);
+  --color-primary-text-hover: var(--color-primary-300);
+
   --background: oklch(0.13 0.02 250);
   --foreground: oklch(0.93 0.005 250);
 

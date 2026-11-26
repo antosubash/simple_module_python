@@ -13,6 +13,7 @@ import {
   type SettingsFieldRendererProps,
   useExtensions,
 } from '@simple-module-py/ui/extensions';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { Suspense } from 'react';
 import { JsonInput } from './JsonInput';
 import { SecretInput } from './SecretInput';
@@ -147,7 +148,7 @@ export function FieldInput({
         onChange={(e) =>
           onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
         }
-        className={`w-full max-w-[200px] tabular-nums ${highlight}`}
+        className={`w-full max-w-[200px] tabular-nums ${TOUCH_TARGET_CLASS} ${highlight}`}
       />
     );
   }

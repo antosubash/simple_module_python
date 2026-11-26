@@ -97,6 +97,7 @@ function Browse({ settings, pagination, counts, filters }: Props) {
             />
             <Input
               type="search"
+              aria-label={t(keys.settings.browse.search_label)}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t(keys.settings.browse.search_placeholder)}

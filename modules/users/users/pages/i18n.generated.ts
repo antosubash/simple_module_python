@@ -188,6 +188,7 @@ export const keys = {
       description: 'users.index.description',
       next: 'users.index.next',
       previous: 'users.index.previous',
+      search_label: 'users.index.search_label',
       search_placeholder: 'users.index.search_placeholder',
       showing_range: 'users.index.showing_range',
       stat_active: 'users.index.stat_active',
@@ -806,6 +807,7 @@ type ModuleTranslationResources = {
   readonly 'users.index.description': '';
   readonly 'users.index.next': '';
   readonly 'users.index.previous': '';
+  readonly 'users.index.search_label': '';
   readonly 'users.index.search_placeholder': '';
   readonly 'users.index.showing_range': '';
   readonly 'users.index.stat_active': '';

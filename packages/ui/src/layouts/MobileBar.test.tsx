@@ -51,6 +51,8 @@ function bar(extra: Partial<React.ComponentProps<typeof MobileBar>> = {}) {
       currentUrl={URL}
       user={USER}
       onOpen={() => {}}
+      sidebarOpen={false}
+      sidebarId="test-sidebar"
       {...extra}
     />
   );

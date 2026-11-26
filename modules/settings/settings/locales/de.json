@@ -19,7 +19,8 @@
     "scope_all": "Alle",
     "showing": "{from}–{to} von {total}",
     "previous": "Zurück",
-    "next": "Weiter"
+    "next": "Weiter",
+    "search_label": "Gespeicherte Einstellungen suchen"
   },
   "table": {
     "scope": "Geltungsbereich",
@@ -129,7 +130,8 @@
     "source_unsaved": "Nicht gespeichert",
     "source_env": "Aus Umgebungsvariable",
     "default_value": "Standard: {value}",
-    "module_picker_label": "Modul"
+    "module_picker_label": "Modul",
+    "search_label": "Einstellungsmodule suchen"
   },
   "modules_form": {
     "save": "Speichern",

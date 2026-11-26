@@ -26,7 +26,7 @@ export function SidebarBrandRow({
 }: SidebarBrandRowProps) {
   const { t } = useT();
   return (
-    <div className="h-14 lg:h-16 flex items-center gap-3 px-4 lg:px-5 border-b border-white/[0.06]">
+    <div className="h-14 lg:h-16 shrink-0 flex items-center gap-3 px-4 lg:px-5 border-b border-white/[0.06]">
       <Button
         variant="ghost"
         size="icon-sm"

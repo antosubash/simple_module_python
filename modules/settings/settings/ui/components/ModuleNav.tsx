@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { Search } from 'lucide-react';
 import { useId, useRef } from 'react';
 import { ROUTES } from '../../pages/routes';
@@ -58,7 +59,7 @@ export function ModuleNav({ modules, filtered, titles, selected, query, onQuery,
         </Select>
         <a
           href={ROUTES.browse}
-          className="self-start py-1 text-[13px] font-medium text-primary-700 dark:text-primary-300 pointer-coarse:min-h-11 pointer-coarse:py-3"
+          className={`inline-flex items-center self-start text-[13px] font-medium text-primary-text hover:text-primary-text-hover ${TOUCH_TARGET_CLASS}`}
         >
           {t(keys.settings.modules.browse_free_form_link)}
         </a>
@@ -73,10 +74,10 @@ export function ModuleNav({ modules, filtered, titles, selected, query, onQuery,
           <Input
             type="search"
             placeholder={t(keys.settings.modules.search_placeholder)}
-            aria-label={t(keys.settings.modules.search_placeholder)}
+            aria-label={t(keys.settings.modules.search_label)}
             value={query}
             onChange={(e) => onQuery(e.target.value)}
-            className="h-10 bg-card pl-9 text-[13px]"
+            className={`h-10 bg-card pl-9 text-[13px] ${TOUCH_TARGET_CLASS}`}
           />
         </div>
         <nav
@@ -97,7 +98,7 @@ export function ModuleNav({ modules, filtered, titles, selected, query, onQuery,
                 // otherwise squash every row instead of scrolling.
                 className={`flex shrink-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors pointer-coarse:min-h-11 ${
                   isActive
-                    ? 'bg-primary-600/10 font-semibold text-primary-700 dark:text-primary-300'
+                    ? 'bg-primary-600/10 font-semibold text-primary-text'
                     : 'text-foreground hover:bg-card'
                 }`}
               >
@@ -127,7 +128,7 @@ export function ModuleNav({ modules, filtered, titles, selected, query, onQuery,
         <div className="mt-auto border-t border-border pt-3.5">
           <a
             href={ROUTES.browse}
-            className="inline-flex items-center text-[13px] font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300"
+            className={`inline-flex items-center text-[13px] font-medium text-primary-text hover:text-primary-text-hover ${TOUCH_TARGET_CLASS}`}
           >
             {t(keys.settings.modules.browse_free_form_link)}
           </a>

@@ -146,7 +146,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
               {/* No second editor for these fields — the module's own page is
                   the one place they're edited. */}
               <div className="flex max-w-xl flex-col items-start gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600/10 text-primary-text">
                   <Box className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <h2 className="text-lg font-semibold text-foreground">

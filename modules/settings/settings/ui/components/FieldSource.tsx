@@ -1,6 +1,6 @@
 import { keys, type TranslationKey, useT } from '@simple-module-py/i18n';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
-import { cn } from '@simple-module-py/ui/lib/utils';
+import { cn, TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import type { FieldMeta } from './FieldInput';
 
 function isBlank(value: unknown): boolean {
@@ -15,7 +15,7 @@ type Tone = 'neutral' | 'primary' | 'amber';
 
 const TONES: Record<Tone, string> = {
   neutral: 'bg-muted text-muted-foreground',
-  primary: 'bg-primary-600/10 text-primary-700 dark:text-primary-300',
+  primary: 'bg-primary-600/10 text-primary-text',
   amber: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300',
 };
 
@@ -97,7 +97,7 @@ export function FieldSource({
           type="button"
           onClick={onReset}
           aria-label={t(keys.settings.modules_form.revert_field, { field: label })}
-          className="ml-auto font-semibold text-primary-700 hover:underline dark:text-primary-300 max-lg:min-h-11 pointer-coarse:min-h-11"
+          className={`ml-auto font-semibold text-primary-text hover:underline ${TOUCH_TARGET_CLASS}`}
         >
           {t(keys.settings.modules_form.reset_to_default)}
         </button>

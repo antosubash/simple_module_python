@@ -19,7 +19,8 @@
     "scope_all": "All",
     "showing": "Showing {from}–{to} of {total}",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "search_label": "Search stored settings"
   },
   "table": {
     "scope": "Scope",
@@ -129,7 +130,8 @@
     "source_unsaved": "Unsaved",
     "source_env": "Set by environment",
     "default_value": "Default: {value}",
-    "module_picker_label": "Module"
+    "module_picker_label": "Module",
+    "search_label": "Search settings modules"
   },
   "modules_form": {
     "save": "Save",

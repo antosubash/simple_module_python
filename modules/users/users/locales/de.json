@@ -181,7 +181,8 @@
     "next": "Weiter",
     "showing_range": "{from}–{to} von {total}",
     "view_label": "Anzeige auswählen",
-    "add_people_short": "+ Hinzufügen"
+    "add_people_short": "+ Hinzufügen",
+    "search_label": "Personen suchen"
   },
   "invite_fields": {
     "label": "E-Mail-Adressen",

@@ -74,6 +74,7 @@ function Edit({
       <Head title={user.full_name || user.email} />
       <PageShell
         title={user.full_name || user.email}
+        titleClassName="[overflow-wrap:anywhere]"
         back="/admin/users/"
         leading={
           <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-display dark:text-primary-400">
@@ -83,11 +84,15 @@ function Edit({
         badge={
           <StatusPill state={deriveState(actions.isActive, actions.isVerified, user.invited_at)} />
         }
-        description={t(keys.users.edit.subtitle, {
-          email: user.email,
-          joined: joinedMonth(user.created_at),
-          lastLogin: user.last_login_at ? ago(user.last_login_at) : t(keys.users.edit.never),
-        })}
+        description={
+          <span className="[overflow-wrap:anywhere]">
+            {t(keys.users.edit.subtitle, {
+              email: user.email,
+              joined: joinedMonth(user.created_at),
+              lastLogin: user.last_login_at ? ago(user.last_login_at) : t(keys.users.edit.never),
+            })}
+          </span>
+        }
         actions={
           <EditHeaderActions
             dirtyCount={form.dirtyCount}

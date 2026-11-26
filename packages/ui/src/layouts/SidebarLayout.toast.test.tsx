@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ExtensionRegistry, ExtensionsProvider } from '../extensions';
 import { LayoutComponentsProvider } from './LayoutComponentsProvider';
 
-vi.mock('@inertiajs/react', () => ({
+vi.mock('@inertiajs/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@inertiajs/react')>()),
   usePage: () => ({
     url: '/admin/settings',
     props: {

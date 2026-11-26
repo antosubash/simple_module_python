@@ -50,7 +50,7 @@ export function SidebarNav({
 }: SidebarNavProps) {
   const { t } = useT();
   return (
-    <nav aria-label={t(keys.ui.nav.sidebar)} className="flex-1 px-3 py-4 overflow-y-auto">
+    <nav aria-label={t(keys.ui.nav.sidebar)} className="min-h-0 flex-1 px-3 py-4 overflow-y-auto">
       {groupMenuItems(menuItems).map((group, groupIndex) => (
         <div
           key={group.group || `__ungrouped_${groupIndex}`}
