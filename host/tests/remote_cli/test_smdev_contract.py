@@ -122,4 +122,5 @@ async def test_edited_env_url_sends_nothing(smdev, make_actor):
     await smdev.add_env("http://localhost")
     result = await smdev.run("--env", "local", "whoami")
     assert result.exit_code == 1, result.output
+    assert "login --token" in result.output
     assert smdev.transport.requests == []

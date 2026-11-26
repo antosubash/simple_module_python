@@ -126,11 +126,11 @@ class CredentialStore:
             raise CredentialError("the OS keyring could not be updated") from None
 
 
-def _login_hint(cli: str, env: Environment, tenant: str | None) -> str:
-    # Root options (--env, --tenant) come before the subcommand.
+def login_hint(cli: str, env: Environment, tenant: str | None) -> str:
+    """The command that stores a token; root options (--env, --tenant) precede the subcommand."""
     hint = f"{cli} --env {env.name}"
     hint = f"{hint} --tenant {tenant}" if tenant else hint
-    return f"{hint} login"
+    return f"{hint} login --token"
 
 
 def resolve_token(
@@ -151,7 +151,7 @@ def resolve_token(
             f"explicitly (pass --env or set {env_prefix(cli)}_ENV)"
         )
     cred = store.get(credential_key(env.name, tenant))
-    hint = _login_hint(cli, env, tenant)
+    hint = login_hint(cli, env, tenant)
     if cred is None:
         raise CredentialError(f"no stored credentials for {env.name!r}: run `{hint}`")
     if cred.origin != env.origin:

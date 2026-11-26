@@ -1,5 +1,5 @@
 from simple_module_remote.generate.operations import Operation, Param
-from simple_module_remote.http.pagination import iter_items, pagination_style
+from simple_module_remote.generate.pagination import iter_items, pagination_style
 
 
 def make_op(*names: str) -> Operation:

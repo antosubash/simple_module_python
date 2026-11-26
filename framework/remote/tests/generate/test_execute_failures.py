@@ -41,19 +41,31 @@ def make_op(**kw) -> Operation:
     return Operation(**base)
 
 
-def ctx_for(handler, *, tty=False, stdout=None, stderr=None) -> RunContext:
-    env = Environment("prod", "https://app.example")
+def ctx_for(
+    handler,
+    *,
+    tty=False,
+    interactive=False,
+    stdout=None,
+    stderr=None,
+    protected=False,
+    factory=None,
+) -> RunContext:
+    env = Environment("prod", "https://app.example", protected=protected)
     return RunContext(
         env=env,
-        client_factory=lambda: ApiClient(
-            env, "tok", user_agent="t/1", transport=httpx.MockTransport(handler)
+        client_factory=factory
+        or (
+            lambda: ApiClient(env, "tok", user_agent="t/1", transport=httpx.MockTransport(handler))
         ),
         is_tty=tty,
+        interactive=interactive,
         stdout=stdout or io.StringIO(),
         stderr=stderr or io.StringIO(),
         stdin=io.StringIO(""),
         prompt=lambda t: "",
         root=ROOT,
+        login_hint="smdev --env prod login --token",
     )
 
 
@@ -151,3 +163,53 @@ def test_text_response_sanitized_on_tty():
     )
     run_operation(ctx, make_op(), {})
     assert ctx.stdout.getvalue() == "hithere"
+
+
+def test_dry_run_refuses_unsafe_path_value():
+    ctx = ctx_for(lambda r: httpx.Response(200, json={}))
+    op = make_op(
+        method="DELETE",
+        path="/api/users/{user_id}",
+        params=(Param("user_id", "path", True, {"type": "string"}, ""),),
+    )
+    with pytest.raises(click.UsageError, match="may not contain"):
+        run_operation(ctx, op, {"p_user_id": "a/b", "dry_run": True})
+    assert ctx.stdout.getvalue() == ""
+
+
+def test_confirmation_needs_stdin_and_stderr_not_stdout_tty():
+    # stdout is a terminal but nothing can answer a prompt: refuse, never block.
+    ctx = ctx_for(
+        lambda r: httpx.Response(200, json={}), tty=True, interactive=False, protected=True
+    )
+    with pytest.raises(click.UsageError, match="--yes"):
+        run_operation(ctx, make_op(method="DELETE"), {})
+
+
+def test_piped_stdout_still_prompts_when_interactive():
+    answers = []
+    ctx = ctx_for(
+        lambda r: httpx.Response(200, json={}), tty=False, interactive=True, protected=True
+    )
+    ctx.prompt = lambda text: answers.append(text) or "prod"
+    assert run_operation(ctx, make_op(method="DELETE"), {}) == 0
+    assert answers
+
+
+def test_missing_credentials_fail_before_the_prompt():
+    prompts = []
+
+    def no_credentials():
+        raise click.ClickException("no stored credentials")
+
+    ctx = ctx_for(None, interactive=True, protected=True, factory=no_credentials)
+    ctx.prompt = lambda text: prompts.append(text) or "prod"
+    with pytest.raises(click.ClickException, match="no stored credentials"):
+        run_operation(ctx, make_op(method="DELETE"), {})
+    assert prompts == []
+
+
+def test_unauthorized_prints_login_hint():
+    ctx = ctx_for(lambda r: httpx.Response(401, json={}))
+    assert run_operation(ctx, make_op(), {}) == 4
+    assert "smdev --env prod login --token" in ctx.stderr.getvalue()

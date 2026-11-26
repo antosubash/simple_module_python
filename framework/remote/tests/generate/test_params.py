@@ -150,3 +150,12 @@ def test_returns_list_json_media_variants(media):
 
 def test_returns_list_ignores_non_json_media():
     assert returns_list(make_op(), _list_root("text/csv")) is False
+
+
+def test_limit_zero_is_usage_error():
+    from click.testing import CliRunner
+
+    params = click_params_for(make_op(), list_returning=True)
+    cmd = click.Command("c", params=params, callback=lambda **kw: None)
+    assert CliRunner().invoke(cmd, ["--limit", "0"]).exit_code == 2
+    assert CliRunner().invoke(cmd, ["--limit", "1"]).exit_code == 0

@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 import click
 import httpx
 
-from simple_module_remote.commands.confirm import confirm_protected
+from simple_module_remote.generate.confirm import confirm_protected
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.generate.emit import (
     ERROR_BODY_CHARS,
@@ -21,6 +21,7 @@ from simple_module_remote.generate.emit import (
     say,
 )
 from simple_module_remote.generate.operations import Operation
+from simple_module_remote.generate.pagination import iter_items, pagination_style
 from simple_module_remote.generate.params import json_response_schema, success_is_json
 from simple_module_remote.generate.prepare import DEFAULT_CONTENT_TYPE, Prepared, prepare_request
 from simple_module_remote.http.client import ApiClient
@@ -31,7 +32,6 @@ from simple_module_remote.http.errors import (
     UnsafePathError,
     exit_code_for,
 )
-from simple_module_remote.http.pagination import iter_items, pagination_style
 from simple_module_remote.output.sanitize import is_terminal
 
 __all__ = ["RunContext", "run_operation"]
@@ -171,13 +171,14 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
         if values.get("dry_run"):
             _dry_run(ctx, op, prep, values)
             return 0
+        client = stack.enter_context(ctx.client_factory())  # fail on credentials before prompting
         confirm_protected(
             ctx.env,
             mutation=mutation,
             op_confirm=op.confirm,
             op_safe=op.safe,
             yes=bool(values.get("yes")),
-            is_tty=ctx.is_tty,
+            interactive=ctx.interactive,
             prompt=ctx.prompt,
             method=op.method,
             path=prep.path,
@@ -188,8 +189,7 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
         paged = is_get and bool(values.get("all_pages") or values.get("limit"))
         stream = is_get and bool(values.get("out") or not success_is_json(op, ctx.root))
         try:
-            with ctx.client_factory() as client:
-                return _exchange(ctx, client, op, prep, values, paged=paged, stream=stream)
+            return _exchange(ctx, client, op, prep, values, paged=paged, stream=stream)
         except ApiError as exc:
             return _fail(ctx, exc)
         except httpx.HTTPError as exc:
@@ -197,5 +197,3 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
         except OSError as exc:
             say(ctx, f"error: cannot write output: {exc.__class__.__name__}")
             return EXIT_USAGE
-        except UnsafePathError as exc:
-            raise click.UsageError(str(exc)) from None

@@ -6,9 +6,7 @@ from typing import Any
 
 import click
 
-from simple_module_remote.commands.runtime import CliError, state_of
-from simple_module_remote.config.environments import ConfigError
-from simple_module_remote.generate.execute import run_operation
+from simple_module_remote.commands.runtime import state_of
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.params import click_params_for, returns_list
 from simple_module_remote.output.sanitize import sanitize
@@ -25,13 +23,7 @@ def operation_command(op: Operation, root: dict) -> click.Command:
     def callback(**values: Any) -> None:
         ctx = click.get_current_context()
         state = state_of(ctx)
-        env, explicit = state.select()
-        run_ctx = state.run_context(env, explicit)
-        with state.guard():
-            try:
-                code = run_operation(run_ctx, op, values)
-            except ConfigError as exc:
-                raise CliError(str(exc)) from None
+        code = state.run(op, values)
         if code:
             ctx.exit(code)
 

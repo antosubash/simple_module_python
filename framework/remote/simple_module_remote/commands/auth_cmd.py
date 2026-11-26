@@ -44,7 +44,7 @@ class _LoginCommand(click.Command):
 def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
     state = state_of(ctx)
     if prompt_token and token_stdin:
-        raise click.UsageError("choose one of --token and --token-stdin")
+        raise CliError("choose one of --token and --token-stdin")
     if not (prompt_token or token_stdin):
         raise CliError("browser login arrives in a later release: use --token or --token-stdin")
     env, _ = state.select()
@@ -58,6 +58,10 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
         with state.client(env, candidate) as client:
             who = fetch_whoami(client)
     except ApiError as exc:
+        if exc.status == 0:
+            raise _api_failure(
+                exc, f"cannot reach {env.name} ({env.url}); nothing was stored"
+            ) from None
         raise _api_failure(exc, "the token was not accepted; nothing was stored") from None
     wanted = state.tenant(env)
     if wanted and who.get("tenant_id") != wanted:

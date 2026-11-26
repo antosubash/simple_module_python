@@ -1,5 +1,6 @@
 """Fallback credential file: ``credentials.toml``, mode 0600 in a 0700 directory."""
 
+import contextlib
 import errno
 import os
 import secrets
@@ -64,6 +65,14 @@ class FileStore:
         return out
 
     def _secure_dir(self) -> None:
+        try:
+            self._ensure_private_dir()
+        except OSError as exc:
+            raise FileStoreError(
+                f"cannot prepare {self._path.parent}: {exc.__class__.__name__}"
+            ) from None
+
+    def _ensure_private_dir(self) -> None:
         directory = self._path.parent
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         info = directory.stat()
@@ -76,15 +85,18 @@ class FileStore:
     def _write(self, data: dict[str, dict[str, str]]) -> None:
         self._secure_dir()
         tmp = self._path.with_name(f"{self._path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
-        fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         try:
+            fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             with os.fdopen(fd, "wb") as handle:
                 handle.write(tomli_w.dumps(data).encode("utf-8"))
                 handle.flush()
                 os.fsync(handle.fileno())
             tmp.replace(self._path)
+        except OSError as exc:
+            raise FileStoreError(f"cannot write {self._path}: {exc.__class__.__name__}") from None
         finally:
-            tmp.unlink(missing_ok=True)
+            with contextlib.suppress(OSError):
+                tmp.unlink(missing_ok=True)
 
     def get(self, key: str) -> tuple[str, str] | None:
         entry = self._load().get(key)

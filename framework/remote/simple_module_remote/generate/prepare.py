@@ -12,7 +12,9 @@ import click
 
 from simple_module_remote.generate.body import BodyError, build_json_body, missing_required
 from simple_module_remote.generate.operations import Operation
+from simple_module_remote.generate.pairs import split_pairs
 from simple_module_remote.generate.params import param_map
+from simple_module_remote.http.safety import validate_api_path
 
 __all__ = ["Prepared", "prepare_request"]
 
@@ -38,16 +40,6 @@ def _query_value(value: Any) -> Any:
     return value
 
 
-def _split_pairs(items: Any, flag: str) -> list[tuple[str, str]]:
-    pairs = []
-    for item in items or ():
-        key, sep, value = str(item).partition("=")
-        if not sep or not key:
-            raise click.UsageError(f"{flag}: expected key=value, got {item!r}")
-        pairs.append((key, value))
-    return pairs
-
-
 def _json_body(op: Operation, values: dict[str, Any], root: dict, stdin: TextIO) -> Any:
     try:
         body = build_json_body(
@@ -69,7 +61,7 @@ def _json_body(op: Operation, values: dict[str, Any], root: dict, stdin: TextIO)
 
 def _multipart(values: dict[str, Any], stack: ExitStack, prep: Prepared) -> None:
     files = []
-    for field_name, raw in _split_pairs(values.get("uploads"), "--upload"):
+    for field_name, raw in split_pairs(values.get("uploads"), "--upload"):
         path = raw[1:] if raw.startswith("@") else raw
         try:
             handle = stack.enter_context(Path(path).open("rb"))  # noqa: SIM115
@@ -79,7 +71,7 @@ def _multipart(values: dict[str, Any], stack: ExitStack, prep: Prepared) -> None
             ) from None
         files.append((field_name, (Path(path).name, handle)))
     prep.files = files or None
-    prep.data = dict(_split_pairs(values.get("sets"), "--set")) or None
+    prep.data = dict(split_pairs(values.get("sets"), "--set")) or None
 
 
 def prepare_request(
@@ -104,4 +96,5 @@ def prepare_request(
         except OSError as exc:
             raise click.UsageError(f"--body-file: cannot read: {exc.__class__.__name__}") from None
         prep.headers["Content-Type"] = values.get("content_type") or DEFAULT_CONTENT_TYPE
+    validate_api_path(prep.path)
     return prep

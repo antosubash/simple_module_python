@@ -41,16 +41,38 @@ def list_envs(ctx: click.Context) -> None:
 @env_group.command("add", help="Add or replace an environment.")
 @click.argument("name")
 @click.option("--url", required=True, help="Base URL of the app, e.g. https://app.example.com.")
-@click.option("--tenant", default=None, help="Default tenant for this environment.")
-@click.option("--protected/--no-protected", default=False, help="Confirm before mutating calls.")
+@click.option("--tenant", default=None, help="Default tenant (kept when omitted).")
+@click.option(
+    "--protected/--no-protected",
+    default=None,
+    help="Confirm before mutating calls (kept when omitted).",
+)
 @click.pass_context
-def add_env(ctx: click.Context, name: str, url: str, tenant: str | None, protected: bool) -> None:
+def add_env(
+    ctx: click.Context, name: str, url: str, tenant: str | None, protected: bool | None
+) -> None:
     state = state_of(ctx)
     with state.guard():
         validate_env_name(name)
         validate_base_url(url)
     config = state.config()
-    config.envs[name] = Environment(name=name, url=url, tenant=tenant, protected=protected)
+    existing = config.envs.get(name)
+    # Only what was passed changes; the rest comes from the existing (or default) environment.
+    overrides = dict(config.overrides.get(name, {}))
+    overrides["url"] = url
+    if tenant is not None:
+        overrides["tenant"] = tenant
+    if protected is not None:
+        overrides["protected"] = protected
+    config.envs[name] = Environment(
+        name=name,
+        url=url,
+        tenant=tenant if tenant is not None else (existing.tenant if existing else None),
+        protected=protected
+        if protected is not None
+        else (existing.protected if existing else False),
+    )
+    config.overrides[name] = overrides
     config.user_envs.add(name)
     with state.guard():
         save_config(state.cli, config)
@@ -85,6 +107,7 @@ def remove_env(ctx: click.Context, name: str) -> None:
         )
         raise CliError(f"environment {name!r} {known}")
     config.user_envs.discard(name)
+    config.overrides.pop(name, None)
     config.envs.pop(name, None)
     if config.current == name:
         config.current = None

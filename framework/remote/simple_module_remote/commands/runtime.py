@@ -8,6 +8,7 @@ from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import click
 import httpx
@@ -17,6 +18,7 @@ from simple_module_remote.config.credentials import (
     CredentialError,
     CredentialStore,
     KeyringBackend,
+    login_hint,
     resolve_token,
 )
 from simple_module_remote.config.environments import (
@@ -27,6 +29,8 @@ from simple_module_remote.config.environments import (
     select_env,
 )
 from simple_module_remote.generate.context import RunContext
+from simple_module_remote.generate.execute import run_operation
+from simple_module_remote.generate.operations import Operation
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import EXIT_USAGE, ApiError, UnsafePathError
 
@@ -89,7 +93,7 @@ class AppState:
             if not config.envs:
                 hint = (
                     f"\nno environments are configured yet: `{self.cli} env add <name> --url URL`, "
-                    f"`{self.cli} env use <name>`, then `{self.cli} login`"
+                    f"`{self.cli} env use <name>`, then `{self.cli} login --token`"
                 )
             raise CliError(f"{exc}{hint}") from None
 
@@ -120,12 +124,21 @@ class AppState:
             env=env,
             client_factory=lambda: self.client(env, self.token(env, explicit)),
             is_tty=sys.stdout.isatty(),
+            interactive=sys.stdin.isatty() and sys.stderr.isatty(),
+            login_hint=login_hint(self.cli, env, self.tenant(env)),
             stdout=sys.stdout,
             stderr=sys.stderr,
             stdin=sys.stdin,
             prompt=lambda text: click.prompt(text, default="", show_default=False, err=True),
             root=self.root,
         )
+
+    def run(self, op: Operation, values: dict[str, Any]) -> int:
+        """Select the environment and execute ``op``; returns the process exit code."""
+        env, explicit = self.select()
+        run_ctx = self.run_context(env, explicit)
+        with self.guard():
+            return run_operation(run_ctx, op, values)
 
 
 def state_of(ctx: click.Context) -> AppState:

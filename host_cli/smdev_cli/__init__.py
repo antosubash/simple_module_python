@@ -1,9 +1,11 @@
 """``smdev``: the dev host's own CLI, generated from its bundled OpenAPI schema."""
 
+import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from simple_module_remote import build_cli
+from simple_module_remote.generate.tree import TreeError
 
 try:
     __version__ = version("smdev-cli")
@@ -22,4 +24,9 @@ def make_cli(**kwargs):
 
 
 def main() -> None:
-    make_cli()()
+    try:
+        cli = make_cli()
+    except (TreeError, OSError, ValueError) as exc:
+        sys.stderr.write(f"{CLI_NAME}: cannot load the bundled command schema: {exc}\n")
+        sys.exit(1)
+    cli()

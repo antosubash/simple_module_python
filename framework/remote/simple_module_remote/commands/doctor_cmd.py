@@ -6,7 +6,7 @@ import click
 
 from simple_module_remote.commands.runtime import AppState, CliError, fetch_whoami, state_of
 from simple_module_remote.commands.schema_cmd import schema_info
-from simple_module_remote.config.credentials import TOKEN_ENV_SUFFIX, credential_key
+from simple_module_remote.config.credentials import TOKEN_ENV_SUFFIX, login_hint
 from simple_module_remote.config.environments import Environment
 from simple_module_remote.config.paths import env_prefix
 from simple_module_remote.http.errors import ApiError, UnsafePathError
@@ -62,8 +62,7 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
     try:
         token = state.token(env, explicit)
     except CliError as exc:
-        key = credential_key(env.name, state.tenant(env))
-        report.fail("credentials", exc.message, f"{state.cli} --env {env.name} login ({key})")
+        report.fail("credentials", exc.message, login_hint(state.cli, env, state.tenant(env)))
         return
     from_var = bool(state.environ.get(env_prefix(state.cli) + TOKEN_ENV_SUFFIX))
     report.ok(
@@ -76,7 +75,7 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
         with state.client(env, token) as client:
             who = fetch_whoami(client)
     except ApiError as exc:
-        report.fail("whoami", exc.message, f"{state.cli} --env {env.name} login")
+        report.fail("whoami", exc.message, login_hint(state.cli, env, state.tenant(env)))
         return
     report.ok("whoami", str(who.get("email")))
     wanted = state.tenant(env)
@@ -88,7 +87,7 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
         report.fail(
             "tenant",
             f"token is pinned to {who.get('tenant_id') or 'no tenant'}, not {wanted}",
-            f"{state.cli} --env {env.name} --tenant {wanted} login",
+            login_hint(state.cli, env, wanted),
         )
 
 

@@ -20,6 +20,7 @@ from simple_module_remote.output.sanitize import sanitize_for
 __all__ = ["emit", "print_error", "render_values", "say"]
 
 ERROR_BODY_CHARS = 500
+AUTH_STATUSES = frozenset({401, 403})
 CHUNK = 64 * 1024
 FILE_MODE = 0o666
 REDIRECT_HINT = (
@@ -52,8 +53,11 @@ def print_error(ctx: RunContext, response: httpx.Response) -> None:
     location = response.headers.get("Location")
     if location and response.status_code < 400:
         say(ctx, f"Location: {location}")
-    if response.status_code == 401 and ApiClient.was_redirected(response):
+    redirected = ApiClient.was_redirected(response)
+    if response.status_code == 401 and redirected:
         say(ctx, REDIRECT_HINT)
+    elif response.status_code in AUTH_STATUSES and ctx.login_hint:
+        say(ctx, f"hint: the token may be missing, expired or lack access; run `{ctx.login_hint}`")
 
 
 def _write_file(response: httpx.Response, target: str) -> None:

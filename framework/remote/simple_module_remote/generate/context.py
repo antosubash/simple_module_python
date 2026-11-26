@@ -22,3 +22,6 @@ class RunContext:
     stdin: TextIO
     prompt: Callable[[str], str]
     root: dict
+    # stdin and stderr are both terminals: a confirmation prompt can be answered.
+    interactive: bool = False
+    login_hint: str = ""

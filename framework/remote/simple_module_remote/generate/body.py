@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
 
+from simple_module_remote.generate.pairs import split_pair
 from simple_module_remote.schema.loader import resolve_ref
 
 __all__ = ["BodyError", "build_json_body", "missing_required"]
@@ -35,13 +36,6 @@ def _parse_json(text: str, flag: str) -> object:
         return json.loads(text)
     except json.JSONDecodeError as exc:
         raise BodyError(f"{flag}: invalid JSON ({exc.msg} at position {exc.pos})") from None
-
-
-def _split(item: str, flag: str) -> tuple[str, str]:
-    key, sep, value = item.partition("=")
-    if not sep or not key:
-        raise BodyError(f"{flag}: expected key=value, got {item!r}")
-    return key, value
 
 
 def _property_schema(root: dict, schema: dict | None, parts: Sequence[str]) -> dict | None:
@@ -157,10 +151,10 @@ def build_json_body(
         raise BodyError("--set/--set-json need an object body, but --json/--file gave an array")
     if isinstance(body, dict):
         for item in set_jsons:
-            key, raw = _split(item, "--set-json")
+            key, raw = split_pair(item, "--set-json", BodyError)
             _assign(body, key, _parse_json(raw, f"--set-json {key}"), "--set-json")
         for item in sets:
-            key, raw = _split(item, "--set")
+            key, raw = split_pair(item, "--set", BodyError)
             schema = _property_schema(root, body_schema, key.split("."))
             _assign(body, key, _set_value(raw, key, stdin, schema, root), "--set")
     return body

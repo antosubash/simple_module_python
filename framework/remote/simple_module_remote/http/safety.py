@@ -1,6 +1,6 @@
 """Guards that keep requests inside the environment's own /api/ surface."""
 
-from urllib.parse import unquote, urlsplit
+from urllib.parse import SplitResult, unquote, urlsplit, urlunsplit
 
 from simple_module_remote.http.errors import UnsafePathError
 
@@ -24,13 +24,22 @@ def validate_api_path(path: str) -> str:
     return path
 
 
+def _redacted(parts: SplitResult) -> str:
+    """The URL without userinfo, query or fragment, safe to show in an error."""
+    return urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2], query="", fragment=""))
+
+
 def validate_base_url(url: str) -> str:
-    parts = urlsplit(url)
-    host = parts.hostname
-    if not host or parts.scheme not in ("http", "https"):
-        raise UnsafePathError(f"environment url must be http(s) with a host: {url!r}")
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        raise UnsafePathError("environment url is not a valid URL") from None
     if parts.username or parts.password or parts.query or parts.fragment:
         raise UnsafePathError("environment url must not carry credentials, query or fragment")
+    host = parts.hostname
+    if not host or parts.scheme not in ("http", "https"):
+        shown = "" if "@" in url else f": {_redacted(parts)!r}"
+        raise UnsafePathError(f"environment url must be http(s) with a host{shown}")
     if parts.scheme == "http" and host not in LOOPBACK_HOSTS:
         raise UnsafePathError(f"refusing plain http to non-loopback host {host!r}: use https")
     return url

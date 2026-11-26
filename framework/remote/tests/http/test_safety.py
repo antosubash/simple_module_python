@@ -36,3 +36,12 @@ def test_base_url_ok(url: str) -> None:
 def test_base_url_refused(url: str) -> None:
     with pytest.raises(UnsafePathError):
         validate_base_url(url)
+
+
+@pytest.mark.parametrize(
+    "url", ["ftp://user:hunter2@h.example", "//user:hunter2@h", "user:hunter2@h"]
+)
+def test_base_url_error_never_echoes_userinfo(url: str) -> None:
+    with pytest.raises(UnsafePathError) as err:
+        validate_base_url(url)
+    assert "hunter2" not in str(err.value)

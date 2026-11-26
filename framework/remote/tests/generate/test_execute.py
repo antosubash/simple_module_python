@@ -64,6 +64,7 @@ class Harness:
                 env, "tok", user_agent="t/1", transport=httpx.MockTransport(wrapped)
             ),
             is_tty=tty,
+            interactive=tty,
             stdout=self.out,
             stderr=self.err,
             stdin=io.StringIO(""),

@@ -8,6 +8,7 @@ import click
 
 from simple_module_remote.generate.naming import snake_name
 from simple_module_remote.generate.operations import Operation, Param, is_json_media
+from simple_module_remote.output.render import OUTPUT_FORMATS
 from simple_module_remote.schema.loader import resolve_ref
 
 __all__ = [
@@ -159,7 +160,11 @@ def click_params_for(op: Operation, *, list_returning: bool = False) -> list[cli
             click.Option(
                 ["--dry-run", "dry_run"], is_flag=True, help="Print the request, send nothing."
             ),
-            click.Option(["-o", "--output", "output"], help="Output format."),
+            click.Option(
+                ["-o", "--output", "output"],
+                type=click.Choice(OUTPUT_FORMATS),
+                help="Output format.",
+            ),
             click.Option(["--columns", "columns"], help="Comma-separated columns to show."),
             click.Option(["-q", "quiet"], is_flag=True, help="Print only identifiers."),
             click.Option(["--out", "out"], help="Write the response body to a file."),
@@ -170,7 +175,9 @@ def click_params_for(op: Operation, *, list_returning: bool = False) -> list[cli
         params.extend(
             [
                 click.Option(["--all", "all_pages"], is_flag=True, help="Fetch every page."),
-                click.Option(["--limit", "limit"], type=click.INT, help="Maximum rows."),
+                click.Option(
+                    ["--limit", "limit"], type=click.IntRange(min=1), help="Maximum rows."
+                ),
             ]
         )
     return params

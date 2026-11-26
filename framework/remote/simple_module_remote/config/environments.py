@@ -1,5 +1,6 @@
 """Named environments: load, merge defaults, save, and pick one."""
 
+import contextlib
 import os
 import re
 import tomllib
@@ -46,6 +47,9 @@ class Config:
     envs: dict[str, Environment] = field(default_factory=dict)
     # Names the user file defines or edited; only these are written back.
     user_envs: set[str] = field(default_factory=set)
+    # The keys the user file sets per environment; defaults fill in the rest, so only
+    # what the user passed is written back.
+    overrides: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 def _read(path: Path | None) -> dict[str, object]:
@@ -95,32 +99,41 @@ def load_config(cli: str, defaults_path: Path | None) -> Config:
         current=current if isinstance(current, str) else None,
         envs=envs,
         user_envs=set(user_tables),
+        overrides={name: dict(table) for name, table in user_tables.items()},
     )
+
+
+def _user_table(config: Config, env: Environment) -> dict[str, object]:
+    if env.name in config.overrides:
+        return dict(config.overrides[env.name])
+    table: dict[str, object] = {"url": env.url, "protected": env.protected}
+    if env.tenant is not None:
+        table["tenant"] = env.tenant
+    return table
 
 
 def save_config(cli: str, config: Config) -> None:
     path = user_config_path(cli)
-    tables: dict[str, dict[str, object]] = {}
-    for name in sorted(config.user_envs):
-        env = config.envs.get(name)
-        if env is None:
-            continue
-        table: dict[str, object] = {"url": env.url, "protected": env.protected}
-        if env.tenant is not None:
-            table["tenant"] = env.tenant
-        tables[name] = table
+    tables = {
+        name: _user_table(config, env)
+        for name in sorted(config.user_envs)
+        if (env := config.envs.get(name)) is not None
+    }
     data: dict[str, object] = {}
     if config.current is not None:
         data["current"] = config.current
     if tables:
         data[ENV_TABLE] = tables
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         tmp.write_text(tomli_w.dumps(data), encoding="utf-8")
         tmp.replace(path)
+    except OSError as exc:
+        raise ConfigError(f"cannot write config {path}: {exc.__class__.__name__}") from None
     finally:
-        tmp.unlink(missing_ok=True)
+        with contextlib.suppress(OSError):
+            tmp.unlink(missing_ok=True)
 
 
 def select_env(

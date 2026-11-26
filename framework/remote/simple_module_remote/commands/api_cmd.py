@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import click
 
-from simple_module_remote.commands.runtime import CliError, state_of
-from simple_module_remote.config.environments import ConfigError
-from simple_module_remote.generate.execute import run_operation
-from simple_module_remote.generate.operations import Operation, Param
+from simple_module_remote.commands.runtime import state_of
+from simple_module_remote.generate.operations import Operation, Param, parse_operations
+from simple_module_remote.generate.pairs import split_pairs
 from simple_module_remote.generate.params import click_params_for, param_map
 from simple_module_remote.generate.tree import session_only_operations
 from simple_module_remote.http.errors import UnsafePathError
@@ -19,9 +19,23 @@ __all__ = ["api"]
 
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 BODY_METHODS = ("POST", "PUT", "PATCH", "DELETE")
+_TEMPLATE_VAR = re.compile(r"\{[^}]+\}")
 
 
-def _synthetic(method: str, path: str, queries: list[tuple[str, str]]) -> Operation:
+def _matching(root: dict, method: str, path: str) -> list[Operation]:
+    """Schema operations whose path template matches ``path``: they define its risk."""
+    found = []
+    for op in parse_operations(root):
+        pattern = "[^/]+".join(re.escape(part) for part in _TEMPLATE_VAR.split(op.path))
+        if op.method == method and re.fullmatch(pattern, path):
+            found.append(op)
+    return found
+
+
+def _synthetic(
+    method: str, path: str, queries: list[tuple[str, str]], root: dict | None = None
+) -> Operation:
+    matched = _matching(root, method, path) if root else []
     names: dict[str, int] = {}
     for key, _ in queries:
         names[key] = names.get(key, 0) + 1
@@ -46,20 +60,10 @@ def _synthetic(method: str, path: str, queries: list[tuple[str, str]]) -> Operat
         body_schema=None,
         summary="",
         description="",
-        safe=False,
-        confirm=False,
+        safe=bool(matched) and all(op.safe for op in matched),
+        confirm=any(op.confirm for op in matched),
         token_capable=True,
     )
-
-
-def _split_queries(items: tuple[str, ...]) -> list[tuple[str, str]]:
-    pairs = []
-    for item in items:
-        key, sep, value = item.partition("=")
-        if not sep or not key:
-            raise click.UsageError(f"--query: expected key=value, got {item!r}")
-        pairs.append((key, value))
-    return pairs
 
 
 def _list_session_only(schema: dict) -> None:
@@ -119,18 +123,12 @@ def _callback(**values: Any) -> None:
         values.get(k) for k in ("json_arg", "file_arg", "sets", "set_jsons")
     ):
         raise click.UsageError(f"{method} takes no request body: drop --json/--file/--set")
-    queries = _split_queries(values.pop("queries"))
-    op = _synthetic(method, path, queries)
+    queries = split_pairs(values.pop("queries"), "--query")
+    op = _synthetic(method, path, queries, state.root)
     for dest, param in param_map(op).items():
         found = [v for k, v in queries if k == param.name]
         values[dest] = tuple(found) if len(found) > 1 else found[0]
-    env, explicit = state.select()
-    run_ctx = state.run_context(env, explicit)
-    with state.guard():
-        try:
-            code = run_operation(run_ctx, op, values)
-        except ConfigError as exc:
-            raise CliError(str(exc)) from None
+    code = state.run(op, values)
     if code:
         ctx.exit(code)
 
