@@ -106,9 +106,7 @@ function observeHistory(approve: Approve) {
     settleTimer = undefined;
     if (disposed) window.removeEventListener('popstate', guard, true);
   };
-  const returnToLive = (actual: number) => {
-    if (!returning) return;
-    returning.attempts++;
+  const armExpiry = () => {
     clearTimeout(returnTimer);
     // Out-of-range go() is silent. Expire even if the last guard unmounted.
     returnTimer = setTimeout(() => {
@@ -116,6 +114,11 @@ function observeHistory(approve: Approve) {
       index = undefined;
       currentUrl = window.location.href;
     }, 1000);
+  };
+  const returnToLive = (actual: number) => {
+    if (!returning) return;
+    returning.attempts++;
+    armExpiry();
     history.go(returning.position - actual);
   };
   const guard = (event: PopStateEvent) => {
@@ -134,6 +137,8 @@ function observeHistory(approve: Approve) {
         // Correct once they settle: a relative go() per event would overshoot
         // while earlier traversals are still queued.
         event.stopImmediatePropagation();
+        // Still traversing: the expiry must not cancel the pending correction.
+        armExpiry();
         clearTimeout(settleTimer);
         settleTimer = setTimeout(() => {
           if (!returning) return;
