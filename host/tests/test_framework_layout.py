@@ -20,6 +20,7 @@ FRAMEWORK_PACKAGES: dict[str, str] = {
     "db": "simple_module_db",
     "hosting": "simple_module_hosting",
     "inertia": "simple_module_inertia",
+    "remote": "simple_module_remote",
     "testing": "simple_module_test",
 }
 
@@ -33,6 +34,7 @@ PACKAGE_ROOT_EXTRAS: dict[str, frozenset[str]] = {
         {"__main__.py", "host_cli.py", "admin_overview", "setup_wizard", "locales", "ui_locales"}
     ),
     "inertia": frozenset(),
+    "remote": frozenset(),
     "testing": frozenset({"plugin.py"}),
 }
 
@@ -68,6 +70,7 @@ AREAS: dict[str, frozenset[str]] = {
         }
     ),
     "inertia": frozenset({"protocol", "rendering", "assets"}),
+    "remote": frozenset({"config", "http", "schema", "generate", "output", "curated", "commands"}),
     "testing": frozenset({"app", "db", "web", "fakes"}),
 }
 
