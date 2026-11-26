@@ -67,6 +67,9 @@ export function formatDateRange(from: string | null, to: string | null): string 
   return '';
 }
 
+/** Mirrors `simple_module_db.auditing.audit.COMPUTED_BY_DATABASE`. */
+export const COMPUTED_BY_DATABASE = '<computed by database>';
+
 /**
  * One side of a change.
  *
@@ -74,8 +77,11 @@ export function formatDateRange(from: string | null, to: string | null): string 
  * field set to NULL stay visibly different — they are different events, and
  * rendering both as nothing at all was the previous behaviour.
  */
-export function formatChangeValue(value: unknown): string {
+export function formatChangeValue(value: unknown, computedLabel?: string): string {
   if (value === undefined) return 'null';
+  // The server records this sentinel when an update assigned a SQL expression
+  // (e.g. a session_version bump): show it as words, not as a quoted string.
+  if (value === COMPUTED_BY_DATABASE && computedLabel) return computedLabel;
   // A stored timestamp arrives as an ISO string, and the two sides of one
   // change rarely agree on how much of it: `…:59` against
   // `…:59.123456+00:00`. Rendered whole they force the Changes column wider
@@ -89,6 +95,10 @@ export function formatChangeValue(value: unknown): string {
 }
 
 /** `true → false`, spaced as the deck spaces it. */
-export function formatChangePair(oldValue: unknown, newValue: unknown): string {
-  return `${formatChangeValue(oldValue)} → ${formatChangeValue(newValue)}`;
+export function formatChangePair(
+  oldValue: unknown,
+  newValue: unknown,
+  computedLabel?: string,
+): string {
+  return `${formatChangeValue(oldValue, computedLabel)} → ${formatChangeValue(newValue, computedLabel)}`;
 }

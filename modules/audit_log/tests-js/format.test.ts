@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  COMPUTED_BY_DATABASE,
   formatChangePair,
   formatChangeValue,
   formatDateRange,
@@ -116,4 +117,13 @@ describe('timestamp values inside a change', () => {
       '"backup 2026-09-03T09:13:59 done"',
     );
   });
+});
+
+test('the computed-by-database sentinel renders as the translated label', () => {
+  expect(formatChangeValue(COMPUTED_BY_DATABASE, 'computed by the database')).toBe(
+    'computed by the database',
+  );
+  expect(formatChangePair(3, COMPUTED_BY_DATABASE, 'computed')).toBe('3 → computed');
+  // Without a label the raw value still renders, quoted like any string.
+  expect(formatChangeValue(COMPUTED_BY_DATABASE)).toBe('"<computed by database>"');
 });

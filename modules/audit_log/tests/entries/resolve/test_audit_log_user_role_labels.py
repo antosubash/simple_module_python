@@ -37,9 +37,9 @@ async def test_role_assignment_history_names_removed_assignments(db_session, reg
 
     labels = await resolve_entity_labels(db_session, registry, refs, {Permissions.MANAGE})
 
-    assert labels == {refs[0]: "editor on sam@example.com", refs[1]: "reviewer on sam@example.com"}
+    assert labels == {refs[0]: "editor · sam@example.com", refs[1]: "reviewer · sam@example.com"}
     entity = entity_link(registry, *refs[0], display=labels[refs[0]])
-    assert entity["display"] == "editor on sam@example.com"
+    assert entity["display"] == "editor · sam@example.com"
     assert entity["table_name"] == "users_user_role"
     assert entity["url"] is None
 
@@ -53,14 +53,19 @@ async def test_role_assignment_labels_require_users_manage(db_session, registry)
 
     assert await resolve_entity_labels(db_session, registry, [ref], {"audit_log.view"}) == {}
     assert await resolve_entity_labels(db_session, registry, [ref], {"*"}) == {
-        ref: "editor on private@example.com"
+        ref: "editor · private@example.com"
     }
 
 
 async def test_unknown_or_malformed_role_assignment_ids_fall_back(db_session, registry):
     refs = [
         ("UserRole", raw)
-        for raw in ["bad", "(UUID('bad'), UUID('bad'))", format_pk((uuid.uuid4(), uuid.uuid4()))]
+        for raw in [
+            "bad",
+            "(UUID('bad'), UUID('bad'))",
+            format_pk((uuid.uuid4(), uuid.uuid4())),
+            format_pk((uuid.uuid4(), uuid.uuid4(), uuid.uuid4())),
+        ]
     ]
 
     assert await resolve_entity_labels(db_session, registry, refs, {Permissions.MANAGE}) == {}

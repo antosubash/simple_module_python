@@ -1,22 +1,22 @@
-"""How a user row is named, and reached, from the audit log.
+"""How user and linked rows are named, and reached, from the audit log.
 
 An audit entry stores ``User`` and a uuid. Turning that back into something a
 reader can act on has two halves and both belong here: *where* the record
 lives (the admin route) and *what it is called* (``DirectoryUser.label``).
 
-The resolver is deliberately batched: an audit page is 50 rows and a busy
-afternoon is 50 edits to the same handful of accounts, so it takes every id on
-the page and answers in one query.
+The resolvers are deliberately batched: an audit page is 50 rows and a busy
+afternoon is 50 edits to the same handful of accounts, so they take every id on
+the page at once. Users take one query; role assignments take one per side.
 """
 
 from __future__ import annotations
 
-import re
 import uuid
 from typing import Any
 
 from simple_module_core.access.user_directory import resolve_user_labels as _labels_via
 from simple_module_core.web.audit_links import AuditLink
+from simple_module_db.auditing.audit import parse_uuid_pk
 from sqlalchemy import select
 
 from users.core.constants import Permissions
@@ -27,7 +27,6 @@ _LABEL = "User"
 _LABEL_KEY = "users.audit.user"
 
 _DIRECTORY = UsersDirectory()
-_USER_ROLE_PK = re.compile(r"\(UUID\('([^']+)'\), UUID\('([^']+)'\)\)")
 
 
 def linked_user_audit_links() -> list[AuditLink]:
@@ -48,13 +47,10 @@ async def resolve_user_role_labels(db: Any, ids: list[str]) -> dict[str, str]:
     """Name composite UUID keys, including assignments that have been removed."""
     pairs: dict[str, tuple[uuid.UUID, uuid.UUID]] = {}
     for raw in ids:
-        match = _USER_ROLE_PK.fullmatch(raw)
-        if match is None:
+        parsed = parse_uuid_pk(raw)
+        if parsed is None or len(parsed) != 2:
             continue
-        try:
-            pairs[raw] = (uuid.UUID(match[1]), uuid.UUID(match[2]))
-        except ValueError:
-            continue
+        pairs[raw] = (parsed[0], parsed[1])
     if not pairs:
         return {}
 
@@ -64,7 +60,7 @@ async def resolve_user_role_labels(db: Any, ids: list[str]) -> dict[str, str]:
     users = dict((await db.execute(select(User.id, User.email).where(User.id.in_(user_ids)))).all())
     roles = dict((await db.execute(select(Role.id, Role.name).where(Role.id.in_(role_ids)))).all())
     return {
-        raw: f"{roles[role_id]} on {users[user_id]}"
+        raw: f"{roles[role_id]} · {users[user_id]}"
         for raw, (user_id, role_id) in pairs.items()
         if user_id in users and role_id in roles
     }

@@ -137,6 +137,7 @@ export const keys = {
       title: 'audit_log.browse.title',
     },
     changes: {
+      computed_value: 'audit_log.changes.computed_value',
       fields_set: 'audit_log.changes.fields_set',
       fields_set_one: 'audit_log.changes.fields_set_one',
       fields_set_other: 'audit_log.changes.fields_set_other',
