@@ -8,6 +8,8 @@ PERM_GROUP = "Dashboard"
 
 class Permissions(PermissionCatalogue, group=PERM_GROUP, label_key="dashboard.permission_group"):
     VIEW = "dashboard.view"
+    # Read and re-run the Doctor diagnostics over the API (admin-only data).
+    DOCTOR = "dashboard.doctor"
 
 
 deprecate(

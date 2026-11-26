@@ -437,6 +437,72 @@
         ]
       }
     },
+    "/api/dashboard/doctor": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Doctor Results",
+        "description": "The Doctor screen's data (checks, migrations, system), as the view builds it.\n\nGated by ``dashboard.doctor``: the view is admin-only because it exposes\nmigration status, the module list and system info.",
+        "operationId": "dashboard_doctor_results",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Dashboard Doctor Results"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/dashboard/doctor/rerun": {
+      "post": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Doctor Rerun",
+        "description": "Re-run the checks and return the fresh results (a no-op outside development).",
+        "operationId": "dashboard_doctor_rerun",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Dashboard Doctor Rerun"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/feature_flags/": {
       "get": {
         "tags": [
@@ -4778,6 +4844,117 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/sharing/admin/shares": {
+      "get": {
+        "tags": [
+          "Sharing"
+        ],
+        "summary": "Admin List Shares",
+        "operationId": "sharing_admin_list_shares",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 25,
+              "title": "Per Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ShareOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/sharing/admin/shares/{share_id}/revoke": {
+      "post": {
+        "tags": [
+          "Sharing"
+        ],
+        "summary": "Admin Revoke Share",
+        "operationId": "sharing_admin_revoke_share",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -9246,6 +9423,40 @@
         ],
         "title": "OutboxStatus",
         "description": "Lifecycle of one (event, durable handler) delivery."
+      },
+      "Page_ShareOut_": {
+        "properties": {
+          "items": {
+            "items": {},
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "per_page",
+          "pages"
+        ],
+        "title": "Page[ShareOut]"
       },
       "PartOut": {
         "properties": {

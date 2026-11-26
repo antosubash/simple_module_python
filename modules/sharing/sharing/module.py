@@ -28,6 +28,15 @@ class SharingModule(ModuleBase):
         view_prefix=c.VIEW_PREFIX,
     )
 
+    def register_routes(self, api_router, view_router) -> None:
+        from sharing.web.endpoints.admin_api import router as admin_api
+        from sharing.web.endpoints.api import router as api
+        from sharing.web.endpoints.views import router as views
+
+        api_router.include_router(api)
+        api_router.include_router(admin_api)
+        view_router.include_router(views)
+
     def register_principal_builder(self, registry) -> None:
         from sharing.contracts.subjects import get_subject_registry
 
