@@ -303,8 +303,9 @@
   },
   "recent_activity": {
     "title": "Recent activity",
-    "see_all": "See all in the audit log →",
-    "empty": "Nothing recorded for this account yet.",
+    "activity_by_user": "All activity by this user →",
+    "account_changes": "Changes to this account →",
+    "empty": "This user hasn't done anything yet.",
     "summary": {
       "created": "Created {kind} {label}",
       "updated": "Updated {kind} {label}",

@@ -53,12 +53,36 @@ const props = {
 };
 const partial = ['linked_sign_ins', 'has_duplicate_linked_sign_ins'];
 
-test('Edit links to audit entries about the user rather than entries by the user', () => {
-  render(<Edit {...props} recent_activity={[]} />);
-  expect(screen.getByRole('link', { name: /See all in the audit log/ })).toHaveAttribute(
+test.each([
+  { state: 'empty', entries: [] },
+  {
+    state: 'populated',
+    entries: [
+      {
+        at: '2026-11-26T12:00:00Z',
+        summary: 'Updated a setting',
+        href: '/admin/audit-log/?entity_type=setting&entity_id=setting-1',
+      },
+    ],
+  },
+])('the $state activity card distinguishes actor history from account changes', ({ entries }) => {
+  render(<Edit {...props} recent_activity={entries} />);
+  expect(screen.getByRole('link', { name: 'All activity by this user →' })).toHaveAttribute(
+    'href',
+    '/admin/audit-log/?user_id=user-1',
+  );
+  expect(screen.getByRole('link', { name: 'Changes to this account →' })).toHaveAttribute(
     'href',
     '/admin/audit-log/?target_user_id=user-1',
   );
+  if (entries.length === 0) {
+    expect(screen.getByText("This user hasn't done anything yet.")).toBeInTheDocument();
+  } else {
+    expect(screen.getByRole('link', { name: 'Updated a setting' })).toHaveAttribute(
+      'href',
+      '/admin/audit-log/?entity_type=setting&entity_id=setting-1',
+    );
+  }
 });
 
 function visit(path: string, method = 'get', options: VisitOptions = {}) {

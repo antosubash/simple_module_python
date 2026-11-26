@@ -1794,8 +1794,9 @@ export const keys = {
       toast_updated: 'users.profile.toast_updated',
     },
     recent_activity: {
+      account_changes: 'users.recent_activity.account_changes',
+      activity_by_user: 'users.recent_activity.activity_by_user',
       empty: 'users.recent_activity.empty',
-      see_all: 'users.recent_activity.see_all',
       summary: {
         changed_count: 'users.recent_activity.summary.changed_count',
         changed_count_one: 'users.recent_activity.summary.changed_count_one',
