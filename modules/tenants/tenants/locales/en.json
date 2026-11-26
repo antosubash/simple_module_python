@@ -124,6 +124,7 @@
   },
   "errors": {
     "slug_taken": "That slug is already in use.",
+    "cannot_suspend_own_tenant": "A token cannot suspend the organisation it belongs to.",
     "self_service_disabled": "Creating organisations is disabled. Ask a platform administrator to create one for you.",
     "validation_failed": "Please check the form and try again.",
     "tenant_suspended": "That organisation is suspended.",

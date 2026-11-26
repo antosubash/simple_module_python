@@ -143,8 +143,8 @@ a literal `@` or be the text `null` needs `--set-json`. Order: `--json`, `--file
 `--set-json`, `--set`. `--all` starts at page 1 (do not combine with `--page`).
 `smdev api METHOD /api/path [--query k=v ...]` calls any path;
 `smdev raw <group> <command>` is the same command tree as the top-level groups (kept for scripts
-that must not collide with future built-ins). `--schema bundled` is the only
-schema source today, and `smdev schema status` shows it.
+that must not collide with future built-ins). Which schema builds the commands
+is described in [Live schema](#live-schema).
 
 Exit codes: `0` success, `1` usage or local error, `2` other 4xx (also a leftover
 3xx), `3` 5xx or
@@ -157,7 +157,7 @@ ask you to type the environment name first. Unless both stdin and
 stderr are terminals, pass `--yes`. Operations marked `x-cli-safe` (read-only
 despite using POST) skip the prompt. `api METHOD PATH` takes the safe/confirm
 marks of the schema operation whose path template matches; an unmatched
-mutation is always confirmed. Re-running `env add` for an existing environment
+mutation, or a path that matches more than one template, is always confirmed. Re-running `env add` for an existing environment
 changes only the flags you pass (`--protected`/`--no-protected`, `--tenant`);
 `--url` is required only for a new environment. `env remove` of a name that a
 project default also defines resets it to the default. It deletes the
@@ -187,6 +187,85 @@ environment is chosen explicitly (`--env` or `SMDEV_ENV`), so a stray variable
 can never be sent to the default environment. An environment made this way is
 not protected.
 
+## Credential matrix
+
+What a credential may do depends on the route, not on the CLI: each cell is the
+server's answer, and a refusal is HTTP 403 (exit code 4). The matrix below is
+pinned by `host/tests/remote_cli/test_credential_matrix.py`.
+
+| Credential | Host-level (users admin, system settings, tenant create) | Tenant-level in its tenant (members, invitations) | Tenant-level in another tenant |
+|---|---|---|---|
+| Platform-admin PAT pinned to tenant T | Yes, capped by the scopes it was minted with (a missing scope is 403) | Yes, within its scopes | Refused |
+| Tenant-admin PAT of T | 403: the user does not hold platform permissions | Yes | Refused |
+| Service key of T | Per its roles and scopes (content and settings work); never `admin` | 403: a service key is not a member, so no tenant resolves for the tenants module | Refused |
+
+A PAT sends no CSRF token: `RequiresCsrf` routes skip the check for tokens,
+while cookie sessions stay protected.
+
+Routes that take a tenant id and need platform permissions (for example
+`tenants list-tenants` or `create-tenant`) are host-level: they work with
+`tenants.platform.*` whichever tenant the token is pinned to. "Another tenant"
+only concerns tenant-level routes, which act on the token's active tenant and
+never on a tenant named in the URL. The CLI sends no tenant id to the server:
+`--tenant` only selects which stored login to use, and a login pinned to
+another tenant is refused before any request (exit code 1, "no stored
+credentials"). Use a separate `login` for each tenant.
+
+Platform routes that take a tenant id (suspending a tenant, editing another
+tenant's settings, tenant feature-flag overrides) are host-level too: a
+platform-admin token holding the platform permissions can use them on any
+tenant. This is deliberate. One guard applies: a token cannot suspend its own
+tenant (409 `cannot_suspend_own_tenant`), because that would lock it out.
+
+## Live schema
+
+The commands come from the schema bundled with the CLI unless you sync the
+environment's own:
+
+```bash
+smdev --env staging schema sync      # or: smdev schema sync --env staging
+smdev --env staging schema status    # source, info.version, fingerprint, age
+```
+
+`schema sync` calls `GET /api/_meta/openapi` with your token (it needs the
+`host.openapi.read` permission: admins have it, and a scoped token for CI can be
+given it) and caches the answer in `~/.cache/smdev/<env>/` (`$XDG_CACHE_HOME`
+when set): `openapi.json` plus `meta.json` with the environment's base URL (path
+included), the SHA-256 fingerprint, the ETag and the fetch time. Both files are
+`0600` in `0700` directories owned by you, opened without following symlinks, and
+never hold the token. Concurrent syncs of one environment are serialised. A second
+sync sends `If-None-Match`; a `304` keeps the cached schema and only updates the
+fetch time. The schema is fetched uncompressed (`Accept-Encoding: identity`; a
+compressed answer is refused), redirects are not followed and the body is capped
+at 32 MiB. A body that is not an OpenAPI object, contains the token anywhere (keys
+or values, also once control characters are removed), has an `x-cli-name` outside
+lowercase letters, digits and `-`, has operation names that collide, or has
+unusable shapes in its bodies or parameters (a non-object `properties`, a non-list
+`required` or `enum`, a non-object parameter schema) is refused and nothing is
+written. A cached schema with such shapes falls back to the bundled one. A root
+`--env` and a `schema sync --env` that name different environments are refused. On a platform without descriptor-relative file calls
+(Windows) the cache is unavailable and the bundled schema is used.
+
+Each run picks the source before parsing its arguments: the live cache of the
+selected environment when it exists, was fetched from the environment's current
+URL and is intact; otherwise the bundled schema (`schema status` says why under
+`live:`; a cache that cannot be turned into commands also prints a one-line note on
+stderr). The environment chosen here is the one the request then uses. Pointing
+the environment at another URL therefore drops its cache until the next sync. `--schema live` insists on the cache and fails with exit code 1
+and a `schema sync` hint when it cannot be used (built-ins such as
+`schema sync` still run); `--schema bundled` ignores the cache. When a generated
+command gets a 404 or 422, the error ends with a hint to run `schema sync`.
+
+A live schema can only make the CLI more careful. Its `x-cli-confirm` adds a
+confirmation on a protected environment, but its `x-cli-safe` is ignored: only the
+bundled schema's `x-cli-safe` for the same method and path template waives the
+confirmation of a mutation, for generated commands and `api METHOD PATH` alike.
+Placeholder names do not matter when marks are matched (`/a/{x}` is `/a/{id}`), and
+an `api` path that matches more than one template is always confirmed.
+Server text shown in help, errors, `schema status` and `api --session-only` is
+stripped of terminal control sequences, and enum values containing them are not
+offered as choices.
+
 ## Refreshing the bundled schema
 
 After an API change run `make cli-schema` and commit
@@ -197,7 +276,8 @@ the live app.
 ## Safety notes
 
 The config file (`config.toml`) holds no secrets and follows the umask; the
-credentials file is `0600` in a `0700` directory. Redirects the server sends are
+credentials file and the live schema cache are `0600` in `0700` directories,
+read without following symlinks and refused when another user can read them. Redirects the server sends are
 followed without the token unless they stay on the environment's origin under
 `/api/`; the tokenless follower refuses plain `http://` to non-loopback hosts,
 link-local and metadata addresses, and private or loopback addresses unless the

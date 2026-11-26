@@ -12,12 +12,14 @@ from sqlmodel import Column, Field
 
 from audit_log.core.constants import (
     ACTION_MAX_LENGTH,
+    AUTH_KIND_MAX_LENGTH,
     CORRELATION_ID_MAX_LENGTH,
     ENTITY_ID_MAX_LENGTH,
     ENTITY_TYPE_MAX_LENGTH,
     MODULE_PACKAGE,
     TABLE_AUDIT_ENTRY,
     TENANT_ID_MAX_LENGTH,
+    TOKEN_ID_MAX_LENGTH,
     USER_ID_MAX_LENGTH,
 )
 
@@ -44,6 +46,10 @@ class AuditEntry(Base, table=True):  # ty: ignore[unsupported-base]
     changes: dict | list = Field(default_factory=list, sa_column=Column(JSON))
     user_id: str | None = Field(default=None, max_length=USER_ID_MAX_LENGTH)
     correlation_id: str | None = Field(default=None, max_length=CORRELATION_ID_MAX_LENGTH)
+    # How the actor authenticated ("session", "pat", "service", ...) and, for a
+    # token, its credential id. NULL on rows written before these columns existed.
+    auth_kind: str | None = Field(default=None, max_length=AUTH_KIND_MAX_LENGTH)
+    token_id: str | None = Field(default=None, max_length=TOKEN_ID_MAX_LENGTH)
     # Not MultiTenantMixin on purpose: platform writes have no tenant and strict
     # mode would raise inside the flush. NULL means a platform action; the admin
     # screens read across tenants and filter on this column.

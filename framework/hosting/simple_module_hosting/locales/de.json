@@ -33,6 +33,7 @@
     "description": "Benutzer, Zugriff, Darstellung und Systemeinstellungen verwalten.",
     "empty": "Für Ihr Konto sind keine Administrationswerkzeuge verfügbar."
   },
+  "permission_group": "Host-System",
   "settings_form": {
     "title": "Anwendung",
     "description": "Anwendungsweite Einstellungen für Mandanten, Sprache, Protokollierung, Sicherheit, Anfragelimits, die API und die Datenbankverbindung.",

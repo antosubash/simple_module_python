@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from simple_module_remote.generate.naming import RESERVED, command_name, group_name
+from simple_module_remote.generate.naming import (
+    RESERVED,
+    command_name,
+    group_name,
+    valid_command_name,
+)
 from simple_module_remote.schema.loader import resolve_ref, unwrap_nullable
 
 __all__ = [
@@ -141,6 +146,20 @@ def parse_operations(schema: dict) -> list[Operation]:
                 )
             )
     return ops
+
+
+def invalid_cli_names(schema: dict) -> list[str]:
+    """``x-cli-name`` values outside the command-name alphabet (shown sanitised, by repr)."""
+    bad: list[str] = []
+    for item in (schema.get("paths") or {}).values():
+        if not isinstance(item, dict):
+            continue
+        for method in METHODS:
+            op = item.get(method)
+            name = op.get("x-cli-name") if isinstance(op, dict) else None
+            if name is not None and not (isinstance(name, str) and valid_command_name(name)):
+                bad.append(ascii(name)[:80])
+    return bad
 
 
 def cli_operations(ops: list[Operation]) -> list[Operation]:

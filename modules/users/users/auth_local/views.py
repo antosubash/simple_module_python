@@ -8,6 +8,7 @@ from ipaddress import IPv6Address, ip_address
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.engine.deps import get_db
+from simple_module_hosting.auth.api_equivalent import EXEMPT_LOGOUT, api_exempt
 from simple_module_hosting.auth.auth_policy import login_redirect_url
 from simple_module_hosting.auth.csrf import get_csrf_token
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
@@ -139,7 +140,11 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     return response
 
 
-@router.post("/logout", response_model=None, dependencies=[Depends(require_browser_origin)])
+@router.post(
+    "/logout",
+    response_model=None,
+    dependencies=[Depends(require_browser_origin), Depends(api_exempt(EXEMPT_LOGOUT))],
+)
 async def logout(
     request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)
 ) -> RedirectResponse:

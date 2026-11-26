@@ -16,6 +16,7 @@ from simple_module_db.auditing.audit_redaction import (
     redact_changes,
     redact_entity_id,
 )
+from simple_module_db.models.credential import current_auth_kind, current_token_id
 from simple_module_db.scoping.query_filter import engine_policy
 
 logger = logging.getLogger("simple_module_db.auditing.bulk_audit")
@@ -49,6 +50,7 @@ class _Ctx:
         self.changes = changes
         self.user_id = _current_user()
         self.correlation_id = correlation_id.get("") or None
+        self.auth_kind, self.token_id = current_auth_kind.get(), current_token_id.get()
 
     def record(
         self,
@@ -67,6 +69,8 @@ class _Ctx:
             changes=self.changes if changes is None else changes,
             user_id=self.user_id,
             correlation_id=self.correlation_id,
+            auth_kind=self.auth_kind,
+            token_id=self.token_id,
         )
 
 

@@ -10,17 +10,15 @@ pinned.
 
 from __future__ import annotations
 
-from simple_module_db.models.listeners import current_user_id
 from starlette.requests import HTTPConnection
 
+from simple_module_hosting.auth.principal import forget_principal
 from simple_module_hosting.pipeline._tenant import reresolve_tenant
 
 
 async def demote_to_anonymous(request: HTTPConnection) -> None:
     """Drop the principal and re-run tenant resolution as anonymous."""
-    request.state.user = None
-    request.state.resolved_permissions = set()
-    current_user_id.set(None)
+    forget_principal(request)
     await reresolve_tenant(request)
 
 

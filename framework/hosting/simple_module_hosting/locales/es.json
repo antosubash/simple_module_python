@@ -33,6 +33,7 @@
     "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
     "empty": "No hay herramientas de administración disponibles para tu cuenta."
   },
+  "permission_group": "Sistema anfitrión",
   "settings_form": {
     "title": "Aplicación",
     "description": "Ajustes de toda la aplicación para inquilinos, idioma, registros, seguridad, límites de solicitudes, la API y la conexión a la base de datos.",

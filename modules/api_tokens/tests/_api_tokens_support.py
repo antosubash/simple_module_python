@@ -62,6 +62,50 @@ async def create_pat(client: httpx.AsyncClient, scopes: list[str], *, days: int 
     return resp.json()
 
 
+async def admin_session(app: Any, tenant_id: str | None = None) -> dict[str, str]:
+    """A new admin who owns a tenant (or *tenant_id*): the data for ``session_client``."""
+    from tenants.core.constants import SESSION_ACTIVE_TENANT
+
+    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
+    user_id = await make_admin(app, email)
+    tenant_id = await join_tenant(app, user_id, email, tenant_id)
+    return {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
+
+
+async def pat_for(app: Any, session: dict[str, str], scopes: list[str]) -> str:
+    """Mint a personal token for the signed-in *session* and return its secret."""
+    from simple_module_test.web.tenant_client import session_client
+
+    async with session_client(app, session) as client:
+        return (await create_pat(client, scopes))["token"]
+
+
+async def admin_pat(app: Any, scopes: list[str]) -> str:
+    """A personal token with *scopes* for a new tenant-owning admin."""
+    return await pat_for(app, await admin_session(app), scopes)
+
+
+async def create_service_key(
+    client: httpx.AsyncClient,
+    *,
+    name: str,
+    roles: list[str],
+    scopes: list[str],
+    expires_in_days: int = 30,
+) -> httpx.Response:
+    """POST a service key and return the raw response (callers assert on it)."""
+    return await client.post(
+        SERVICE_URL,
+        json={
+            "name": name,
+            "roles": roles,
+            "scopes": scopes,
+            "expires_in_days": expires_in_days,
+        },
+        headers=CSRF_HEADERS,
+    )
+
+
 async def update_token(app: Any, token_id: str, **values: Any) -> None:
     """Write columns of a token row directly (expiry, last use) for a test."""
     from api_tokens.models import ApiToken
@@ -85,3 +129,12 @@ async def load_token(app: Any, token_id: str):
     async with app.state.sm.db.session_factory() as session:
         with all_tenants():
             return await session.get(ApiToken, uuid.UUID(token_id))
+
+
+def bearer_client(app: Any, token: str) -> httpx.AsyncClient:
+    """An ASGI client that authenticates with *token* as a bearer credential."""
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+        headers={"Authorization": f"Bearer {token}"},
+    )

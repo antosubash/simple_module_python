@@ -40,7 +40,11 @@ async def test_pat_cannot_use_tenant_self_service_routes(app, actor, bearer):
         await join_tenant(app, await create_user(app, other), other, u.tenant_id)
         before = await _memberships(app, u.user_id)
 
-    assert (await bearer("GET", "/api/tenants/", token)).status_code == 403
+    # Listing is token-reachable but pinned to the token's tenant.
+    listed = await bearer("GET", "/api/tenants/", token)
+    assert listed.status_code == 200
+    assert [t["id"] for t in listed.json()] == [u.tenant_id]
+    # Creating needs the platform scope, whatever self-service allows.
     created = await bearer("POST", "/api/tenants/", token, json={"name": "Evil Org"})
     assert created.status_code == 403
     assert created.headers["content-type"].startswith("application/json")
@@ -96,6 +100,7 @@ async def test_service_key_cannot_create_an_organisation(app, actor, bearer):
     app.state.sm.permissions.map_role("user", ["feature_flags.view"])
     token = await _service_key(app, actor, ["feature_flags.view"], ["user"])
     assert (await bearer("POST", "/api/tenants/", token, json={"name": "Svc"})).status_code == 403
+    assert (await bearer("GET", "/api/tenants/", token)).status_code == 200
     me = await bearer("GET", "/users/me", token, headers=INERTIA_HEADERS)
     assert me.status_code == 403  # was a 500: uuid.UUID("svc:…")
 
