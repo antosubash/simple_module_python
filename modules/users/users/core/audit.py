@@ -11,27 +11,63 @@ the page and answers in one query.
 
 from __future__ import annotations
 
+import re
+import uuid
 from typing import Any
 
 from simple_module_core.access.user_directory import resolve_user_labels as _labels_via
 from simple_module_core.web.audit_links import AuditLink
+from sqlalchemy import select
 
 from users.core.constants import Permissions
 from users.core.directory import UsersDirectory
-from users.models import OAuthAccount, User, UserRole
+from users.models import OAuthAccount, Role, User, UserRole
 
 _LABEL = "User"
 _LABEL_KEY = "users.audit.user"
 
 _DIRECTORY = UsersDirectory()
+_USER_ROLE_PK = re.compile(r"\(UUID\('([^']+)'\), UUID\('([^']+)'\)\)")
 
 
 def linked_user_audit_links() -> list[AuditLink]:
     """Declare ownership even for join rows that have no individual screen."""
     return [
-        AuditLink.for_model(model, url_template="", user_id_field="user_id")
-        for model in (OAuthAccount, UserRole)
+        AuditLink.for_model(OAuthAccount, url_template="", user_id_field="user_id"),
+        AuditLink.for_model(
+            UserRole,
+            url_template="",
+            user_id_field="user_id",
+            label_resolver=resolve_user_role_labels,
+            label_permission=Permissions.MANAGE,
+        ),
     ]
+
+
+async def resolve_user_role_labels(db: Any, ids: list[str]) -> dict[str, str]:
+    """Name composite UUID keys, including assignments that have been removed."""
+    pairs: dict[str, tuple[uuid.UUID, uuid.UUID]] = {}
+    for raw in ids:
+        match = _USER_ROLE_PK.fullmatch(raw)
+        if match is None:
+            continue
+        try:
+            pairs[raw] = (uuid.UUID(match[1]), uuid.UUID(match[2]))
+        except ValueError:
+            continue
+    if not pairs:
+        return {}
+
+    # Read both sides directly: a revoked assignment no longer has a join row.
+    user_ids = {user_id for user_id, _ in pairs.values()}
+    role_ids = {role_id for _, role_id in pairs.values()}
+    users = dict((await db.execute(select(User.id, User.email).where(User.id.in_(user_ids)))).all())
+    roles = dict((await db.execute(select(Role.id, Role.name).where(Role.id.in_(role_ids)))).all())
+    return {
+        raw: f"{roles[role_id]} on {users[user_id]}"
+        for raw, (user_id, role_id) in pairs.items()
+        if user_id in users and role_id in roles
+    }
 
 
 async def resolve_user_labels(db: Any, ids: list[str]) -> dict[str, str]:

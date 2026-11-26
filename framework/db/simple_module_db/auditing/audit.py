@@ -22,6 +22,7 @@ from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ClauseElement
 
 from simple_module_db.auditing.audit_redaction import redact_changes, redact_entity_id
 from simple_module_db.models.mixins import SoftDeleteMixin
@@ -130,6 +131,9 @@ def _column_diffs(obj: object, inspector: Any, excl: frozenset[str]) -> list[dic
             continue
         old_val = hist.deleted[0] if hist.deleted else None
         new_val = hist.added[0] if hist.added else None
+        # The expression is input to the database, not the value it will store.
+        if isinstance(new_val, ClauseElement):
+            continue
         changes.append({"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)})
     return redact_changes(type(obj), changes, obj)
 
@@ -179,7 +183,10 @@ def snapshot_changes(
         for col_name in _column_names(obj):
             if col_name in excl or col_name in pk_cols:
                 continue
-            changes.append({"field": col_name, "new": _serialize(getattr(obj, col_name))})
+            value = getattr(obj, col_name)
+            if isinstance(value, ClauseElement):
+                continue
+            changes.append({"field": col_name, "new": _serialize(value)})
         pending.append(
             _PendingChange(
                 obj_ref=obj,
