@@ -71,7 +71,7 @@ def _oidc(settings: UsersSettings) -> OAuthProvider | None:
             settings.oauth_oidc_discovery_url,
             name="oidc",
         )
-    except OpenIDConfigurationError:
+    except (OpenIDConfigurationError, ValueError, KeyError, TypeError, IndexError):
         url = urlsplit(settings.oauth_oidc_discovery_url)
         safe_url = urlunsplit((url.scheme, url.netloc.rsplit("@", 1)[-1], url.path, "", ""))
         logger.warning(

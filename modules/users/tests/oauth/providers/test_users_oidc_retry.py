@@ -89,8 +89,9 @@ async def test_failed_boot_keeps_button_and_returns_unavailable(httpx_mock, capl
 
 
 @pytest.mark.anyio
-async def test_login_recovers_without_restart_and_keeps_domain_policy(httpx_mock, clock):
-    httpx_mock.add_response(url=DISCOVERY_URL, status_code=503)
+@pytest.mark.parametrize("outage", [{"status_code": 503}, {"text": "maintenance"}, {"json": {}}])
+async def test_login_recovers_without_restart_and_keeps_domain_policy(httpx_mock, clock, outage):
+    httpx_mock.add_response(url=DISCOVERY_URL, **outage)
     httpx_mock.add_response(url=DISCOVERY_URL, json=DISCOVERY)
     app = _app()
     app.state.users.settings.oauth_trusted_email_domains = {"oidc": ["staff.example"]}
@@ -116,8 +117,10 @@ async def test_login_recovers_without_restart_and_keeps_domain_policy(httpx_mock
 
 
 @pytest.mark.anyio
-async def test_backoff_doubles_and_caps_at_ten_minutes(httpx_mock, clock):
-    httpx_mock.add_response(url=DISCOVERY_URL, status_code=503, is_reusable=True)
+@pytest.mark.parametrize("outage", [{"status_code": 503}, {"text": "maintenance"}, {"json": {}}])
+async def test_backoff_doubles_and_caps_at_ten_minutes(httpx_mock, clock, outage):
+    httpx_mock.add_response(url=DISCOVERY_URL, status_code=503)
+    httpx_mock.add_response(url=DISCOVERY_URL, is_reusable=True, **outage)
     app = _app()
     _build_oauth_clients(app)
     async with httpx.AsyncClient(
@@ -204,14 +207,14 @@ def test_boot_warning_redacts_credentials_query_and_exception(httpx_mock, caplog
         assert secret not in caplog.text
 
 
-def _blocked_discovery(httpx_mock):
+def _blocked_discovery(httpx_mock, *, status_code=200):
     loop = asyncio.get_running_loop()
     started, release = asyncio.Event(), threading.Event()
 
     def reply(request):
         loop.call_soon_threadsafe(started.set)
         assert release.wait(timeout=2), "test did not release discovery"
-        return httpx.Response(200, json=DISCOVERY)
+        return httpx.Response(status_code, json=DISCOVERY)
 
     httpx_mock.add_callback(reply, url=DISCOVERY_URL, is_reusable=True)
     return started, release
@@ -240,11 +243,13 @@ async def test_reload_during_discovery_cannot_restore_disabled_provider(httpx_mo
 
 
 @pytest.mark.anyio
-async def test_cancelled_login_does_not_bypass_discovery_backoff(httpx_mock, clock):
+@pytest.mark.parametrize("elapsed", [0, 600])
+@pytest.mark.parametrize("recovers", [False, True])
+async def test_cancelled_login_keeps_shared_discovery_result(httpx_mock, clock, elapsed, recovers):
     httpx_mock.add_response(url=DISCOVERY_URL, status_code=503)
     app = _app()
     _build_oauth_clients(app)
-    started, release = _blocked_discovery(httpx_mock)
+    started, release = _blocked_discovery(httpx_mock, status_code=200 if recovers else 503)
     clock.now += 30
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -257,5 +262,6 @@ async def test_cancelled_login_does_not_bypass_discovery_backoff(httpx_mock, clo
                 await login
         finally:
             release.set()
-        assert (await client.get(LOGIN_URL)).status_code == 503
+        clock.now += elapsed
+        assert (await client.get(LOGIN_URL)).status_code == (302 if recovers else 503)
     assert len(httpx_mock.get_requests()) == 2

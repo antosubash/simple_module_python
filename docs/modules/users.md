@@ -563,10 +563,11 @@ Built-in provider keys (the `{provider}` URL segment):
 If generic OIDC discovery fails at startup, the configured sign-in button stays
 visible. Login requests retry discovery after 30 seconds; repeated failures
 double the delay up to 10 minutes, measured with a monotonic clock. Each worker
-keeps its own backoff and allows only one discovery attempt at a time. Discovery
-is retried on demand, without a background timer. Once it succeeds, that worker
-uses the recovered provider without a restart. Until then API callers receive
-HTTP 503 (`OAUTH_PROVIDER_UNAVAILABLE`); browser clicks return to the login page
+keeps its own backoff, and concurrent login requests share a discovery attempt.
+Cancelling a request leaves the shared discovery running for other callers.
+Discovery is retried on demand, without a background timer. Once discovery
+succeeds, that worker uses the recovered provider without a restart. Until then
+API callers receive HTTP 503 (`OAUTH_PROVIDER_UNAVAILABLE`); browser clicks return to the login page
 with the existing sign-in failure message. Startup logs one warning naming the
 discovery URL, with credentials, query strings and fragments omitted. Saving
 Users settings rebuilds the provider immediately and resets its backoff (#1226).
