@@ -192,3 +192,13 @@ bodies are cut at 500 characters. A 429 answer is retried up to three times and
 the wait is announced on stderr. On a protected environment the typed name must
 match exactly. `--tenant` is ignored (with a note at login) on a single-tenant
 server, whose login is kept in the plain environment slot, and `logout` with no stored token exits 1.
+
+Re-ship hardening: a redirect keeps the token only when the URL httpx will send is
+a plain path under `/api/` (no backslash, no encoded dot, slash, backslash or
+percent). Environment URLs in config files are validated as written, then stored
+normalised. `-o id` and `-q` refuse bodies they cannot render (binary, invalid
+JSON). A required raw body needs `--body-file`. Repeating `--set` on an array field
+adds elements, each coerced by the items schema. `whoami` tenant slugs and ids
+from the server must be short printable words without spaces or the token, or the
+identity is rejected. `env remove` on a keyring tries the indexed keys plus the
+tenants the config has seen, and says when others may remain.

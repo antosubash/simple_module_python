@@ -1,7 +1,7 @@
 """Credentials bound to the server origin they were issued for."""
 
 import json
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -160,8 +160,13 @@ class CredentialStore:
             return []
         return [k for k in data if isinstance(k, str)] if isinstance(data, list) else []
 
-    def _set_index(self, keys: list[str]) -> None:
+    def _update_index(self, *, add: str | None = None, remove: str | None = None) -> None:
+        """Change the key index. The keyring has no lock, so re-read right before writing and
+        merge: a concurrent writer's entry survives unless this call removes it."""
         backend = self._require_backend()
+        keys = {k for k in self._index() if k != remove}
+        if add is not None:
+            keys.add(add)
         if keys:
             backend.set_password(self._service, INDEX_KEY, json.dumps(sorted(keys)))
         elif backend.get_password(self._service, INDEX_KEY) is not None:
@@ -177,45 +182,45 @@ class CredentialStore:
                 )
                 backend = self._require_backend()
                 backend.set_password(self._service, key, payload)
-                known = self._index()
-                if key not in known:
-                    self._set_index([*known, key])
+                self._update_index(add=key)
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
         except keyring.errors.KeyringError:
             raise CredentialError("the OS keyring could not be written") from None
 
-    def keys_for_env(self, env: str) -> list[str]:
-        """The stored logins of ``env``: its own key and every ``env/<tenant>`` key."""
+    def keys_for_env(self, env: str, tenants: Collection[str] = ()) -> list[str]:
+        """The stored logins of ``env``: its own key and every ``env/<tenant>`` key.
+
+        A keyring cannot be listed, so its keys come from the index plus the legacy keys
+        ``env`` and ``env/<tenant>`` for each of ``tenants`` (those the config has seen).
+        """
         try:
             if (file := self._file_store()) is not None:
                 candidates = file.keys()
             else:
                 backend = self._require_backend()
-                candidates = [
-                    k for k in [env, *self._index()] if backend.get_password(self._service, k)
-                ]
+                guesses = [env, *(f"{env}/{t}" for t in tenants), *self._index()]
+                candidates = [k for k in guesses if backend.get_password(self._service, k)]
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
         except keyring.errors.KeyringError:
             raise CredentialError("the OS keyring could not be read") from None
         return [k for k in dict.fromkeys(candidates) if k == env or k.startswith(env + "/")]
 
-    def delete_env(self, env: str) -> list[str]:
+    def delete_env(self, env: str, tenants: Collection[str] = ()) -> list[str]:
         """Delete every credential of ``env`` (``env`` and ``env/<tenant>``); the keys removed."""
-        return [key for key in self.keys_for_env(env) if self.delete(key)]
+        return [key for key in self.keys_for_env(env, tenants) if self.delete(key)]
 
     def delete(self, key: str) -> bool:
         try:
             if (file := self._file_store()) is not None:
                 return file.delete(key)
             backend = self._require_backend()
-            known = self._index()
-            if key in known:
-                self._set_index([k for k in known if k != key])
             if backend.get_password(self._service, key) is None:
+                self._update_index(remove=key)  # a stale index entry
                 return False
             backend.delete_password(self._service, key)
+            self._update_index(remove=key)  # only after the deletion succeeded
             return True
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None

@@ -141,6 +141,10 @@ def remove_env(ctx: click.Context, name: str) -> None:
         )
         raise CliError(f"environment {name!r} {known}")
     was_current = config.current == name
+    # Tenants the config has seen (before this env is dropped): legacy keyring keys to try.
+    tenants = sorted(
+        {e.tenant for e in config.envs.values() if e.tenant} | ({state.flag_tenant} - {None})
+    )
     config.user_envs.discard(name)
     config.overrides.pop(name, None)
     config.envs.pop(name, None)
@@ -148,12 +152,19 @@ def remove_env(ctx: click.Context, name: str) -> None:
         config.current = None
     with state.guard():
         save_config(state.cli, config)
-        removed = state.store().delete_env(name)
+        store = state.store()
+        removed = store.delete_env(name, tenants)
         reset = name in state.config().envs  # a project default of the same name remains
     if reset:
         click.echo(f"reset environment {name} to the project default")
     else:
         click.echo(f"removed environment {name}")
+    if not store.using_fallback:
+        click.echo(
+            "note: the OS keyring cannot be listed, so a login for a tenant this CLI never "
+            f"recorded may remain: `{state.cli} --env {name} --tenant T logout` removes one",
+            err=True,
+        )
     if was_current:
         click.echo("no environment is selected now: run `env use <name>`", err=True)
     for key in removed:
