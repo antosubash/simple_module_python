@@ -34,7 +34,7 @@ def _fields_help(op: Operation, root: dict) -> str:
     if more:
         text += f", and {more} more (see the schema)"
     if not all(set_addressable(f.name) for f in fields):
-        text += ". Quoted names cannot be set with --set: use --json or --file"
+        text += ". Names with . or = cannot be set with --set: use --json or --file"
     return text
 
 

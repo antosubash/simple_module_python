@@ -13,7 +13,8 @@ __all__ = ["detail_of", "detail_text", "schema_mismatch", "token_problem"]
 # "Not found" (resource_deps) or name what is missing, so the match is exact.
 _ROUTE_NOT_FOUND = "Not Found"
 # 422 error types that mean the request's shape differs from what the server expects.
-# A value the server could not parse (bool_parsing, too_short, ...) is the caller's.
+# A value that failed validation is the caller's: unparseable (bool_parsing) or
+# outside a constraint (too_short).
 _SHAPE_ERRORS = frozenset({"missing", "extra_forbidden"})
 # A 403 that is about the credential itself. The framework answers a bad or expired
 # credential with 401, so a 403 only qualifies with one of these whole messages;
@@ -33,12 +34,20 @@ def detail_of(text: str) -> object:
     return body.get("detail") if isinstance(body, dict) else None
 
 
-def _is_json(text: str) -> bool:
+_NOT_JSON = object()
+
+
+def _decoded(text: str) -> object:
     try:
-        json.loads(text)
+        return json.loads(text)
     except ValueError:
-        return False
-    return True
+        return _NOT_JSON
+
+
+def _says_nothing(body: object) -> bool:
+    if isinstance(body, dict):
+        return all(value in (None, "") for value in body.values())
+    return body in (None, [], "")
 
 
 def detail_text(text: str) -> str:
@@ -57,10 +66,12 @@ def token_problem(status: int, text: str) -> bool:
     if status == HTTPStatus.UNAUTHORIZED:
         return True
     detail = detail_of(text)
-    if detail is None and not _is_json(text):
-        detail = text  # a plain-text body is the server's explanation
     if detail is None:
-        return True  # JSON without a detail
+        body = _decoded(text)
+        if body is not _NOT_JSON:
+            # An empty JSON body explains nothing; {"code": ..., "message": ...} does.
+            return _says_nothing(body)
+        detail = text  # a plain-text body is the server's explanation
     if not isinstance(detail, str):
         return False
     wording = detail.strip().lower()

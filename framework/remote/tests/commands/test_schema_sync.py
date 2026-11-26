@@ -199,7 +199,9 @@ def test_identical_schema_has_one_fingerprint(make_cli, signed_in, clean_schema)
             if req.headers.get("If-None-Match") == 'W/"v1"':
                 return httpx.Response(304)
             return httpx.Response(200, content=reordered, headers={"ETag": 'W/"v1"'})
-        return httpx.Response(200, json=WHOAMI)
+        if req.url.path == "/api/_meta/whoami":
+            return httpx.Response(200, json=WHOAMI)
+        return httpx.Response(404, json={"detail": "Not Found"})
 
     cli = make_cli(handler)
     runner = signed_in(cli)

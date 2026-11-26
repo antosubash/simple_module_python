@@ -13,7 +13,7 @@ MAX_HELP_FIELDS = 40
 # Bounds the label of a recursive array (``Tree = list of Tree``).
 MAX_LABEL_DEPTH = 4
 # Characters `--set key=value` reads as syntax: a dot nests, the first = splits.
-# A space is fine once the shell argument is quoted.
+# A space or any other character is fine once the shell argument is quoted.
 _SET_SYNTAX = frozenset(".=")
 
 
@@ -26,7 +26,7 @@ class BodyField:
 
 def set_addressable(name: str) -> bool:
     """Whether ``--set <name>=...`` reaches this field (else use ``--json``)."""
-    return bool(name) and name.isprintable() and not _SET_SYNTAX.intersection(name)
+    return bool(name) and not _SET_SYNTAX.intersection(name)
 
 
 def _type_label(root: dict, prop: object, depth: int = 0) -> str:

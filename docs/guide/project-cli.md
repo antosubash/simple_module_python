@@ -125,7 +125,7 @@ arguments may not be empty. A non-JSON response (a download) is streamed to a
 pipe; JSON responses larger than 64 MiB are refused with a hint to use `--out`.
 `smdev api METHOD /api/...` calls any path directly. A generated command's
 `--help` lists up to 40 top-level JSON body fields with their types (`*` marks the
-required ones; a quoted name contains `.` or `=` and cannot be set with `--set`). `smdev schema status`
+required ones; help says when a name holds `.` or `=`, which `--set` cannot address). `smdev schema status`
 shows where the command schema comes from, and `smdev doctor` checks
 connectivity, credentials and schema.
 
