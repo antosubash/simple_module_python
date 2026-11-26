@@ -20,3 +20,8 @@ def env_prefix(cli: str) -> str:
 def env_var_name(cli: str) -> str:
     """The environment variable that selects the environment for *cli*."""
     return f"{env_prefix(cli)}_ENV"
+
+
+def env_url_var_name(cli: str) -> str:
+    """The variable that gives the URL of an environment that is not configured (CI)."""
+    return f"{env_prefix(cli)}_URL"

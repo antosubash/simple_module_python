@@ -210,3 +210,12 @@ def test_env_token_malformed_is_a_clean_error(make_cli, logged_in, monkeypatch):
     result = runner.invoke(cli, ["whoami"])
     assert result.exit_code == 1 and "SMDEV_TOKEN is not a valid token" in result.output
     assert "bad token" not in result.output and cli.requests == []
+
+
+def test_ci_env_from_url_and_token_variables(make_cli):
+    cli = make_cli()
+    env = {"SMDEV_ENV": "ci", "SMDEV_URL": "http://localhost:8000", "SMDEV_TOKEN": SECRET}
+    result = CliRunner().invoke(cli, ["whoami"], env=env)
+    assert result.exit_code == 0, result.output
+    assert cli.requests[0].url == "http://localhost:8000/api/_meta/whoami"
+    assert cli.requests[0].headers["Authorization"] == f"Bearer {SECRET}"

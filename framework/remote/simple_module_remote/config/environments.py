@@ -11,7 +11,9 @@ from urllib.parse import urlsplit
 
 import tomli_w
 
-from simple_module_remote.config.paths import config_dir, env_var_name
+from simple_module_remote.config.paths import config_dir, env_url_var_name, env_var_name
+from simple_module_remote.http.errors import UnsafePathError
+from simple_module_remote.http.safety import validate_base_url
 
 CONFIG_FILENAME = "config.toml"
 ENV_NAME_RE = re.compile(r"^[a-z0-9-]+$")
@@ -147,9 +149,17 @@ def select_env(
     if not name:
         raise ConfigError(f"no environment selected: run `{cli} env use <name>` or pass --env")
     env = config.envs.get(name)
+    url = environ.get(env_url_var_name(cli))
+    if env is None and explicit and url:
+        # CI: the runner has no config file; the URL variable defines the named environment.
+        try:
+            return Environment(name=validate_env_name(name), url=validate_base_url(url)), True
+        except UnsafePathError as exc:
+            raise ConfigError(f"{env_url_var_name(cli)}: {exc}") from None
     if env is None:
         known = ", ".join(sorted(config.envs)) or "none"
         raise ConfigError(
-            f"unknown environment {name!r} (known: {known}): run `{cli} env add {name} --url ...`"
+            f"unknown environment {name!r} (known: {known}): run `{cli} env add {name} --url ...` "
+            f"or set {env_url_var_name(cli)} to define it for this run"
         )
     return env, explicit

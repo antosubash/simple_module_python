@@ -125,3 +125,31 @@ def test_env_without_url(xdg: Path) -> None:
 def test_save_leaves_no_temp_file(xdg: Path) -> None:
     save_config(CLI, Config(current="a"))
     assert [p.name for p in xdg.iterdir()] == ["config.toml"]
+
+
+def test_url_variable_defines_an_unknown_explicit_env() -> None:
+    env, explicit = select_env(Config(), "ci", {"SMDEV_URL": "https://staging.example"}, CLI)
+    assert explicit and env == Environment("ci", "https://staging.example")
+    from_var, explicit = select_env(
+        Config(), None, {"SMDEV_ENV": "ci", "SMDEV_URL": "http://localhost:8000"}, CLI
+    )
+    assert explicit and from_var.url == "http://localhost:8000"
+
+
+def test_url_variable_is_not_used_without_an_explicit_env_or_over_a_known_env() -> None:
+    with pytest.raises(ConfigError, match="no environment selected"):
+        select_env(Config(), None, {"SMDEV_URL": "https://staging.example"}, CLI)
+    known = Config(envs={"ci": Environment("ci", "https://real.example")})
+    env, _ = select_env(known, "ci", {"SMDEV_URL": "https://other.example"}, CLI)
+    assert env.url == "https://real.example"
+
+
+@pytest.mark.parametrize("url", ["http://app.example", "https://u:p@app.example", "ftp://x"])
+def test_url_variable_obeys_the_origin_rules(url: str) -> None:
+    with pytest.raises(ConfigError, match="SMDEV_URL"):
+        select_env(Config(), "ci", {"SMDEV_URL": url}, CLI)
+
+
+def test_unknown_env_hint_mentions_the_url_variable() -> None:
+    with pytest.raises(ConfigError, match="SMDEV_URL"):
+        select_env(Config(), "nope", {}, CLI)
