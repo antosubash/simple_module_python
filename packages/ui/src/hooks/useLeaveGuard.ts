@@ -1,6 +1,7 @@
 import type { PendingVisit } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
-import { type RefObject, useEffect } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
+import { trackLeaveGuardHistory } from './leaveGuardHistory';
 
 /**
  * Warn before leaving a page with unsaved changes.
@@ -9,6 +10,8 @@ import { type RefObject, useEffect } from 'react';
  * links, so those need a separate window.confirm prompt. Browser Back/Forward
  * restores history without Inertia's cancellable `before` event and needs its
  * own listener. Full page unloads use the browser's native warning instead.
+ * Without the Navigation API, untracked entries (pre-mount or native null-state
+ * hash entries) cannot be cancelled safely and are allowed without a prompt.
  * The page's own save must not trigger the Inertia or history prompt.
  *
  * @param dirty   Whether there is anything worth warning about.
@@ -24,38 +27,36 @@ export function useLeaveGuard(
   saving: RefObject<boolean>,
   allowVisit?: (visit: PendingVisit) => boolean,
 ): void {
+  const latest = useRef({ dirty, message, saving });
+  latest.current = { dirty, message, saving };
+  const approvedHistoryUrl = useRef<string | undefined>(undefined);
+  useEffect(
+    () =>
+      trackLeaveGuardHistory((canCancel) => {
+        approvedHistoryUrl.current = undefined;
+        const { dirty, message, saving } = latest.current;
+        if (!canCancel || !dirty || saving.current) return true;
+        if (!window.confirm(message)) return false;
+        approvedHistoryUrl.current = window.location.href;
+        return true;
+      }),
+    [],
+  );
   useEffect(() => {
     if (!dirty) return;
-    let currentUrl = window.location.href;
-    let currentState = window.history.state;
-    let approvedHistoryUrl: string | undefined;
-    const rememberCurrentEntry = (event: Event) => {
-      currentUrl = window.location.href;
-      currentState = window.history.state;
-      if (event.type !== 'inertia:finish') approvedHistoryUrl = undefined;
+    const clearApproval = () => {
+      approvedHistoryUrl.current = undefined;
     };
-    // Replacements don't fire navigate (e.g. settings module switches).
-    const updates = ['inertia:navigate', 'inertia:finish', 'inertia:clientVisit'];
-    for (const event of updates) document.addEventListener(event, rememberCurrentEntry);
-
-    const guardHistory = (event: PopStateEvent) => {
-      approvedHistoryUrl = undefined;
-      if (saving.current) return;
-      if (window.confirm(message)) {
-        approvedHistoryUrl = window.location.href;
-        return;
-      }
-      // Inertia v3 restores history in a bubble listener, without a cancellable
-      // before event. Capture runs first, even when this hook mounts later.
-      event.stopImmediatePropagation();
-      window.history.pushState(currentState, '', currentUrl);
-    };
-    window.addEventListener('popstate', guardHistory, true);
+    const updates = ['inertia:navigate', 'inertia:clientVisit'];
+    for (const event of updates) document.addEventListener(event, clearApproval);
+    // Suppress native scroll restoration on the rejected and return traversals.
+    const scrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     const stopListening = router.on('before', ({ detail: { visit } }) => {
-      const approvedUrl = approvedHistoryUrl;
-      if (!visit.prefetch) approvedHistoryUrl = undefined;
+      const approvedUrl = approvedHistoryUrl.current;
+      if (!visit.prefetch) approvedHistoryUrl.current = undefined;
       if (visit.prefetch || saving.current || allowVisit?.(visit)) return true;
       // Inertia refetches invalid/old history entries after the popstate approval.
       const recoveringHistory =
@@ -68,8 +69,9 @@ export function useLeaveGuard(
       return recoveringHistory || window.confirm(message);
     });
     return () => {
-      window.removeEventListener('popstate', guardHistory, true);
-      for (const event of updates) document.removeEventListener(event, rememberCurrentEntry);
+      clearApproval();
+      window.history.scrollRestoration = scrollRestoration;
+      for (const event of updates) document.removeEventListener(event, clearApproval);
       window.removeEventListener('beforeunload', warn);
       stopListening();
     };

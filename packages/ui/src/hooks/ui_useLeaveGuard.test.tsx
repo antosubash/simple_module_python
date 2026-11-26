@@ -7,9 +7,9 @@
  * and prompting on it would ask "discard your changes?" while saving them.
  */
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createRef, StrictMode } from 'react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 const handlers: Array<(event: { detail: { visit: { prefetch: boolean } } }) => boolean> = [];
 const stopListening = vi.fn();
@@ -27,6 +27,8 @@ vi.mock('@inertiajs/react', () => ({
 }));
 
 const { useLeaveGuard } = await import('./useLeaveGuard');
+
+import { installHistory } from './leaveGuardHistoryTestUtils';
 
 const MESSAGE = 'You have unsaved changes.';
 
@@ -60,201 +62,177 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-describe('while there is nothing to lose', () => {
-  test('it registers nothing at all', () => {
-    render(<Harness dirty={false} saving={saveFlag()} />);
+let history: ReturnType<typeof installHistory>;
+let restore: ReturnType<typeof vi.fn>;
+const state = (url: string) => ({ page: { url, props: { name: 'Saved' } } });
+const settle = () => act(async () => {});
 
-    expect(handlers).toHaveLength(0);
-  });
+beforeEach(() => {
+  history = installHistory();
+  restore = vi.fn();
+  // Installed before the hook, like Inertia's bubble listener.
+  window.addEventListener('popstate', restore);
 });
+afterEach(() => window.removeEventListener('popstate', restore));
 
-describe('with unsaved changes', () => {
-  test('leaving asks first, and the answer decides', () => {
-    render(<Harness dirty={true} saving={saveFlag()} />);
+function edit(allowVisit?: Parameters<typeof useLeaveGuard>[3]) {
+  const saving = saveFlag();
+  const form = (dirty: boolean) => (
+    <StrictMode>
+      <Harness dirty={dirty} saving={saving} allowVisit={allowVisit} />
+      <input aria-label="Name" defaultValue="Saved" />
+    </StrictMode>
+  );
+  const view = render(form(false));
+  window.history.replaceState(state('/a'), '', '/a');
+  window.history.pushState(state('/b'), '', '/b');
+  window.history.pushState(state('/c'), '', '/c');
+  view.rerender(form(true));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Draft' } });
+  return { ...view, saving, clean: () => view.rerender(form(false)) };
+}
 
-    expect(handlers).toHaveLength(1);
-    expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(true);
-    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+function expectDraft() {
+  expect(screen.getByRole('textbox')).toHaveValue('Draft');
+  expect(restore).not.toHaveBeenCalled();
+}
 
-    confirm.mockReturnValue(false);
-    expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(false);
-  });
-
-  test("the page's own save is not prompted about", () => {
-    // The escape hatch. Saving is an Inertia visit like any other, so without
-    // this the guard interrupts the very action that resolves it.
-    render(<Harness dirty={true} saving={saveFlag(true)} />);
-
-    expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(true);
-    expect(confirm).not.toHaveBeenCalled();
-  });
-
-  test('it stops listening when the changes are gone', () => {
-    const { rerender } = render(<Harness dirty={true} saving={saveFlag()} />);
-    expect(stopListening).not.toHaveBeenCalled();
-
-    rerender(<Harness dirty={false} saving={saveFlag()} />);
-    expect(stopListening).toHaveBeenCalled();
-  });
-
-  test('it stops listening on unmount', () => {
-    const { unmount } = render(<Harness dirty={true} saving={saveFlag()} />);
-    unmount();
-
-    expect(stopListening).toHaveBeenCalled();
-  });
-});
-
-describe('the browser-level guard', () => {
-  test('a full page unload is cancelled too, since Inertia never sees it', () => {
-    render(<Harness dirty={true} saving={saveFlag()} />);
-
-    const event = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(true);
-  });
-
-  test('and is not cancelled when there is nothing to lose', () => {
-    render(<Harness dirty={false} saving={saveFlag()} />);
-
-    const event = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(false);
-  });
-});
-
-test('prefetching while dirty never prompts or blocks', () => {
-  render(<Harness dirty={true} saving={saveFlag()} />);
+test.each([-1, -2])('cancel Back %s preserves the exact entry and entire stack', async (delta) => {
+  edit();
+  const entries = structuredClone(history.entries);
+  const entry = history.entries[2];
   confirm.mockReturnValue(false);
-  expect(handlers[0]({ detail: { visit: { prefetch: true } } })).toBe(true);
-  expect(confirm).not.toHaveBeenCalled();
+  window.history.go(delta);
+  await settle();
+  expect(confirm).toHaveBeenCalledTimes(1);
+  expect(history.position).toBe(2);
+  expect(history.entries).toEqual(entries);
+  expect(history.entries[2]).toBe(entry);
+  expect(window.location.pathname).toBe('/c');
+  expect(window.history.scrollRestoration).toBe('manual');
+  expectDraft();
 });
 
-test('allowVisit still exempts only matching link visits', () => {
+test.each([false, true])('cancel Forward preserves A → B → C (allowVisit: %s)', async (allow) => {
   const allowVisit = vi.fn(() => true);
-  render(<Harness dirty={true} saving={saveFlag()} allowVisit={allowVisit} />);
-  confirm.mockReturnValue(false);
-  expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(true);
-  expect(confirm).not.toHaveBeenCalled();
-  allowVisit.mockReturnValue(false);
-  expect(handlers[0]({ detail: { visit: { prefetch: false } } })).toBe(false);
-  expect(confirm).toHaveBeenCalledWith(MESSAGE);
+  edit(allow ? allowVisit : undefined);
+  window.history.back();
+  await settle();
+  restore.mockClear();
+  confirm.mockClear().mockReturnValue(false);
+  const entries = structuredClone(history.entries);
+  window.history.forward();
+  await settle();
+  expect(confirm).toHaveBeenCalledTimes(1);
+  expect(allowVisit).not.toHaveBeenCalled();
+  expect(history.position).toBe(1);
+  expect(history.entries).toEqual(entries);
+  expect(window.location.pathname).toBe('/b');
+  expectDraft();
 });
 
-describe('browser history', () => {
-  const editState = { page: { url: '/edit', props: { name: 'Saved' } } };
-  const otherState = { page: { url: '/other', props: {} } };
-  let restore: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    // Inertia installs a bubble listener before the page mounts. A restore
-    // replaces the page, so an uncontrolled input's draft disappears too.
-    restore = vi.fn(() => cleanup());
-    window.addEventListener('popstate', restore);
-    window.history.replaceState(otherState, '', '/other');
-    window.history.pushState(editState, '', '/edit');
-  });
-
-  afterEach(() => window.removeEventListener('popstate', restore));
-
-  function edit(dirty = true, allowVisit?: Parameters<typeof useLeaveGuard>[3]) {
-    const view = render(
-      <StrictMode>
-        <Harness dirty={dirty} saving={saveFlag()} allowVisit={allowVisit} />
-        <input aria-label="Name" defaultValue="Saved" />
-      </StrictMode>,
-    );
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Draft' } });
-    return view;
-  }
-
-  test.each([false, true])(
-    'dirty Back keeps URL, state and draft on cancel (allowVisit supplied: %s)',
-    async (withAllowVisit) => {
-      const allowVisit = vi.fn(() => true);
-      edit(true, withAllowVisit ? allowVisit : undefined);
-      confirm.mockReturnValue(false);
-      window.history.back();
-
-      await waitFor(() => expect(confirm).toHaveBeenCalledWith(MESSAGE));
-      expect(confirm).toHaveBeenCalledTimes(1);
-      expect(allowVisit).not.toHaveBeenCalled();
-      expect(restore).not.toHaveBeenCalled();
-      expect(window.location.pathname).toBe('/edit');
-      expect(window.history.state).toEqual(editState);
-      expect(screen.getByRole('textbox')).toHaveValue('Draft');
-    },
-  );
-
-  test('confirming Back proceeds with one prompt', async () => {
+test.each([undefined, 'inertia:finish', 'inertia:navigate', 'inertia:clientVisit'])(
+  'cancel retains live remembered state and scroll after replaceState (%s)',
+  async (event) => {
     edit();
+    const live = {
+      page: { ...state('/c?tab=mail').page, rememberedState: { form: { name: 'Draft' } } },
+      documentScrollPosition: { top: 321, left: 12 },
+      scrollRegions: [{ top: 99, left: 0 }],
+    };
+    window.history.replaceState(live, '', '/c?tab=mail');
+    if (event) document.dispatchEvent(new CustomEvent(event));
+    const entries = structuredClone(history.entries);
+    confirm.mockReturnValue(false);
     window.history.back();
+    await settle();
+    expect(history.position).toBe(2);
+    expect(history.entries).toEqual(entries);
+    expect(window.history.state).toMatchObject(live);
+    expect(window.location.search).toBe('?tab=mail');
+    expectDraft();
+  },
+);
 
-    await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
-    expect(confirm).toHaveBeenCalledWith(MESSAGE);
-    expect(confirm).toHaveBeenCalledTimes(1);
-    expect(window.location.pathname).toBe('/other');
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-  });
+test('hash creation, Back and Forward never prompt, while a path change still does', async () => {
+  edit();
+  history.hash('#one');
+  history.hash('#two');
+  window.history.back();
+  await settle();
+  window.history.forward();
+  await settle();
+  expect(confirm).not.toHaveBeenCalled();
+  expect(window.location.hash).toBe('#two');
+  restore.mockClear();
+  const entries = structuredClone(history.entries);
+  confirm.mockReturnValue(false);
+  window.history.go(-3);
+  await settle();
+  expect(confirm).toHaveBeenCalledTimes(1);
+  expect(history.position).toBe(4);
+  expect(history.entries).toEqual(entries);
+  expectDraft();
+});
 
-  test('clean Back proceeds without prompting or adding history entries', async () => {
-    edit(false);
-    const length = window.history.length;
+test('native null-state hashes use Navigation API positions without losing the draft', async () => {
+  history.navigation();
+  edit();
+  history.hash('#one', null);
+  history.hash('#two', null);
+  window.history.back();
+  await settle();
+  window.history.forward();
+  await settle();
+  expect(confirm).not.toHaveBeenCalled();
+  restore.mockClear();
+  const entries = structuredClone(history.entries);
+  confirm.mockReturnValue(false);
+  window.history.go(-3);
+  await settle();
+  expect(history.position).toBe(4);
+  expect(history.entries).toEqual(entries);
+  expectDraft();
+});
+
+test.each(['clean', 'saving', 'unmount', 'confirm'])(
+  '%s allows traversal normally',
+  async (mode) => {
+    window.history.scrollRestoration = 'auto';
+    const push = window.history.pushState;
+    const replace = window.history.replaceState;
+    const view = edit();
+    if (mode === 'clean') view.clean();
+    if (mode === 'saving') view.saving.current = true;
+    if (mode === 'unmount') view.unmount();
+    const entries = structuredClone(history.entries);
     window.history.back();
+    await settle();
+    expect(history.position).toBe(1);
+    expect(history.entries).toEqual(entries);
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledTimes(mode === 'confirm' ? 1 : 0);
+    if (mode === 'clean' || mode === 'unmount') {
+      expect(window.history.scrollRestoration).toBe('auto');
+    }
+    if (mode === 'unmount') {
+      expect(window.history.pushState).toBe(push);
+      expect(window.history.replaceState).toBe(replace);
+    }
+  },
+);
 
-    await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
-    expect(confirm).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/other');
-    expect(window.history.length).toBe(length);
-  });
-
-  test.each([false, true])(
-    'dirty Forward prompts and can be cancelled (allowVisit supplied: %s)',
-    async (withAllowVisit) => {
-      window.history.back();
-      await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
-      restore.mockClear();
-      const allowVisit = vi.fn(() => true);
-      edit(true, withAllowVisit ? allowVisit : undefined);
-      confirm.mockReturnValue(false);
-      window.history.forward();
-
-      await waitFor(() => expect(confirm).toHaveBeenCalledWith(MESSAGE));
-      expect(allowVisit).not.toHaveBeenCalled();
-      expect(restore).not.toHaveBeenCalled();
-      expect(window.location.pathname).toBe('/other');
-      expect(window.history.state).toEqual(otherState);
-      expect(screen.getByRole('textbox')).toHaveValue('Draft');
-    },
-  );
-
-  test.each(['inertia:finish', 'inertia:navigate', 'inertia:clientVisit'])(
-    'cancel restores the latest entry after %s, including replacements',
-    async (event) => {
-      edit();
-      const updated = { page: { url: '/edit?module=mail', props: { name: 'Updated' } } };
-      window.history.replaceState(updated, '', '/edit?module=mail');
-      document.dispatchEvent(new CustomEvent(event));
-      confirm.mockReturnValue(false);
-      window.history.back();
-
-      await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
-      expect(window.location.pathname + window.location.search).toBe('/edit?module=mail');
-      expect(window.history.state).toEqual(updated);
-      expect(screen.getByRole('textbox')).toHaveValue('Draft');
-      expect(restore).not.toHaveBeenCalled();
-    },
-  );
-
-  test.each(['recovery', 'post', 'otherUrl'])('history approval scope: %s', async (mode) => {
-    restore.mockImplementation(() => {});
+test.each(['recovery', 'post', 'otherUrl'])(
+  'approved refetch is one-use and scoped: %s',
+  async (mode) => {
     edit();
     const before = handlers[handlers.length - 1];
     window.history.back();
-    await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
+    await settle();
     const visit = {
       prefetch: false,
       url: new URL(
@@ -270,30 +248,31 @@ describe('browser history', () => {
     expect(before({ detail: { visit } })).toBe(mode === 'recovery');
     expect(confirm).toHaveBeenCalledTimes(mode === 'recovery' ? 1 : 2);
     expect(before({ detail: { visit } })).toBe(false);
-    expect(confirm).toHaveBeenCalledTimes(mode === 'recovery' ? 2 : 3);
-  });
+  },
+);
 
-  test('saving bypasses the history prompt too', async () => {
-    render(<Harness dirty={true} saving={saveFlag(true)} />);
-    window.history.back();
+test('Navigation API positions let Cancel return from an entry predating the hook', async () => {
+  history.navigation();
+  window.history.pushState(state('/older'), '', '/older');
+  edit();
+  const entries = structuredClone(history.entries);
+  confirm.mockReturnValue(false);
+  window.history.go(-3);
+  await settle();
+  expect(history.position).toBe(3);
+  expect(history.entries).toEqual(entries);
+  expectDraft();
+});
 
-    await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
-    expect(confirm).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/other');
-  });
-
-  test.each(['clean', 'unmount'])(
-    '%s removes the history guard without trapping Back',
-    async (action) => {
-      const view = edit();
-      const clean = <Harness dirty={false} saving={saveFlag()} />;
-      if (action === 'clean') view.rerender(<StrictMode>{clean}</StrictMode>);
-      else view.unmount();
-      window.history.back();
-
-      await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
-      expect(confirm).not.toHaveBeenCalled();
-      expect(window.location.pathname).toBe('/other');
-    },
-  );
+test('without a known target position, traversal is allowed without rewriting history', async () => {
+  window.history.pushState(state('/older'), '', '/older');
+  edit();
+  const entries = structuredClone(history.entries);
+  confirm.mockReturnValue(false);
+  window.history.go(-3);
+  await settle();
+  expect(confirm).not.toHaveBeenCalled();
+  expect(history.position).toBe(0);
+  expect(history.entries).toEqual(entries);
+  expect(restore).toHaveBeenCalledTimes(1);
 });
