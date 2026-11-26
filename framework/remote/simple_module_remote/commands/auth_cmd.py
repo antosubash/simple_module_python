@@ -142,10 +142,10 @@ def whoami(ctx: click.Context) -> None:
         with state.client(env, token) as client:
             who = fetch_whoami(client)
     except ApiError as exc:
-        failure = _api_failure(exc, "whoami failed")
+        hint = ""
         if exc.status in AUTH_STATUSES:
-            failure.message += f"\nhint: run `{login_hint(state.cli, env, state.tenant(env))}`"
-        raise failure from None
+            hint = f"\nhint: run `{login_hint(state.cli, env, state.tenant(env))}`"
+        raise CliError(f"whoami failed: {exc.message}{hint}", exit_code_for(exc.status)) from None
     if env.protected:
         click.echo("*** PROTECTED ENVIRONMENT ***")
     scopes = who.get("scopes")
