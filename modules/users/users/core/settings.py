@@ -84,7 +84,9 @@ class _UsersCoreSettings(DbBackedSettings):
 
     # Mail transport (SMTP, console) lives in the ``mail`` module.
     base_url: str = Field(
-        default="", description="Account link origin; blank inherits host.public_base_url."
+        default="",
+        description="Account link origin; blank inherits host.public_base_url.",
+        json_schema_extra={"persist_normalized": True},
     )
 
     @field_validator("base_url")

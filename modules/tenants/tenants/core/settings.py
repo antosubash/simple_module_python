@@ -24,6 +24,7 @@ class TenantsSettings(DbBackedSettings):
     )
     subdomain_base: str = Field(
         default="",
+        json_schema_extra={"persist_normalized": True},
         description=(
             "Resolve the tenant from the host: with 'example.com', acme.example.com "
             "is the tenant whose slug is 'acme' — also for anonymous visitors on "

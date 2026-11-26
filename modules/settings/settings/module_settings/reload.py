@@ -155,8 +155,9 @@ async def apply_changes_and_reload(
     # A json field stores what validated, not what was sent: a field validator
     # may have turned the editor's text into the declared type (``json.loads``
     # on a dict), and encoding the raw input stored a JSON *string* that
-    # hydration could not read back as that type (GH #487). Plain strings also
-    # keep validator normalization (GH #1157). A serializer (``SecretStr`` dumps as
+    # hydration could not read back as that type (GH #487). String normalization
+    # is opt-in: model validators can derive runtime URLs from blank inputs.
+    # A serializer (``SecretStr`` dumps as
     # asterisks) must never decide what is written to the store, so secrets
     # are unwrapped before the validated value is made JSON-able.
     for field_name, raw_value in diff.items():
@@ -170,7 +171,11 @@ async def apply_changes_and_reload(
         if vtype == "json":
             dumped = validated.model_dump(include={field_name}).get(field_name, raw_value)
             raw_value = to_jsonable_python(_unwrap_secrets(dumped))
-        elif type(value := getattr(validated, field_name)) is str:
+        elif (
+            isinstance(extra := cls.model_fields[field_name].json_schema_extra, dict)
+            and extra.get("persist_normalized")
+            and type(value := getattr(validated, field_name)) is str
+        ):
             raw_value = value
         try:
             await store.set_override(package, field_name, _encode(raw_value, vtype), vtype)

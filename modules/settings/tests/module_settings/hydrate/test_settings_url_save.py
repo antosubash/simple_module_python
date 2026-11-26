@@ -11,6 +11,7 @@ from settings.web.endpoints.module_api import _settings_errors
 from simple_module_core.eventing.events import EventBus
 from simple_module_core.settings.module_settings import register_module_settings
 from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_hydrate import build_settings
 from tenants.core.settings import TenantsSettings
 from users.core.settings import UsersSettings
 
@@ -96,6 +97,7 @@ class _Mode(str, Enum):  # noqa: UP042 -- Exercise legacy enums whose str() diff
 class _SecretSettings(DbBackedSettings):
     token: SecretStr = SecretStr("")
     mode: _Mode = _Mode.OFF
+    optional_text: str | None = "fallback"
 
 
 async def test_scalar_secret_save_keeps_actual_value():
@@ -112,3 +114,32 @@ async def test_string_enum_save_keeps_wire_value():
     register_module_settings(app, "secret", _SecretSettings, lambda cfg: cfg)
     await apply_changes_and_reload(app, EventBus(), store, package="secret", changes={"mode": "on"})
     assert store.rows == {"mode": ("on", "string")}
+
+
+@pytest.mark.parametrize(("value", "encoded"), [(None, "null"), ("value", '"value"')])
+async def test_optional_string_save_round_trips(value, encoded):
+    app, store = FastAPI(), _Store()
+    register_module_settings(app, "secret", _SecretSettings, lambda cfg: cfg)
+    await apply_changes_and_reload(
+        app, EventBus(), store, package="secret", changes={"optional_text": value}
+    )
+    assert store.rows == {"optional_text": (encoded, "json")}
+    assert build_settings(_SecretSettings, store.rows).optional_text == value
+
+
+async def test_reset_derived_discovery_url_keeps_following_tenant(monkeypatch):
+    from oidc.core.settings import OidcSettings
+
+    monkeypatch.setenv("SM_ENVIRONMENT", "development")
+    app, store = FastAPI(), _Store()
+    register_module_settings(app, "oidc", OidcSettings, lambda cfg: cfg)
+    store.rows.update(provider=("entra", "string"), tenant_id=("old-tenant", "string"))
+    await apply_changes_and_reload(
+        app, EventBus(), store, package="oidc", changes={"discovery_url": ""}
+    )
+    await apply_changes_and_reload(
+        app, EventBus(), store, package="oidc", changes={"tenant_id": "new-tenant"}
+    )
+    assert build_settings(OidcSettings, store.rows).discovery_url == (
+        "https://login.microsoftonline.com/new-tenant/v2.0/.well-known/openid-configuration"
+    )
