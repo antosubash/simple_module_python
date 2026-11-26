@@ -49,6 +49,7 @@ export function ModuleFieldRow({
   // unmounts the focused button and drops focus to the page. Move it to the
   // field once that has rendered; a failed revert keeps the button focused.
   const refocusAfterRevert = useRef(false);
+  const revertInFlight = useRef(false);
   useEffect(() => {
     if (field.db_override || !refocusAfterRevert.current) return;
     refocusAfterRevert.current = false;
@@ -101,8 +102,14 @@ export function ModuleFieldRow({
           field={field}
           descriptionId={descriptionId}
           onReset={async () => {
+            // A second click while this row's revert is in flight is ignored
+            // by the form; it must not cancel the first one's refocus.
+            if (revertInFlight.current) return;
+            revertInFlight.current = true;
             refocusAfterRevert.current = true;
-            if ((await onReset()) === false) refocusAfterRevert.current = false;
+            const result = await onReset();
+            revertInFlight.current = false;
+            if (result === false) refocusAfterRevert.current = false;
           }}
         />
       </div>
