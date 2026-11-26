@@ -43,10 +43,10 @@ def test_placeholder_rename_keeps_bundled_hints():
 def test_api_path_matching_two_templates_is_not_waived():
     safe = {"x-cli-safe": True}
     both = _doc({"/api/a/literal": {"post": _op(**safe)}, "/api/a/{id}": {"post": _op(**safe)}})
-    assert not _synthetic("POST", "/api/a/literal", [], both, both).safe
-    assert _synthetic("POST", "/api/a/other", [], both, both).safe
+    assert not _synthetic("POST", "/api/a/literal", [], both, trusted=both).safe
+    assert _synthetic("POST", "/api/a/other", [], both, trusted=both).safe
     renamed = _doc({"/api/a/{x}": {"post": _op()}})
-    assert _synthetic("POST", "/api/a/other", [], renamed, both).safe  # same shape, renamed
+    assert _synthetic("POST", "/api/a/other", [], renamed, trusted=both).safe  # same shape, renamed
 
 
 class _Broken(httpx.SyncByteStream):

@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from _api_tokens_support import CSRF_HEADERS, SERVICE_URL, create_pat
+from _api_tokens_support import CSRF_HEADERS, create_pat, create_service_key
 from fastapi import APIRouter, Depends
 from simple_module_hosting.auth.csrf import RequiresCsrf
 from simple_module_hosting.auth.token_guard import Authenticated, TokenAllowed
@@ -47,15 +47,8 @@ async def test_pat_mutates_without_csrf_token(probe_app, actor, bearer):
 async def test_service_key_mutates_without_csrf_token(probe_app, actor, bearer):
     probe_app.state.sm.permissions.map_role("user", ["feature_flags.view"])
     async with actor(admin=True) as a:
-        resp = await a.client.post(
-            SERVICE_URL,
-            json={
-                "name": "k",
-                "roles": ["user"],
-                "scopes": ["feature_flags.view"],
-                "expires_in_days": 30,
-            },
-            headers=CSRF_HEADERS,
+        resp = await create_service_key(
+            a.client, name="k", roles=["user"], scopes=["feature_flags.view"]
         )
         assert resp.status_code == 201, resp.text
         token = resp.json()["token"]

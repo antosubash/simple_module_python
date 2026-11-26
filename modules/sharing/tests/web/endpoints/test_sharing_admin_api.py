@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import uuid
 
-import httpx
 import pytest
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
 from _sharing_support import NOTE_TYPE, SharingTestNote, create_note_table, register_note_type
 from sharing.core.constants import Permissions
 from simple_module_core.access.tenancy import TenantRole
@@ -48,14 +47,6 @@ async def _pat(app, data: dict, scopes: list[str]) -> str:
         return (await create_pat(c, scopes))["token"]
 
 
-def _bearer(app, token: str) -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-
 async def test_view_pat_lists_shares_like_the_page(note_app, tenant_client):
     async with (
         tenant_client(TenantRole.OWNER) as owner,
@@ -64,7 +55,7 @@ async def test_view_pat_lists_shares_like_the_page(note_app, tenant_client):
         await _share(note_app, owner, friend)
         data, _ = await _admin(note_app, owner.tenant_id)
         token = await _pat(note_app, data, [Permissions.VIEW])
-        async with _bearer(note_app, token) as bc:
+        async with bearer_client(note_app, token) as bc:
             resp = await bc.get(LIST_URL, params={"per_page": 10})
         assert resp.status_code == 200, resp.text
         body = resp.json()
@@ -86,11 +77,11 @@ async def test_view_pat_cannot_revoke_and_share_pat_cannot_list(note_app, tenant
         data, _ = await _admin(note_app, owner.tenant_id)
         view_token = await _pat(note_app, data, [Permissions.VIEW])
         share_token = await _pat(note_app, data, [Permissions.SHARE])
-        async with _bearer(note_app, view_token) as bc:
+        async with bearer_client(note_app, view_token) as bc:
             items = (await bc.get(LIST_URL)).json()["items"]
             denied = await bc.post(f"{LIST_URL}/{items[0]['id']}/revoke")
         assert denied.status_code == 403
-        async with _bearer(note_app, share_token) as bc:
+        async with bearer_client(note_app, share_token) as bc:
             assert (await bc.get(LIST_URL)).status_code == 403
 
 
@@ -103,12 +94,12 @@ async def test_manage_only_pat_revokes_without_csrf(note_app, tenant_client):
         data, _ = await _admin(note_app, owner.tenant_id)
         view_token = await _pat(note_app, data, [Permissions.VIEW])
         manage_token = await _pat(note_app, data, [Permissions.MANAGE])
-        async with _bearer(note_app, view_token) as bc:
+        async with bearer_client(note_app, view_token) as bc:
             share_id = (await bc.get(LIST_URL)).json()["items"][0]["id"]
-        async with _bearer(note_app, manage_token) as bc:
+        async with bearer_client(note_app, manage_token) as bc:
             resp = await bc.post(f"{LIST_URL}/{share_id}/revoke")
         assert resp.status_code in (200, 204), resp.text
-        async with _bearer(note_app, view_token) as bc:
+        async with bearer_client(note_app, view_token) as bc:
             assert (await bc.get(LIST_URL)).json()["total"] == 0
 
 

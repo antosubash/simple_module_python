@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-import httpx
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
 from settings.core.constants import Permissions
 from simple_module_core.settings.module_settings import module_settings_registry
 from simple_module_test.web.tenant_client import session_client
@@ -29,24 +28,16 @@ async def _pat(app, scopes: list[str]) -> str:
         return (await create_pat(c, scopes))["token"]
 
 
-def _bearer(app, token: str) -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-
 async def _create(app, key: str) -> int:
     token = await _pat(app, [Permissions.VIEW, Permissions.CREATE])
-    async with _bearer(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         resp = await bc.post(f"{_BASE}/", json={"key": key, "value": "v"})
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 
 
 async def _status(app, scopes: list[str], method: str, url: str, **kwargs) -> int:
-    async with _bearer(app, await _pat(app, scopes)) as bc:
+    async with bearer_client(app, await _pat(app, scopes)) as bc:
         return (await bc.request(method, url, **kwargs)).status_code
 
 

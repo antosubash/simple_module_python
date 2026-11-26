@@ -13,7 +13,7 @@ import json
 import uuid
 
 import pytest
-from _api_tokens_support import CSRF_HEADERS, SERVICE_URL, create_pat  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF_HEADERS, create_pat, create_service_key  # ty: ignore[import-not-found]
 from simple_module_core.access.tenancy import TenantRole
 from simple_module_test.web.tenant_client import create_user, session_client
 
@@ -23,7 +23,6 @@ EXIT_AUTH = 4  # HTTP 401/403
 USE = "api_tokens.use"
 USERS_VIEW = "users.manage"
 SETTINGS_VIEW = "settings.view"
-SETTINGS_EDIT = "settings.edit"
 PLATFORM_MANAGE = "tenants.platform.manage"
 MEMBERS_VIEW = "tenants.members.view"
 MEMBERS_MANAGE = "tenants.members.manage"
@@ -45,7 +44,7 @@ async def _login(smdev, token: str) -> None:
     smdev.transport.requests.clear()
 
 
-async def _tenant_admin_token(smdev, app, tenant_id: str, scopes: list[str]) -> str:
+async def _tenant_admin_token(app, tenant_id: str, scopes: list[str]) -> str:
     """A PAT of a non-platform user holding the tenant ``admin`` role in *tenant_id*."""
     from tenants.core.constants import SESSION_ACTIVE_TENANT
     from tenants.models import Membership
@@ -69,11 +68,7 @@ async def _tenant_admin_token(smdev, app, tenant_id: str, scopes: list[str]) -> 
 
 
 async def _service_key(app, admin, roles: list[str], scopes: list[str]) -> str:
-    resp = await admin.client.post(
-        SERVICE_URL,
-        json={"name": "svc", "roles": roles, "scopes": scopes, "expires_in_days": 30},
-        headers=CSRF_HEADERS,
-    )
+    resp = await create_service_key(admin.client, name="svc", roles=roles, scopes=scopes)
     assert resp.status_code == 201, resp.text
     return resp.json()["token"]
 
@@ -117,12 +112,7 @@ async def test_platform_admin_pat_is_capped_by_its_scopes(smdev, make_actor):
 
 async def test_tenant_admin_pat_tenant_level_ok_host_level_refused(smdev, make_actor, app):
     owner = await make_actor()
-    token = await _tenant_admin_token(
-        smdev,
-        app,
-        owner.tenant_id,
-        [USE, MEMBERS_VIEW, MEMBERS_MANAGE],
-    )
+    token = await _tenant_admin_token(app, owner.tenant_id, [USE, MEMBERS_VIEW, MEMBERS_MANAGE])
     await _login(smdev, token)
     members = await _run(smdev, *LIST_MEMBERS)
     assert members.exit_code == EXIT_OK, members.output
@@ -181,7 +171,7 @@ async def _credentials(smdev, make_actor, app) -> dict[str, str]:
     return {
         "platform-admin pat": await smdev.token_for(admin),
         "tenant-admin pat": await _tenant_admin_token(
-            smdev, app, admin.tenant_id, [USE, MEMBERS_VIEW, MEMBERS_MANAGE]
+            app, admin.tenant_id, [USE, MEMBERS_VIEW, MEMBERS_MANAGE]
         ),
         "service key": await _service_key(app, admin, ["user"], [MEMBERS_VIEW, FLAGS_VIEW]),
     }

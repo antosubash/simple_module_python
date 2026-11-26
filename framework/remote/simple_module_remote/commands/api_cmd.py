@@ -39,7 +39,8 @@ def _synthetic(
     path: str,
     queries: list[tuple[str, str]],
     root: dict | None = None,
-    trusted: dict | None = None,
+    *,
+    trusted: dict | None,
 ) -> Operation:
     """``trusted`` is the bundled schema when ``root`` is a live one: only it may waive."""
     # Risk comes from the endpoint the server will route to: match the decoded path.
@@ -74,7 +75,7 @@ def _synthetic(
         body_schema=None,
         summary="",
         description="",
-        safe=waivable and bool(vouched) and all(op.safe for op in vouched),
+        safe=waivable and all(op.safe for op in vouched),
         confirm=any(op.confirm for op in (*matched, *vouched)),
         # A path that only session-only schema operations match gets the session-only hint.
         token_capable=not (matched and not any(op.token_capable for op in matched)),
@@ -87,7 +88,7 @@ def _list_session_only(schema: dict) -> None:
 
 
 def _options() -> list[click.Parameter]:
-    template = _synthetic("POST", "/api/x", [])
+    template = _synthetic("POST", "/api/x", [], trusted={})
     shared = [p for p in click_params_for(template) if p.name in _SHARED]
     return [
         click.Argument(["method"], required=False, metavar="METHOD"),
@@ -139,7 +140,7 @@ def _callback(**values: Any) -> None:
     ):
         raise click.UsageError(f"{method} takes no request body: drop --json/--file/--set")
     queries = split_pairs(values.pop("queries"), "--query")
-    op = _synthetic(method, path, queries, state.root, state.bundled_root)
+    op = _synthetic(method, path, queries, state.root, trusted=state.bundled_root)
     for dest, param in param_map(op).items():
         found = [v for k, v in queries if k == param.name]
         values[dest] = tuple(found) if len(found) > 1 else found[0]

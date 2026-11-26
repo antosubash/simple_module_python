@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -182,6 +182,6 @@ def write_to(store: PrivateDir, url: str, origin: str, data: bytes, etag: str | 
 
 def touch_in(store: PrivateDir, meta: CacheMeta) -> CacheMeta:
     """Record a revalidation (HTTP 304): same schema, new ``fetched_at``."""
-    fresh = CacheMeta(meta.url, meta.origin, meta.fingerprint, meta.etag, _now())
+    fresh = replace(meta, fetched_at=_now())
     _write_meta(store, fresh)
     return fresh

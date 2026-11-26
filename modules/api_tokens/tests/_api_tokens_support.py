@@ -62,6 +62,27 @@ async def create_pat(client: httpx.AsyncClient, scopes: list[str], *, days: int 
     return resp.json()
 
 
+async def create_service_key(
+    client: httpx.AsyncClient,
+    *,
+    name: str,
+    roles: list[str],
+    scopes: list[str],
+    expires_in_days: int = 30,
+) -> httpx.Response:
+    """POST a service key and return the raw response (callers assert on it)."""
+    return await client.post(
+        SERVICE_URL,
+        json={
+            "name": name,
+            "roles": roles,
+            "scopes": scopes,
+            "expires_in_days": expires_in_days,
+        },
+        headers=CSRF_HEADERS,
+    )
+
+
 async def update_token(app: Any, token_id: str, **values: Any) -> None:
     """Write columns of a token row directly (expiry, last use) for a test."""
     from api_tokens.models import ApiToken
@@ -85,3 +106,12 @@ async def load_token(app: Any, token_id: str):
     async with app.state.sm.db.session_factory() as session:
         with all_tenants():
             return await session.get(ApiToken, uuid.UUID(token_id))
+
+
+def bearer_client(app: Any, token: str) -> httpx.AsyncClient:
+    """An ASGI client that authenticates with *token* as a bearer credential."""
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+        headers={"Authorization": f"Bearer {token}"},
+    )

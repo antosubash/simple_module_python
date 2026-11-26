@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-import httpx
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF, bearer_client, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
 from dashboard.core.constants import Permissions
 from simple_module_test.web.tenant_client import session_client
 from tenants.core.constants import SESSION_ACTIVE_TENANT
@@ -26,14 +25,6 @@ async def _pat(app, data: dict, scopes: list[str]) -> str:
         return (await create_pat(c, scopes))["token"]
 
 
-def _bearer(app, token: str) -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-
 def test_permission_registered_and_not_mapped_to_tenant_roles(app):
     from simple_module_core.access.tenancy import TenantRole, tenant_role
 
@@ -46,7 +37,7 @@ def test_permission_registered_and_not_mapped_to_tenant_roles(app):
 async def test_doctor_pat_reads_same_keys_as_the_view_and_reruns(app):
     data = await _admin_data(app)
     token = await _pat(app, data, [Permissions.DOCTOR])
-    async with _bearer(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         resp = await bc.get(_DOCTOR)
         assert resp.status_code == 200, resp.text
         rerun = await bc.post(f"{_DOCTOR}/rerun")
@@ -64,7 +55,7 @@ async def test_doctor_pat_reads_same_keys_as_the_view_and_reruns(app):
 async def test_pat_without_doctor_scope_is_refused(app):
     data = await _admin_data(app)
     token = await _pat(app, data, [Permissions.VIEW])
-    async with _bearer(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         assert (await bc.get(_DOCTOR)).status_code == 403
         assert (await bc.post(f"{_DOCTOR}/rerun")).status_code == 403
 
@@ -87,7 +78,7 @@ async def test_rerun_invokes_the_runner_and_returns_its_finding(app):
     app.state.sm.diagnostics.runner = runner
     data = await _admin_data(app)
     token = await _pat(app, data, [Permissions.DOCTOR])
-    async with _bearer(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         resp = await bc.post(f"{_DOCTOR}/rerun")
     assert resp.status_code == 200, resp.text
     assert calls == [1]

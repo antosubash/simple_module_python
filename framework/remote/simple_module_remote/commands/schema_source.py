@@ -55,7 +55,7 @@ def _split(token: str) -> tuple[str, str | None]:
     if token.startswith("--") and "=" in token:
         name, value = token.split("=", 1)
         return name, value
-    if token.startswith("-e") and not token.startswith("--") and len(token) > len("-e"):
+    if token.startswith("-e") and len(token) > len("-e"):
         return "-e", token[len("-e") :]
     return token, None
 

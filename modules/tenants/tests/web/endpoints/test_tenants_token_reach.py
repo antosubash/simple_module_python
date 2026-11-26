@@ -4,22 +4,12 @@ from __future__ import annotations
 
 import uuid
 
-from _api_tokens_support import CSRF, create_pat  # ty: ignore[import-not-found]
+from _api_tokens_support import CSRF, bearer_client, create_pat  # ty: ignore[import-not-found]
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from simple_module_test.web.tenant_client import session_client
 from tenants.core.constants import SESSION_ACTIVE_TENANT, Permissions
 
 _URL = "/api/tenants/"
-
-
-async def _bearer_client(app, token: str):
-    import httpx
-
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
-        headers={"Authorization": f"Bearer {token}"},
-    )
 
 
 async def _admin_pat(app, scopes: list[str]) -> tuple[str, str, str]:
@@ -43,7 +33,7 @@ async def test_pat_lists_only_its_pinned_tenant(app, user_client):
 
     # The owner also belongs to a second tenant the token is not pinned to.
     second = await join_tenant(app, user_id, "adm2@example.com")
-    async with await _bearer_client(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         resp = await bc.get(_URL)
     assert resp.status_code == 200, resp.text
     assert [t["id"] for t in resp.json()] == [pinned]
@@ -53,7 +43,7 @@ async def test_pat_lists_only_its_pinned_tenant(app, user_client):
 async def test_pat_with_platform_manage_creates_tenant_without_cookie(app):
     _, token, _t = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
     app.state.tenants.settings.allow_self_service = False
-    async with await _bearer_client(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         resp = await bc.post(_URL, json={"name": "Via Token"})
         assert resp.status_code == 201, resp.text
         assert resp.json()["role"] == "owner"
@@ -67,7 +57,7 @@ async def test_pat_without_platform_manage_blocked_whatever_self_service_says(ap
     _, token, _t = await _admin_pat(app, [PERM_FEATURE_FLAGS_VIEW])
     for allowed in (False, True):
         app.state.tenants.settings.allow_self_service = allowed
-        async with await _bearer_client(app, token) as bc:
+        async with bearer_client(app, token) as bc:
             resp = await bc.post(_URL, json={"name": "Nope"})
         assert resp.status_code == 403, (allowed, resp.text)
         assert resp.json()["detail"] == "self_service_disabled"
@@ -75,7 +65,7 @@ async def test_pat_without_platform_manage_blocked_whatever_self_service_says(ap
 
 async def test_session_only_routes_refuse_tokens(app):
     _, token, _t = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
-    async with await _bearer_client(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         for method, url, kw in (
             ("POST", "/api/tenants/some-id/switch", {}),
             ("DELETE", "/api/tenants/current/membership", {}),
@@ -98,7 +88,7 @@ async def test_pat_cannot_suspend_its_own_tenant(app):
 
     _, token, pinned = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
     _, _tok2, other = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
-    async with await _bearer_client(app, token) as bc:
+    async with bearer_client(app, token) as bc:
         own = await bc.post(f"/api/tenants/admin/{pinned}/suspend")
         assert own.status_code == 409, own.text
         assert own.json()["detail"] == "cannot_suspend_own_tenant"

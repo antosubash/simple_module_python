@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from _api_tokens_support import CSRF_HEADERS, PAT_URL, SERVICE_URL, create_pat
+from _api_tokens_support import PAT_URL, create_pat, create_service_key
 from fastapi import HTTPException
 from simple_module_hosting.auth.csrf import RequiresCsrf
 from starlette.requests import Request
@@ -20,15 +20,8 @@ from starlette.requests import Request
 async def _create_service_key(app: Any, actor) -> dict:
     app.state.sm.permissions.map_role("user", ["feature_flags.view"])
     async with actor(admin=True) as a:
-        resp = await a.client.post(
-            SERVICE_URL,
-            json={
-                "name": "k",
-                "roles": ["user"],
-                "scopes": ["feature_flags.view"],
-                "expires_in_days": 30,
-            },
-            headers=CSRF_HEADERS,
+        resp = await create_service_key(
+            a.client, name="k", roles=["user"], scopes=["feature_flags.view"]
         )
         assert resp.status_code == 201, resp.text
         return resp.json()
