@@ -42,6 +42,7 @@ interface BrowseEmptyProps {
   /** The filter value meaning "platform actions" (no tenant) — a sentinel the
    * reader must never see raw. */
   platformTenantValue: string;
+  targetUserLabel?: string | null;
   onClear: () => void;
 }
 
@@ -59,6 +60,7 @@ export function BrowseEmpty({
   applied,
   entityTypes,
   platformTenantValue,
+  targetUserLabel,
   onClear,
 }: BrowseEmptyProps) {
   const { t } = useT();
@@ -88,7 +90,7 @@ export function BrowseEmpty({
       }`,
     applied.user_id && `${t(keys.audit_log.filters.user_label)}: ${applied.user_id}`,
     applied.target_user_id &&
-      `${t(keys.audit_log.filters.target_user_label)}: ${applied.target_user_id}`,
+      `${t(keys.audit_log.filters.target_user_label)}: ${targetUserLabel || applied.target_user_id}`,
     applied.correlation_id &&
       `${t(keys.audit_log.correlation.view_related)}: ${applied.correlation_id}`,
     dateRange && `${t(keys.audit_log.filters.date_range_label)}: ${dateRange}`,

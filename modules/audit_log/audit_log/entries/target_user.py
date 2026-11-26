@@ -123,6 +123,8 @@ def target_user_filter(
             .where(
                 col(history.entity_type) == link.entity_type,
                 col(history.entity_id) == AuditEntry.entity_id,
+                # Each bulk summary uses "*"; it can only name its own owner.
+                or_(col(AuditEntry.entity_id) != "*", col(history.id) == AuditEntry.id),
                 recorded_owner,
             )
         )

@@ -100,6 +100,27 @@ def test_target_and_actor_are_independent(audit_connection):
     ) == ["actor-only"]
 
 
+def test_query_filters_combine_target_actor_entity_action_and_date(audit_connection):
+    from datetime import UTC, datetime, time
+
+    registry = AuditLinkRegistry()
+    for link in linked_user_audit_links():
+        registry.register(link)
+    filters = EntryFilters.from_query(
+        directory=UsersDirectory(),
+        links=registry,
+        dialect="sqlite",
+        target_user_id=f" {_TARGET} ",
+        user_id=f" {_OTHER} ",
+        entity_type="OAuthAccount",
+        action="deleted-link",
+        to_date=datetime(2100, 1, 1, tzinfo=UTC),
+    )
+    stmt = select(AuditEntry.action).where(*filters.conditions())
+    assert list(audit_connection.execute(stmt).scalars()) == ["deleted-link"]
+    assert filters.to_date.time() == time.max
+
+
 def test_scoped_history_cannot_supply_ownership_from_a_different_tenant(audit_connection):
     from api_tokens.models import ApiToken
 

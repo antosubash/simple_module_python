@@ -130,9 +130,23 @@ it through pagination, Apply and export. The users Edit page's **See all in the
 audit log** link opens this target filter; its recent-activity summary continues
 to show actions by the user.
 
-Modules declare linked ownership with
-`AuditLink.for_model(Model, url_template="", user_id_field="user_id")` in
-`register_audit_links`. The field names the owning user, rather than the actor.
+The framework's `AuditLink.for_model` accepts an optional `user_id_field`
+argument. Modules declare linked ownership through the existing
+[`register_audit_links`](/framework/lifecycle#register_audit_linksregistry) hook:
+
+```python
+from simple_module_core.web.audit_links import AuditLink
+
+
+def register_audit_links(self, registry):
+    registry.register(AuditLink.for_model(LinkedAccount, url_template="", user_id_field="user_id"))
+```
+
+The field names the mapped attribute holding the owning user's id, rather than
+the actor. `for_model` retains the table model for live ownership lookups; use
+this factory when declaring ownership. Omit `user_id_field` for entities without
+linked user ownership. An empty `url_template` registers ownership for rows
+without an individual screen; otherwise keep the entity's usual URL template.
 The filter uses live rows and recorded `old`/`new` ownership in audit diffs, so
 retained creation history can identify OAuth accounts after deletion. User-role
 assignments also identify their user in the composite audit entity id. A deleted

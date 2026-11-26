@@ -60,6 +60,7 @@ _OWNER: dict[str, str] = {
     "70786227af4c": "audit_log",
     "a7c2e91d4b58": "audit_log",
     "b8d4f2a6c901": "audit_log",
+    "819d8c5714a5": "audit_log",  # target-user entity lookup index (#1166)
     "f733c7938fd1": "sharing",
     "a738c2e4f601": "auth",
     "d263ea727663": "leases",  # framework-owned sm_lease (#539)
@@ -76,7 +77,7 @@ _ROOTS = {
 
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
-    "b8d4f2a6c901": "audit_log",
+    "819d8c5714a5": "audit_log",
     "b1153e9c7b62": "users",  # shared trunk: file_storage, api_tokens, background_tasks
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",

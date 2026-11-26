@@ -28,6 +28,7 @@ interface Props {
   platform_tenant_value: string;
   /** Where the CSV lives; the current filters are appended to it. */
   export_url: string;
+  target_user_label?: string | null;
   /** `correlation_id` is set only by the per-row "Related" pivot — it has no
    * control in FilterBar. */
   filters: AppliedFilters;
@@ -74,6 +75,7 @@ function Browse({
   tenant_ids,
   platform_tenant_value,
   export_url,
+  target_user_label,
   filters,
 }: Props) {
   const { t } = useT();
@@ -167,7 +169,8 @@ function Browse({
               navigate(next);
             }}
           >
-            {t(keys.audit_log.filters.target_user_label)}: {filters.target_user_id}
+            {t(keys.audit_log.filters.target_user_label)}:{' '}
+            {target_user_label || filters.target_user_id}
             <X className="size-3" aria-hidden="true" />
           </Button>
         )}
@@ -182,6 +185,7 @@ function Browse({
               applied={filters}
               entityTypes={entity_types}
               platformTenantValue={platform_tenant_value}
+              targetUserLabel={target_user_label}
               onClear={handleClear}
             />
           ) : (

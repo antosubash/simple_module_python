@@ -42,10 +42,12 @@ describe('audit_log Browse', () => {
     render(
       <Browse
         {...props}
+        target_user_label="target@example.com"
         filters={{ ...props.filters, target_user_id: 'target-1', user_id: 'actor-1' }}
       />,
     );
-    expect(screen.getByText(`${keys.audit_log.filters.target_user_label}: target-1`)).toBeVisible();
+    expect(screen.getAllByText(/target@example\.com/)).toHaveLength(2);
+    expect(screen.queryByText(/target-1/)).not.toBeInTheDocument();
     const exported = screen.getByRole('link', { name: keys.audit_log.browse.export_csv });
     expect(exported.getAttribute('href')).toContain('target_user_id=target-1');
     fireEvent.click(screen.getByRole('button', { name: keys.audit_log.filters.apply }));

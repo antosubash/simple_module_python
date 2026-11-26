@@ -93,6 +93,8 @@ class AuditLink:
         user_id_field: Model field identifying the user these rows belong to.
             Used by the target-user filter, independently of the audit actor.
             Set through ``for_model`` so the model is available for live lookups.
+        model: Table model retained by ``for_model`` for live ownership lookups.
+            Excluded from repr and equality.
     """
 
     entity_type: str
@@ -130,6 +132,10 @@ class AuditLink:
         Fills ``entity_type`` from ``model.__name__`` (the class name, never the
         table name) and ``table_name`` from ``model.__tablename__``, so a caller
         cannot key it off the wrong one. ``model`` must be a table model.
+
+        ``user_id_field`` optionally names the mapped field holding the owning
+        user's id. It enables target-user filtering even with an empty
+        ``url_template`` for linked rows that have no individual screen.
         """
         return cls(
             entity_type=model.__name__,

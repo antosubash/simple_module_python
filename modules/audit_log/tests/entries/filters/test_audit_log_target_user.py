@@ -148,3 +148,104 @@ async def test_unmatched_target_does_not_widen_results(
     )
     assert items == []
     assert props["total"] == 0
+
+
+@pytest.mark.parametrize("may_name_users", [True, False])
+async def test_target_label_obeys_user_label_permission(monkeypatch, may_name_users):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from audit_log.web.endpoints import views
+    from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
+    from users.core.directory import UsersDirectory
+
+    target = str(uuid.UUID(int=1))
+    labels = AsyncMock(return_value={target: "target@example.com"})
+    links = AuditLinkRegistry()
+    links.register(
+        AuditLink(
+            entity_type="User",
+            url_template="",
+            label_resolver=labels,
+            label_permission="users.manage",
+        )
+    )
+    db = SimpleNamespace(bind=SimpleNamespace(dialect=SimpleNamespace(name="sqlite")))
+    service = SimpleNamespace(
+        db=db,
+        list_filtered=AsyncMock(
+            return_value=SimpleNamespace(items=[], total=0, page=1, page_size=50)
+        ),
+        distinct_entity_types=AsyncMock(return_value=[]),
+        distinct_tenant_ids=AsyncMock(return_value=[]),
+    )
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                sm=SimpleNamespace(audit_links=links), user_directory=UsersDirectory()
+            )
+        )
+    )
+    monkeypatch.setattr(
+        views, "resolved_permissions_for", lambda _: {"users.manage"} if may_name_users else set()
+    )
+    rendered: dict = {}
+
+    async def render(_page: str, page_props: dict) -> dict:
+        rendered.update(page_props)
+        return page_props
+
+    await views.browse(
+        request=request,
+        inertia=SimpleNamespace(render=render),
+        service=service,
+        translator=SimpleNamespace(t=lambda key: key),
+        db=db,
+        entity_type=None,
+        entity_id=None,
+        action=None,
+        user_id=None,
+        target_user_id=target,
+        correlation_id=None,
+        tenant_id=None,
+        from_date=None,
+        to_date=None,
+        page=None,
+        page_size=None,
+    )
+    props = rendered
+    assert props.get("target_user_label") == ("target@example.com" if may_name_users else None)
+    assert props["filters"]["target_user_id"] == target
+    if not may_name_users:
+        labels.assert_not_called()
+
+
+def test_bulk_summaries_do_not_share_ownership():
+    from audit_log.entries.target_user import target_user_filter
+    from simple_module_core.web.audit_links import AuditLinkRegistry
+    from sqlalchemy import create_engine, select
+    from users.core.audit import linked_user_audit_links
+    from users.core.directory import UsersDirectory
+
+    target, other = uuid.UUID(int=1), uuid.UUID(int=2)
+    registry = AuditLinkRegistry()
+    for link in linked_user_audit_links():
+        registry.register(link)
+    engine = create_engine("sqlite://")
+    AuditEntry.__table__.create(engine)
+    OAuthAccount.__table__.create(engine)
+    with engine.begin() as connection:
+        for action, owner in [("target-summary", target), ("other-summary", other)]:
+            connection.execute(
+                AuditEntry.__table__.insert().values(
+                    entity_type="OAuthAccount",
+                    entity_id="*",
+                    action=action,
+                    changes=[{"field": "user_id", "new": str(owner)}],
+                )
+            )
+        predicate = target_user_filter(registry, UsersDirectory(), str(target), "sqlite")
+        assert list(connection.execute(select(AuditEntry.action).where(predicate)).scalars()) == [
+            "target-summary"
+        ]
+    engine.dispose()
