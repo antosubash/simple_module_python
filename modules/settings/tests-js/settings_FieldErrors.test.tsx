@@ -123,7 +123,9 @@ test('a rejected save focuses the first invalid field and editing clears its err
   fireEvent.change(control, { target: { value: 'bad' } });
   fireEvent.click(screen.getByRole('button', { name: /save/i }));
   await waitFor(() => expect(control).toHaveAttribute('aria-invalid', 'true'));
-  expect(control).toHaveFocus();
+  // Focus moves in a passive effect after the error render commits, so wait
+  // for it rather than asserting in the same tick (#1183).
+  await waitFor(() => expect(control).toHaveFocus());
   fireEvent.change(control, { target: { value: 'better' } });
   expect(control).not.toHaveAttribute('aria-invalid', 'true');
   expect(screen.queryByText('Out of range')).not.toBeInTheDocument();
