@@ -1,3 +1,5 @@
+// Quiet period before correcting a return that queued user traversals overtook.
+const SETTLE_MS = 50;
 const POSITION = '__simpleModuleLeaveGuard';
 
 // crypto.randomUUID exists only in secure contexts; a plain-HTTP deployment
@@ -35,6 +37,7 @@ function observeHistory(approve: Approve) {
   let currentUrl = window.location.href;
   let returning: { position: number; navigation: boolean; attempts: number } | undefined;
   let returnTimer: ReturnType<typeof setTimeout> | undefined;
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
   const navigationIndex = () => (window as NavigationWindow).navigation?.currentEntry?.index;
   const readIndex = (state: unknown): number | undefined => {
@@ -98,7 +101,9 @@ function observeHistory(approve: Approve) {
   const finishReturn = () => {
     returning = undefined;
     clearTimeout(returnTimer);
+    clearTimeout(settleTimer);
     returnTimer = undefined;
+    settleTimer = undefined;
     if (disposed) window.removeEventListener('popstate', guard, true);
   };
   const returnToLive = (actual: number) => {
@@ -126,8 +131,16 @@ function observeHistory(approve: Approve) {
       }
       if (actual !== undefined && actual !== returning.position && returning.attempts < 5) {
         // More Back/Forward presses may precede the requested return popstate.
+        // Correct once they settle: a relative go() per event would overshoot
+        // while earlier traversals are still queued.
         event.stopImmediatePropagation();
-        returnToLive(actual);
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+          if (!returning) return;
+          const now = returning.navigation ? navigationIndex() : readIndex(window.history.state);
+          if (now === returning.position) finishReturn();
+          else if (now !== undefined) returnToLive(now);
+        }, SETTLE_MS);
         return;
       }
       // Unknown, aliased or repeatedly inconsistent positions cannot be undone safely.

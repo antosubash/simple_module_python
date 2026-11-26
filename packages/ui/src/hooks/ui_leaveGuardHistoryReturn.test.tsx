@@ -8,9 +8,11 @@ vi.mock('@inertiajs/react', () => ({ router: { on: () => () => {} } }));
 let history: ReturnType<typeof installHistory>;
 let confirm: ReturnType<typeof vi.fn>;
 let restore: ReturnType<typeof vi.fn>;
-const settle = () => act(async () => {});
+// Returns correct after a short quiet period; advance past it without real waits.
+const settle = () => act(() => vi.advanceTimersByTimeAsync(200));
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   history = installHistory();
   confirm = vi.fn(() => false);
   vi.stubGlobal('confirm', confirm);
@@ -54,6 +56,34 @@ test.each([false, true])(
     expect(screen.getByRole('textbox')).toHaveValue('Draft');
     expect(restore).not.toHaveBeenCalled();
     expect(confirm).toHaveBeenCalledTimes(1);
+  },
+);
+
+test.each([false, true])(
+  'queued rejected Backs with Forward history settle on the live entry (Navigation API: %s)',
+  async (navigation) => {
+    if (navigation) history.navigation();
+    render(
+      <>
+        <Harness dirty={true} saving={saveFlag()} />
+        <input aria-label="Name" defaultValue="Draft" />
+      </>,
+    );
+    window.history.replaceState({ page: 'a' }, '', '/a');
+    for (const page of ['b', 'c', 'd', 'e', 'f', 'g']) {
+      window.history.pushState({ page }, '', `/${page}`);
+    }
+    confirm.mockImplementation(() => true);
+    window.history.go(-3);
+    await settle();
+    expect(window.location.pathname).toBe('/d');
+    restore.mockClear();
+    confirm.mockImplementation(() => false);
+    window.history.back();
+    window.history.back();
+    await settle();
+    expect(window.location.pathname).toBe('/d');
+    expect(restore).not.toHaveBeenCalled();
   },
 );
 
