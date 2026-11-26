@@ -155,7 +155,7 @@ test('revert right after a save shows the live default and hides Revert', async 
   await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();
   // Keyboard focus stays on the field, not on the page body.
-  expect(screen.getByDisplayValue('default-sender')).toHaveFocus();
+  await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toHaveFocus());
 });
 
 test('a failed revert surfaces validation errors without clearing override or reloading', async () => {
@@ -171,9 +171,13 @@ test('a failed revert surfaces validation errors without clearing override or re
   );
   render(<ModuleForm module={view([field('password', 'gate-password', true)])} />);
   fireEvent.change(screen.getByLabelText('password'), { target: { value: 'draft-pw' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Revert password' }));
+  const revert = screen.getByRole('button', { name: 'Revert password' });
+  revert.focus();
+  fireEvent.click(revert);
   expect(await screen.findByText('Password is required')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Revert password' })).toBeInTheDocument();
+  expect(revert).toBeInTheDocument();
+  // A 422 moves focus to the invalid field (#1156), never to the page body.
+  await waitFor(() => expect(screen.getByLabelText('password')).toHaveFocus());
   expect(screen.getByLabelText('password')).toHaveValue('draft-pw');
   expect(mocks.reload).not.toHaveBeenCalled();
 });

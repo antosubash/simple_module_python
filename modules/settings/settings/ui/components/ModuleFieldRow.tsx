@@ -12,7 +12,7 @@ interface Props {
   disabled?: boolean;
   error?: string;
   onChange: (name: string, value: unknown) => void;
-  onReset: () => void;
+  onReset: () => void | Promise<void>;
 }
 
 /**
@@ -90,11 +90,16 @@ export function ModuleFieldRow({
         <FieldSource
           field={field}
           descriptionId={descriptionId}
-          onReset={() => {
-            // The Revert button unmounts once the override is gone; keep
-            // keyboard focus on the field instead of dropping it to the page.
-            document.getElementById(id)?.focus();
-            onReset();
+          onReset={async () => {
+            await onReset();
+            // A successful revert unmounts the Revert button, which drops focus
+            // to the page; move it to the field once it is enabled again. A
+            // failed revert keeps the button, and focus with it.
+            requestAnimationFrame(() => {
+              if (document.activeElement === document.body) {
+                document.getElementById(id)?.focus();
+              }
+            });
           }}
         />
       </div>
