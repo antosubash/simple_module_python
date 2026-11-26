@@ -1,0 +1,49 @@
+{
+  "openapi": "3.1.0",
+  "components": {"schemas": {
+    "Address": {"type": "object", "properties": {"city": {"type": "string"}}},
+    "UserIn": {"type": "object", "required": ["email"], "properties": {
+      "email": {"type": "string"},
+      "address": {"$ref": "#/components/schemas/Address"},
+      "meta": {"type": "object", "properties": {"tags": {"type": "array", "items": {"type": "string"}}}}}},
+    "Loop": {"$ref": "#/components/schemas/Loop"}
+  }},
+  "paths": {
+    "/api/users": {
+      "parameters": [{"name": "page", "in": "query", "schema": {"type": "integer"}}],
+      "get": {"tags": ["Users"], "operationId": "users_list_users", "summary": "List", "x-sm-token": true, "x-cli-safe": true,
+        "parameters": [
+          {"name": "role", "in": "query", "schema": {"enum": ["admin", "member"]}},
+          {"name": "tag", "in": "query", "schema": {"type": "array", "items": {"type": "string"}}},
+          {"name": "page", "in": "query", "required": true, "schema": {"type": "integer"}}]},
+      "post": {"tags": ["Users"], "operationId": "users_create_user", "x-sm-token": true,
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/UserIn"}}}}}
+    },
+    "/api/users/{user_id}": {
+      "delete": {"tags": ["Users"], "operationId": "users_delete_user", "x-sm-token": true, "x-cli-confirm": true,
+        "parameters": [{"name": "user_id", "in": "path", "required": true, "schema": {"type": "string"}},
+                       {"name": "X-Foo", "in": "header", "schema": {"type": "string"}}]}
+    },
+    "/api/users/choice": {
+      "post": {"tags": ["Users"], "operationId": "users_choose", "x-sm-token": true,
+        "requestBody": {"content": {"application/json": {"schema": {"oneOf": [
+          {"$ref": "#/components/schemas/Address"}, {"$ref": "#/components/schemas/UserIn"}]}}}}}
+    },
+    "/api/files": {
+      "post": {"tags": ["FileStorage"], "operationId": "file_storage_upload", "x-sm-token": true,
+        "requestBody": {"content": {"multipart/form-data": {"schema": {"type": "object"}}}}}
+    },
+    "/api/files/raw": {
+      "put": {"tags": ["FileStorage"], "operationId": "file_storage_put_raw", "x-sm-token": true,
+        "requestBody": {"content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}}
+    },
+    "/api/ping": {"get": {"operationId": "ping", "x-sm-token": true}},
+    "/api/session": {"get": {"tags": ["Users"], "operationId": "users_session", "x-sm-token": false}},
+    "/api/flags/toggle": {
+      "post": {"tags": ["FeatureFlags"], "operationId": "feature_flags_flip", "x-cli-name": "toggle", "x-sm-token": true}
+    },
+    "/api/dup/a": {"get": {"tags": ["Dup"], "operationId": "dup_same", "x-sm-token": true}},
+    "/api/dup/b": {"get": {"tags": ["Dup"], "operationId": "dup_same_get_api_dup_b", "x-cli-name": "same", "x-sm-token": true}},
+    "/api/env": {"get": {"tags": ["Env"], "operationId": "env_show", "x-sm-token": true}}
+  }
+}

@@ -109,6 +109,8 @@ jobs:
       # catalogs emit. Catches a catalog edit committed without regenerating, and
       # (with the namespace guard in gen_i18n.py) a regeneration that dropped keys.
       - run: make ci-i18n-fresh
+      # The smdev CLI ships the dev host's OpenAPI document; it must match the routes.
+      - run: make ci-cli-schema-fresh
 
   docs-build:
     name: Docs site build

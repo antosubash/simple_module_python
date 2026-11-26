@@ -10,6 +10,7 @@ from auth.contracts.tokens import AUTH_KIND_SESSION
 from fastapi import Depends, HTTPException, Request
 from simple_module_core.access.user_directory import get_user_directory
 from simple_module_db.engine.deps import get_db
+from simple_module_hosting.auth.token_guard import GATE_SESSION, mark_token_gate
 from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +48,9 @@ async def require_session_principal(request: Request, t: TranslatorDep) -> UserC
     ):
         raise HTTPException(status_code=403, detail=t.t("api_tokens.errors.session_required"))
     return user
+
+
+mark_token_gate(require_session_principal, GATE_SESSION)
 
 
 def user_uuid(user: UserContext, t) -> uuid.UUID:

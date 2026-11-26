@@ -1,4 +1,4 @@
-.PHONY: gen install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages ci-docker-smoke worker beat worker-docker
+.PHONY: gen install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types cli-schema ci-cli-schema-fresh ci-css-build ci-doctor ci-build-packages ci-docker-smoke worker beat worker-docker
 
 # UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
 UV_SYNC_FLAGS ?=
@@ -137,7 +137,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-check-locales ci-doc-paths ci-i18n-fresh ci-api-types-fresh ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-check-locales ci-doc-paths ci-i18n-fresh ci-api-types-fresh ci-cli-schema-fresh ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -185,6 +185,22 @@ ci-i18n-fresh:
 	after=$$(find packages/i18n/src modules host/client_app/i18n -type f \( -name '*generated.ts' -o -name 'generated-resources.ts' \) | sort | xargs cat | sha256sum); \
 	if [ "$$before" != "$$after" ]; then \
 		echo "i18n files were stale and have been regenerated: run 'make gen-i18n' and commit the result"; \
+		exit 1; \
+	fi
+
+# The smdev CLI ships the dev host's OpenAPI document; it must match the routes.
+CLI_SCHEMA = host_cli/smdev_cli/openapi.json
+
+cli-schema:
+	uv run smpy openapi export --out $(CLI_SCHEMA)
+
+# Compares content before/after regeneration (like ci-i18n-fresh), not `git diff`.
+ci-cli-schema-fresh:
+	@before=$$(sha256sum $(CLI_SCHEMA) 2>/dev/null); \
+	uv run smpy openapi export --out $(CLI_SCHEMA) || exit 1; \
+	after=$$(sha256sum $(CLI_SCHEMA)); \
+	if [ "$$before" != "$$after" ]; then \
+		echo "$(CLI_SCHEMA) was stale and has been regenerated: run 'make cli-schema' and commit the result"; \
 		exit 1; \
 	fi
 

@@ -1,0 +1,254 @@
+import io
+from pathlib import Path
+
+import pytest
+from simple_module_remote.generate.body import BodyError, build_json_body, missing_required
+from simple_module_remote.schema.loader import load_schema
+
+ROOT = load_schema(Path(__file__).parent / "fixtures" / "mini_openapi.json")
+USER_IN = ROOT["components"]["schemas"]["UserIn"]
+SCHEMA = {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+        "is_active": {"type": "boolean"},
+        "max": {"type": "integer"},
+        "ratio": {"type": "number"},
+        "name": {"type": "string"},
+        "address": {"$ref": "#/components/schemas/Address"},
+    },
+}
+
+
+def build(**kw):
+    args = {
+        "json_arg": None,
+        "file_arg": None,
+        "sets": (),
+        "set_jsons": (),
+        "body_schema": SCHEMA,
+        "root": ROOT,
+        "stdin": io.StringIO(""),
+    }
+    args.update(kw)
+    return build_json_body(**args)
+
+
+def test_no_input_is_none():
+    assert build() is None
+
+
+def test_set_dotted_creates_nested():
+    assert build(sets=["a.b.c=x"]) == {"a": {"b": {"c": "x"}}}
+
+
+def test_set_coerces_by_schema():
+    body = build(sets=["is_active=false", "max=3", "ratio=1.5", "address.city=Rome"])
+    assert body == {"is_active": False, "max": 3, "ratio": 1.5, "address": {"city": "Rome"}}
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("YES", True), ("0", False), ("No", False)])
+def test_boolean_forms(raw, expected):
+    assert build(sets=[f"is_active={raw}"]) == {"is_active": expected}
+
+
+def test_bad_coercion_names_key():
+    with pytest.raises(BodyError, match=r"max.*integer"):
+        build(sets=["max=abc"])
+    with pytest.raises(BodyError, match=r"is_active.*boolean"):
+        build(sets=["is_active=maybe"])
+
+
+def test_set_null():
+    assert build(sets=["max=null"]) == {"max": None}
+
+
+def test_set_missing_equals_names_flag():
+    with pytest.raises(BodyError, match="--set"):
+        build(sets=["oops"])
+
+
+def test_set_at_file(tmp_path):
+    f = tmp_path / "v.txt"
+    f.write_text("hello\n")
+    assert build(sets=[f"name=@{f}"]) == {"name": "hello"}
+
+
+def test_set_at_stdin():
+    assert build(sets=["name=@-"], stdin=io.StringIO("piped\n")) == {"name": "piped"}
+
+
+def test_traverse_non_dict_raises():
+    with pytest.raises(BodyError, match="not an object"):
+        build(sets=["name=x", "name.sub=y"])
+
+
+def test_merge_order(tmp_path):
+    f = tmp_path / "b.json"
+    f.write_text('{"a": 2, "b": 2, "c": 2}')
+    body = build(
+        json_arg='{"a": 1, "z": 1}',
+        file_arg=str(f),
+        set_jsons=['b={"x": 1}'],
+        sets=["c=set"],
+    )
+    assert body == {"a": 2, "z": 1, "b": {"x": 1}, "c": "set"}
+
+
+def test_file_dash_reads_stdin():
+    assert build(file_arg="-", stdin=io.StringIO('{"name": "n"}')) == {"name": "n"}
+
+
+def test_file_and_set_stdin_conflict():
+    with pytest.raises(BodyError, match="stdin"):
+        build(file_arg="-", sets=["name=@-"])
+
+
+def test_missing_required_reported():
+    assert missing_required({}, USER_IN, ROOT) == ["email"]
+    assert missing_required({"email": "a"}, USER_IN, ROOT) == []
+    assert missing_required({}, None, ROOT) == []
+
+
+def test_invalid_json_message():
+    with pytest.raises(BodyError, match="--json"):
+        build(json_arg="{nope")
+    with pytest.raises(BodyError, match="--set-json a"):
+        build(set_jsons=["a={nope"])
+
+
+def test_unknown_schema_leaves_strings():
+    one_of = {"oneOf": [{"type": "object"}]}
+    assert build(sets=["max=3"], body_schema=one_of) == {"max": "3"}
+
+
+def test_set_unwraps_optional_anyof():
+    schema = {
+        "type": "object",
+        "properties": {"n": {"anyOf": [{"type": "integer"}, {"type": "null"}]}},
+    }
+    assert build(sets=["n=3"], body_schema=schema) == {"n": 3}
+    with pytest.raises(BodyError):
+        build(sets=["n=x"], body_schema=schema)
+
+
+def test_set_unwraps_oneof_ref_branch():
+    schema = {
+        "type": "object",
+        "properties": {
+            "n": {"oneOf": [{"$ref": "#/components/schemas/Address"}, {"type": "null"}]}
+        },
+    }
+    assert build(sets=["n.city=Rome"], body_schema=schema) == {"n": {"city": "Rome"}}
+
+
+def test_set_multiple_branches_stays_string():
+    schema = {
+        "type": "object",
+        "properties": {"n": {"anyOf": [{"type": "integer"}, {"type": "string"}]}},
+    }
+    assert build(sets=["n=3"], body_schema=schema) == {"n": "3"}
+
+
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "Infinity"])
+def test_set_rejects_non_finite_number(raw):
+    with pytest.raises(BodyError, match="expected number"):
+        build(sets=[f"ratio={raw}"])
+
+
+@pytest.mark.parametrize("literal", ["NaN", "Infinity", "-Infinity"])
+def test_non_finite_numbers_are_rejected_naming_the_flag(literal, tmp_path):
+    with pytest.raises(BodyError, match=r"--json: invalid JSON"):
+        build(json_arg=f'{{"ratio": {literal}}}')
+    with pytest.raises(BodyError, match=r"--set-json ratio: invalid JSON"):
+        build(set_jsons=[f"ratio={literal}"])
+    f = tmp_path / "b.json"
+    f.write_text(f'{{"ratio": {literal}}}')
+    with pytest.raises(BodyError, match=r"--file: invalid JSON"):
+        build(file_arg=str(f))
+
+
+def test_set_on_an_array_field_wraps_one_element():
+    schema = {
+        "type": "object",
+        "properties": {"roles": {"type": "array", "items": {"type": "string"}}},
+    }
+    assert build(sets=["roles=admin"], body_schema=schema) == {"roles": ["admin"]}
+
+
+def test_set_at_file_and_stdin_strip_one_trailing_crlf(tmp_path):
+    assert build(sets=["name=@-"], stdin=io.StringIO("a\r\nb\r\n")) == {"name": "a\r\nb"}
+    f = tmp_path / "v.txt"
+    f.write_bytes("﻿hello\r\n".encode())
+    assert build(sets=[f"name=@{f}"]) == {"name": "hello"}
+
+
+def test_file_with_a_bom_is_read(tmp_path):
+    f = tmp_path / "b.json"
+    f.write_bytes('﻿{"name": "n"}'.encode())
+    assert build(file_arg=str(f)) == {"name": "n"}
+
+
+def test_array_for_an_object_body_is_refused():
+    with pytest.raises(BodyError, match="takes a JSON object"):
+        build(json_arg="[1]")
+
+
+@pytest.mark.parametrize("literal", ["1e999", "-1E999", "[1e400]"])
+def test_overflowing_number_literals_are_rejected(literal, tmp_path):
+    with pytest.raises(BodyError, match="--json: invalid JSON"):
+        build(json_arg=f'{{"ratio": {literal}}}')
+    with pytest.raises(BodyError, match="--set-json ratio: invalid JSON"):
+        build(set_jsons=[f"ratio={literal}"])
+    f = tmp_path / "b.json"
+    f.write_text(f'{{"ratio": {literal}}}')
+    with pytest.raises(BodyError, match="--file: invalid JSON"):
+        build(file_arg=str(f))
+    with pytest.raises(BodyError, match="--set ratio"):
+        build(sets=[f"ratio={literal.strip('[]')}"])
+
+
+def test_repeated_set_on_an_array_field_accumulates_coerced_elements():
+    schema = {
+        "type": "object",
+        "properties": {"ids": {"type": "array", "items": {"type": "integer"}}},
+    }
+    assert build(sets=["ids=1", "ids=2", "ids=3"], body_schema=schema) == {"ids": [1, 2, 3]}
+    assert build(sets=["ids=7"], body_schema=schema) == {"ids": [7]}
+    with pytest.raises(BodyError, match="expected integer"):
+        build(sets=["ids=x"], body_schema=schema)
+
+
+def test_array_accumulation_stops_when_the_field_or_a_parent_is_replaced():
+    schema = {
+        "type": "object",
+        "properties": {
+            "xs": {"type": "array", "items": {"type": "integer"}},
+            "p": {
+                "type": "object",
+                "properties": {"xs": {"type": "array", "items": {"type": "integer"}}},
+            },
+        },
+    }
+    assert build(sets=["xs=1", "xs=null", "xs=2"], body_schema=schema) == {"xs": [2]}
+    assert build(sets=["p.xs=1", "p.xs=2", "p.xs=null"], body_schema=schema) == {"p": {"xs": None}}
+    assert build(sets=["p.xs=1", "p.k=a", "p.xs=2"], body_schema=schema) == {
+        "p": {"xs": [1, 2], "k": "a"}
+    }
+
+
+def test_nested_array_set_again_after_the_parent_is_replaced_keeps_the_last_value():
+    schema = {
+        "type": "object",
+        "properties": {
+            "a": {
+                "type": "object",
+                "properties": {"xs": {"type": "array", "items": {"type": "integer"}}},
+            }
+        },
+    }
+    # a.xs accumulates, then `a` is replaced wholesale, then a.xs starts over: the replaced
+    # value is an object again only via --set-json, so exercise that closest valid sequence.
+    body = build(set_jsons=['a={"xs": [9]}'], sets=["a.xs=1", "a.xs=2"], body_schema=schema)
+    assert body == {"a": {"xs": [1, 2]}}
+    assert build(sets=["a.xs=1", "a.xs=null", "a.xs=2"], body_schema=schema) == {"a": {"xs": [2]}}

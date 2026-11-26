@@ -15,6 +15,9 @@ So the rule is fail-closed and decided per route, from its dependency tree:
 * A **page** route (anything rendering through Inertia, and every route on a
   module's view router) refuses tokens even when gated: tokens are API
   credentials, and a page's props are a second, unscoped read API.
+* A **session-only** route (a dependency marked :data:`GATE_SESSION`, which refuses any
+  token itself) is exported as refusing tokens too, so the OpenAPI ``x-sm-token`` flag
+  and the CLI agree with the runtime.
 * :class:`TokenAllowed` on a (non-page) route admits tokens explicitly, for a route that
   is safe for any token without naming a permission.
 * :class:`Authenticated` ("any signed-in user") is a gate for SM031 and the
@@ -36,7 +39,7 @@ identity provider's bearer token) is never affected.
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
+from collections.abc import Callable, Set
 from typing import Any
 
 from fastapi import HTTPException
@@ -59,6 +62,9 @@ GATE_AUTHENTICATED = "authenticated"
 
 GATE_PAGE = "page"
 """A page (Inertia) route: tokens are refused even behind a permission."""
+
+GATE_SESSION = "session"
+"""A session-only route: it refuses tokens itself, even behind a permission."""
 
 _POLICY_ATTR = "_sm_token_policy"
 
@@ -142,6 +148,15 @@ def dependant_gate_kinds(dependant: Any) -> set[str]:
     return kinds
 
 
+def gate_kinds_admit_tokens(kinds: Set[str]) -> bool:
+    """Whether a route with these dependency gates admits API tokens."""
+    if GATE_PAGE in kinds or GATE_SESSION in kinds:
+        return False
+    if GATE_ALLOW in kinds:
+        return True
+    return GATE_PERMISSION in kinds
+
+
 def route_admits_tokens(route: Any) -> bool:
     """Whether *route* (the matched ``APIRoute``) may serve a token principal.
 
@@ -154,14 +169,7 @@ def route_admits_tokens(route: Any) -> bool:
     dependant = getattr(route, "dependant", None)
     if dependant is None:
         return False
-    kinds: set[str] = set()
-    _gate_kinds(dependant, kinds, set())
-    if GATE_PAGE in kinds:
-        admits = False  # a page wins over an explicit opt-in
-    elif GATE_ALLOW in kinds:
-        admits = True
-    else:
-        admits = GATE_PERMISSION in kinds
+    admits = gate_kinds_admit_tokens(dependant_gate_kinds(dependant))
     with contextlib.suppress(AttributeError, TypeError):  # a slotted/frozen route
         setattr(route, _POLICY_ATTR, admits)
     return admits
@@ -243,11 +251,13 @@ __all__ = [
     "GATE_AUTHENTICATED",
     "GATE_PAGE",
     "GATE_PERMISSION",
+    "GATE_SESSION",
     "TOKEN_GATE_ATTR",
     "Authenticated",
     "TokenAllowed",
     "dependant_gate_kinds",
     "effective_route",
+    "gate_kinds_admit_tokens",
     "is_token_principal",
     "mark_token_gate",
     "page_route",

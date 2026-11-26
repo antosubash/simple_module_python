@@ -28,7 +28,9 @@ from simple_module_hosting.auth.token_guard import (
     GATE_ALLOW,
     GATE_AUTHENTICATED,
     GATE_PERMISSION,
+    GATE_SESSION,
     dependant_gate_kinds,
+    gate_kinds_admit_tokens,
 )
 from simple_module_hosting.pipeline.public_access import is_public
 
@@ -45,13 +47,17 @@ API_PREFIX = "/api/"
 UNGUARDED_ROUTE_CODE = "SM031"
 _PARAM = re.compile(r"\{[^}]*\}")
 _PLACEHOLDERS = ("x", "0", "00000000-0000-0000-0000-000000000000")
-_GUARD_KINDS = frozenset({GATE_PERMISSION, GATE_ALLOW, GATE_AUTHENTICATED})
+_GUARD_KINDS = frozenset({GATE_PERMISSION, GATE_ALLOW, GATE_AUTHENTICATED, GATE_SESSION})
 
 
 class ApiOperation(NamedTuple):
     path: str  # templated, as the OpenAPI schema spells it
     methods: frozenset[str]
     gate_kinds: frozenset[str]
+
+    @property
+    def admits_tokens(self) -> bool:
+        return gate_kinds_admit_tokens(self.gate_kinds)
 
 
 def iter_api_operations(app: FastAPI) -> Iterator[ApiOperation]:
@@ -61,7 +67,7 @@ def iter_api_operations(app: FastAPI) -> Iterator[ApiOperation]:
         dependant = getattr(ctx, "dependant", None)
         if not path or not path.startswith(API_PREFIX) or dependant is None:
             continue
-        methods = frozenset(m.upper() for m in (ctx.methods or ()) if m.upper() != "HEAD")
+        methods = frozenset(m.upper() for m in (ctx.methods or ()))
         yield ApiOperation(path, methods, frozenset(dependant_gate_kinds(dependant)))
 
 
@@ -83,7 +89,7 @@ def check_unguarded_api_routes(app: FastAPI) -> list[Diagnostic]:
         if op.gate_kinds & _GUARD_KINDS:
             continue
         for method in sorted(op.methods):
-            if is_public_operation(app, method, op.path):
+            if method == "HEAD" or is_public_operation(app, method, op.path):
                 continue
             found.append(_unguarded(method, op.path))
     return found

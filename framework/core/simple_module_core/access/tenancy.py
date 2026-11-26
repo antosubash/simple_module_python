@@ -17,7 +17,11 @@ from collections.abc import Awaitable, Callable, Collection
 from enum import StrEnum
 from typing import Any
 
-from simple_module_core.modules.app_state import get_tenant_exists, get_tenant_members
+from simple_module_core.modules.app_state import (
+    get_tenant_exists,
+    get_tenant_members,
+    get_tenant_slug,
+)
 
 TENANT_ROLE_PREFIX = "tenant:"
 
@@ -80,6 +84,21 @@ async def tenant_exists(app: Any, tenant_id: str) -> bool | None:
     return bool(await check(tenant_id))
 
 
+TenantSlug = Callable[[str], Awaitable[str | None]]
+"""``async (tenant_id) -> slug | None``: the human-readable slug of a tenant."""
+
+
+async def tenant_slug(app: Any, tenant_id: str) -> str | None:
+    """The slug of ``tenant_id``, or ``None`` when unknown or no module owns tenants.
+
+    The ``tenants`` module publishes ``app.state.tenant_slug`` (a :data:`TenantSlug`);
+    clients that show or accept a slug (``/api/_meta/whoami``, the CLI's ``--tenant``)
+    ask through this without importing that module.
+    """
+    lookup: TenantSlug | None = get_tenant_slug(app)
+    return None if lookup is None else await lookup(tenant_id)
+
+
 TenantMembers = Callable[[Any, str, Collection[str] | None], Awaitable[Collection[str]]]
 """``async (db, tenant_id, user_ids) -> the subset of user_ids that are members``.
 
@@ -114,8 +133,10 @@ __all__ = [
     "TenantExists",
     "TenantMembers",
     "TenantRole",
+    "TenantSlug",
     "is_tenant_role",
     "tenant_exists",
     "tenant_member_ids",
     "tenant_role",
+    "tenant_slug",
 ]

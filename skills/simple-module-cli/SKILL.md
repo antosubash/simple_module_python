@@ -240,6 +240,20 @@ uv run smpy users create-admin -e admin@example.com -p hunter2 --full-name "Admi
 
 Don't bake `--password` literals into a script you commit; use a secrets store and pass via shell expansion.
 
+## The project CLI (`smdev`)
+
+A host can ship its own CLI over its REST API, generated from a bundled OpenAPI schema by `simple_module_remote` (`build_cli(name, schema_path, defaults_path)`). The dev host's is `uv run smdev`:
+
+```bash
+uv run smdev env add local --url http://localhost:8000
+printf '%s\n' "$PAT" | uv run smdev --env local login --token-stdin
+uv run smdev whoami
+uv run smdev users admin-list-users -o json
+uv run smdev users admin-update-user <id> --set email=a@b.c --set full_name=Ada --dry-run
+```
+
+Only operations a personal access token may call (`x-sm-token`) exist as commands. In CI set `SMDEV_ENV` and `SMDEV_TOKEN`. After an API change run `make cli-schema` and commit `host_cli/smdev_cli/openapi.json`. See `docs/guide/project-cli.md`.
+
 ## Pitfalls
 
 - **Wrong shell for `--with`.** `uv run smpy new` `--with auth,users` (catalog keys, lowercase). `uv run smpy create-host` `--with Auth,Users` (`ModuleMeta.name`, PascalCase). They're not interchangeable.
