@@ -53,7 +53,7 @@ export function humanize(name: string): string {
 type FieldLike = { name: string; title?: string | null; description?: string };
 type Lookup = (key: string) => string | undefined;
 
-export type SettingsText = {
+type SettingsText = {
   title: () => string;
   description: () => string | undefined;
   label: (field: FieldLike) => string;

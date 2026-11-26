@@ -24,10 +24,6 @@ type Props = {
   onPick: (pkg: string, from: HTMLElement | null) => void;
 };
 
-function overriddenCount(m: ModuleView): number {
-  return m.fields.filter((f) => f.db_override).length;
-}
-
 /**
  * Module navigation. Wide screens get a rail with search; below `lg` a
  * full-width select replaces it — the rail used to stack above the form as a
@@ -89,16 +85,14 @@ export function ModuleNav({ modules, filtered, titles, selected, query, onQuery,
         >
           {filtered.map((m) => {
             const isActive = m.package === selected;
-            const overridden = overriddenCount(m);
+            const overridden = m.fields.filter((f) => f.db_override).length;
             return (
               <button
                 key={m.package}
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
                 title={m.package}
-                onClick={(event) => {
-                  if (!isActive) onPick(m.package, event.currentTarget);
-                }}
+                onClick={(event) => onPick(m.package, event.currentTarget)}
                 // `shrink-0`: in a scrolling flex column a long list would
                 // otherwise squash every row instead of scrolling.
                 className={`flex shrink-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors pointer-coarse:min-h-11 ${

@@ -107,7 +107,6 @@ export function ModuleFieldRow({
   return (
     <div
       data-testid={`row-${id}`}
-      data-modified={modified || undefined}
       className={`grid grid-cols-1 gap-x-8 gap-y-3 px-4 py-4 transition-colors @lg:px-6 ${
         switchRow ? '' : '@xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]'
       } ${modified ? 'bg-amber-50/70 dark:bg-amber-400/5' : ''}`}

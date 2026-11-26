@@ -1,4 +1,4 @@
-import { keys, useT } from '@simple-module-py/i18n';
+import { keys, type TranslationKey, useT } from '@simple-module-py/i18n';
 import type { ReactNode } from 'react';
 import type { FieldMeta } from './FieldInput';
 
@@ -26,6 +26,16 @@ function Badge({ tone, children }: { tone: Tone; children: ReactNode }) {
       {children}
     </span>
   );
+}
+
+/** First match wins: an unsaved edit, then env (which beats a stored row), then the stored row. */
+function source(field: FieldMeta, modified: boolean): [Tone, TranslationKey] {
+  const m = keys.settings.modules;
+  if (modified) return ['amber', m.source_unsaved];
+  if (field.env_set)
+    return ['amber', field.db_override ? m.source_db_ignored_for_env : m.source_env];
+  if (field.db_override) return ['primary', m.source_db];
+  return ['neutral', field.is_secret ? m.secret_write_only : m.source_default];
 }
 
 /**
@@ -56,20 +66,7 @@ export function FieldSource({
 }) {
   const { t } = useT();
 
-  let badge: ReactNode;
-  if (modified) {
-    badge = <Badge tone="amber">{t(keys.settings.modules.source_unsaved)}</Badge>;
-  } else if (field.env_set && field.db_override) {
-    badge = <Badge tone="amber">{t(keys.settings.modules.source_db_ignored_for_env)}</Badge>;
-  } else if (field.env_set) {
-    badge = <Badge tone="amber">{t(keys.settings.modules.source_env)}</Badge>;
-  } else if (field.db_override) {
-    badge = <Badge tone="primary">{t(keys.settings.modules.source_db)}</Badge>;
-  } else if (field.is_secret) {
-    badge = <Badge tone="neutral">{t(keys.settings.modules.secret_write_only)}</Badge>;
-  } else {
-    badge = <Badge tone="neutral">{t(keys.settings.modules.source_default)}</Badge>;
-  }
+  const [tone, sourceKey] = source(field, modified);
 
   // The default is worth showing only once the value has moved away from it;
   // otherwise it repeats the control above. A secret's default stays hidden.
@@ -78,7 +75,7 @@ export function FieldSource({
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      {badge}
+      <Badge tone={tone}>{t(sourceKey)}</Badge>
       {field.env_set && (
         <code
           className="min-w-0 [overflow-wrap:anywhere] font-mono text-[11px] text-muted-foreground"
