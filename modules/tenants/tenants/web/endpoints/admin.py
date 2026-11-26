@@ -6,15 +6,17 @@ which no tenant role grants.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from simple_module_db.queries.pagination import PageParams
 from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.auth.token_guard import is_token_principal
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.frontend.pagination import lenient_page_params
 from simple_module_inertia import InertiaResponse
 
 from tenants.contracts.schemas import TenantView
 from tenants.core.constants import PAGE_ADMIN, Permissions, TenantStatus
+from tenants.core.errors import TenantError
 from tenants.web.deps import TenantServiceDep
 
 views = APIRouter()
@@ -61,7 +63,12 @@ async def list_tenants(service: TenantServiceDep, q: str = "") -> list[TenantVie
 
 
 @api.post("/{tenant_id}/suspend", response_model=TenantView, dependencies=_MANAGE)
-async def suspend(tenant_id: str, service: TenantServiceDep) -> TenantView:
+async def suspend(tenant_id: str, request: Request, service: TenantServiceDep) -> TenantView:
+    # Suspending the tenant a token is pinned to locks the token out (all its
+    # requests then 401, reactivate included); browser sessions are unchanged.
+    user = getattr(request.state, "user", None)
+    if is_token_principal(user) and getattr(user, "tenant_id", None) == tenant_id:
+        raise TenantError("cannot_suspend_own_tenant", status_code=409)
     tenant = await service.set_status(tenant_id, TenantStatus.SUSPENDED)
     return TenantView(**tenant.model_dump())
 

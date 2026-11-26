@@ -962,6 +962,7 @@ export default {
     'tenants.errors.admission_conflict': '',
     'tenants.errors.already_invited': '',
     'tenants.errors.already_member': '',
+    'tenants.errors.cannot_suspend_own_tenant': '',
     'tenants.errors.generic': '',
     'tenants.errors.invitation_email_mismatch': '',
     'tenants.errors.invitation_email_unverified': '',

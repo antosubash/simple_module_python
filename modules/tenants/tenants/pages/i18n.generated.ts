@@ -46,6 +46,7 @@ export const keys = {
       admission_conflict: 'tenants.errors.admission_conflict',
       already_invited: 'tenants.errors.already_invited',
       already_member: 'tenants.errors.already_member',
+      cannot_suspend_own_tenant: 'tenants.errors.cannot_suspend_own_tenant',
       generic: 'tenants.errors.generic',
       invitation_email_mismatch: 'tenants.errors.invitation_email_mismatch',
       invitation_email_unverified: 'tenants.errors.invitation_email_unverified',
@@ -208,6 +209,7 @@ type ModuleTranslationResources = {
   readonly 'tenants.errors.admission_conflict': '';
   readonly 'tenants.errors.already_invited': '';
   readonly 'tenants.errors.already_member': '';
+  readonly 'tenants.errors.cannot_suspend_own_tenant': '';
   readonly 'tenants.errors.generic': '';
   readonly 'tenants.errors.invitation_email_mismatch': '';
   readonly 'tenants.errors.invitation_email_unverified': '';

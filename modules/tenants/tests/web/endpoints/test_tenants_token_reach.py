@@ -91,3 +91,32 @@ async def test_session_switch_still_works(user_client):
         t = (await client.post(_URL, json={"name": "One"})).json()
         assert (await client.post(f"/api/tenants/{t['id']}/switch")).status_code == 204
         assert user_id
+
+
+async def test_pat_cannot_suspend_its_own_tenant(app):
+    from tenants.models import Tenant
+
+    _, token, pinned = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
+    _, _tok2, other = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
+    async with await _bearer_client(app, token) as bc:
+        own = await bc.post(f"/api/tenants/admin/{pinned}/suspend")
+        assert own.status_code == 409, own.text
+        assert own.json()["detail"] == "cannot_suspend_own_tenant"
+        assert (await bc.post(f"/api/tenants/admin/{other}/suspend")).status_code == 200
+    async with app.state.sm.db.session_factory() as s:
+        from simple_module_db.scoping.tenancy import all_tenants
+
+        with all_tenants():
+            assert (await s.get(Tenant, pinned)).status == "active"
+
+
+async def test_session_admin_suspend_unchanged(app):
+    from _api_tokens_support import join_tenant, make_admin
+
+    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
+    user_id = await make_admin(app, email)
+    tenant_id = await join_tenant(app, user_id, email)
+    data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
+    async with session_client(app, data) as c:
+        resp = await c.post(f"/api/tenants/admin/{tenant_id}/suspend")
+    assert resp.status_code != 409, resp.text

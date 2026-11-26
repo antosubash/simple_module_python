@@ -211,6 +211,12 @@ never on a tenant named in the URL. The CLI sends no tenant id to the server:
 another tenant is refused before any request (exit code 1, "no stored
 credentials"). Use a separate `login` for each tenant.
 
+Platform routes that take a tenant id (suspending a tenant, editing another
+tenant's settings, tenant feature-flag overrides) are host-level too: a
+platform-admin token holding the platform permissions can use them on any
+tenant. This is deliberate. One guard applies: a token cannot suspend its own
+tenant (409 `cannot_suspend_own_tenant`), because that would lock it out.
+
 ## Live schema
 
 The commands come from the schema bundled with the CLI unless you sync the
