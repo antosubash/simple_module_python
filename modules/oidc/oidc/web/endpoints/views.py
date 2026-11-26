@@ -2,7 +2,7 @@
 
 import logging
 
-from auth.contracts.events import session_logout_event
+from auth.oidc_common.logout import logout_event_for
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.auth_policy import login_redirect_url
@@ -19,6 +19,7 @@ from oidc.core.constants import (
     SESSION_REFRESH_TOKEN_KEY,
 )
 from oidc.core.runtime import is_signed_in
+from oidc.identity.provider import OidcAuthProvider
 from oidc.identity.renewal import _KEYS
 from oidc.identity.tokens import open_refresh_token
 
@@ -42,7 +43,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
-    event = session_logout_event(getattr(request.state, "user", None), local_account=False)
+    event = await logout_event_for(request, OidcAuthProvider)
     client = request.app.state.oidc.client
     if client is not None:
         try:

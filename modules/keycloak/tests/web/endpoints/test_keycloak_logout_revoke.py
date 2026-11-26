@@ -6,6 +6,7 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 from keycloak.core.settings import KeycloakSettings
+from keycloak.core.state import KeycloakState
 from keycloak.identity.tokens import seal_refresh_token
 from keycloak.web.endpoints import views
 from starlette.requests import Request
@@ -19,11 +20,15 @@ def _request(headers=None):
     )
     app = SimpleNamespace(
         state=SimpleNamespace(
-            keycloak=SimpleNamespace(settings=settings),
+            keycloak=KeycloakState(settings=settings),
             sm=SimpleNamespace(settings=SimpleNamespace(secret_key="test-secret-key")),
         )
     )
-    session = {"keycloak_refresh_token": seal_refresh_token(app, "refresh-tok"), "user_ctx": {}}
+    session = {
+        "keycloak_refresh_token": seal_refresh_token(app, "refresh-tok"),
+        "user_ctx": {},
+        "expires_at": 4_102_444_800,
+    }
     return Request(
         {
             "type": "http",
@@ -106,9 +111,9 @@ async def test_logout_publishes_after_local_and_back_channel_logout(httpx_mock, 
     request = _request()
     # A UUID-shaped IdP subject stays the original string, case included.
     user_id = str(uuid4()).upper()
-    request.state.user = UserContext.from_session_dict(
-        {"id": user_id, "email": email, "name": "Signed in"}
-    )
+    request.session["user_ctx"] = UserContext(
+        id=user_id, email=email, name="Signed in"
+    ).to_session_dict()
     bus = request.app.state.sm.event_bus = EventBus()
     observed = []
 

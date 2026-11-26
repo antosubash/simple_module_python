@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from auth.contracts.events import session_logout_event
+from auth.oidc_common.logout import logout_event_for
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.csrf import require_browser_origin
@@ -13,6 +13,7 @@ from simple_module_inertia.protocol.response import location
 from starlette.background import BackgroundTask
 from starlette.responses import RedirectResponse, Response
 
+from keycloak.identity.provider import KeycloakAuthProvider
 from keycloak.identity.renewal import _KEYS
 from keycloak.identity.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token
 
@@ -58,7 +59,7 @@ async def logout(request: Request) -> Response:
     from keycloak.identity.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
-    event = session_logout_event(getattr(request.state, "user", None), local_account=False)
+    event = await logout_event_for(request, KeycloakAuthProvider)
     refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))
     await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()
