@@ -144,3 +144,25 @@ def test_encoded_traversal_in_a_redirect_never_keeps_the_token(location: str) ->
         response = c.request("GET", "/api/x")
     assert "authorization" not in seen[1].headers
     assert c.was_redirected(response)
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "/api/%2E%2e/x",  # mixed-case encoded dot segment
+        "/api/%2e%2E%2f",
+        "/api\\..\\admin",  # backslash variants
+        "/api/..\\admin",
+        "https://app.example\\@evil.example/api/x",  # parsers disagree about the authority
+        "https://app.example/api/x y",  # space: not a valid path character
+        "/api/\x7fx",
+    ],
+)
+def test_redirect_targets_that_parsers_may_disagree_on_drop_the_token(location: str) -> None:
+    seen: list[httpx.Request] = []
+    try:
+        with _client(_redirecting(location, seen)) as c:
+            c.request("GET", "/api/x")
+    except ApiError:
+        pass  # refused outright is as safe as following without the token
+    assert all("authorization" not in r.headers for r in seen[1:])

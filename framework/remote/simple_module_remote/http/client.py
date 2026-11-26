@@ -31,6 +31,7 @@ TOO_MANY_REQUESTS = 429
 TIMEOUT_SECONDS = 30.0
 # %2e (dot), %2f (slash), %5c (backslash) and %25 (a double-encoded escape) in a redirect path
 # are never followed with the token: a server may decode them once and traverse out of /api/.
+_PATH_CHARS = re.compile(r"(?:[A-Za-z0-9\-._~!$&'()*+,;=:@/]|%[0-9A-Fa-f]{2})*")
 _ENCODED_ESCAPE = re.compile(r"%(2e|2f|5c|25)", re.IGNORECASE)
 METADATA_HOSTS = frozenset({"metadata.google.internal", "metadata"})
 REDIRECTED_EXTENSION = "smr_redirected"
@@ -236,11 +237,17 @@ class ApiClient:
 
     def _stays_in_api(self, target: str) -> bool:
         """True for a redirect target on the environment's origin under its /api/ prefix."""
+        # Judge the URL httpx will actually send, not our own parse of the string: when the two
+        # parsers could disagree, follow without the token.
         try:
-            if _ENCODED_ESCAPE.search(urlsplit(target).path):
-                return False  # encoded dot, slash, backslash or percent: could climb out later
-            validate_request_url(self._base, target, allow_query=True)
-        except (UnsafePathError, ValueError):
+            if "\\" in target or any(ord(ch) < 0x21 or ord(ch) > 0x7E for ch in target):
+                return False
+            request = self._client.build_request("GET", target)
+            raw_path = request.url.raw_path.split(b"?", 1)[0].decode("ascii")
+            if not _PATH_CHARS.fullmatch(raw_path) or _ENCODED_ESCAPE.search(raw_path):
+                return False  # not a plain path, or an encoded dot/slash/backslash/percent
+            validate_request_url(self._base, str(request.url), allow_query=True)
+        except (UnsafePathError, ValueError, httpx.InvalidURL, UnicodeError):
             return False
         return True
 

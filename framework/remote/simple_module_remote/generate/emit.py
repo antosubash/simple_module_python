@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,8 @@ ERROR_BODY_CHARS = 500
 CHUNK = 64 * 1024
 MAX_RENDER_BYTES = 64 * 1024 * 1024
 FILE_MODE = 0o666
+# The server's wording for a route only a browser session may call (checked before scopes).
+_SESSION_ONLY = re.compile(r"browser session|session[- ]only|session required")
 REDIRECT_HINT = (
     "hint: this response followed a redirect; the token is not forwarded on redirects, "
     "so the redirect target rejected the request."
@@ -42,11 +45,16 @@ def say(ctx: RunContext, text: str) -> None:
     ctx.stderr.write(sanitize_for(ctx.stderr, text) + "\n")
 
 
+def _clean(ctx: RunContext, text: str) -> str:
+    """Server text made safe for stderr: sanitised, then redacted in both forms."""
+    return ctx.redact(sanitize_for(ctx.stderr, ctx.redact(text)))
+
+
 def say_server(ctx: RunContext, text: str, *, limit: int | None = None) -> None:
     """Like :func:`say` for text the server sent: the token is stripped, then ``limit`` applied."""
     # Sanitise first, then redact both forms: control characters interleaved into the token
     # would otherwise be stripped afterwards and reassemble it on a terminal.
-    clean = ctx.redact(sanitize_for(ctx.stderr, ctx.redact(text)))
+    clean = _clean(ctx, text)
     say(ctx, clean if limit is None else clean[:limit])
 
 
@@ -108,17 +116,17 @@ def _auth_hint(ctx: RunContext, text: str) -> None:
     """Point at re-login only when the token itself is the problem."""
     detail = _detail(text)
     lowered = detail.lower()
-    shown = ctx.redact(detail)[:ERROR_BODY_CHARS]  # redact the whole text, then cut
+    shown = _clean(ctx, detail)[:ERROR_BODY_CHARS]  # sanitise, redact, then cut
     msg: str | None = None
     if "tenant" in lowered or "organisation" in lowered or "organization" in lowered:
         msg = (
             f"hint: the server needs a tenant: {shown}; pass --tenant or use a token pinned to one"
         )
-    elif "permission" in lowered or "scope" in lowered:
-        msg = "hint: the token lacks the permission named above; create one with the needed scopes"
-    elif "session" in lowered:
+    elif _SESSION_ONLY.search(lowered):
         cli = ctx.login_hint.split()[0] if ctx.login_hint else "the CLI"
         msg = f"hint: tokens cannot call this route; `{cli} api --session-only` lists such routes"
+    elif "permission" in lowered or "scope" in lowered:
+        msg = "hint: the token lacks the permission named above; create one with the needed scopes"
     elif ctx.login_hint:
         msg = (
             f"hint: the token may be missing or expired; run `{ctx.login_hint}` "
@@ -198,10 +206,11 @@ def render_values(ctx: RunContext, data: Any, values: dict[str, Any]) -> None:
             out=ctx.stdout,
         )
     except (NoIdentifierError, UnknownColumnError) as exc:
-        raise click.ClickException(str(exc)) from None
+        # Column names come from the response: sanitise and redact them like any server text.
+        raise click.ClickException(_clean(ctx, str(exc))[:ERROR_BODY_CHARS]) from None
 
 
-def _refuse_render_flags(response: httpx.Response, values: dict[str, Any]) -> None:
+def _refuse_render_flags(values: dict[str, Any]) -> None:
     """-o/-q/--columns format JSON; refuse them for a body that is not (a CSV export)."""
     given = [
         f
@@ -209,9 +218,8 @@ def _refuse_render_flags(response: httpx.Response, values: dict[str, Any]) -> No
         if values.get(key)
     ]
     if given:
-        kind = response.headers.get("Content-Type", "").split(";", 1)[0]
         raise click.ClickException(
-            f"{'/'.join(given)} cannot be used here: the response is {kind}, not JSON "
+            f"{'/'.join(given)} cannot be used here: the response is not JSON "
             "(redirect stdout or use --out FILE)"
         )
 
@@ -233,7 +241,7 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
         return 0
     non_json = has_type(response) and not is_json(response)
     if non_json:
-        _refuse_render_flags(response, values)
+        _refuse_render_flags(values)
     streamable = not ctx.is_tty and non_json
     # A pipe gets a non-JSON body chunk by chunk; a terminal needs it sanitized instead.
     if streamable and _write_stdout_bytes(ctx, response):

@@ -176,6 +176,19 @@ def _strings(value: object) -> bool:
     return isinstance(value, list) and all(isinstance(v, str) for v in value)
 
 
+def _safe_tenant(value: object, client: ApiClient) -> bool:
+    """A tenant id/slug from the server: ``None`` or a bounded printable word without the token."""
+    if value is None:
+        return True
+    if not isinstance(value, str):
+        return False
+    try:
+        validate_tenant(value)
+    except ConfigError:
+        return False
+    return client.redact(value) == value  # a reflected token must not reach the screen or disk
+
+
 def _is_identity(data: dict) -> bool:
     if not {"scopes", "tenant_id", "roles"} <= data.keys():
         return False
@@ -200,6 +213,8 @@ def fetch_whoami(client: ApiClient) -> dict:
         raise ApiError(response.status_code, message="whoami response is not JSON") from None
     if not isinstance(data, dict):
         raise ApiError(response.status_code, message="whoami response is not an object")
-    if not _is_identity(data):
+    if not _is_identity(data) or not all(
+        _safe_tenant(data.get(key), client) for key in ("tenant_id", "tenant_slug")
+    ):
         raise ApiError(response.status_code, message="whoami response is not an identity document")
     return data
