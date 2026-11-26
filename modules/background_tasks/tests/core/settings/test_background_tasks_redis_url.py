@@ -1,16 +1,4 @@
-"""One ``SM_REDIS_URL`` replaces the two ``SM_BG_TASKS_*`` broker vars.
-
-Celery namespaces result keys as ``celery-task-meta-*``, so a broker and a
-result backend can share one Redis database safely — that is the configuration
-upstream's own quickstart uses. Splitting them across two databases stays
-possible through the DB-backed per-field overrides (with ``SM_REDIS_URL``
-unset, since env beats the DB) or the two legacy vars; it just is not
-something an operator should have to decide before the app will boot.
-
-The legacy vars keep working because ``smpy_gis``, ``smpy_saas``,
-``laco_wiki_python`` and the ``nodes-k8s`` manifests all set them. Breaking
-them would break those deployments on upgrade for no benefit.
-"""
+"""Shared Redis defaults and supported per-field Celery connection overrides."""
 
 from __future__ import annotations
 
@@ -44,32 +32,31 @@ def test_falls_back_to_defaults_when_nothing_set() -> None:
     assert settings.result_backend == DEFAULT_RESULT_BACKEND
 
 
-def test_legacy_broker_var_still_works(
+def test_broker_override_without_shared_url_is_quiet(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "redis://old:6379/4")
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO, logger="background_tasks.settings"):
         settings = BackgroundTasksSettings()
 
     assert settings.broker_url == "redis://old:6379/4"
-    assert "SM_BG_TASKS_BROKER_URL" in caplog.text
-    assert "SM_REDIS_URL" in caplog.text, "the warning must name the replacement"
+    assert not caplog.records
 
 
-def test_legacy_result_backend_var_still_works(
+def test_backend_override_without_shared_url_is_quiet(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     monkeypatch.setenv("SM_BG_TASKS_RESULT_BACKEND", "redis://old:6379/5")
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO, logger="background_tasks.settings"):
         settings = BackgroundTasksSettings()
 
     assert settings.result_backend == "redis://old:6379/5"
-    assert "SM_BG_TASKS_RESULT_BACKEND" in caplog.text
+    assert not caplog.records
 
 
-def test_legacy_var_beats_redis_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_per_field_var_beats_redis_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """A deployment that set both meant the specific one."""
     monkeypatch.setenv("SM_REDIS_URL", "redis://new:6379/0")
     monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "redis://old:6379/4")
@@ -143,7 +130,7 @@ def test_stored_values_apply_without_redis_url() -> None:
     assert settings.result_backend == "redis://stored:6379/1"
 
 
-def test_legacy_var_still_beats_redis_url_and_the_db(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_per_field_var_beats_redis_url_and_the_db(monkeypatch: pytest.MonkeyPatch) -> None:
     from simple_module_core.settings.settings_hydrate import build_settings
 
     monkeypatch.setenv("SM_REDIS_URL", "redis://cache:6379/2")
@@ -191,15 +178,15 @@ def test_non_redis_broker_logs_no_warning(
         "REDIS://cache:6379/0",
     ],
 )
-def test_redis_schemes_still_warn(
+def test_redis_schemes_without_shared_url_are_quiet(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, url: str
 ) -> None:
     monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", url)
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO, logger="background_tasks.settings"):
         BackgroundTasksSettings()
 
-    assert "SM_BG_TASKS_BROKER_URL is deprecated" in caplog.text
+    assert not caplog.records
 
 
 @pytest.mark.parametrize("url", ["sentinel://sentinel:26379/0", "redis+socket:///run/redis.sock"])
@@ -214,15 +201,64 @@ def test_schemes_redis_url_cannot_carry_log_no_warning(
     assert "deprecated" not in caplog.text.lower()
 
 
+@pytest.mark.parametrize("backend", ["rpc://", "redis://old:6379/5"])
 def test_warning_is_per_variable(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, backend: str
 ) -> None:
-    """A Redis broker can move to SM_REDIS_URL even when the backend can't."""
+    """Only the redundant broker override can be removed."""
+    monkeypatch.setenv("SM_REDIS_URL", "redis://old:6379/4")
     monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "redis://old:6379/4")
-    monkeypatch.setenv("SM_BG_TASKS_RESULT_BACKEND", "rpc://")
+    monkeypatch.setenv("SM_BG_TASKS_RESULT_BACKEND", backend)
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO, logger="background_tasks.settings"):
         BackgroundTasksSettings()
 
-    assert "SM_BG_TASKS_BROKER_URL is deprecated" in caplog.text
+    assert "SM_BG_TASKS_BROKER_URL" in caplog.text
+    assert "redundant" in caplog.text
+    assert "deprecated" not in caplog.text
     assert "SM_BG_TASKS_RESULT_BACKEND" not in caplog.text
+
+
+@pytest.mark.parametrize("shared_url", [None, "redis://host:6379/2"])
+def test_split_redis_dbs_are_supported_without_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, shared_url: str | None
+) -> None:
+    from simple_module_core.settings.settings_hydrate import build_settings
+
+    if shared_url:
+        monkeypatch.setenv("SM_REDIS_URL", shared_url)
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "redis://host:6379/4")
+    monkeypatch.setenv("SM_BG_TASKS_RESULT_BACKEND", "redis://host:6379/5")
+
+    with caplog.at_level(logging.INFO, logger="background_tasks.settings"):
+        settings = build_settings(BackgroundTasksSettings, _STORED)
+
+    assert settings.broker_url == "redis://host:6379/4"
+    assert settings.result_backend == "redis://host:6379/5"
+    assert not caplog.records
+
+
+@pytest.mark.parametrize("variable", ["SM_BG_TASKS_BROKER_URL", "SM_BG_TASKS_RESULT_BACKEND"])
+@pytest.mark.parametrize("scheme", ["redis", "rediss", "REDIS"])
+def test_redundant_override_can_be_removed(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    variable: str,
+    scheme: str,
+) -> None:
+    url = f"{scheme}://user:secret@host:6379/4"
+    monkeypatch.setenv("SM_REDIS_URL", url)
+    monkeypatch.setenv(variable, url)
+
+    with caplog.at_level(logging.INFO, logger="background_tasks.settings"):
+        settings = BackgroundTasksSettings()
+
+    assert settings.broker_url == url
+    assert settings.result_backend == url
+    assert len(caplog.records) == 1
+    assert variable in caplog.text
+    assert "SM_REDIS_URL" in caplog.text
+    assert "redundant" in caplog.text
+    assert "removed" in caplog.text
+    assert "deprecated" not in caplog.text
+    assert "secret" not in caplog.text

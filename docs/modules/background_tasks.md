@@ -20,10 +20,21 @@ Generated Compose files use `SM_REDIS_URL=redis://redis:6379/0` for all three;
 keys are namespaced, so the broker and backend can share a Redis database.
 Production rejects localhost URLs even when supplied only through `SM_REDIS_URL`.
 
-`SM_BG_TASKS_BROKER_URL` and `SM_BG_TASKS_RESULT_BACKEND` remain explicit
-per-field overrides for non-Redis transports (for example AMQP and a SQL result
-backend) or separate connections. They take precedence over `SM_REDIS_URL`;
-Redis deployments using them receive a deprecation warning.
+`SM_BG_TASKS_BROKER_URL` and `SM_BG_TASKS_RESULT_BACKEND` are supported,
+non-deprecated per-field overrides for separate Redis databases or connections,
+and for non-Redis transports (for example AMQP and a SQL result backend). They
+take precedence over `SM_REDIS_URL` and stored settings. To split the broker and
+results across Redis databases, set these on the web, worker and beat processes:
+
+```dotenv
+SM_BG_TASKS_BROKER_URL=redis://host:6379/4
+SM_BG_TASKS_RESULT_BACKEND=redis://host:6379/5
+```
+
+`SM_REDIS_URL` can remain set for shared Redis services. Only an override that
+exactly equals the configured `SM_REDIS_URL` logs an INFO hint that it is
+redundant and can be removed. Different values, or overrides used without
+`SM_REDIS_URL`, log no hint.
 
 ## Writing a task
 
