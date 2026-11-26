@@ -188,3 +188,25 @@ def test_env_token_works_without_a_secure_file_store(make_cli, fail_keyring, mon
     assert cli.requests[-1].headers["Authorization"] == "Bearer tok"
     stored = runner.invoke(cli, ["--env", "dev", "whoami"])
     assert stored.exit_code == 1 and "no secure file credential store" in stored.output
+
+
+@pytest.mark.parametrize("bad", ["tok en", "tok\x01en", "tök", "tok\x7fen"])
+@pytest.mark.parametrize("mode", ["--token-stdin", "--token"])
+def test_login_refuses_malformed_token_without_network(make_cli, logged_in, mode, bad):
+    cli = make_cli()
+    runner = logged_in(cli, login=False)
+    result = runner.invoke(cli, ["login", mode], input=bad + "\n")
+    assert result.exit_code == 1
+    assert "not a valid token" in result.output
+    assert bad not in result.output
+    assert cli.requests == []
+
+
+def test_env_token_malformed_is_a_clean_error(make_cli, logged_in, monkeypatch):
+    cli = make_cli()
+    runner = logged_in(cli, login=False)
+    monkeypatch.setenv("SMDEV_ENV", "dev")
+    monkeypatch.setenv("SMDEV_TOKEN", "bad token")
+    result = runner.invoke(cli, ["whoami"])
+    assert result.exit_code == 1 and "SMDEV_TOKEN is not a valid token" in result.output
+    assert "bad token" not in result.output and cli.requests == []

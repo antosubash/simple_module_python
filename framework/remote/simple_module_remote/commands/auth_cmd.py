@@ -11,6 +11,7 @@ from simple_module_remote.config.credentials import (
     CredentialError,
     StoredCredential,
     credential_key,
+    validate_token,
 )
 from simple_module_remote.http.errors import ApiError, exit_code_for
 from simple_module_remote.output.sanitize import sanitize
@@ -54,6 +55,8 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
         candidate = click.prompt("Token", hide_input=True, err=True).strip()
     if not candidate:
         raise CliError("no token provided")
+    with state.guard():
+        validate_token(candidate, source="the token you entered")
     try:
         with state.client(env, candidate) as client:
             who = fetch_whoami(client)

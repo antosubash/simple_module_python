@@ -41,6 +41,16 @@ class StoredCredential:
         return f"StoredCredential(token={MASK!r}, origin={self.origin!r})"
 
 
+def validate_token(token: str, *, source: str) -> str:
+    """``token`` when it is printable ASCII without whitespace; never echoes the value."""
+    if not token or not all(0x21 <= ord(ch) <= 0x7E for ch in token):
+        raise CredentialError(
+            f"{source} is not a valid token: it must be printable ASCII with no spaces or "
+            "control characters"
+        )
+    return token
+
+
 def credential_key(env: str, tenant: str | None) -> str:
     return f"{env}/{tenant}" if tenant else env
 
@@ -157,7 +167,7 @@ def resolve_token(
     from_env = environ.get(var)
     if from_env:
         if explicit:
-            return from_env
+            return validate_token(from_env, source=var)
         raise CredentialError(
             f"{var} is set but ignored: it is only honoured when the environment is chosen "
             f"explicitly (pass --env or set {env_var_name(cli)})"
