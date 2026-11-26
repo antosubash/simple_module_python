@@ -212,3 +212,31 @@ def test_literal_route_first_is_the_one_a_literal_target_reaches():
     app.post("/api/items/{item_id}")(lambda item_id: None)
     _view(app, Depends(api_equivalent("POST", "/api/items/special")))
     assert view_route_offenders(app) == []
+
+
+def test_typo_literal_target_is_not_a_registered_route():
+    app = FastAPI()
+    app.post("/api/items/{item_id}", dependencies=[Depends(RequiresPermission(_PERM))])(
+        lambda item_id: None
+    )
+    _view(app, Depends(api_equivalent("POST", "/api/items/archvie")))
+    assert view_route_offenders(app) == [
+        "POST /things/{thing_id}: POST /api/items/archvie is not a registered route"
+    ]
+
+
+def test_int_route_does_not_shadow_a_later_literal_target():
+    app = FastAPI()
+    app.post("/api/items/{item_id:int}")(lambda item_id: None)  # refuses, but int-only
+    app.post("/api/items/special", dependencies=[Depends(RequiresPermission(_PERM))])(lambda: None)
+    _view(app, Depends(api_equivalent("POST", "/api/items/special")))
+    assert view_route_offenders(app) == []
+
+
+def test_converter_template_is_declared_without_the_converter():
+    app = FastAPI()
+    app.post("/api/items/{item_id:int}", dependencies=[Depends(RequiresPermission(_PERM))])(
+        lambda item_id: None
+    )
+    _view(app, Depends(api_equivalent("POST", "/api/items/{item_id}")))
+    assert view_route_offenders(app) == []

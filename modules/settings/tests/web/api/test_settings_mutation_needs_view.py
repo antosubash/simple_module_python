@@ -7,7 +7,7 @@ the same: a token scoped to the mutation grant alone gets ``403``.
 
 from __future__ import annotations
 
-from _api_tokens_support import admin_session, bearer_client, pat_for  # ty: ignore[import-not-found]
+from _api_tokens_support import admin_pat, bearer_client  # ty: ignore[import-not-found]
 from settings.core.constants import Permissions
 from simple_module_core.settings.module_settings import module_settings_registry
 
@@ -15,12 +15,8 @@ _BASE = "/api/settings"
 _MODULE = "mail"
 
 
-async def _pat(app, scopes: list[str]) -> str:
-    return await pat_for(app, await admin_session(app), scopes)
-
-
 async def _create(app, key: str) -> int:
-    token = await _pat(app, [Permissions.VIEW, Permissions.CREATE])
+    token = await admin_pat(app, [Permissions.VIEW, Permissions.CREATE])
     async with bearer_client(app, token) as bc:
         resp = await bc.post(f"{_BASE}/", json={"key": key, "value": "v"})
     assert resp.status_code == 201, resp.text
@@ -28,7 +24,7 @@ async def _create(app, key: str) -> int:
 
 
 async def _status(app, scopes: list[str], method: str, url: str, **kwargs) -> int:
-    async with bearer_client(app, await _pat(app, scopes)) as bc:
+    async with bearer_client(app, await admin_pat(app, scopes)) as bc:
         return (await bc.request(method, url, **kwargs)).status_code
 
 

@@ -170,9 +170,10 @@ def test_not_modified_refresh_rechecks_the_fingerprint(live, run_live, monkeypat
     def flaky(store, env):
         meta = real(store, env)
         calls.append(meta)
-        if len(calls) == 2 and meta is not None:
-            return meta.__class__(meta.url, meta.origin, "0" * 64, meta.etag, meta.fetched_at)
-        return meta
+        if meta is None:
+            return meta
+        fingerprint = "0" * 64 if len(calls) == 2 else meta.fingerprint
+        return meta.__class__(meta.url, meta.origin, fingerprint, '"v1"', meta.fetched_at)
 
     monkeypatch.setattr(schema_cmd, "_cached_meta", flaky)
     not_modified = schema_fetch.Fetched(304, b"", None)

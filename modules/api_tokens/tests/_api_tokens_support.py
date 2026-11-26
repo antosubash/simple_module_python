@@ -80,6 +80,11 @@ async def pat_for(app: Any, session: dict[str, str], scopes: list[str]) -> str:
         return (await create_pat(client, scopes))["token"]
 
 
+async def admin_pat(app: Any, scopes: list[str]) -> str:
+    """A personal token with *scopes* for a new tenant-owning admin."""
+    return await pat_for(app, await admin_session(app), scopes)
+
+
 async def create_service_key(
     client: httpx.AsyncClient,
     *,

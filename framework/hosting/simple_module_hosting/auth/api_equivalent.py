@@ -114,7 +114,14 @@ def dependant_api_declarations(dependant: Any) -> list[ApiEquivalent | ApiExempt
     return out
 
 
-def _walk(routes: Any, prefix: str = "") -> Iterator[tuple[str, frozenset[str], Any]]:
+class _Walked(NamedTuple):
+    path: str  # normalized template (``{param}``), as shown in offender lines
+    methods: frozenset[str]
+    dependant: Any
+    template: str  # as registered, converters kept (``{param:int}``), mount prefix included
+
+
+def _walk(routes: Any, prefix: str = "") -> Iterator[_Walked]:
     """Each route in dispatch order, as FastAPI runs it, mounted sub-apps included.
 
     Include-level dependencies come from ``iter_route_contexts``; a ``Mount``
@@ -122,54 +129,84 @@ def _walk(routes: Any, prefix: str = "") -> Iterator[tuple[str, frozenset[str], 
     """
     for route in routes:
         if isinstance(route, Mount):
-            # ``path`` is the mount prefix template; ``path_format`` adds ``/{path}``.
             yield from _walk(route.routes, prefix + route.path)
             continue
         for ctx in iter_route_contexts([route]):
-            path = getattr(ctx, "path_format", None) or getattr(ctx, "path", None)
+            template = getattr(ctx, "path", None)
             dependant = getattr(ctx, "dependant", None)
-            if not path or dependant is None:
+            if not template or dependant is None:
                 continue
             methods = frozenset(m.upper() for m in (getattr(ctx, "methods", None) or ()))
-            yield prefix + path, methods, dependant
+            full = prefix + template
+            yield _Walked(_normalize(full), methods, dependant, full)
+
+
+_CONVERTER = re.compile(r"\{(\w+)(?::\w+)?\}")
+_SAMPLES = {
+    "int": "1",
+    "float": "1.0",
+    "uuid": "00000000-0000-0000-0000-000000000000",
+    "path": "sample/path",
+}
+_PLACEHOLDER = "_sm_sample_"
+
+
+def _normalize(template: str) -> str:
+    """``/a/{id:int}`` -> ``/a/{id}``: the form a declaration is written in."""
+    return _CONVERTER.sub(r"{\1}", template)
+
+
+def _sample(template: str) -> str:
+    """A concrete path the route registered as *template* accepts."""
+    return re.sub(
+        r"\{\w+(?::(\w+))?\}",
+        lambda m: _SAMPLES.get(m.group(1) or "", _PLACEHOLDER),
+        template,
+    )
 
 
 class _ApiRoute(NamedTuple):
-    pattern: re.Pattern[str]
+    path: str
+    template: str
+    pattern: re.Pattern[str]  # converter-aware, so an int-only route does not shadow a literal
     methods: frozenset[str]
     admits: bool
-
-
-_PLACEHOLDER = "_sm_sample_"
-_PARAM = re.compile(r"\{[^}]*\}")
 
 
 def _api_routes(app: Any) -> list[_ApiRoute]:
     """Every ``/api`` route in dispatch order, with whether it admits tokens."""
     found: list[_ApiRoute] = []
-    for path, methods, dependant in _walk(app.routes):
-        if not path.startswith(_API_PREFIX):
+    for walked in _walk(app.routes):
+        if not walked.path.startswith(_API_PREFIX):
             continue
-        pattern, _, _ = compile_path(path)
-        admits = gate_kinds_admit_tokens(dependant_gate_kinds(dependant))
-        found.append(_ApiRoute(pattern, methods, admits))
+        pattern, _, _ = compile_path(walked.template)
+        admits = gate_kinds_admit_tokens(dependant_gate_kinds(walked.dependant))
+        found.append(_ApiRoute(walked.path, walked.template, pattern, walked.methods, admits))
     return found
 
 
 def _resolve(routes: list[_ApiRoute], declared: ApiEquivalent) -> bool | None:
     """Whether the route a request for *declared* reaches admits tokens; ``None`` if none does.
 
-    A request is dispatched to the first route (in dispatch order) whose path and method
-    match, so a declared template is resolved the same way: each ``{param}`` becomes a
-    placeholder value and the first matching route is judged. An earlier route with a
-    different template (``/api/items/{id}``) can therefore shadow a later literal one
-    (``/api/items/special``).
+    The declaration must name a registered route exactly (method and normalized path
+    template), so a typo cannot pass by matching a ``{param}`` route. Admission is then
+    judged on the route that actually dispatches a request to it: the first, in dispatch
+    order, whose converter-aware pattern and method match a concrete sample of the target.
+    An earlier route (``/api/items/{id}``) can shadow a later literal one
+    (``/api/items/special``); an ``{id:int}`` route cannot.
     """
-    sample = _PARAM.sub(_PLACEHOLDER, declared.path)
+    wanted = _normalize(declared.path)
+    target = next(
+        (r for r in routes if declared.method in r.methods and r.path == wanted),
+        None,
+    )
+    if target is None:
+        return None
+    sample = _sample(target.template)
     for route in routes:
         if declared.method in route.methods and route.pattern.match(sample):
             return route.admits
-    return None
+    return target.admits
 
 
 def _declaration_problem(declarations: list[ApiEquivalent | ApiExempt]) -> str | None:
@@ -195,7 +232,7 @@ def view_route_offenders(app: Any) -> list[str]:
     """
     api = _api_routes(app)
     offenders: list[str] = []
-    for path, methods, dependant in _walk(app.routes):
+    for path, methods, dependant, _ in _walk(app.routes):
         mutating = sorted(methods - _SAFE)
         if path.startswith(_API_PREFIX) or not mutating:
             continue

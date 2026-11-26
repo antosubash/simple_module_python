@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from _api_tokens_support import admin_session, pat_for  # ty: ignore[import-not-found]
+from _api_tokens_support import admin_pat  # ty: ignore[import-not-found]
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from simple_module_core.access.permissions import PermissionRegistry
 from simple_module_hosting.auth.host_permissions import HostPermissions
@@ -28,10 +28,6 @@ def _client(app, **headers: str) -> httpx.AsyncClient:
     )
 
 
-async def _pat(app, scopes: list[str]) -> str:
-    return await pat_for(app, await admin_session(app), scopes)
-
-
 def test_permission_is_registered_on_the_app(app):
     registry: PermissionRegistry = app.state.sm.permissions
     assert HostPermissions.OPENAPI_READ == "host.openapi.read"
@@ -45,13 +41,13 @@ async def test_anonymous_refused_even_with_openapi_public(app):
 
 
 async def test_pat_without_permission_refused(app):
-    token = await _pat(app, [PERM_FEATURE_FLAGS_VIEW])
+    token = await admin_pat(app, [PERM_FEATURE_FLAGS_VIEW])
     async with _client(app, Authorization=f"Bearer {token}") as c:
         assert (await c.get(META_OPENAPI_PATH)).status_code == 403
 
 
 async def test_pat_with_permission_gets_schema_and_revalidates(app):
-    token = await _pat(app, [HostPermissions.OPENAPI_READ])
+    token = await admin_pat(app, [HostPermissions.OPENAPI_READ])
     async with _client(app, Authorization=f"Bearer {token}") as c:
         resp = await c.get(META_OPENAPI_PATH)
         assert resp.status_code == 200, resp.text
@@ -92,7 +88,7 @@ def test_route_not_in_served_schema_and_gated(app):
 
 
 async def test_if_none_match_parsing_over_http(app):
-    token = await _pat(app, [HostPermissions.OPENAPI_READ])
+    token = await admin_pat(app, [HostPermissions.OPENAPI_READ])
     async with _client(app, Authorization=f"Bearer {token}") as c:
         etag = (await c.get(META_OPENAPI_PATH)).headers["etag"]
 

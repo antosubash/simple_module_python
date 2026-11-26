@@ -115,7 +115,13 @@ def _sync(state: AppState, env: Environment, explicit: bool) -> str:
                 raise CliError(
                     sanitize(f"schema sync failed: {exc.message}"), exit_code_for(0)
                 ) from None
-            if fetched.status == HTTP_NOT_MODIFIED and previous is not None:
+            if fetched.status == HTTP_NOT_MODIFIED:
+                if previous is None or not etag:
+                    raise CliError(
+                        "schema sync failed: the server answered 304 Not Modified "
+                        "to a request that sent no validator",
+                        exit_code_for(0),
+                    )
                 current = _cached_meta(store, env)
                 if current is None or current.fingerprint != previous.fingerprint:
                     raise SchemaCacheError("the cache changed during the sync; run it again")

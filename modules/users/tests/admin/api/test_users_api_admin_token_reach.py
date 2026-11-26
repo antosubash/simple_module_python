@@ -5,17 +5,13 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from _api_tokens_support import admin_session, bearer_client, make_admin, pat_for  # ty: ignore[import-not-found]
+from _api_tokens_support import admin_pat, bearer_client, make_admin  # ty: ignore[import-not-found]
 from _users_admin_support import _make_user
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from users.core.constants import Permissions
 from users.models import OAuthAccount
 
 _BASE = "/api/users/admin"
-
-
-async def _pat(app, scopes: list[str]) -> str:
-    return await pat_for(app, await admin_session(app), scopes)
 
 
 async def _user_with_links(app, count: int, *, admin: bool = False) -> tuple[str, list[str]]:
@@ -43,7 +39,7 @@ async def _user_with_links(app, count: int, *, admin: bool = False) -> tuple[str
 
 @pytest.mark.anyio
 async def test_manage_token_reads_user_roles_and_links(app):
-    token = await _pat(app, [Permissions.MANAGE])
+    token = await admin_pat(app, [Permissions.MANAGE])
     target, links = await _user_with_links(app, 2)
     async with bearer_client(app, token) as c:
         roles = await c.get(f"{_BASE}/roles")
@@ -61,7 +57,7 @@ async def test_manage_token_reads_user_roles_and_links(app):
 
 @pytest.mark.anyio
 async def test_unknown_user_is_404(app):
-    token = await _pat(app, [Permissions.MANAGE])
+    token = await admin_pat(app, [Permissions.MANAGE])
     async with bearer_client(app, token) as c:
         missing = str(uuid.uuid4())
         assert (await c.get(f"{_BASE}/{missing}")).status_code == 404
@@ -70,7 +66,7 @@ async def test_unknown_user_is_404(app):
 
 @pytest.mark.anyio
 async def test_token_without_scope_is_403(app):
-    token = await _pat(app, [PERM_FEATURE_FLAGS_VIEW])
+    token = await admin_pat(app, [PERM_FEATURE_FLAGS_VIEW])
     target, links = await _user_with_links(app, 1)
     async with bearer_client(app, token) as c:
         for method, url in (
@@ -85,7 +81,7 @@ async def test_token_without_scope_is_403(app):
 
 @pytest.mark.anyio
 async def test_unlink_removes_link_without_csrf(app):
-    token = await _pat(app, [Permissions.MANAGE])
+    token = await admin_pat(app, [Permissions.MANAGE])
     target, links = await _user_with_links(app, 2)
     async with bearer_client(app, token) as c:
         resp = await c.delete(f"{_BASE}/{target}/linked-sign-ins/{links[0]}")
@@ -96,7 +92,7 @@ async def test_unlink_removes_link_without_csrf(app):
 
 @pytest.mark.anyio
 async def test_unlink_other_users_link_is_404(app):
-    token = await _pat(app, [Permissions.MANAGE])
+    token = await admin_pat(app, [Permissions.MANAGE])
     target, _ = await _user_with_links(app, 1)
     _, other_links = await _user_with_links(app, 1)
     async with bearer_client(app, token) as c:
@@ -109,7 +105,7 @@ async def test_unlink_other_users_link_is_404(app):
 @pytest.mark.anyio
 async def test_unlink_keeps_privilege_guard_for_scoped_token(app):
     """A scoped token cannot unlink an administrator's sign-in, as in the view."""
-    token = await _pat(app, [Permissions.MANAGE])
+    token = await admin_pat(app, [Permissions.MANAGE])
     target, links = await _user_with_links(app, 1, admin=True)
     async with bearer_client(app, token) as c:
         resp = await c.delete(f"{_BASE}/{target}/linked-sign-ins/{links[0]}")
