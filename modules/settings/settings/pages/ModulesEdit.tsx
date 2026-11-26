@@ -6,6 +6,7 @@ import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { ArrowRight, Box, Search, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ModuleForm, type ModuleView } from '../ui/components/ModuleForm';
@@ -101,10 +102,11 @@ function ModulesEdit({ modules, testable = {} }: Props) {
             />
             <Input
               type="search"
+              aria-label={t(keys.settings.modules.search_label)}
               placeholder={t(keys.settings.modules.search_placeholder)}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="h-9 bg-card pl-9 text-[12.5px] max-lg:min-h-11 pointer-coarse:min-h-11"
+              className={`h-9 bg-card pl-9 text-[12.5px] ${TOUCH_TARGET_CLASS}`}
             />
           </div>
           <nav
@@ -131,7 +133,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                   // every row to a 5px sliver instead of scrolling.
                   className={`flex shrink-0 flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors max-lg:min-h-11 ${
                     isActive
-                      ? 'bg-primary-600/10 text-primary-700'
+                      ? 'bg-primary-600/10 text-primary-text'
                       : 'text-foreground hover:bg-card'
                   }`}
                 >
@@ -141,7 +143,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                     {m.package}
                   </code>
                   <span
-                    className={`text-[11.5px] max-lg:text-xs ${isActive ? 'opacity-75' : 'text-muted-foreground'}`}
+                    className={`text-[11.5px] max-lg:text-xs ${isActive ? '' : 'text-muted-foreground'}`}
                   >
                     {t(keys.settings.modules.field_count, { count: m.fields.length })}
                     {overridden > 0 && (
@@ -163,7 +165,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           <div className="mt-auto border-t border-border pt-3.5 max-lg:mt-3.5">
             <a
               href={ROUTES.browse}
-              className="inline-flex items-center text-[12.5px] font-medium text-primary-700 hover:text-primary-800 max-lg:min-h-11 pointer-coarse:min-h-11"
+              className={`inline-flex items-center text-[12.5px] font-medium text-primary-text hover:text-primary-text-hover ${TOUCH_TARGET_CLASS}`}
             >
               {t(keys.settings.modules.browse_free_form_link)}
             </a>
@@ -187,7 +189,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
               {/* No second editor for these fields — the module's own page is
                   the one place they're edited. */}
               <div className="flex max-w-xl flex-col items-start gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600/10 text-primary-text">
                   <Box className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <h2 className="text-lg font-semibold text-foreground">

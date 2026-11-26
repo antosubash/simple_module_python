@@ -47,7 +47,7 @@ export function FieldSource({
   // still an override someone has to be able to remove.
   if (field.db_override) {
     return (
-      <span className="text-[11.5px] max-lg:text-xs font-medium text-primary-700">
+      <span className="text-[11.5px] max-lg:text-xs font-medium text-primary-text">
         {field.env_set
           ? t(keys.settings.modules.source_db_ignored_for_env)
           : t(keys.settings.modules.source_db)}

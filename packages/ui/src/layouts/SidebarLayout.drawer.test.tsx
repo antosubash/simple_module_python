@@ -1,14 +1,17 @@
+import { http } from '@inertiajs/core';
+import { router } from '@inertiajs/react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@inertiajs/react', () => ({
+vi.mock('@inertiajs/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@inertiajs/react')>()),
   usePage: () => ({
     url: '/admin/settings',
     props: {
       menus: {
         adminSidebar: [
-          { label: 'One', url: '/admin/one' },
-          { label: 'Two', url: '/admin/two' },
+          { label: 'One', url: '/admin/one', icon: 'settings' },
+          { label: 'Two', url: '/admin/two', icon: 'settings' },
         ],
       },
     },
@@ -47,13 +50,6 @@ vi.mock('../components/LocaleSwitcher', () => ({
   useHasMultipleLocales: () => false,
 }));
 vi.mock('./SidebarUserMenu', () => ({ SidebarUserMenu: () => null }));
-vi.mock('./MobileBar', () => ({
-  MobileBar: ({ onOpen }: { onOpen: () => void }) => (
-    <button type="button" onClick={onOpen}>
-      open
-    </button>
-  ),
-}));
 
 import { AdminLayout } from './AdminLayout';
 
@@ -176,4 +172,114 @@ describe('SidebarLayout closed drawer accessibility (#638)', () => {
       vi.unstubAllGlobals();
     }
   });
+});
+
+it.each(['/admin', '/admin/settings/', '/admin/settings/store', '/admin/feature-flags/'])(
+  'closes the persistent drawer after history navigation to %s',
+  (url) => {
+    const trigger = setup();
+    act(() => {
+      document.dispatchEvent(
+        new CustomEvent('inertia:navigate', { detail: { page: { url }, type: 'history' } }),
+      );
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    // History entries can share a URL; a URL dependency alone misses these.
+    fireEvent.click(trigger);
+    act(() => {
+      document.dispatchEvent(
+        new CustomEvent('inertia:navigate', { detail: { page: { url }, type: 'history' } }),
+      );
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  },
+);
+
+it('reports the drawer state and identifies the controlled sidebar', () => {
+  const trigger = setup();
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  expect(trigger).toHaveAttribute('aria-controls', screen.getByRole('dialog').id);
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+});
+
+it('keeps Back to app outside the scrolling navigation', () => {
+  setup();
+  const back = screen.getByRole('link', { name: 'back_to_app' });
+  expect(screen.getByRole('navigation')).not.toContainElement(back);
+  expect(back.parentElement?.parentElement?.parentElement).toHaveClass('shrink-0');
+});
+
+it('closes real same-URL and replacement visits but preserves background updates', async () => {
+  window.history.replaceState({}, '', '/admin/settings');
+  const page = {
+    component: 'Settings/ModulesEdit',
+    props: { errors: {} },
+    url: '/admin/settings',
+    version: null,
+    flash: {},
+    rescuedProps: [],
+  };
+  const initial = new Promise<void>((resolve) => router.once('navigate', () => resolve()));
+  router.init({ initialPage: page, resolveComponent: () => ({}), swapComponent: async () => {} });
+  await initial;
+  const request = vi.spyOn(http.getClient(), 'request').mockImplementation(async (config) => ({
+    status: 200,
+    data: { ...page, url: new URL(config.url).pathname + new URL(config.url).search },
+    headers: { 'x-inertia': 'true' },
+  }));
+  const trigger = setup();
+  try {
+    const stopGuard = router.on('before', () => false);
+    try {
+      await act(async () => router.visit('/admin'));
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    } finally {
+      stopGuard();
+    }
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.reload({ only: ['modules'], data: { module: 'users' }, onFinish: () => resolve() }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.replace({
+          url: '/admin/settings?module=users',
+          preserveState: true,
+          onFinish: () => resolve(),
+        }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await act(async () => {
+      router.prefetch('/admin');
+      await vi.waitFor(() => expect(router.getCached('/admin')).toMatchObject({ inFlight: false }));
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.visit('/admin', { replace: true, onFinish: () => resolve() }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    await act(async () => {
+      await new Promise<void>((resolve) => router.visit('/admin', { onFinish: () => resolve() }));
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        router.push({ url: '/admin/users', onFinish: () => resolve() }),
+      );
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  } finally {
+    request.mockRestore();
+    router.cancelAll();
+    router.flushAll();
+  }
 });

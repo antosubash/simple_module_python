@@ -4,6 +4,7 @@ import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { type Role, RolePicker } from './RolePicker';
 
 interface Props {
@@ -42,7 +43,7 @@ export function DetailsCard({
   return (
     <Card className="border-border">
       <CardContent className="pt-5">
-        <SectionTitle>{t(keys.users.details_card.title)}</SectionTitle>
+        <SectionTitle as="h2">{t(keys.users.details_card.title)}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="edit-full-name" className="text-sm font-medium text-muted-foreground">
@@ -78,7 +79,7 @@ export function DetailsCard({
             {hasPermissionsModule && (
               <Link
                 href={`/admin/permissions/users/${userId}/edit`}
-                className="text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400"
+                className={`inline-flex items-center ${TOUCH_TARGET_CLASS} text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400`}
               >
                 {t(keys.users.roles_card.manage_permissions)}
               </Link>

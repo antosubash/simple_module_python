@@ -11,9 +11,7 @@ const visit = vi.hoisted(() => vi.fn());
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
-  Link: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
+  Link: ({ children, ...props }: React.ComponentProps<'a'>) => <a {...props}>{children}</a>,
   router: { post, visit },
   usePage: () => ({ props: state.props }),
 }));
@@ -192,4 +190,24 @@ describe('feature_flags Browse', () => {
     fireEvent.click(go);
     expect(visit).toHaveBeenCalledWith('/admin/feature-flags/?tenant_id=new-co');
   });
+});
+
+it('keeps descriptions out of the tablet column budget (#1184)', () => {
+  setProps();
+  render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
+  expect(screen.getByRole('columnheader', { name: table.description })).toHaveClass(
+    'hidden',
+    'lg:table-cell',
+  );
+  expect(screen.getByText('New search').closest('td')).toHaveClass('hidden', 'lg:table-cell');
+  expect(screen.getByRole('switch', { name: 'beta_search' })).toBeInTheDocument();
+});
+
+it('gives the history link a narrow/coarse touch target (#1184)', () => {
+  setProps({ audit_log_url: '/admin/audit-log/' });
+  render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
+  expect(screen.getByRole('link', { name: browse.view_history })).toHaveClass(
+    'max-lg:min-h-11',
+    'pointer-coarse:min-h-11',
+  );
 });

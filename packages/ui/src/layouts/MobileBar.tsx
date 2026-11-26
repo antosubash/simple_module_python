@@ -15,6 +15,8 @@ interface MobileBarProps {
   currentUrl: string;
   user?: { name: string; email: string } | null;
   onOpen: () => void;
+  sidebarOpen: boolean;
+  sidebarId: string;
 }
 
 // 44px is the phone hit-target floor; the bar itself is 56px, so the controls
@@ -53,6 +55,8 @@ export function MobileBar({
   currentUrl,
   user,
   onOpen,
+  sidebarOpen,
+  sidebarId,
 }: MobileBarProps): React.ReactElement {
   const { t } = useT();
   const chrome = usePageChrome(currentUrl);
@@ -75,6 +79,8 @@ export function MobileBar({
           variant="ghost"
           size="icon-sm"
           onClick={onOpen}
+          aria-expanded={sidebarOpen}
+          aria-controls={sidebarId}
           aria-label={t(keys.ui.sidebar.open)}
           className={`${TAP} -ml-2 text-sidebar-icon hover:bg-white/10 hover:text-white ${SIDEBAR_ICON_FOCUS}`}
         >

@@ -7,6 +7,7 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import type React from 'react';
 import { FormLevelError } from '../ui/components/FormLevelError';
 import ValueInput from '../ui/components/ValueInput';
@@ -102,7 +103,7 @@ function Edit({ setting }: Props) {
                 <Button asChild variant="outline">
                   <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
                 </Button>
-                <Button type="submit" disabled={processing}>
+                <Button type="submit" disabled={processing} className={TOUCH_TARGET_CLASS}>
                   {t(keys.settings.edit.submit_button)}
                 </Button>
               </div>

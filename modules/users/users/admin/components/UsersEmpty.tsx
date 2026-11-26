@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { Plus, UserPlus, Users } from 'lucide-react';
 
 const ADD_PEOPLE_URL = '/admin/users/add';
@@ -9,7 +10,7 @@ const ADD_PEOPLE_URL = '/admin/users/add';
 function AddPeopleAction() {
   const { t } = useT();
   return (
-    <Button asChild className="gap-1.5">
+    <Button asChild className={`gap-1.5 ${TOUCH_TARGET_CLASS}`}>
       <Link href={ADD_PEOPLE_URL}>
         <Plus className="h-4 w-4" />
         {t(keys.users.empty.add_people)}
