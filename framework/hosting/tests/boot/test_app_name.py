@@ -141,3 +141,23 @@ async def test_branding_override_and_reset_preserve_code_default(settings, isola
         )
     finally:
         await app.state.sm.db.engine.dispose()
+
+
+async def test_multiline_api_title_is_safe_in_mail_subjects(
+    settings, isolated_host_root, captured_mail
+):
+    from users.core.settings import UsersSettings
+    from users.core.startup import _build_mailer
+
+    settings = settings.model_copy(
+        update={"modules_enabled": [], "multi_tenant": False, "api_title": "Acme\nAPI"}
+    )
+    app = create_app(settings)
+    try:
+        users = SimpleNamespace(settings=UsersSettings(base_url="https://example.org"))
+        app.state.users = users
+        _build_mailer(app, users, users.settings)
+        await users.mailer.send_password_reset("person@example.org", "token")
+        assert captured_mail.messages[-1].subject == "Reset your Acme API password"
+    finally:
+        await app.state.sm.db.engine.dispose()
