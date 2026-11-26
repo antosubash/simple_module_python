@@ -6,7 +6,7 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { formatDayMonthTime, formatDayMonthYear } from '@simple-module-py/ui/lib/date-format';
 import { Copy, KeyRound, UserX } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 interface Props {
   email: string;
@@ -74,6 +74,8 @@ export function AccountCard({
 }: Props) {
   const { t } = useT();
   const [confirming, setConfirming] = useState<'disable' | 'reset' | null>(null);
+  const disableOpener = useRef<HTMLButtonElement>(null);
+  const resetOpener = useRef<HTMLButtonElement>(null);
   const emptyValue = t(keys.users.common.empty_value);
 
   return (
@@ -139,6 +141,7 @@ export function AccountCard({
         <div className="mt-auto flex flex-wrap gap-2 pt-5">
           {isActive ? (
             <Button
+              ref={disableOpener}
               variant="outline"
               className="max-lg:min-h-11"
               disabled={savingStatus}
@@ -157,6 +160,7 @@ export function AccountCard({
           )}
           {!isExternal && (
             <Button
+              ref={resetOpener}
               variant="outline"
               className="gap-1.5 text-muted-foreground max-lg:min-h-11"
               onClick={() => setConfirming('reset')}
@@ -176,6 +180,10 @@ export function AccountCard({
       <ConfirmActionDialog
         open={confirming === 'disable'}
         onOpenChange={(open) => !open && setConfirming(null)}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          disableOpener.current?.focus();
+        }}
         icon={UserX}
         title={t(keys.users.account_status.disable_confirm_title, { email })}
         description={t(keys.users.account_status.disable_confirm_body)}
@@ -186,6 +194,10 @@ export function AccountCard({
       <ConfirmActionDialog
         open={confirming === 'reset'}
         onOpenChange={(open) => !open && setConfirming(null)}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          resetOpener.current?.focus();
+        }}
         tone="primary"
         icon={KeyRound}
         title={t(keys.users.account_status.reset_confirm_title, { email })}

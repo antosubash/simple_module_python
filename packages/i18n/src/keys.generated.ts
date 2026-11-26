@@ -1039,6 +1039,7 @@ export const keys = {
       managed_description: 'settings.modules.managed_description',
       managed_open: 'settings.modules.managed_open',
       managed_title: 'settings.modules.managed_title',
+      navigation_label: 'settings.modules.navigation_label',
       no_fields: 'settings.modules.no_fields',
       no_results: 'settings.modules.no_results',
       overridden_count: 'settings.modules.overridden_count',
@@ -1077,6 +1078,7 @@ export const keys = {
       option_on: 'settings.modules_form.option_on',
       requires_restart: 'settings.modules_form.requires_restart',
       reset_to_default: 'settings.modules_form.reset_to_default',
+      revert_field: 'settings.modules_form.revert_field',
       save: 'settings.modules_form.save',
       save_failed: 'settings.modules_form.save_failed',
       saved_toast: 'settings.modules_form.saved_toast',
@@ -1408,6 +1410,9 @@ export const keys = {
     },
     nav: {
       admin: 'ui.nav.admin',
+      breadcrumb: 'ui.nav.breadcrumb',
+      footer: 'ui.nav.footer',
+      sidebar: 'ui.nav.sidebar',
     },
     nav_groups: {
       access: 'ui.nav_groups.access',

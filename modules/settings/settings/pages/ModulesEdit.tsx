@@ -104,10 +104,13 @@ function ModulesEdit({ modules, testable = {} }: Props) {
               placeholder={t(keys.settings.modules.search_placeholder)}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="h-9 bg-card pl-9 text-[12.5px]"
+              className="h-9 bg-card pl-9 text-[12.5px] max-lg:min-h-11 pointer-coarse:min-h-11"
             />
           </div>
-          <nav className="flex flex-col gap-1 overflow-y-auto">
+          <nav
+            aria-label={t(keys.settings.modules.navigation_label)}
+            className="flex flex-col gap-1 overflow-y-auto"
+          >
             {filtered.map((m) => {
               const isActive = m.package === selected;
               const overridden = m.fields.filter((f) => f.db_override).length;
@@ -138,7 +141,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                     {m.package}
                   </code>
                   <span
-                    className={`text-[11.5px] ${isActive ? 'opacity-75' : 'text-muted-foreground'}`}
+                    className={`text-[11.5px] max-lg:text-xs ${isActive ? 'opacity-75' : 'text-muted-foreground'}`}
                   >
                     {t(keys.settings.modules.field_count, { count: m.fields.length })}
                     {overridden > 0 && (
@@ -160,7 +163,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           <div className="mt-auto border-t border-border pt-3.5 max-lg:mt-3.5">
             <a
               href={ROUTES.browse}
-              className="text-[12.5px] font-medium text-primary-700 hover:text-primary-800"
+              className="inline-flex items-center text-[12.5px] font-medium text-primary-700 hover:text-primary-800 max-lg:min-h-11 pointer-coarse:min-h-11"
             >
               {t(keys.settings.modules.browse_free_form_link)}
             </a>
@@ -169,7 +172,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
 
         {/* `pb-10` rather than a fade: the fields list ends on a full row with
             breathing room under it, not half a row cut off by the pane edge. */}
-        <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:px-8 lg:pb-10">
+        <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:px-8 lg:pb-10">
           {/* One h1 per screen (#422); the selected module's own heading in
               ModuleForm is an h2 beneath it. */}
           <h1
@@ -211,7 +214,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           ) : (
             <p className="text-muted-foreground">{t(keys.settings.modules.empty_title)}</p>
           )}
-        </main>
+        </div>
       </div>
       <ConfirmActionDialog
         open={pending !== undefined}

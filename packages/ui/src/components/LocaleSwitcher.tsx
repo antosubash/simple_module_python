@@ -29,7 +29,7 @@ const LOCALE_LABELS: Record<string, string> = {
 // which an icon cannot, and it stays legible on the phone drawer's dark
 // surface as well as the topbar's card.
 const PILL =
-  'inline-flex items-center justify-center rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground';
+  'inline-flex items-center justify-center rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground max-lg:min-h-11 max-lg:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11';
 
 interface I18nSharedProps {
   locale: string;

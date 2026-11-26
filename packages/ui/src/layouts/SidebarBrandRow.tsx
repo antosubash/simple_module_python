@@ -36,7 +36,10 @@ export function SidebarBrandRow({
       >
         <X aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
       </Button>
-      <Link href={homeUrl} className="flex items-center gap-2.5 group">
+      <Link
+        href={homeUrl}
+        className="flex items-center gap-2.5 group max-lg:min-h-11 pointer-coarse:min-h-11"
+      >
         <BrandingMark
           appName={appName}
           logoUrl={logoUrl}

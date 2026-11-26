@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import {
   Tooltip,
   TooltipContent,
@@ -12,7 +13,7 @@ import type { SidebarTheme } from './sidebar-theme';
 
 // Phones get 44px rows; the desktop sidebar keeps the deck's tighter 40px.
 const NAV_ROW =
-  'flex items-center gap-3 min-h-11 lg:min-h-0 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150';
+  'flex items-center gap-3 min-h-11 lg:min-h-0 pointer-coarse:min-h-11 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150';
 
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
@@ -52,8 +53,9 @@ export function SidebarNav({
   onNavigate,
   children,
 }: SidebarNavProps) {
+  const { t } = useT();
   return (
-    <nav className="flex-1 px-3 py-4 overflow-y-auto">
+    <nav aria-label={t(keys.ui.nav.sidebar)} className="flex-1 px-3 py-4 overflow-y-auto">
       {groupMenuItems(menuItems).map((group, groupIndex) => (
         <div
           key={group.group || `__ungrouped_${groupIndex}`}
@@ -61,7 +63,7 @@ export function SidebarNav({
         >
           {group.group && (
             <div
-              className={`px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.09em] ${theme.mutedTextClass}`}
+              className={`px-3 pb-1.5 text-[11px] max-lg:text-xs font-bold uppercase tracking-[0.09em] ${theme.mutedTextClass}`}
             >
               {group.group}
             </div>
@@ -94,7 +96,7 @@ export function SidebarNav({
       {showAdminLink && (
         <AdminSectionLink
           adminItems={adminItems}
-          className={`min-h-11 lg:min-h-0 ${theme.inactiveClass}`}
+          className={`min-h-11 lg:min-h-0 pointer-coarse:min-h-11 ${theme.inactiveClass}`}
           onNavigate={onNavigate}
         />
       )}

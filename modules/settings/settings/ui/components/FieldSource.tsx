@@ -47,12 +47,17 @@ export function FieldSource({
   // still an override someone has to be able to remove.
   if (field.db_override) {
     return (
-      <span className="text-[11.5px] font-medium text-primary-700">
+      <span className="text-[11.5px] max-lg:text-xs font-medium text-primary-700">
         {field.env_set
           ? t(keys.settings.modules.source_db_ignored_for_env)
           : t(keys.settings.modules.source_db)}
         <span aria-hidden="true"> · </span>
-        <button type="button" onClick={onReset} className="font-medium hover:underline">
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label={t(keys.settings.modules_form.revert_field, { field: field.name })}
+          className="font-medium hover:underline max-lg:min-h-11 max-lg:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+        >
           {t(keys.settings.modules_form.reset_to_default)}
         </button>
       </span>
@@ -61,7 +66,7 @@ export function FieldSource({
 
   if (field.is_secret) {
     return (
-      <span className="text-[11.5px] text-muted-foreground">
+      <span className="text-[11.5px] max-lg:text-xs text-muted-foreground">
         {t(keys.settings.modules.secret_write_only)}
       </span>
     );
@@ -71,7 +76,7 @@ export function FieldSource({
   // currently means does.
   if (sourceShowsDescription(field)) {
     return (
-      <span id={descriptionId} className="text-[11.5px] text-muted-foreground">
+      <span id={descriptionId} className="text-[11.5px] max-lg:text-xs text-muted-foreground">
         {field.description}
       </span>
     );
@@ -85,7 +90,7 @@ export function FieldSource({
     // break at, and as an unbreakable token it would set the column's minimum
     // width; `overflow-wrap:anywhere` lets it break inside the identifier.
     <span
-      className="block [overflow-wrap:anywhere] font-mono text-[11.5px] leading-snug text-muted-foreground"
+      className="block [overflow-wrap:anywhere] font-mono text-[11.5px] max-lg:text-xs leading-snug text-muted-foreground"
       title={
         field.env_readable
           ? t(keys.settings.modules.env_var_hint)

@@ -58,13 +58,13 @@ export function ModuleFieldRow({
         {showDescription && (
           <p
             id={descriptionId}
-            className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground"
+            className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] max-lg:text-xs leading-snug text-muted-foreground"
           >
             {field.description}
           </p>
         )}
         {field.requires_restart && modified && (
-          <span className="mt-1 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-700">
+          <span className="mt-1 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] max-lg:text-xs uppercase tracking-wide text-amber-700">
             {t(keys.settings.modules_form.requires_restart)}
           </span>
         )}

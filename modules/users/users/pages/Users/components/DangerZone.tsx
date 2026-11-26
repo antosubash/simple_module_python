@@ -5,7 +5,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Trash2, TriangleAlert } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { adminFailureMessage } from '../../../ui/utils/failureMessage';
 import { api } from '../../api.generated';
@@ -31,6 +31,7 @@ export function DangerZone({ userId, email, isSelf }: Props) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
 
   const handleDelete = () => {
     setDeleting(true);
@@ -72,6 +73,7 @@ export function DangerZone({ userId, email, isSelf }: Props) {
               says deletion is blocked there, and a button that simply is not
               on the page leaves that sentence unexplained. */}
           <Button
+            ref={opener}
             variant="outline"
             disabled={isSelf || deleting}
             onClick={() => setOpen(true)}
@@ -95,6 +97,10 @@ export function DangerZone({ userId, email, isSelf }: Props) {
         // click, and the dialog vanishing mid-delete looks like it worked.
         open={open || deleting}
         onOpenChange={(next) => !deleting && setOpen(next)}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          opener.current?.focus();
+        }}
         // The deck's confirm tile is a warning triangle, not a bin: the
         // dialog is the moment to stop, and the bin is on the button below.
         icon={TriangleAlert}
