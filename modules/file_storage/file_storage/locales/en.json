@@ -169,7 +169,7 @@
       },
       "public_files_cors": {
         "label": "Allow cross-origin reads of public files",
-        "help": "Lets pages on other sites embed or read public files. Applies immediately."
+        "help": "Lets pages on other sites embed or read public files served by the app. Files redirected to S3 also need CORS configured on the bucket. Applies immediately."
       },
       "direct_upload_threshold_bytes": {
         "label": "Resumable upload threshold (bytes)",

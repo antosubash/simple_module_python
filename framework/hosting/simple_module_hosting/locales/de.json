@@ -103,7 +103,7 @@
       },
       "session_cookie_secure": {
         "label": "Sichere Sitzungs-Cookies",
-        "help": "Sitzungs-Cookies nur über HTTPS senden. Nicht gesetzt bedeutet an, außer bei lokaler Entwicklung."
+        "help": "Sitzungs-Cookies nur über HTTPS senden. Nicht gesetzt bedeutet an, außer in Entwicklungs- und Testumgebungen."
       },
       "login_redirect_url": {
         "label": "Seite nach der Anmeldung",
@@ -131,7 +131,7 @@
       },
       "rate_limit_authenticated": {
         "label": "Limit für angemeldete Benutzer",
-        "help": "Optionales Anfragelimit pro Adresse für angemeldete Benutzer im gleichen Format. Leer lassen für keine Begrenzung."
+        "help": "Optionales Anfragelimit für angemeldete Benutzer im selben Format. Gezählt pro Benutzer, oder pro Adresse, wenn kein Benutzer bekannt ist. Leer lassen für kein Limit."
       },
       "forwarded_host_allowlist": {
         "label": "Erlaubte weitergeleitete Hosts",

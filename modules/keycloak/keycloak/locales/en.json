@@ -52,7 +52,7 @@
       },
       "jwks_cache_ttl_seconds": {
         "label": "Signing key cache lifetime (seconds)",
-        "help": "How long Keycloak's signing keys are cached before being fetched again. 0 disables caching."
+        "help": "How long Keycloak's signing keys are reused before being fetched again. With 0 they are refetched on demand, at most every 30 seconds, and the last good set is kept if a fetch fails."
       },
       "role_mapping": {
         "label": "Role mapping",

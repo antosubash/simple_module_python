@@ -286,7 +286,7 @@
       },
       "db_recycle": {
         "label": "Wiederverwendungsdauer von Verbindungen (Sekunden)",
-        "help": "Ältere Verbindungen werden ersetzt. 0 ersetzt sie nie."
+        "help": "Verbindungen, die älter als diese Anzahl Sekunden sind, werden bei der nächsten Nutzung ersetzt. 0 ersetzt eine Verbindung bei jeder Entnahme aus dem Pool."
       },
       "db_statement_timeout_ms": {
         "label": "Statement-Zeitlimit (ms)",

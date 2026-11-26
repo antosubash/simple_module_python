@@ -95,11 +95,15 @@ describe('translated editor', () => {
     expect(screen.getByText('Default: saved.example')).toBeVisible();
     expect(screen.getByText('1 unsaved change')).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    const discard = screen.getByRole('button', { name: 'Discard' });
+    discard.focus();
+    fireEvent.click(discard);
     expect(input).toHaveValue('saved.example');
     expect(screen.queryByText('Unsaved')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
+    // The focused Discard button unmounted; focus lands on the module heading.
+    expect(screen.getByRole('heading', { level: 2, name: 'Mail' })).toHaveFocus();
   });
 });
 
@@ -128,9 +132,15 @@ describe('source badge', () => {
     expect(screen.getByText(badge)).toBeVisible();
   });
 
-  test('names the env var only when the environment supplies the value', () => {
-    source({ env_set: true });
+  test('names the env var only when that exact variable supplies the value', () => {
+    source({ env_set: true, env_source_var: 'SM_MAIL_SMTP_HOST' });
     expect(screen.getByText('SM_MAIL_SMTP_HOST')).toBeVisible();
+  });
+
+  test('an env value from another variable gets the badge but no name', () => {
+    source({ env_set: true });
+    expect(screen.getByText('Set by environment')).toBeVisible();
+    expect(screen.queryByText('SM_MAIL_SMTP_HOST')).not.toBeInTheDocument();
   });
 
   test('a DB-only field never shows its env var label', () => {

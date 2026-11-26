@@ -208,7 +208,8 @@ secret helpers; the deprecated root import paths were removed in #989.
 
 ### Labels and help in the settings editor
 
-The admin editor (`/admin/settings/`) never shows a field's Python name. It
+The admin editor (`/admin/settings/`) labels fields with translated text, not
+their Python names (the identifier stays available as the label's tooltip). It
 reads a `settings_form` section from the module's `locales/<lang>.json`:
 
 ```json
@@ -236,11 +237,14 @@ reads a `settings_form` section from the module's `locales/<lang>.json`:
   `demo_account`).
 - `choices` labels the values of a select (`Literal[...]`, a `choices` list or
   an alternation `pattern`); a value that is not a plain token is shown as is.
-- Without a key the editor falls back to `Field(title=...)` /
-  `Field(description=...)`, then to a humanised name (`smtp_tls_mode` →
-  "SMTP TLS mode"). Bundled modules must ship every key:
+- Without a key, a label falls back to `Field(title=...)`, then to a
+  humanised name (`smtp_tls_mode` → "SMTP TLS mode"); help falls back to
+  `Field(description=...)` and is omitted when that is empty too.
+- For bundled modules,
   `modules/settings/tests/module_settings/fields/test_settings_field_translations.py`
-  fails otherwise.
+  requires `title`, every field `label`, every declared group and every
+  plain-token choice in `en.json`; `help` and `description` are not checked.
+  The i18n lint keeps the other locales in step with English.
 - Host settings (`HostSettings`) take their text from the framework's
   `hosting` catalog; an app can override any of it under
   `host.settings_form.*` in `host/locales/`.

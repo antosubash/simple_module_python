@@ -61,7 +61,7 @@ test('rows bound their tracks and wrap identifiers without viewport breakpoints'
 test('an env-supplied field names its env var and lets it wrap', () => {
   render(
     <ModuleFieldRow
-      field={{ ...field, env_set: true }}
+      field={{ ...field, env_set: true, env_source_var: field.env_var }}
       package="file_storage"
       value=""
       modified={false}

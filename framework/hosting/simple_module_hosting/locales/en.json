@@ -103,7 +103,7 @@
       },
       "session_cookie_secure": {
         "label": "Secure session cookies",
-        "help": "Send session cookies over HTTPS only. Leave unset to turn it on everywhere except local development."
+        "help": "Send session cookies over HTTPS only. Leave unset to turn it on everywhere except development and test environments."
       },
       "login_redirect_url": {
         "label": "Page after sign-in",
@@ -131,7 +131,7 @@
       },
       "rate_limit_authenticated": {
         "label": "Signed-in rate limit",
-        "help": "Optional request limit per address for signed-in users, in the same format. Leave blank for no limit."
+        "help": "Optional request limit for signed-in users, in the same format. Counted per user, or per address when no user is known. Leave blank for no limit."
       },
       "forwarded_host_allowlist": {
         "label": "Allowed forwarded hosts",

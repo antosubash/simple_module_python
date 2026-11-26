@@ -44,7 +44,7 @@ export function ModuleNav({ modules, filtered, titles, selected, query, onQuery,
           <SelectTrigger
             ref={trigger}
             id={selectId}
-            className="h-12 w-full text-[15px] font-semibold"
+            className="w-full text-[15px] font-semibold data-[size=default]:h-12"
           >
             <SelectValue />
           </SelectTrigger>

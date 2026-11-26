@@ -49,12 +49,16 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
   // Bumped after each successful save so secret editors remount masked.
   const [savedGeneration, setSavedGeneration] = useState(0);
   const fieldsRef = useRef<HTMLDivElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const focusFirstError = useRef(false);
 
   useEffect(() => {
     if (!focusFirstError.current) return;
     focusFirstError.current = false;
-    fieldsRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    const invalid = fieldsRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    invalid?.focus();
+    // Centre it so the sticky save bar cannot cover the field or its error.
+    invalid?.scrollIntoView?.({ block: 'center' });
   }, [errors]);
 
   // Refresh saved values without discarding drafts in other fields (#637).
@@ -197,12 +201,21 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
     setSaved(false);
     // Secret editors remount masked rather than keep a half-typed value.
     setSavedGeneration((n) => n + 1);
+    // Discard unmounts the focused button; land on the module heading instead
+    // of dropping focus to the page.
+    heading.current?.focus();
   }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5">
       <header>
-        <h2 className="font-display text-2xl font-bold tracking-tight">{text.title()}</h2>
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="font-display text-2xl font-bold tracking-tight focus:outline-none"
+        >
+          {text.title()}
+        </h2>
         {description && (
           <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p>
         )}
@@ -223,8 +236,9 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
       )}
 
       {/* No inner scroller: the cards grow and the page scrolls, which is one
-          scrollbar for the screen instead of nested ones. */}
-      <div ref={fieldsRef} className="flex flex-col gap-5">
+          scrollbar for the screen instead of nested ones. The scroll margin
+          keeps a field tabbed into view clear of the sticky save bar. */}
+      <div ref={fieldsRef} className="flex flex-col gap-5 [&_*]:scroll-mb-28">
         {groups.map(([group, fields]) => (
           <Card
             key={group}

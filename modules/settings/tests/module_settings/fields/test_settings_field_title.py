@@ -20,3 +20,22 @@ def test_title_is_serialized_and_absent_title_is_none():
     view = ModuleSettingsView("Example", "example", "", "ExampleSettings", fields)
     result = serialize([view])[0]["fields"]
     assert [field["title"] for field in result] == ["Mail server", None]
+
+
+def test_env_source_var_names_only_a_variable_that_is_set(monkeypatch):
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class EnvSettings(BaseSettings):
+        model_config = SettingsConfigDict(env_prefix="SM_DEMOX_")
+        host: str = ""
+        broker: str = ""
+
+    monkeypatch.setenv("SM_DEMOX_HOST", "mail.example")
+    settings = EnvSettings()
+    # ``broker`` reported env-supplied without its own variable, as when a
+    # shared SM_REDIS_URL feeds it: the badge must not name SM_DEMOX_BROKER.
+    supplied = frozenset({"host", "broker"})
+    host = _field_view("host", settings, "SM_DEMOX_", env_supplied=supplied)
+    broker = _field_view("broker", settings, "SM_DEMOX_", env_supplied=supplied)
+    assert host.env_source_var == "SM_DEMOX_HOST"
+    assert broker.env_set and broker.env_source_var is None

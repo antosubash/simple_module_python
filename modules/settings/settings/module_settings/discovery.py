@@ -84,6 +84,13 @@ class ModuleSettingField:
     control: str | None = None
     """Optional frontend renderer registered under this name."""
     title: str | None = None
+    env_source_var: str | None = None
+    """The env var that supplies the value, when that exact variable is set.
+
+    ``None`` when the value comes from elsewhere in the environment (a shared
+    ``SM_REDIS_URL`` feeding the Celery broker, a ``.env`` or secrets file), so
+    the editor never names a variable nobody set.
+    """
     """``Field(title=...)``: the label when no ``settings_form`` locale key exists."""
 
     @property
@@ -195,6 +202,7 @@ def _field_view(
         nullable=nullable,
         control=control if isinstance(control := extra.get("control"), str) else None,
         title=info.title or None,
+        env_source_var=live_env_var if raw_env is not None else None,
     )
 
 

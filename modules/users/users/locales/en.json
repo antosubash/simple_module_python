@@ -559,11 +559,11 @@
       },
       "demo_admin_password": {
         "label": "Demo admin password",
-        "help": "Leave blank so the account can only be reached through its button. Set one only if you publish the credentials."
+        "help": "Password for a new demo account; blank gives it a random one, so it is only reachable through its button. Clearing it later keeps the existing password. Set one only if you publish the credentials."
       },
       "demo_user_password": {
         "label": "Demo user password",
-        "help": "Leave blank so the account can only be reached through its button. Set one only if you publish the credentials."
+        "help": "Password for a new demo account; blank gives it a random one, so it is only reachable through its button. Clearing it later keeps the existing password. Set one only if you publish the credentials."
       },
       "demo_read_only": {
         "label": "Read-only demo sessions",

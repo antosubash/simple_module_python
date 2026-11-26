@@ -286,7 +286,7 @@
       },
       "db_recycle": {
         "label": "Connection recycle time (seconds)",
-        "help": "Connections older than this are replaced. 0 never recycles them."
+        "help": "Connections older than this many seconds are replaced when next used. 0 replaces a connection every time it is taken from the pool."
       },
       "db_statement_timeout_ms": {
         "label": "Statement timeout (ms)",

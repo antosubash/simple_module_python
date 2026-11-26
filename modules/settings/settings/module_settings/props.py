@@ -38,6 +38,7 @@ def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
                     "value": jsonable_encoder(f.value),
                     "default": jsonable_encoder(f.default),
                     "title": f.title,
+                    "env_source_var": f.env_source_var,
                     "description": f.description,
                     "is_secret": f.is_secret,
                     "type": f.type,

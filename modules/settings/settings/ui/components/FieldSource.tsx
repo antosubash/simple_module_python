@@ -1,5 +1,6 @@
 import { keys, type TranslationKey, useT } from '@simple-module-py/i18n';
-import type { ReactNode } from 'react';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import type { FieldMeta } from './FieldInput';
 
 function isBlank(value: unknown): boolean {
@@ -17,16 +18,6 @@ const TONES: Record<Tone, string> = {
   primary: 'bg-primary-600/10 text-primary-700 dark:text-primary-300',
   amber: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300',
 };
-
-function Badge({ tone, children }: { tone: Tone; children: ReactNode }) {
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold ${TONES[tone]}`}
-    >
-      {children}
-    </span>
-  );
-}
 
 /** First match wins: an unsaved edit, then env (which beats a stored row), then the stored row. */
 function source(field: FieldMeta, modified: boolean): [Tone, TranslationKey] {
@@ -75,13 +66,15 @@ export function FieldSource({
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      <Badge tone={tone}>{t(sourceKey)}</Badge>
-      {field.env_set && (
+      <Badge variant="secondary" className={cn('font-semibold', TONES[tone])}>
+        {t(sourceKey)}
+      </Badge>
+      {field.env_source_var && (
         <code
           className="min-w-0 [overflow-wrap:anywhere] font-mono text-[11px] text-muted-foreground"
           title={t(keys.settings.modules.env_var_hint)}
         >
-          {field.env_var}
+          {field.env_source_var}
         </code>
       )}
       {showDefault && (

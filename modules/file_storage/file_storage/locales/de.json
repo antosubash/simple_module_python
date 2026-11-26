@@ -169,7 +169,7 @@
       },
       "public_files_cors": {
         "label": "Seitenübergreifendes Lesen öffentlicher Dateien erlauben",
-        "help": "Erlaubt Seiten auf anderen Websites, öffentliche Dateien einzubetten oder zu lesen. Gilt sofort."
+        "help": "Erlaubt Seiten auf anderen Websites, öffentliche Dateien der App einzubetten oder zu lesen. Auf S3 umgeleitete Dateien brauchen zusätzlich eine CORS-Konfiguration am Bucket. Gilt sofort."
       },
       "direct_upload_threshold_bytes": {
         "label": "Schwelle für fortsetzbare Uploads (Bytes)",

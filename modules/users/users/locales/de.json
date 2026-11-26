@@ -559,11 +559,11 @@
       },
       "demo_admin_password": {
         "label": "Passwort des Demo-Admins",
-        "help": "Leer lassen, damit das Konto nur über seine Schaltfläche erreichbar ist. Nur setzen, wenn Sie die Zugangsdaten veröffentlichen."
+        "help": "Passwort für ein neu angelegtes Demokonto. Leer erhält es ein Zufallspasswort und ist nur über seine Schaltfläche erreichbar. Späteres Leeren behält das bestehende Passwort. Nur setzen, wenn Sie die Zugangsdaten veröffentlichen."
       },
       "demo_user_password": {
         "label": "Passwort des Demo-Benutzers",
-        "help": "Leer lassen, damit das Konto nur über seine Schaltfläche erreichbar ist. Nur setzen, wenn Sie die Zugangsdaten veröffentlichen."
+        "help": "Passwort für ein neu angelegtes Demokonto. Leer erhält es ein Zufallspasswort und ist nur über seine Schaltfläche erreichbar. Späteres Leeren behält das bestehende Passwort. Nur setzen, wenn Sie die Zugangsdaten veröffentlichen."
       },
       "demo_read_only": {
         "label": "Demo-Sitzungen schreibgeschützt",

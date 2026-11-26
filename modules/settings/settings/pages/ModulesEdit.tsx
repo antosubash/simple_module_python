@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { keys, useT } from '@simple-module-py/i18n';
+import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
@@ -78,7 +78,9 @@ function ModulesEdit({ modules, testable = {} }: Props) {
   // Listed by what the reader sees, not by package name.
   const sorted = useMemo(
     () =>
-      [...visible].sort((a, b) => (titles[a.package] ?? '').localeCompare(titles[b.package] ?? '')),
+      [...visible].sort((a, b) =>
+        (titles[a.package] ?? '').localeCompare(titles[b.package] ?? '', activeLocale()),
+      ),
     [visible, titles],
   );
   const filtered = useMemo(() => {
@@ -127,15 +129,13 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           onPick={pick}
         />
 
-        {/* `pb-10` rather than a fade: the fields list ends on a full row with
-            breathing room under it, not half a row cut off by the pane edge. */}
         <div className="flex min-w-0 flex-1 flex-col px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7 lg:pb-8">
           {/* One h1 per screen (#422); the selected module's own heading in
               ModuleForm is an h2 beneath it. */}
           <h1
             ref={heading}
             tabIndex={-1}
-            className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground max-lg:sr-only"
+            className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
           >
             {t(keys.settings.modules.title)}
           </h1>

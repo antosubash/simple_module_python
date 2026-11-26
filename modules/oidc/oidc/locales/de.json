@@ -73,7 +73,7 @@
       },
       "jwks_cache_ttl_seconds": {
         "label": "Cache-Dauer der Signaturschlüssel (Sekunden)",
-        "help": "Wie lange die Signaturschlüssel des Anbieters zwischengespeichert werden, bevor sie neu geladen werden. 0 schaltet den Cache aus."
+        "help": "Wie lange die Signaturschlüssel des Anbieters wiederverwendet werden, bevor sie neu geladen werden. Bei 0 werden sie bei Bedarf neu geladen, höchstens alle 30 Sekunden; schlägt das fehl, bleibt der letzte gültige Satz in Gebrauch."
       },
       "role_mapping": {
         "label": "Rollenzuordnung",

@@ -69,7 +69,7 @@ class SiteLockModule(ModuleBase):
 - Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
 - The state attribute key is the lowercase package name or the lowercased `meta.name` — the diagnostics check accepts either. For module package `auth` with `meta.name="Auth"`, `app.state.auth` works either way.
 - If you override `register_settings` and don't add anything to `app.state.<module>`, `SM012` fires at dev boot.
-- Label every settings field for the admin editor in `locales/<lang>.json` under `settings_form` (`title`, `description`, `groups.<slug>`, `fields.<name>.{label,help,choices.<value>}`); without it the editor shows a humanised name and the Python `description` (`docs/framework/settings.md` § Labels and help in the settings editor).
+- Label every settings field for the admin editor in `locales/<lang>.json` under `settings_form` (`title`, `description`, `groups.<slug>`, `fields.<name>.{label,help,choices.<value>}`); without it a label falls back to `Field(title=...)`, then a humanised name, and help to the Python `description` (`docs/framework/settings.md` § Labels and help in the settings editor).
 
 ### 4. Framework must not import from plugins
 

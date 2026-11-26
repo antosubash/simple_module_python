@@ -103,7 +103,7 @@
       },
       "session_cookie_secure": {
         "label": "Cookies de sesión seguras",
-        "help": "Envía las cookies de sesión solo por HTTPS. Sin definir, se activa en todas partes salvo en el desarrollo local."
+        "help": "Envía las cookies de sesión solo por HTTPS. Sin definir, se activa en todas partes salvo en los entornos de desarrollo y de pruebas."
       },
       "login_redirect_url": {
         "label": "Página tras iniciar sesión",
@@ -131,7 +131,7 @@
       },
       "rate_limit_authenticated": {
         "label": "Límite para usuarios con sesión",
-        "help": "Límite opcional de solicitudes por dirección para usuarios con sesión iniciada, con el mismo formato. Déjelo vacío para no limitar."
+        "help": "Límite opcional de solicitudes para usuarios con sesión iniciada, en el mismo formato. Se cuenta por usuario, o por dirección cuando no se conoce el usuario. Déjelo vacío para no limitar."
       },
       "forwarded_host_allowlist": {
         "label": "Hosts reenviados permitidos",
