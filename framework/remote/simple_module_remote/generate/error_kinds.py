@@ -22,17 +22,18 @@ _CREDENTIAL_WORDS = re.compile(
 )
 
 
-def _body(text: str) -> object:
+def _detail(text: str) -> object:
+    """The response body's ``detail`` as decoded JSON, else ``None``."""
     try:
-        return json.loads(text)
+        body = json.loads(text)
     except ValueError:
         return None
+    return body.get("detail") if isinstance(body, dict) else None
 
 
 def detail_text(text: str) -> str:
     """The response's string ``detail``, else ``""``."""
-    body = _body(text)
-    detail = body.get("detail") if isinstance(body, dict) else None
+    detail = _detail(text)
     return detail if isinstance(detail, str) else ""
 
 
@@ -42,17 +43,17 @@ def token_problem(status: int, detail: str) -> bool:
     A 403 whose detail explains a refusal of the action ("You cannot assign roles
     you do not hold.") came from a server that accepted the token.
     """
-    if status == HTTP_UNAUTHORIZED or not detail.strip():
+    wording = detail.strip().lower()
+    if status == HTTP_UNAUTHORIZED or not wording:
         return True
-    return _CREDENTIAL_WORDS.search(detail.strip().lower()) is not None
+    return _CREDENTIAL_WORDS.search(wording) is not None
 
 
 def schema_mismatch(status: int, text: str) -> bool:
     """Whether the error suggests the CLI's schema no longer matches the server."""
     if status == HTTP_METHOD_NOT_ALLOWED:
         return True
-    body = _body(text)
-    detail = body.get("detail") if isinstance(body, dict) else None
+    detail = _detail(text)
     if status == HTTP_NOT_FOUND:
         return detail is None or (isinstance(detail, str) and detail.lower() == _ROUTE_NOT_FOUND)
     if status == HTTP_UNPROCESSABLE and isinstance(detail, list):

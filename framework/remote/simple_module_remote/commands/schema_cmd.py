@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 
 import click
@@ -24,6 +23,7 @@ from simple_module_remote.schema.cache import (
     SchemaCacheError,
     load_from,
     open_cache,
+    schema_digest,
     touch_in,
     write_to,
 )
@@ -46,7 +46,7 @@ def schema_fingerprint(root: dict) -> str:
     whitespace and key order; both must show the same fingerprint (#1241).
     """
     canonical = json.dumps(root, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:FINGERPRINT_CHARS]
+    return schema_digest(canonical.encode("utf-8"))[:FINGERPRINT_CHARS]
 
 
 def schema_info(root: dict) -> str:
