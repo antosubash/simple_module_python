@@ -68,6 +68,11 @@ class CredentialStore:
     def using_fallback(self) -> bool:
         return self._file is not None
 
+    def _require_backend(self) -> KeyringBackend:
+        if self._backend is None:
+            raise CredentialError("no credential backend is available")
+        return self._backend
+
     def get(self, key: str) -> StoredCredential | None:
         try:
             if self._file is not None:
@@ -80,8 +85,7 @@ class CredentialStore:
             raise CredentialError("the OS keyring could not be read") from None
 
     def _keyring_get(self, key: str) -> StoredCredential | None:
-        assert self._backend is not None
-        raw = self._backend.get_password(self._service, key)
+        raw = self._require_backend().get_password(self._service, key)
         if raw is None:
             return None
         try:
@@ -98,9 +102,8 @@ class CredentialStore:
             if self._file is not None:
                 self._file.put(key, cred.token, cred.origin)
             else:
-                assert self._backend is not None
                 payload = json.dumps({TOKEN_KEY: cred.token, ORIGIN_KEY: cred.origin})
-                self._backend.set_password(self._service, key, payload)
+                self._require_backend().set_password(self._service, key, payload)
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
         except keyring.errors.KeyringError:
@@ -110,10 +113,10 @@ class CredentialStore:
         try:
             if self._file is not None:
                 return self._file.delete(key)
-            assert self._backend is not None
-            if self._backend.get_password(self._service, key) is None:
+            backend = self._require_backend()
+            if backend.get_password(self._service, key) is None:
                 return False
-            self._backend.delete_password(self._service, key)
+            backend.delete_password(self._service, key)
             return True
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None

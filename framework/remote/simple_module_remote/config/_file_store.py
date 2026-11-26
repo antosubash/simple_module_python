@@ -1,7 +1,9 @@
 """Fallback credential file: ``credentials.toml``, mode 0600 in a 0700 directory."""
 
+import errno
 import os
 import secrets
+import stat
 import tomllib
 from pathlib import Path
 
@@ -28,17 +30,31 @@ class FileStore:
         return self._path
 
     def _load(self) -> dict[str, dict[str, str]]:
-        if not self._path.exists():
-            return {}
-        if self._path.stat().st_mode & LOOSE_MODE_MASK:
-            raise FileStoreError(
-                f"refusing to read {self._path}: it is accessible to other users "
-                f"(run `chmod 600 {self._path}`)"
-            )
         try:
-            raw = tomllib.loads(self._path.read_text(encoding="utf-8"))
-        except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError):
-            raise FileStoreError(f"cannot read {self._path}: file is corrupt") from None
+            fd = os.open(self._path, os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            return {}
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise FileStoreError(f"refusing to read {self._path}: it is a symlink") from None
+            raise FileStoreError(f"cannot read {self._path}") from None
+        with os.fdopen(fd, "rb") as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise FileStoreError(f"refusing to read {self._path}: not a regular file")
+            if info.st_uid != os.getuid():
+                raise FileStoreError(f"refusing to read {self._path}: owned by another user")
+            if info.st_mode & LOOSE_MODE_MASK:
+                raise FileStoreError(
+                    f"refusing to read {self._path}: it is accessible to other users "
+                    f"(run `chmod 600 {self._path}`)"
+                )
+            try:
+                raw = tomllib.loads(handle.read().decode("utf-8"))
+            except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError):
+                raise FileStoreError(
+                    f"cannot read {self._path}: file is corrupt; delete it and log in again"
+                ) from None
         out: dict[str, dict[str, str]] = {}
         for key, table in raw.items():
             if isinstance(table, dict) and all(
@@ -47,13 +63,25 @@ class FileStore:
                 out[key] = {f: table[f] for f in (TOKEN_FIELD, ORIGIN_FIELD)}
         return out
 
+    def _secure_dir(self) -> None:
+        directory = self._path.parent
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        info = directory.stat()
+        if info.st_uid == os.getuid() and info.st_mode & LOOSE_MODE_MASK:
+            directory.chmod(0o700)
+            info = directory.stat()
+        if info.st_mode & LOOSE_MODE_MASK:
+            raise FileStoreError(f"refusing to write in {directory}: it is not private")
+
     def _write(self, data: dict[str, dict[str, str]]) -> None:
-        self._path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self._secure_dir()
         tmp = self._path.with_name(f"{self._path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
         fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         try:
             with os.fdopen(fd, "wb") as handle:
                 handle.write(tomli_w.dumps(data).encode("utf-8"))
+                handle.flush()
+                os.fsync(handle.fileno())
             tmp.replace(self._path)
         finally:
             tmp.unlink(missing_ok=True)

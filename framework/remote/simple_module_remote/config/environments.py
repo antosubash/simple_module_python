@@ -114,7 +114,7 @@ def save_config(cli: str, config: Config) -> None:
         data["current"] = config.current
     if tables:
         data[ENV_TABLE] = tables
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     try:
         tmp.write_text(tomli_w.dumps(data), encoding="utf-8")

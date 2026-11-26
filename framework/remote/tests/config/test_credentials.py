@@ -2,6 +2,7 @@ import stat
 from pathlib import Path
 
 import keyring.backends.fail
+import keyring.errors
 import pytest
 from simple_module_remote.config.credentials import (
     CredentialError,
@@ -134,3 +135,58 @@ def test_repr_never_contains_token() -> None:
     assert SECRET not in repr(cred)
     assert SECRET not in str(cred)
     assert SECRET not in f"{cred!r}"
+
+
+def test_existing_loose_dir_is_tightened(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    (tmp_path / CLI).mkdir(mode=0o755)
+    (tmp_path / CLI).chmod(0o755)
+    store = CredentialStore(CLI, backend=keyring.backends.fail.Keyring())
+    store.put("prod", StoredCredential(SECRET, ENV.origin))
+    assert stat.S_IMODE((tmp_path / CLI).stat().st_mode) == 0o700
+
+
+def test_symlink_credentials_refused(store: CredentialStore, tmp_path: Path) -> None:
+    store.put("prod", StoredCredential(SECRET, ENV.origin))
+    real = tmp_path / CLI / "credentials.toml"
+    other = tmp_path / "other.toml"
+    real.rename(other)
+    real.symlink_to(other)
+    with pytest.raises(CredentialError) as err:
+        store.get("prod")
+    assert "symlink" in str(err.value)
+    assert SECRET not in str(err.value)
+
+
+def test_foreign_owner_refused(store: CredentialStore, monkeypatch: pytest.MonkeyPatch) -> None:
+    store.put("prod", StoredCredential(SECRET, ENV.origin))
+    monkeypatch.setattr("simple_module_remote.config._file_store.os.getuid", lambda: 12345)
+    with pytest.raises(CredentialError) as err:
+        store.get("prod")
+    assert "another user" in str(err.value)
+
+
+def test_corrupt_file_says_delete(store: CredentialStore, tmp_path: Path) -> None:
+    store.put("prod", StoredCredential(SECRET, ENV.origin))
+    (tmp_path / CLI / "credentials.toml").write_text("[", encoding="utf-8")
+    with pytest.raises(CredentialError, match="delete it"):
+        store.get("prod")
+
+
+class BrokenKeyring(FakeKeyring):
+    def get_password(self, service_name: str, username: str) -> str | None:
+        raise keyring.errors.KeyringError(SECRET)
+
+    def set_password(self, service_name: str, username: str, password: str) -> None:
+        raise keyring.errors.KeyringError(SECRET)
+
+
+def test_keyring_errors_map_to_credential_error() -> None:
+    store = CredentialStore(CLI, backend=BrokenKeyring())
+    with pytest.raises(CredentialError) as err:
+        store.get("prod")
+    assert SECRET not in str(err.value)
+    with pytest.raises(CredentialError):
+        store.put("prod", StoredCredential(SECRET, ENV.origin))
+    with pytest.raises(CredentialError):
+        store.delete("prod")
