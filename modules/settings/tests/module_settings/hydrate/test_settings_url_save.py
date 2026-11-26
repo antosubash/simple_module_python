@@ -38,7 +38,11 @@ class _Store:
 
 
 @pytest.fixture(
-    params=[("tenants", TenantsSettings, "subdomain_base"), ("users", UsersSettings, "base_url")]
+    params=[
+        ("tenants", TenantsSettings, "subdomain_base"),
+        ("tenants", TenantsSettings, "public_base_url"),
+        ("users", UsersSettings, "base_url"),
+    ]
 )
 def target(request):
     package, cls, field = request.param
@@ -51,7 +55,7 @@ async def test_normalized_url_is_written_to_store(target):
     app, package, field, store = target
     raw, expected = (
         ("  ExAmPlE.COM  ", "example.com")
-        if package == "tenants"
+        if field == "subdomain_base"
         else ("  https://example.com  ", "https://example.com")
     )
     validated = await apply_changes_and_reload(
@@ -65,7 +69,7 @@ async def test_invalid_url_save_raises_normal_field_422_before_writing(target):
     app, package, field, store = target
     raw, hint = (
         ("https://example.com", "hostname")
-        if package == "tenants"
+        if field == "subdomain_base"
         else ("javascript:alert(1)", "http(s)")
     )
     with pytest.raises(HTTPException) as exc, _settings_errors(None):
@@ -81,7 +85,10 @@ async def test_invalid_url_save_raises_normal_field_422_before_writing(target):
 
 async def test_blank_url_save_clears_override(target):
     app, package, field, store = target
-    store.rows[field] = ("example.com" if package == "tenants" else "https://example.com", "string")
+    store.rows[field] = (
+        "example.com" if field == "subdomain_base" else "https://example.com",
+        "string",
+    )
     validated = await apply_changes_and_reload(
         app, EventBus(), store, package=package, changes={field: "  "}
     )

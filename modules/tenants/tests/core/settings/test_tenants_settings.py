@@ -75,7 +75,13 @@ def test_invitation_ttl_accepts_range_boundaries(hours):
     assert TenantsSettings(invitation_ttl_hours=hours).invitation_ttl_hours == hours
 
 
-@pytest.mark.parametrize("hours", [0, 721])
-def test_invitation_ttl_rejects_values_outside_range(hours):
-    with pytest.raises(ValidationError):
+@pytest.mark.parametrize("hours", [0, 721, "not a number", 1.5, None])
+def test_invitation_ttl_errors_name_field_and_allowed_range(hours):
+    with pytest.raises(ValidationError) as exc:
         TenantsSettings(invitation_ttl_hours=hours)
+    error = exc.value.errors()[0]
+    assert error["loc"] == ("invitation_ttl_hours",)
+    assert "invitation_ttl_hours" in error["msg"]
+    assert "whole number" in error["msg"]
+    assert "1" in error["msg"]
+    assert "720" in error["msg"]

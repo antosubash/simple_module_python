@@ -64,3 +64,8 @@ def test_invalid_stored_base_url_falls_back_without_losing_other_settings(caplog
     assert settings.base_url == ""
     assert settings.allow_signup is True
     assert "Ignoring stored value for UsersSettings.base_url" in caplog.text
+
+
+def test_base_url_rejects_urls_over_http_length_limit():
+    with pytest.raises(ValidationError):
+        UsersSettings(base_url="https://example.com/" + "a" * 2065)
