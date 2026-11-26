@@ -14,13 +14,20 @@ _BASE = "/api/settings/modules"
 _INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 
 
-async def _pat(app, scopes: list[str]) -> str:
+async def _owner(app) -> dict[str, str]:
     email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
     user_id = await make_admin(app, email)
     tenant_id = await join_tenant(app, user_id, email)
-    data = {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
-    async with session_client(app, data) as c:
+    return {"user_id": user_id, SESSION_ACTIVE_TENANT: tenant_id, "sm_csrf_token": CSRF}
+
+
+async def _pat_for(app, owner: dict[str, str], scopes: list[str]) -> str:
+    async with session_client(app, owner) as c:
         return (await create_pat(c, scopes))["token"]
+
+
+async def _pat(app, scopes: list[str]) -> str:
+    return await _pat_for(app, await _owner(app), scopes)
 
 
 def _bearer(app, token: str) -> httpx.AsyncClient:
@@ -49,7 +56,7 @@ async def test_testable_without_scope_is_forbidden(app):
 
 
 async def test_test_connection_via_pat_matches_view(app, authenticated_client):
-    token = await _pat(app, [Permissions.EDIT])
+    token = await _pat(app, [Permissions.VIEW, Permissions.EDIT])
     async with _bearer(app, token) as bc:
         resp = await bc.post(f"{_BASE}/mail/test-connection")
     assert resp.status_code == 200, resp.text
@@ -57,23 +64,31 @@ async def test_test_connection_via_pat_matches_view(app, authenticated_client):
     assert resp.json() == view.json()
 
 
-async def test_test_connection_without_edit_scope_is_forbidden(app):
-    token = await _pat(app, [Permissions.VIEW])
-    async with _bearer(app, token) as bc:
-        resp = await bc.post(f"{_BASE}/mail/test-connection")
-    assert resp.status_code == 403
+async def test_test_connection_with_only_one_of_view_edit_is_forbidden(app):
+    for scope in (Permissions.VIEW, Permissions.EDIT):
+        token = await _pat(app, [scope])
+        async with _bearer(app, token) as bc:
+            resp = await bc.post(f"{_BASE}/mail/test-connection")
+        assert resp.status_code == 403, scope
 
 
 async def test_unknown_package_is_404(app):
-    token = await _pat(app, [Permissions.EDIT])
+    token = await _pat(app, [Permissions.VIEW, Permissions.EDIT])
     async with _bearer(app, token) as bc:
         resp = await bc.post(f"{_BASE}/nope/test-connection")
     assert resp.status_code == 404
 
 
-async def test_eleventh_call_in_a_minute_is_429(app):
-    token = await _pat(app, [Permissions.EDIT])
+async def test_rate_limit_is_per_user_not_per_ip_or_token(app):
+    owner = await _owner(app)
+    token = await _pat_for(app, owner, [Permissions.VIEW, Permissions.EDIT])
+    sibling = await _pat_for(app, owner, [Permissions.VIEW, Permissions.EDIT])
+    other = await _pat(app, [Permissions.VIEW, Permissions.EDIT])
     async with _bearer(app, token) as bc:
         codes = [(await bc.post(f"{_BASE}/mail/test-connection")).status_code for _ in range(11)]
     assert codes[:10] == [200] * 10
     assert codes[10] == 429
+    async with _bearer(app, sibling) as bc:
+        assert (await bc.post(f"{_BASE}/mail/test-connection")).status_code == 429
+    async with _bearer(app, other) as bc:
+        assert (await bc.post(f"{_BASE}/mail/test-connection")).status_code == 200

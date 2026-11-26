@@ -125,7 +125,7 @@ async def list_testable(request: Request) -> dict[str, list[str]]:
 
 @router.post(
     "/{package}/test-connection",
-    dependencies=[*_EDIT, Depends(RateLimit("10/minute", key="user"))],
+    dependencies=[*_VIEW, *_EDIT, Depends(RateLimit("10/minute", key="user"))],
 )
 async def test_module_connection(package: str, request: Request) -> dict[str, Any]:
     """Run a module's connection checks; same payload as the view route."""
