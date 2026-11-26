@@ -92,19 +92,25 @@ configuration, which you must set on the bucket.
 The public routes are exempt from `AuthMiddleware` through
 `register_public_routes` (`GET` and `HEAD`; uploads, PATCH and deletes stay gated).
 `HEAD` returns headers without a response body and honours `If-None-Match`.
-For original files, `HEAD` ignores `Range`, checks object existence and reports
-the full `Content-Length`, safe content type, disposition and app ETag from
-stored metadata without opening the body. This also applies to S3: `HEAD`
-answers `200` directly; `GET` keeps its presigned `302` redirect (#1139).
+For original files, an unconditional `HEAD` ignores `Range`, checks object
+existence and reports the full `Content-Length`, safe content type, disposition
+and app ETag from stored metadata without opening the body. S3 `HEAD` also
+answers `200` directly. S3 `GET` keeps its presigned `302` redirect for inline-safe
+types; active content is streamed with attachment disposition (#1139). A matching
+ETag returns `304` before checking backend existence.
 
 Thumbnail `HEAD` never generates a variant. A cached variant supplies its size
 through backend metadata, without reading its body, and uses the same app ETag
 and cache headers as `GET`. A cold variant returns `200` with `image/webp` and
 the width-specific ETag, omitting `Content-Length` because the encoded size is
-unknown. Missing originals and non-thumbnail types return `404`; invalid image
-headers, type mismatches and exceeded source/pixel budgets return `422`. Cold
-probes read at most 64 KiB of the original and parse its header without decoding
-pixels. Headers extending beyond that budget and corruption detectable only by
+unknown. Cold probes return `404` for missing originals; non-thumbnail types also
+return `404`. A cached variant can still be served when its original is missing.
+Invalid image headers, type mismatches and exceeded source/pixel budgets return
+`422`. Cold probes retain at most 64 KiB of source headers without decoding
+pixels. The shipped backends use a bounded range read; legacy providers without
+`get_range` may yield a larger chunk, of which only the prefix is kept.
+WebP dimensions are read directly so the probe never allocates a decoder
+canvas. Headers extending beyond the probe budget and corruption detectable only by
 decoding are validated by the first `GET`; a decodable-looking source may
 therefore answer `200` to `HEAD` and later fail `GET` with `422` (#1140).
 Third-party backends without the optional `head(key)` metadata method omit the
@@ -133,8 +139,9 @@ Serving rules:
   streamed, so stored XSS on the app origin is not possible. The stored type
   is lower-cased and stripped of parameters before the check
   (`media_types.is_active_content`).
-- Presigning backends (S3) answer with a `302` to the presigned URL, cached
-  for at most half the signature's TTL; filesystem backends stream.
+- For inline-safe originals, presigning backends (S3) answer `GET` with a `302`
+  to the presigned URL, cached for at most half the signature's TTL; filesystem
+  backends stream. `HEAD` answers directly on both backends.
 
 ### Module-private files (#999)
 

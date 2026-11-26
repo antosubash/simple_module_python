@@ -7,8 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 from file_storage.backends.filesystem import FilesystemBackend
+from file_storage.core import constants
 from file_storage.files import thumbnail_metadata, thumbnails
-from PIL import Image
+from PIL import Image, WebPImagePlugin
 
 
 def _image(format):
@@ -56,6 +57,40 @@ async def test_cold_probe_reads_only_a_prefix_and_closes_stream(format, ctype, m
     assert size is None
     assert reads == [("source", 0, 65535)]
     assert closed == [True]
+
+
+@pytest.mark.parametrize("mode,lossless", [("RGB", False), ("RGB", True), ("RGBA", False)])
+@pytest.mark.parametrize("ctype", ["image/webp", "image/png"])
+def test_webp_probe_does_not_allocate_a_decoder_canvas(monkeypatch, mode, lossless, ctype):
+    output = io.BytesIO()
+    Image.new(mode, (40, 20)).save(output, "WEBP", lossless=lossless)
+    data = output.getvalue()
+
+    def unexpected_decoder(*args):
+        raise AssertionError("HEAD allocated a WebP decoder canvas")
+
+    monkeypatch.setattr(WebPImagePlugin._webp, "WebPAnimDecoder", unexpected_decoder)
+    if ctype == "image/webp":
+        thumbnail_metadata._check_header(data, ctype, False)
+    else:
+        with pytest.raises(thumbnails.UnreadableImageError, match="declared type"):
+            thumbnail_metadata._check_header(data, ctype, False)
+
+
+def test_partial_webp_probe_enforces_known_pixel_budget():
+    # VP8X stores width/height minus one in two little-endian 24-bit fields.
+    data = (
+        b"RIFF"
+        + (140000).to_bytes(4, "little")
+        + b"WEBPVP8X"
+        + (10).to_bytes(4, "little")
+        + b"\0" * 4
+        + (5999).to_bytes(3, "little")
+        + (4999).to_bytes(3, "little")
+    )
+    data += b"\0" * (constants.THUMBNAIL_HEAD_PROBE_BYTES - len(data))
+    with pytest.raises(thumbnails.UnreadableImageError, match="pixel budget"):
+        thumbnail_metadata._check_header(data, "image/webp", True)
 
 
 async def test_cached_probe_without_metadata_support_does_not_read_body(tmp_path):

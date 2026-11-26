@@ -74,14 +74,7 @@ async def thumbnail_response(
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     try:
         if request is not None and request.method == constants.HTTP_HEAD:
-            await service._release_connection(row)
-            size = await thumbnail_metadata.head_size(
-                service.backend,
-                key=row.key,
-                content_type=row.content_type,
-                width=snapped,
-                source_size=row.size_bytes,
-            )
+            size = await thumbnail_metadata.head_size_for_file(service, row, snapped)
             response = Response(media_type=constants.THUMBNAIL_CONTENT_TYPE, headers=headers)
             # Response's default length of zero would describe an empty variant.
             if size is None:

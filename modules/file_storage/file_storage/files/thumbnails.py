@@ -20,6 +20,8 @@ import io
 import logging
 import struct
 import weakref
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from PIL import Image, ImageOps
@@ -48,6 +50,11 @@ def base_type(content_type: str) -> str:
 
 def is_thumbnailable(content_type: str) -> bool:
     return base_type(content_type) in _FORMATS_BY_TYPE
+
+
+def expected_format(content_type: str) -> str | None:
+    """The allowed Pillow format for a declared media type, if any."""
+    return _FORMATS_BY_TYPE.get(base_type(content_type))
 
 
 def snap_width(width: int | None) -> int:
@@ -88,6 +95,18 @@ def _slots() -> asyncio.Semaphore:
     return _SLOTS[loop]
 
 
+@contextmanager
+def open_image(data: bytes, content_type: str | None = None) -> Generator[Image.Image]:
+    """Open an allowed image and validate its type and pixel budget without decoding."""
+    with Image.open(io.BytesIO(data), formats=_ALLOWED_FORMATS) as img:
+        if content_type is not None and img.format != expected_format(content_type):
+            raise UnreadableImageError("content does not match the declared type")
+        # Keep Pillow's process-wide pixel cap unchanged: worker threads share it.
+        if img.width * img.height > constants.THUMBNAIL_MAX_PIXELS:
+            raise UnreadableImageError("image exceeds the pixel budget")
+        yield img
+
+
 def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
     """Resize ``data`` to at most ``width`` px wide, keeping aspect; WebP out.
 
@@ -99,17 +118,7 @@ def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
     pixels only, so EXIF/XMP/ICC and other metadata are not carried over.
     """
     try:
-        with Image.open(io.BytesIO(data), formats=_ALLOWED_FORMATS) as img:
-            if content_type is not None and img.format != _FORMATS_BY_TYPE.get(
-                base_type(content_type)
-            ):
-                raise UnreadableImageError("content does not match the declared type")
-            # Header-only so far: refuse before any pixel is decoded. This is
-            # our own budget; the process-wide ``Image.MAX_IMAGE_PIXELS`` is
-            # left alone (it is shared with every other Pillow user and racy
-            # to mutate from worker threads).
-            if img.width * img.height > constants.THUMBNAIL_MAX_PIXELS:
-                raise UnreadableImageError("image exceeds the pixel budget")
+        with open_image(data, content_type) as img:
             img.seek(0)  # first frame only
             img.draft("RGB", (width * 2, width * 2))  # cheap JPEG downscale on decode
             frame = _to_8bit(ImageOps.exif_transpose(img))
