@@ -406,6 +406,10 @@ export const keys = {
           label: 'background_tasks.settings_form.fields.outbox_max_attempts.label',
         },
         outbox_mode: {
+          choices: {
+            celery: 'background_tasks.settings_form.fields.outbox_mode.choices.celery',
+            inprocess: 'background_tasks.settings_form.fields.outbox_mode.choices.inprocess',
+          },
           help: 'background_tasks.settings_form.fields.outbox_mode.help',
           label: 'background_tasks.settings_form.fields.outbox_mode.label',
         },
@@ -1069,6 +1073,184 @@ export const keys = {
     errors: {
       token_not_allowed: 'hosting.errors.token_not_allowed',
     },
+    settings_form: {
+      description: 'hosting.settings_form.description',
+      fields: {
+        api_description: {
+          help: 'hosting.settings_form.fields.api_description.help',
+          label: 'hosting.settings_form.fields.api_description.label',
+        },
+        api_title: {
+          help: 'hosting.settings_form.fields.api_title.help',
+          label: 'hosting.settings_form.fields.api_title.label',
+        },
+        api_version: {
+          help: 'hosting.settings_form.fields.api_version.help',
+          label: 'hosting.settings_form.fields.api_version.label',
+        },
+        auth_provider: {
+          help: 'hosting.settings_form.fields.auth_provider.help',
+          label: 'hosting.settings_form.fields.auth_provider.label',
+        },
+        auth_public_paths: {
+          help: 'hosting.settings_form.fields.auth_public_paths.help',
+          label: 'hosting.settings_form.fields.auth_public_paths.label',
+        },
+        cors_allow_credentials: {
+          help: 'hosting.settings_form.fields.cors_allow_credentials.help',
+          label: 'hosting.settings_form.fields.cors_allow_credentials.label',
+        },
+        cors_allow_headers: {
+          help: 'hosting.settings_form.fields.cors_allow_headers.help',
+          label: 'hosting.settings_form.fields.cors_allow_headers.label',
+        },
+        cors_allow_methods: {
+          help: 'hosting.settings_form.fields.cors_allow_methods.help',
+          label: 'hosting.settings_form.fields.cors_allow_methods.label',
+        },
+        cors_allow_origins: {
+          help: 'hosting.settings_form.fields.cors_allow_origins.help',
+          label: 'hosting.settings_form.fields.cors_allow_origins.label',
+        },
+        cors_expose_headers: {
+          help: 'hosting.settings_form.fields.cors_expose_headers.help',
+          label: 'hosting.settings_form.fields.cors_expose_headers.label',
+        },
+        cors_max_age: {
+          help: 'hosting.settings_form.fields.cors_max_age.help',
+          label: 'hosting.settings_form.fields.cors_max_age.label',
+        },
+        db_connect_timeout: {
+          help: 'hosting.settings_form.fields.db_connect_timeout.help',
+          label: 'hosting.settings_form.fields.db_connect_timeout.label',
+        },
+        db_idle_in_tx_timeout_ms: {
+          help: 'hosting.settings_form.fields.db_idle_in_tx_timeout_ms.help',
+          label: 'hosting.settings_form.fields.db_idle_in_tx_timeout_ms.label',
+        },
+        db_max_overflow: {
+          help: 'hosting.settings_form.fields.db_max_overflow.help',
+          label: 'hosting.settings_form.fields.db_max_overflow.label',
+        },
+        db_pool_pre_ping: {
+          help: 'hosting.settings_form.fields.db_pool_pre_ping.help',
+          label: 'hosting.settings_form.fields.db_pool_pre_ping.label',
+        },
+        db_pool_recycle: {
+          help: 'hosting.settings_form.fields.db_pool_recycle.help',
+          label: 'hosting.settings_form.fields.db_pool_recycle.label',
+        },
+        db_pool_size: {
+          help: 'hosting.settings_form.fields.db_pool_size.help',
+          label: 'hosting.settings_form.fields.db_pool_size.label',
+        },
+        db_pool_timeout: {
+          help: 'hosting.settings_form.fields.db_pool_timeout.help',
+          label: 'hosting.settings_form.fields.db_pool_timeout.label',
+        },
+        db_statement_timeout_ms: {
+          help: 'hosting.settings_form.fields.db_statement_timeout_ms.help',
+          label: 'hosting.settings_form.fields.db_statement_timeout_ms.label',
+        },
+        default_tenant: {
+          help: 'hosting.settings_form.fields.default_tenant.help',
+          label: 'hosting.settings_form.fields.default_tenant.label',
+        },
+        forwarded_host_allowlist: {
+          help: 'hosting.settings_form.fields.forwarded_host_allowlist.help',
+          label: 'hosting.settings_form.fields.forwarded_host_allowlist.label',
+        },
+        i18n_cookie_name: {
+          help: 'hosting.settings_form.fields.i18n_cookie_name.help',
+          label: 'hosting.settings_form.fields.i18n_cookie_name.label',
+        },
+        i18n_default_locale: {
+          help: 'hosting.settings_form.fields.i18n_default_locale.help',
+          label: 'hosting.settings_form.fields.i18n_default_locale.label',
+        },
+        i18n_supported_locales: {
+          help: 'hosting.settings_form.fields.i18n_supported_locales.help',
+          label: 'hosting.settings_form.fields.i18n_supported_locales.label',
+        },
+        log_format: {
+          choices: {
+            json: 'hosting.settings_form.fields.log_format.choices.json',
+            text: 'hosting.settings_form.fields.log_format.choices.text',
+          },
+          help: 'hosting.settings_form.fields.log_format.help',
+          label: 'hosting.settings_form.fields.log_format.label',
+        },
+        log_level: {
+          help: 'hosting.settings_form.fields.log_level.help',
+          label: 'hosting.settings_form.fields.log_level.label',
+        },
+        login_redirect_url: {
+          help: 'hosting.settings_form.fields.login_redirect_url.help',
+          label: 'hosting.settings_form.fields.login_redirect_url.label',
+        },
+        maintenance_message: {
+          help: 'hosting.settings_form.fields.maintenance_message.help',
+          label: 'hosting.settings_form.fields.maintenance_message.label',
+        },
+        maintenance_mode: {
+          help: 'hosting.settings_form.fields.maintenance_mode.help',
+          label: 'hosting.settings_form.fields.maintenance_mode.label',
+        },
+        max_request_body_bytes: {
+          help: 'hosting.settings_form.fields.max_request_body_bytes.help',
+          label: 'hosting.settings_form.fields.max_request_body_bytes.label',
+        },
+        multi_tenant: {
+          help: 'hosting.settings_form.fields.multi_tenant.help',
+          label: 'hosting.settings_form.fields.multi_tenant.label',
+        },
+        native_link_prefixes: {
+          help: 'hosting.settings_form.fields.native_link_prefixes.help',
+          label: 'hosting.settings_form.fields.native_link_prefixes.label',
+        },
+        openapi_public: {
+          help: 'hosting.settings_form.fields.openapi_public.help',
+          label: 'hosting.settings_form.fields.openapi_public.label',
+        },
+        public_base_url: {
+          help: 'hosting.settings_form.fields.public_base_url.help',
+          label: 'hosting.settings_form.fields.public_base_url.label',
+        },
+        rate_limit_authenticated: {
+          help: 'hosting.settings_form.fields.rate_limit_authenticated.help',
+          label: 'hosting.settings_form.fields.rate_limit_authenticated.label',
+        },
+        rate_limit_public: {
+          help: 'hosting.settings_form.fields.rate_limit_public.help',
+          label: 'hosting.settings_form.fields.rate_limit_public.label',
+        },
+        session_cookie_secure: {
+          help: 'hosting.settings_form.fields.session_cookie_secure.help',
+          label: 'hosting.settings_form.fields.session_cookie_secure.label',
+        },
+        tenant_header: {
+          help: 'hosting.settings_form.fields.tenant_header.help',
+          label: 'hosting.settings_form.fields.tenant_header.label',
+        },
+        trusted_proxy: {
+          help: 'hosting.settings_form.fields.trusted_proxy.help',
+          label: 'hosting.settings_form.fields.trusted_proxy.label',
+        },
+      },
+      groups: {
+        api: 'hosting.settings_form.groups.api',
+        authentication: 'hosting.settings_form.groups.authentication',
+        cors: 'hosting.settings_form.groups.cors',
+        database: 'hosting.settings_form.groups.database',
+        localization: 'hosting.settings_form.groups.localization',
+        logging: 'hosting.settings_form.groups.logging',
+        request_guards: 'hosting.settings_form.groups.request_guards',
+        routing: 'hosting.settings_form.groups.routing',
+        security: 'hosting.settings_form.groups.security',
+        tenancy: 'hosting.settings_form.groups.tenancy',
+      },
+      title: 'hosting.settings_form.title',
+    },
     setup: {
       connections: {
         description: 'hosting.setup.connections.description',
@@ -1164,6 +1346,10 @@ export const keys = {
       description: 'mail.settings_form.description',
       fields: {
         backend: {
+          choices: {
+            console: 'mail.settings_form.fields.backend.choices.console',
+            smtp: 'mail.settings_form.fields.backend.choices.smtp',
+          },
           help: 'mail.settings_form.fields.backend.help',
           label: 'mail.settings_form.fields.backend.label',
         },
@@ -1188,6 +1374,11 @@ export const keys = {
           label: 'mail.settings_form.fields.smtp_tls.label',
         },
         smtp_tls_mode: {
+          choices: {
+            auto: 'mail.settings_form.fields.smtp_tls_mode.choices.auto',
+            implicit: 'mail.settings_form.fields.smtp_tls_mode.choices.implicit',
+            starttls: 'mail.settings_form.fields.smtp_tls_mode.choices.starttls',
+          },
           help: 'mail.settings_form.fields.smtp_tls_mode.help',
           label: 'mail.settings_form.fields.smtp_tls_mode.label',
         },
@@ -2348,6 +2539,11 @@ export const keys = {
           label: 'users.settings_form.fields.cookie_name.label',
         },
         cookie_samesite: {
+          choices: {
+            lax: 'users.settings_form.fields.cookie_samesite.choices.lax',
+            none: 'users.settings_form.fields.cookie_samesite.choices.none',
+            strict: 'users.settings_form.fields.cookie_samesite.choices.strict',
+          },
           help: 'users.settings_form.fields.cookie_samesite.help',
           label: 'users.settings_form.fields.cookie_samesite.label',
         },

@@ -5,7 +5,11 @@
     "fields": {
       "backend": {
         "label": "Versandart",
-        "help": "Wie E-Mails zugestellt werden. Bei Konsole werden Nachrichten nur protokolliert und nicht versendet."
+        "help": "Wie E-Mails zugestellt werden. Bei Konsole werden Nachrichten nur protokolliert und nicht versendet.",
+        "choices": {
+          "console": "Konsole (nur Protokoll)",
+          "smtp": "SMTP"
+        }
       },
       "smtp_host": {
         "label": "SMTP-Host",
@@ -33,7 +37,12 @@
       },
       "smtp_tls_mode": {
         "label": "TLS-Modus",
-        "help": "Automatisch nutzt implizites TLS auf Port 465, sonst STARTTLS. Alternativ lässt sich ein Modus für jeden Port erzwingen. Wird ignoriert, wenn TLS aus ist."
+        "help": "Automatisch nutzt implizites TLS auf Port 465, sonst STARTTLS. Alternativ lässt sich ein Modus für jeden Port erzwingen. Wird ignoriert, wenn TLS aus ist.",
+        "choices": {
+          "auto": "Automatisch",
+          "implicit": "Implizites TLS",
+          "starttls": "STARTTLS"
+        }
       }
     }
   }

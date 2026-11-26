@@ -242,7 +242,11 @@
       },
       "outbox_mode": {
         "label": "Event delivery mode",
-        "help": "Whether durable events are delivered by the task runner or inside the web process."
+        "help": "Whether durable events are delivered by the task runner or inside the web process.",
+        "choices": {
+          "celery": "Task runner (Celery)",
+          "inprocess": "Inside the web process"
+        }
       },
       "outbox_max_attempts": {
         "label": "Maximum delivery attempts",

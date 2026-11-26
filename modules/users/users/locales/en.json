@@ -506,7 +506,12 @@
       },
       "cookie_samesite": {
         "label": "Cookie SameSite policy",
-        "help": "Whether the session cookie is sent with requests coming from other sites: lax, strict or none."
+        "help": "Whether the session cookie is sent with requests coming from other sites: lax, strict or none.",
+        "choices": {
+          "lax": "Lax",
+          "none": "None",
+          "strict": "Strict"
+        }
       },
       "base_url": {
         "label": "Account link base URL",

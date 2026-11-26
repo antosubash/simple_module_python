@@ -431,6 +431,11 @@ export const keys = {
           label: 'users.settings_form.fields.cookie_name.label',
         },
         cookie_samesite: {
+          choices: {
+            lax: 'users.settings_form.fields.cookie_samesite.choices.lax',
+            none: 'users.settings_form.fields.cookie_samesite.choices.none',
+            strict: 'users.settings_form.fields.cookie_samesite.choices.strict',
+          },
           help: 'users.settings_form.fields.cookie_samesite.help',
           label: 'users.settings_form.fields.cookie_samesite.label',
         },
@@ -997,6 +1002,9 @@ type ModuleTranslationResources = {
   readonly 'users.settings_form.fields.cookie_max_age_seconds.label': '';
   readonly 'users.settings_form.fields.cookie_name.help': '';
   readonly 'users.settings_form.fields.cookie_name.label': '';
+  readonly 'users.settings_form.fields.cookie_samesite.choices.lax': '';
+  readonly 'users.settings_form.fields.cookie_samesite.choices.none': '';
+  readonly 'users.settings_form.fields.cookie_samesite.choices.strict': '';
   readonly 'users.settings_form.fields.cookie_samesite.help': '';
   readonly 'users.settings_form.fields.cookie_samesite.label': '';
   readonly 'users.settings_form.fields.demo_admin_email.help': '';

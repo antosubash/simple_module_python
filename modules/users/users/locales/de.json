@@ -506,7 +506,12 @@
       },
       "cookie_samesite": {
         "label": "SameSite-Richtlinie des Cookies",
-        "help": "Ob das Sitzungs-Cookie bei Anfragen von anderen Websites mitgesendet wird: lax, strict oder none."
+        "help": "Ob das Sitzungs-Cookie bei Anfragen von anderen Websites mitgesendet wird: lax, strict oder none.",
+        "choices": {
+          "lax": "Lax",
+          "none": "Keine",
+          "strict": "Strikt"
+        }
       },
       "base_url": {
         "label": "Basis-URL für Konto-Links",

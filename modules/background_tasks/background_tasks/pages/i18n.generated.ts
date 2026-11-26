@@ -200,6 +200,10 @@ export const keys = {
           label: 'background_tasks.settings_form.fields.outbox_max_attempts.label',
         },
         outbox_mode: {
+          choices: {
+            celery: 'background_tasks.settings_form.fields.outbox_mode.choices.celery',
+            inprocess: 'background_tasks.settings_form.fields.outbox_mode.choices.inprocess',
+          },
           help: 'background_tasks.settings_form.fields.outbox_mode.help',
           label: 'background_tasks.settings_form.fields.outbox_mode.label',
         },
@@ -525,6 +529,8 @@ type ModuleTranslationResources = {
   readonly 'background_tasks.settings_form.fields.outbox_lease_seconds.label': '';
   readonly 'background_tasks.settings_form.fields.outbox_max_attempts.help': '';
   readonly 'background_tasks.settings_form.fields.outbox_max_attempts.label': '';
+  readonly 'background_tasks.settings_form.fields.outbox_mode.choices.celery': '';
+  readonly 'background_tasks.settings_form.fields.outbox_mode.choices.inprocess': '';
   readonly 'background_tasks.settings_form.fields.outbox_mode.help': '';
   readonly 'background_tasks.settings_form.fields.outbox_mode.label': '';
   readonly 'background_tasks.settings_form.fields.outbox_sweep_interval_seconds.help': '';

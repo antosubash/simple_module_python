@@ -32,5 +32,183 @@
     "title": "Administration",
     "description": "Benutzer, Zugriff, Darstellung und Systemeinstellungen verwalten.",
     "empty": "Für Ihr Konto sind keine Administrationswerkzeuge verfügbar."
+  },
+  "settings_form": {
+    "title": "Anwendung",
+    "description": "Anwendungsweite Einstellungen für Mandanten, Sprache, Protokollierung, Sicherheit, Anfragelimits, die API und die Datenbankverbindung.",
+    "groups": {
+      "tenancy": "Mandanten",
+      "localization": "Lokalisierung",
+      "logging": "Protokollierung",
+      "security": "Sicherheit",
+      "authentication": "Authentifizierung",
+      "routing": "Routing",
+      "request_guards": "Anfrageschutz",
+      "cors": "CORS",
+      "api": "API",
+      "database": "Datenbank"
+    },
+    "fields": {
+      "multi_tenant": {
+        "label": "Mandantenfähiger Betrieb",
+        "help": "Mehrere Mandanten in einer Installation bedienen. Ist die Option aus, handeln alle Anfragen für einen einzigen Mandanten."
+      },
+      "tenant_header": {
+        "label": "Mandanten-Header",
+        "help": "Name des Anfrage-Headers, der den Mandanten auswählt. Leer lassen, um die Standardermittlung zu verwenden."
+      },
+      "default_tenant": {
+        "label": "Standardmandant",
+        "help": "Mandant, für den alle Anfragen handeln, solange der mandantenfähige Betrieb aus ist. Wird bei aktivierter Option ignoriert."
+      },
+      "maintenance_mode": {
+        "label": "Wartungsmodus",
+        "help": "Zeigt allen außer Administratoren eine Wartungsseite statt der Anwendung. Wirkt ohne Neustart."
+      },
+      "maintenance_message": {
+        "label": "Wartungshinweis",
+        "help": "Optionaler Hinweis auf der Wartungsseite. Leer lassen, um den Standardtext anzuzeigen."
+      },
+      "i18n_default_locale": {
+        "label": "Standardsprache",
+        "help": "Sprache, die verwendet wird, wenn Besucher keine gewählt haben. Muss eine der unterstützten Sprachen sein."
+      },
+      "i18n_supported_locales": {
+        "label": "Unterstützte Sprachen",
+        "help": "Sprachcodes, aus denen Besucher wählen können, zum Beispiel en oder de."
+      },
+      "i18n_cookie_name": {
+        "label": "Name des Sprach-Cookies",
+        "help": "Name des Cookies, das die Sprache eines Besuchers speichert."
+      },
+      "public_base_url": {
+        "label": "Öffentliche Adresse der Website",
+        "help": "Die öffentliche Adresse der Website, zum Beispiel https://example.org. Wird für kanonische Links und Vorschauen beim Teilen verwendet. Leer lassen, um sie wegzulassen."
+      },
+      "log_level": {
+        "label": "Protokollstufe",
+        "help": "Wie viel die Anwendung in ihr Protokoll schreibt, zum Beispiel INFO oder WARNING."
+      },
+      "log_format": {
+        "label": "Protokollformat",
+        "help": "Ob Protokollzeilen als strukturiertes JSON oder als einfacher Text geschrieben werden.",
+        "choices": {
+          "json": "JSON",
+          "text": "Einfacher Text"
+        }
+      },
+      "trusted_proxy": {
+        "label": "Vertrauenswürdiger Proxy",
+        "help": "Proxys, deren weitergeleitete Adress- und Protokoll-Header vertraut wird: * für alle oder eine kommagetrennte Liste von IP-Adressen oder Bereichen. Leer lassen, wenn kein Proxy verwendet wird."
+      },
+      "session_cookie_secure": {
+        "label": "Sichere Sitzungs-Cookies",
+        "help": "Sitzungs-Cookies nur über HTTPS senden. Nicht gesetzt bedeutet an, außer bei lokaler Entwicklung."
+      },
+      "login_redirect_url": {
+        "label": "Seite nach der Anmeldung",
+        "help": "Wohin Benutzer nach der Anmeldung gelangen. Muss ein Pfad dieser Website sein, zum Beispiel /dashboard."
+      },
+      "auth_provider": {
+        "label": "Authentifizierungsanbieter",
+        "help": "Welches Anmeldemodul aktiv ist, wenn mehrere installiert sind, zum Beispiel users oder keycloak."
+      },
+      "auth_public_paths": {
+        "label": "Öffentliche Pfadpräfixe",
+        "help": "Pfadpräfixe, die ohne Anmeldung aufrufbar sind. Nur für Routen verwenden, die kein Modul abdeckt."
+      },
+      "native_link_prefixes": {
+        "label": "Präfixe für Vollseiten-Links",
+        "help": "Pfadpräfixe, deren Links als normales Laden der Seite statt als Navigation in der Anwendung geöffnet werden, zum Beispiel /docs/."
+      },
+      "max_request_body_bytes": {
+        "label": "Maximale Anfragegröße (Byte)",
+        "help": "Größter akzeptierter Anfrageinhalt. Größere Anfragen werden abgelehnt. 0 bedeutet keine Begrenzung."
+      },
+      "rate_limit_public": {
+        "label": "Limit für anonyme Anfragen",
+        "help": "Erlaubte Anfragen pro Besucheradresse auf öffentlichen Routen, zum Beispiel 120/minute. Leer lassen oder off eingeben, um es zu deaktivieren."
+      },
+      "rate_limit_authenticated": {
+        "label": "Limit für angemeldete Benutzer",
+        "help": "Optionales Anfragelimit pro Adresse für angemeldete Benutzer im gleichen Format. Leer lassen für keine Begrenzung."
+      },
+      "forwarded_host_allowlist": {
+        "label": "Erlaubte weitergeleitete Hosts",
+        "help": "Hostnamen, die ein vertrauenswürdiger Proxy weitergeben darf, etwa example.com oder *.example.com. Leer bedeutet, dass der Header ignoriert wird. Erfordert einen vertrauenswürdigen Proxy."
+      },
+      "cors_allow_origins": {
+        "label": "Erlaubte Ursprünge",
+        "help": "Websites, die die API aus einem Browser aufrufen dürfen. Leer erlaubt keine. * ist nicht erlaubt, solange Anmeldedaten aktiviert sind."
+      },
+      "cors_allow_credentials": {
+        "label": "Anmeldedaten erlauben",
+        "help": "Ursprungsübergreifenden Anfragen erlauben, Cookies und Autorisierungs-Header zu senden."
+      },
+      "cors_allow_methods": {
+        "label": "Erlaubte Methoden",
+        "help": "HTTP-Methoden, die ursprungsübergreifende Anfragen verwenden dürfen."
+      },
+      "cors_allow_headers": {
+        "label": "Erlaubte Anfrage-Header",
+        "help": "Anfrage-Header, die ursprungsübergreifende Anfragen senden dürfen."
+      },
+      "cors_expose_headers": {
+        "label": "Freigegebene Antwort-Header",
+        "help": "Antwort-Header, die Skripte auf anderen Websites im Browser lesen dürfen."
+      },
+      "cors_max_age": {
+        "label": "Cache-Dauer der Vorabprüfung (Sekunden)",
+        "help": "Wie lange Browser die Antwort auf eine ursprungsübergreifende Prüfung zwischenspeichern dürfen."
+      },
+      "api_title": {
+        "label": "API-Titel",
+        "help": "Titel in der generierten API-Dokumentation."
+      },
+      "api_version": {
+        "label": "API-Version",
+        "help": "Version in der API-Dokumentation. Standardmäßig die Version der Anwendung selbst."
+      },
+      "api_description": {
+        "label": "API-Beschreibung",
+        "help": "Kurze Beschreibung in der API-Dokumentation."
+      },
+      "openapi_public": {
+        "label": "API-Schema veröffentlichen",
+        "help": "Das API-Schema außerhalb der Entwicklung für alle bereitstellen. Es listet jeden Endpunkt auf, daher nur aktivieren, wenn das öffentlich sein soll."
+      },
+      "db_pool_size": {
+        "label": "Größe des Verbindungspools",
+        "help": "Anzahl der dauerhaft geöffneten Datenbankverbindungen."
+      },
+      "db_max_overflow": {
+        "label": "Zusätzliche Verbindungen",
+        "help": "Weitere Verbindungen über die Poolgröße hinaus, die bei hoher Last erlaubt sind."
+      },
+      "db_pool_pre_ping": {
+        "label": "Verbindungen vor Nutzung prüfen",
+        "help": "Jede Poolverbindung vor der Nutzung testen, damit getrennte Verbindungen ersetzt werden."
+      },
+      "db_pool_recycle": {
+        "label": "Lebensdauer der Verbindung (Sekunden)",
+        "help": "Ältere Verbindungen werden ersetzt."
+      },
+      "db_pool_timeout": {
+        "label": "Wartezeit auf den Pool (Sekunden)",
+        "help": "Wie lange eine Anfrage auf eine freie Verbindung wartet, bevor sie fehlschlägt."
+      },
+      "db_connect_timeout": {
+        "label": "Zeitlimit für den Verbindungsaufbau (Sekunden)",
+        "help": "Wie lange auf das Öffnen einer neuen Datenbankverbindung gewartet wird. Nur PostgreSQL."
+      },
+      "db_statement_timeout_ms": {
+        "label": "Zeitlimit für Abfragen (Millisekunden)",
+        "help": "Abfragen abbrechen, die länger laufen. 0 bedeutet keine Begrenzung. Nur PostgreSQL."
+      },
+      "db_idle_in_tx_timeout_ms": {
+        "label": "Zeitlimit für ruhende Transaktionen (Millisekunden)",
+        "help": "Sitzungen beenden, die länger untätig in einer Transaktion bleiben. 0 bedeutet keine Begrenzung. Nur PostgreSQL."
+      }
+    }
   }
 }
