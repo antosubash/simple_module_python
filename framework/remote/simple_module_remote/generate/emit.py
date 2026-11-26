@@ -96,10 +96,10 @@ def _auth_hint(ctx: RunContext, text: str) -> None:
     """Point at re-login only when the token is the problem, not a missing tenant."""
     detail = _detail(text)
     if "tenant" in detail.lower():
-        say_server(
+        shown = ctx.redact(detail)[:ERROR_BODY_CHARS]  # redact the whole text, then cut
+        say(
             ctx,
-            f"hint: the server needs a tenant: {detail[:ERROR_BODY_CHARS]}; "
-            "pass --tenant or use a token pinned to one",
+            f"hint: the server needs a tenant: {shown}; pass --tenant or use a token pinned to one",
         )
     elif ctx.login_hint:
         say(ctx, f"hint: the token may be missing, expired or lack access; run `{ctx.login_hint}`")

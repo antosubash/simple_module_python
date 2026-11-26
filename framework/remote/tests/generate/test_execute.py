@@ -389,3 +389,13 @@ def test_auth_failure_still_suggests_login(make_op, status):
     h.ctx.login_hint = "smdev login --token"
     assert h.run(make_op()) == 4
     assert "run `smdev login --token`" in h.err.getvalue()
+
+
+def test_tenant_hint_redacts_a_token_straddling_the_cut(make_op):
+    lead = "tenant " + "x" * (ERROR_BODY_CHARS - len("tenant ") - 2)
+    h = Harness(lambda r: httpx.Response(403, json={"detail": lead + "tok-tail"}))  # token is "tok"
+    assert h.run(make_op()) == 4
+    hint = next(ln for ln in h.err.getvalue().splitlines() if ln.startswith("hint:"))
+    body = hint.split("tenant: ", 1)[1].split("; pass")[0]
+    assert body.endswith("x[") or body.endswith("[redacted]"[: len(body) - body.rindex("[")])
+    assert "to" not in body.rsplit("x", 1)[-1]
