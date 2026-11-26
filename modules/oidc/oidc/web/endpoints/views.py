@@ -2,7 +2,7 @@
 
 import logging
 
-from auth.contracts.events import session_logout_event
+from auth.oidc_common.logout import logout_event_for
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Depends, Request
 from simple_module_hosting.auth.auth_policy import login_redirect_url
@@ -43,16 +43,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
-    event = None
-    try:
-        # Use the native validator even when the host wraps its AuthProvider.
-        state = request.app.state.oidc
-        provider = OidcAuthProvider(state=state)
-        provider.jwks_cache = state.jwks_cache
-        session_user = await provider.resolve_session(request)
-        event = session_logout_event(session_user, local_account=False)
-    except Exception as exc:
-        logger.warning("Logout session validation failed (%s); skipping event", type(exc).__name__)
+    event = await logout_event_for(request, OidcAuthProvider)
     client = request.app.state.oidc.client
     if client is not None:
         try:

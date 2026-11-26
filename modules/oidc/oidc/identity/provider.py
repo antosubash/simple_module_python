@@ -60,14 +60,17 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
 
         return await self.resolve_session(request)
 
-    async def resolve_session(self, request: Request) -> UserContext | None:
-        """Validate the browser session independently of any bearer credential."""
+    async def resolve_session(self, request: Request, *, renew: bool = True) -> UserContext | None:
+        """Validate the session; ``renew=False`` preserves it and never calls the IdP."""
         session = request.scope.get("session", {})
+        if not renew:
+            # Authority rejection must leave the original logout credentials available.
+            session = dict(session)
         if not self._accept_session(session):
             return None
         # Renew authority from the IdP at expiry, without interrupting the request.
         if type(session.get(SESSION_EXPIRES_AT_KEY)) is not int or session_has_expired(session):
-            return await self._refresh_session(request)
+            return await self._refresh_session(request) if renew else None
         ctx = UserContext.from_session_dict(session.get(SESSION_USER_KEY))
         if ctx is not None:
             # The cookie froze what was decided at login; re-decide with the

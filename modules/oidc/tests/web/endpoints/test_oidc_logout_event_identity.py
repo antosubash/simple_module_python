@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
@@ -99,12 +100,15 @@ def _session():
 
 
 @pytest.mark.parametrize("bearer_user", [None, "session-user", "different-user"])
-async def test_logout_event_names_session_user(logout_client, bearer_user):
+@pytest.mark.parametrize("user_id", ["session-user", "AAAAAAAA-0000-0000-0000-000000000001"])
+async def test_logout_event_names_session_user(logout_client, bearer_user, user_id):
     client, _, observed, sessions = logout_client
-    client.cookies.set("session", forge_session_cookie("test-secret-key", _session()))
+    payload = _session()
+    payload["user_ctx"]["id"] = user_id
+    client.cookies.set("session", forge_session_cookie("test-secret-key", payload))
     headers = {"Authorization": f"Bearer {bearer_user}"} if bearer_user else {}
     assert (await client.post("/oidc/logout", headers=headers)).status_code == 303
-    assert observed == [UserLoggedOut(user_id="session-user", email="session-user@example.test")]
+    assert observed == [UserLoggedOut(user_id=user_id, email="session-user@example.test")]
     assert sessions[-1] == {}
 
 
@@ -141,7 +145,7 @@ async def test_logout_still_cleans_up_when_validation_raises(
     httpx_mock.add_response(method="POST", status_code=200)
     forgotten = []
 
-    async def unavailable(self, request):
+    async def unavailable(self, request, *, renew):
         raise RuntimeError("private identity details")
 
     async def forget(app, keys, session):
@@ -157,3 +161,93 @@ async def test_logout_still_cleans_up_when_validation_raises(
     assert b"refresh-secret" in httpx_mock.get_request().content
     assert "session validation failed" in caplog.text
     assert "private identity details" not in caplog.text
+
+
+async def test_logout_does_not_swallow_cancellation(logout_client, monkeypatch):
+    from asyncio import CancelledError
+
+    client, _, _, _ = logout_client
+
+    async def cancelled(self, request, *, renew):
+        raise CancelledError
+
+    monkeypatch.setattr(OidcAuthProvider, "resolve_session", cancelled)
+    with pytest.raises(CancelledError):
+        await client.post("/oidc/logout", headers={"Authorization": "Bearer different-user"})
+
+
+async def test_expired_logout_never_renews_and_revokes_original_token(
+    logout_client, monkeypatch, httpx_mock
+):
+    from auth.oidc_common import renewal_outcomes
+
+    client, app, observed, sessions = logout_client
+    monkeypatch.setattr(renewal_outcomes, "_load", AsyncMock(return_value=None))
+    monkeypatch.setattr(renewal_outcomes, "_publish", AsyncMock())
+    forgotten = []
+
+    async def forget(app, keys, session):
+        forgotten.append(dict(session))
+
+    monkeypatch.setattr(views, "forget_outcomes", forget)
+    app.state.oidc.jwks_cache = SimpleNamespace(
+        issuer="https://idp.test",
+        validate_jwt=AsyncMock(
+            return_value={
+                "iss": "https://idp.test",
+                "sub": "session-subject",
+                "email": "renewed@example.test",
+                "exp": 4_102_444_800,
+            }
+        ),
+    )
+    payload = _session()
+    payload["oidc_session_id"] = "browser-session"
+    payload["expires_at"] = 1
+    payload["oidc_refresh_token"] = seal_refresh_token(app, "refresh-old")
+    client.cookies.set("session", forge_session_cookie("test-secret-key", payload))
+    httpx_mock.add_response(
+        url="https://idp.test/token",
+        is_optional=True,
+        json={"id_token": "id-new", "refresh_token": "refresh-new"},
+    )
+    httpx_mock.add_response(url="https://idp.test/revoke", status_code=200)
+    response = await client.post("/oidc/logout", headers={"Authorization": "Bearer different-user"})
+    assert response.status_code == 303
+    assert sessions[-1] == {}
+    assert httpx_mock.get_requests(url="https://idp.test/token") == []
+    renewal_outcomes._load.assert_not_awaited()
+    assert observed == []
+    assert parse_qs(httpx_mock.get_requests()[-1].content.decode())["token"] == ["refresh-old"]
+    assert forgotten[0]["oidc_session_id"] == "browser-session"
+    assert forgotten[0]["oidc_refresh_token"] == payload["oidc_refresh_token"]
+
+
+@pytest.mark.parametrize("failure", ["wrong-authority", "expired-without-cache"])
+async def test_rejected_session_still_revokes_and_forgets_outcomes(
+    logout_client, monkeypatch, httpx_mock, failure
+):
+    client, app, observed, sessions = logout_client
+    payload = _session()
+    payload["oidc_session_id"] = "browser-session"
+    payload["oidc_refresh_token"] = seal_refresh_token(app, "refresh-secret")
+    if failure == "wrong-authority":
+        payload["oidc_authority"] = "another-provider"
+    else:
+        payload["expires_at"] = 1
+        app.state.oidc.jwks_cache = None
+    client.cookies.set("session", forge_session_cookie("test-secret-key", payload))
+    httpx_mock.add_response(method="POST", status_code=200)
+    forgotten = []
+
+    async def forget(app, keys, session):
+        forgotten.append(dict(session))
+
+    monkeypatch.setattr(views, "forget_outcomes", forget)
+    response = await client.post("/oidc/logout", headers={"Authorization": "Bearer different-user"})
+    assert response.status_code == 303
+    assert sessions[-1] == {}
+    assert observed == []
+    assert forgotten[0]["oidc_session_id"] == "browser-session"
+    assert forgotten[0]["oidc_refresh_token"] == payload["oidc_refresh_token"]
+    assert b"refresh-secret" in httpx_mock.get_request().content
