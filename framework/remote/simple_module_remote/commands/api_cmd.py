@@ -15,6 +15,7 @@ from simple_module_remote.generate.params import PATH_VAR, click_params_for, par
 from simple_module_remote.generate.tree import session_only_operations
 from simple_module_remote.http.errors import UnsafePathError
 from simple_module_remote.http.safety import validate_api_path
+from simple_module_remote.output.sanitize import sanitize
 
 __all__ = ["api"]
 
@@ -33,10 +34,16 @@ def _matching(root: dict, method: str, path: str) -> list[Operation]:
 
 
 def _synthetic(
-    method: str, path: str, queries: list[tuple[str, str]], root: dict | None = None
+    method: str,
+    path: str,
+    queries: list[tuple[str, str]],
+    root: dict | None = None,
+    trusted: dict | None = None,
 ) -> Operation:
+    """``trusted`` is the bundled schema when ``root`` is a live one: only it may waive."""
     # Risk comes from the endpoint the server will route to: match the decoded path.
     matched = _matching(root, method, unquote(path)) if root else []
+    vouched = _matching(trusted, method, unquote(path)) if trusted is not None else matched
     names: dict[str, int] = {}
     for key, _ in queries:
         names[key] = names.get(key, 0) + 1
@@ -61,8 +68,8 @@ def _synthetic(
         body_schema=None,
         summary="",
         description="",
-        safe=bool(matched) and all(op.safe for op in matched),
-        confirm=any(op.confirm for op in matched),
+        safe=bool(vouched) and all(op.safe for op in vouched),
+        confirm=any(op.confirm for op in (*matched, *vouched)),
         # A path that only session-only schema operations match gets the session-only hint.
         token_capable=not (matched and not any(op.token_capable for op in matched)),
     )
@@ -70,7 +77,7 @@ def _synthetic(
 
 def _list_session_only(schema: dict) -> None:
     for op in session_only_operations(schema):
-        click.echo(f"{op.method} {op.path} {op.operation_id}")
+        click.echo(sanitize(f"{op.method} {op.path} {op.operation_id}"))
 
 
 def _options() -> list[click.Parameter]:
@@ -126,7 +133,7 @@ def _callback(**values: Any) -> None:
     ):
         raise click.UsageError(f"{method} takes no request body: drop --json/--file/--set")
     queries = split_pairs(values.pop("queries"), "--query")
-    op = _synthetic(method, path, queries, state.root)
+    op = _synthetic(method, path, queries, state.root, state.bundled_root)
     for dest, param in param_map(op).items():
         found = [v for k, v in queries if k == param.name]
         values[dest] = tuple(found) if len(found) > 1 else found[0]

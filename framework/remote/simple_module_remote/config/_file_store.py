@@ -7,7 +7,6 @@ import secrets
 import stat
 import tomllib
 from collections.abc import Generator
-from pathlib import Path
 
 import tomli_w
 
@@ -71,72 +70,6 @@ class FileStoreError(Exception):
     """Unusable credentials file; the message never contains a token."""
 
 
-def require_private_files() -> None:
-    """Refuse where owner-only files cannot be enforced (no ``O_NOFOLLOW`` or uid)."""
-    if not (hasattr(os, "O_NOFOLLOW") and hasattr(os, "getuid")):
-        raise FileStoreError("no secure file store on this platform; install an OS keyring backend")
-
-
-def read_private(path: Path) -> bytes | None:
-    """The bytes of an owner-only regular file; ``None`` when it does not exist."""
-    require_private_files()
-    try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    except FileNotFoundError:
-        return None
-    except OSError as exc:
-        if exc.errno == errno.ELOOP:
-            raise FileStoreError(f"refusing to read {path}: it is a symlink") from None
-        raise FileStoreError(f"cannot read {path}") from None
-    with os.fdopen(fd, "rb") as handle:
-        info = os.fstat(handle.fileno())
-        if not stat.S_ISREG(info.st_mode):
-            raise FileStoreError(f"refusing to read {path}: not a regular file")
-        if info.st_uid != os.getuid():
-            raise FileStoreError(f"refusing to read {path}: owned by another user")
-        if info.st_mode & LOOSE_MODE_MASK:
-            raise FileStoreError(
-                f"refusing to read {path}: it is accessible to other users (run `chmod 600 {path}`)"
-            )
-        try:
-            return handle.read()
-        except OSError:
-            raise FileStoreError(f"cannot read {path}") from None
-
-
-def secure_dir(directory: Path) -> None:
-    """Create ``directory`` (mode 0700) or tighten one we own; refuse one others can read."""
-    try:
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        info = directory.stat()
-        if info.st_uid == os.getuid() and info.st_mode & LOOSE_MODE_MASK:
-            directory.chmod(0o700)
-            info = directory.stat()
-    except OSError as exc:
-        raise FileStoreError(f"cannot prepare {directory}: {exc.__class__.__name__}") from None
-    if info.st_mode & LOOSE_MODE_MASK:
-        raise FileStoreError(f"refusing to write in {directory}: it is not private")
-
-
-def write_private(path: Path, data: bytes) -> None:
-    """Atomically replace ``path`` with ``data``, mode 0600, in a private directory."""
-    require_private_files()
-    secure_dir(path.parent)
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
-    try:
-        fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
-        tmp.replace(path)
-    except OSError as exc:
-        raise FileStoreError(f"cannot write {path}: {exc.__class__.__name__}") from None
-    finally:
-        with contextlib.suppress(OSError):
-            tmp.unlink(missing_ok=True)
-
-
 class FileStore:
     def __init__(self, cli: str) -> None:
         if not (hasattr(os, "O_NOFOLLOW") and hasattr(os, "getuid")):
@@ -146,15 +79,31 @@ class FileStore:
         self._path = config_dir(cli) / CREDENTIALS_FILENAME
 
     def _load(self) -> dict[str, dict[str, str]]:
-        data = read_private(self._path)
-        if data is None:
-            return {}
         try:
-            raw = tomllib.loads(data.decode("utf-8"))
-        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
-            raise FileStoreError(
-                f"cannot read {self._path}: file is corrupt; delete it and log in again"
-            ) from None
+            fd = os.open(self._path, os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            return {}
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise FileStoreError(f"refusing to read {self._path}: it is a symlink") from None
+            raise FileStoreError(f"cannot read {self._path}") from None
+        with os.fdopen(fd, "rb") as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise FileStoreError(f"refusing to read {self._path}: not a regular file")
+            if info.st_uid != os.getuid():
+                raise FileStoreError(f"refusing to read {self._path}: owned by another user")
+            if info.st_mode & LOOSE_MODE_MASK:
+                raise FileStoreError(
+                    f"refusing to read {self._path}: it is accessible to other users "
+                    f"(run `chmod 600 {self._path}`)"
+                )
+            try:
+                raw = tomllib.loads(handle.read().decode("utf-8"))
+            except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError):
+                raise FileStoreError(
+                    f"cannot read {self._path}: file is corrupt; delete it and log in again"
+                ) from None
         out: dict[str, dict[str, str]] = {}
         for key, table in raw.items():
             if isinstance(table, dict) and all(
@@ -168,10 +117,33 @@ class FileStore:
         return out
 
     def _secure_dir(self) -> None:
-        secure_dir(self._path.parent)
+        directory = self._path.parent
+        try:
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            info = directory.stat()
+            if info.st_uid == os.getuid() and info.st_mode & LOOSE_MODE_MASK:
+                directory.chmod(0o700)
+                info = directory.stat()
+        except OSError as exc:
+            raise FileStoreError(f"cannot prepare {directory}: {exc.__class__.__name__}") from None
+        if info.st_mode & LOOSE_MODE_MASK:
+            raise FileStoreError(f"refusing to write in {directory}: it is not private")
 
     def _write(self, data: dict[str, dict[str, str]]) -> None:
-        write_private(self._path, tomli_w.dumps(data).encode("utf-8"))
+        self._secure_dir()
+        tmp = self._path.with_name(f"{self._path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
+        try:
+            fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(tomli_w.dumps(data).encode("utf-8"))
+                handle.flush()
+                os.fsync(handle.fileno())
+            tmp.replace(self._path)
+        except OSError as exc:
+            raise FileStoreError(f"cannot write {self._path}: {exc.__class__.__name__}") from None
+        finally:
+            with contextlib.suppress(OSError):
+                tmp.unlink(missing_ok=True)
 
     def get(self, key: str) -> dict[str, str] | None:
         return self._load().get(key)

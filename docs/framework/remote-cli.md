@@ -17,7 +17,10 @@ cli = build_cli("smdev", schema_path, defaults_path, version="1.0")
 in-memory keyring. `schema_path` is the bundled schema; before parsing each
 invocation the root group peeks at `--env`/`--schema` and, when the selected
 environment has a usable live cache (`schema sync`), rebuilds the generated groups
-from it instead (`commands/schema_source.py`). The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
+from it instead (`commands/schema_source.py`). The environment resolved there is
+reused for the request, and a wrapper's `default_map` for `env`/`schema_source` is
+honoured. Live operations take `x-cli-safe` only from the bundled schema
+(`generate/trust.py`). The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
 [Project CLI](/guide/project-cli).
 
 ## A CLI for your own app
@@ -39,7 +42,7 @@ CI without a config file: set `<CLI>_ENV`, `<CLI>_URL` and `<CLI>_TOKEN`.
 |---|---|
 | `schema/` | Load and `$ref`-resolve an OpenAPI file; the live schema cache (`cache.py`: `<cache>/<cli>/<env>/{openapi,meta}.json`, bound to origin and SHA-256) |
 | `generate/` | Operations, naming, parameters, bodies, execution, confirmation, pagination, and the command tree (`tree.py`) |
-| `config/` | Environments, origin-bound credentials, XDG config and cache paths, owner-only file helpers |
+| `config/` | Environments, origin-bound credentials, XDG config and cache paths, descriptor-based owner-only directories (`_private_dir.py`) |
 | `http/` | Guarded `httpx` client: `/api/` only, no credentials in URLs, auth only on same-origin redirects under `/api/` |
 | `output/` | Table/JSON/YAML/`id` rendering with terminal-escape sanitising |
 | `commands/` | Built-in commands and the operation-to-click adapter |

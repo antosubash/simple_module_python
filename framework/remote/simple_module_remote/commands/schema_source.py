@@ -15,9 +15,16 @@ from pathlib import Path
 import click
 
 from simple_module_remote.commands.runtime import SCHEMA_BUNDLED, SCHEMA_LIVE
-from simple_module_remote.config.environments import ConfigError, load_config, select_env
+from simple_module_remote.config.environments import (
+    ConfigError,
+    Environment,
+    load_config,
+    select_env,
+)
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.tree import TreeError, build_groups
+from simple_module_remote.generate.trust import hint_index, trusted_hints
+from simple_module_remote.output.sanitize import sanitize
 from simple_module_remote.schema.cache import CacheMeta, SchemaCacheError, load_cached
 
 __all__ = [
@@ -81,15 +88,23 @@ class SchemaChoice:
     path: Path
     root: dict
     groups: list[click.Group]
-    env: str | None = None
     meta: CacheMeta | None = None
     # Why the live schema is not in use (shown by `schema status`); empty when it is.
     note: str = ""
     # Set when `--schema live` was asked for but cannot be honoured.
     error: str | None = None
+    # The environment resolved for this choice (requests reuse it); None when none is.
+    selected: tuple[Environment, bool] | None = None
 
 
 Factory = Callable[[Operation, dict], click.Command]
+# What a malformed live document can raise while its tree is built.
+MALFORMED = (RecursionError, TypeError, ValueError, KeyError, AttributeError, IndexError)
+
+
+def _trusting(factory: Factory, bundled_root: dict) -> Factory:
+    index = hint_index(bundled_root)
+    return lambda op, root: factory(trusted_hints(op, index), root)
 
 
 def choose_schema(
@@ -105,37 +120,50 @@ def choose_schema(
 
     ``--schema bundled`` always yields ``bundled``; ``--schema live`` yields the live
     cache or ``bundled`` carrying an ``error`` the caller raises before running a
-    generated command.
+    generated command. Live operations take their ``x-cli-safe`` from the bundled schema.
     """
-    if flags.schema == SCHEMA_BUNDLED:
-        return _fallback(bundled, "pinned with --schema bundled", None, None)
     try:
-        env, _ = select_env(load_config(cli, defaults_path), flags.env, environ, cli)
+        env, explicit = select_env(load_config(cli, defaults_path), flags.env, environ, cli)
     except ConfigError:
         return _fallback(bundled, "no environment selected", None, flags.schema, cli)
+    selected = (env, explicit)
+    if flags.schema == SCHEMA_BUNDLED:
+        return _fallback(bundled, "pinned with --schema bundled", selected, None)
     sync = f"`{cli} --env {env.name} schema sync`"
     try:
-        cached = load_cached(cli, env.name, env.origin)
+        cached = load_cached(cli, env.name, env.url, env.origin)
         if cached is None:
             raise SchemaCacheError(f"no live schema cached for {env.name!r}")
-        groups = build_groups(cached.root, factory)
+        groups = build_groups(cached.root, _trusting(factory, bundled.root))
     except (SchemaCacheError, TreeError) as exc:
-        return _fallback(bundled, f"{exc}: run {sync}", env.name, flags.schema, cli)
-    return SchemaChoice(SCHEMA_LIVE, cached.path, cached.root, groups, env.name, cached.meta)
+        return _fallback(bundled, f"{sanitize(str(exc))}: run {sync}", selected, flags.schema)
+    except MALFORMED as exc:
+        note = f"the cached schema for {env.name!r} is malformed ({type(exc).__name__}): run {sync}"
+        click.echo(f"{cli}: using the bundled schema: {note}", err=True)
+        return _fallback(bundled, note, selected, flags.schema)
+    return SchemaChoice(
+        SCHEMA_LIVE, cached.path, cached.root, groups, cached.meta, selected=selected
+    )
 
 
 def _fallback(
     bundled: SchemaChoice,
     note: str,
-    env: str | None,
+    selected: tuple[Environment, bool] | None,
     requested: str | None,
     cli: str = "",
 ) -> SchemaChoice:
     error = None
     if requested == SCHEMA_LIVE:
         error = f"--schema live: {note}"
-        if env is None:
+        if selected is None:
             error += f" (pass --env, then run `{cli} --env <name> schema sync`)"
     return SchemaChoice(
-        SCHEMA_BUNDLED, bundled.path, bundled.root, bundled.groups, env, note=note, error=error
+        SCHEMA_BUNDLED,
+        bundled.path,
+        bundled.root,
+        bundled.groups,
+        note=note,
+        error=error,
+        selected=selected,
     )

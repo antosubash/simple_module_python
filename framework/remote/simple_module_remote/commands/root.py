@@ -19,6 +19,7 @@ from simple_module_remote.commands.runtime import SCHEMA_BUNDLED, AppState, CliE
 from simple_module_remote.commands.schema_cmd import schema_group
 from simple_module_remote.commands.schema_source import (
     SCHEMA_SOURCES,
+    RootFlags,
     SchemaChoice,
     choose_schema,
     peek_root_flags,
@@ -31,6 +32,8 @@ __all__ = ["build_cli"]
 
 LOGIN_COMMAND = "login"
 RAW_GROUP = "raw"
+ENV_PARAM = "env"
+SCHEMA_PARAM = "schema_source"
 BUILTINS = (env_group, login, logout, whoami, doctor, schema_group, api)
 
 
@@ -54,7 +57,7 @@ class _RootGroup(click.Group):
     def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
         state = ctx.obj
         if isinstance(state, AppState):
-            flags = peek_root_flags(args)
+            flags = self._with_defaults(ctx, peek_root_flags(args))
             choice = choose_schema(
                 cli=state.cli,
                 defaults_path=state.defaults_path,
@@ -64,11 +67,26 @@ class _RootGroup(click.Group):
                 factory=operation_command,
             )
             state.use_schema(choice.source, choice.path, choice.root, choice.meta, choice.note)
+            state.preselected = (
+                (flags.env, *choice.selected) if choice.selected is not None else None
+            )
             self.install(choice.groups)
             builtin = flags.command in {cmd.name for cmd in BUILTINS}
             if choice.error and flags.command is not None and not builtin:
                 raise CliError(choice.error)
         return super().parse_args(ctx, args)
+
+    @staticmethod
+    def _with_defaults(ctx: click.Context, flags: RootFlags) -> RootFlags:
+        """Fill flags absent from the arguments from a wrapper's ``default_map``."""
+        defaults = ctx.default_map or {}
+        env = flags.env if flags.env is not None else defaults.get(ENV_PARAM)
+        schema = flags.schema if flags.schema is not None else defaults.get(SCHEMA_PARAM)
+        return RootFlags(
+            env if isinstance(env, str) else None,
+            schema if isinstance(schema, str) else None,
+            flags.command,
+        )
 
     def make_context(self, *args: Any, **kwargs: Any) -> click.Context:
         try:
@@ -129,6 +147,7 @@ def build_cli(
         schema_path=schema_path,
         defaults_path=defaults_path,
         root=schema,
+        bundled_root=schema,
         transport=transport,
         backend=keyring_backend,
     )
@@ -137,7 +156,7 @@ def build_cli(
         name,
         callback=state.begin,
         params=[
-            click.Option(["--env", "-e", "env"], help="Environment to use."),
+            click.Option(["--env", "-e", ENV_PARAM], help="Environment to use."),
             click.Option(["--tenant", "tenant"], help="Tenant (slug or id) to act for."),
             click.Option(
                 ["--version"],
@@ -148,7 +167,7 @@ def build_cli(
                 help="Show the version and exit.",
             ),
             click.Option(
-                ["--schema", "schema_source"],
+                ["--schema", SCHEMA_PARAM],
                 type=click.Choice(SCHEMA_SOURCES),
                 expose_value=False,
                 help=(

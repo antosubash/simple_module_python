@@ -75,6 +75,11 @@ class AppState:
     schema_source: str = SCHEMA_BUNDLED
     schema_meta: CacheMeta | None = None
     schema_note: str = ""
+    # The bundled schema: the only one whose `x-cli-safe` may waive a confirmation.
+    bundled_root: dict = field(default_factory=dict)
+    # The environment resolved before parsing, as ``(--env value, env, explicit)``; the
+    # schema was chosen for it, so requests in this invocation must use the same one.
+    preselected: tuple[str | None, Environment, bool] | None = None
     flag_tenant: str | None = None
     _store: CredentialStore | None = None
     _tokens: dict[tuple[str, str | None, str], ResolvedToken] = field(default_factory=dict)
@@ -94,6 +99,8 @@ class AppState:
         if tenant is not None:
             with self.guard():
                 validate_tenant(tenant)
+        if self.preselected is not None and self.preselected[0] != env:
+            raise CliError("could not read --env before parsing: put it before the command")
         self.flag_env = env
         self.flag_tenant = tenant
         self._tokens.clear()
@@ -111,6 +118,8 @@ class AppState:
             return load_config(self.cli, self.defaults_path)
 
     def select(self) -> tuple[Environment, bool]:
+        if self.preselected is not None and self.preselected[0] == self.flag_env:
+            return self.preselected[1], self.preselected[2]
         config = self.config()
         try:
             return select_env(config, self.flag_env, self.environ, self.cli)
@@ -182,7 +191,9 @@ class AppState:
     def schema_hint(self, env: Environment) -> str:
         """What to say after a 404/422 from a generated command: the schema may be stale."""
         if self.schema_source == SCHEMA_LIVE:
-            return ""
+            return (
+                f"hint: the server may have changed: run `{self.cli} --env {env.name} schema sync`"
+            )
         return (
             "hint: this command comes from the bundled schema, which may not match the server; "
             f"run `{self.cli} --env {env.name} schema sync`"

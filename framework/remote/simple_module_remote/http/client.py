@@ -131,9 +131,12 @@ class ApiClient:
         *,
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        follow: bool = True,
     ) -> Generator[httpx.Response]:
         """Like ``request`` but the body is not read; iterate it, then the response closes."""
-        response = self._execute(method, path, params, None, None, None, None, headers, stream=True)
+        response = self._execute(
+            method, path, params, None, None, None, None, headers, stream=True, follow=follow
+        )
         try:
             yield response
         finally:

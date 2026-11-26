@@ -3,32 +3,30 @@
 from __future__ import annotations
 
 import hashlib
-import json
 
 import click
 
-from simple_module_remote.commands.generated import operation_command
 from simple_module_remote.commands.runtime import SCHEMA_LIVE, AppState, CliError, state_of
+from simple_module_remote.commands.schema_fetch import OPENAPI_PATH, fetch_schema, vet_schema
+from simple_module_remote.config._private_dir import PrivateDir, PrivateDirError
 from simple_module_remote.config.environments import Environment, validate_env_name
-from simple_module_remote.generate.tree import TreeError, build_groups
-from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import AUTH_STATUSES, ApiError, exit_code_for
+from simple_module_remote.output.sanitize import sanitize
 from simple_module_remote.schema.cache import (
+    LOCK_FILENAME,
     CacheMeta,
     SchemaCacheError,
-    load_cached,
-    parse_schema,
-    touch_cache,
-    write_cache,
+    load_from,
+    open_cache,
+    touch_in,
+    write_to,
 )
 
 __all__ = ["format_age", "schema_fingerprint", "schema_group", "schema_info"]
 
 FINGERPRINT_CHARS = 12
-OPENAPI_PATH = "/api/_meta/openapi"
+MAX_VERSION_CHARS = 64
 OPENAPI_PERMISSION = "host.openapi.read"
-MAX_SCHEMA_BYTES = 32 * 1024 * 1024
-MAX_ETAG_CHARS = 256
 HTTP_OK = 200
 HTTP_NOT_MODIFIED = 304
 HTTP_NOT_FOUND = 404
@@ -42,7 +40,7 @@ def schema_fingerprint(data: bytes) -> str:
 def schema_info(root: dict) -> str:
     info = root.get("info")
     version = info.get("version") if isinstance(info, dict) else None
-    return str(version) if version else "unknown"
+    return sanitize(str(version))[:MAX_VERSION_CHARS] if version else "unknown"
 
 
 def format_age(seconds: float | None) -> str:
@@ -76,13 +74,7 @@ def status(ctx: click.Context) -> None:
     if state.schema_source == SCHEMA_LIVE and meta is not None:
         click.echo(f"age:         {format_age(meta.age_seconds())} (fetched {meta.fetched_at})")
     elif state.schema_note:
-        click.echo(f"live:        {state.schema_note}")
-
-
-def _safe_etag(value: str | None, client: ApiClient) -> str | None:
-    if value is None or len(value) > MAX_ETAG_CHARS or not value.isprintable():
-        return None
-    return value if client.redact(value) == value else None
+        click.echo(f"live:        {sanitize(state.schema_note)}")
 
 
 def _refusal(state: AppState, env: Environment, status: int) -> CliError:
@@ -97,46 +89,34 @@ def _refusal(state: AppState, env: Environment, status: int) -> CliError:
     return CliError(message, code=exit_code_for(status))
 
 
-def _cached_meta(state: AppState, env: Environment) -> CacheMeta | None:
+def _cached_meta(store: PrivateDir, env: Environment) -> CacheMeta | None:
     try:
-        cached = load_cached(state.cli, env.name, env.origin)
+        cached = load_from(store, env.name, env.url, env.origin)
     except SchemaCacheError:
         return None  # unusable: fetch it again in full
     return cached.meta if cached is not None else None
 
 
-def _validate(data: bytes, client: ApiClient) -> None:
-    """Refuse a body that is too big, not OpenAPI, carries the token, or breaks the tree."""
-    if len(data) > MAX_SCHEMA_BYTES:
-        raise SchemaCacheError(f"the schema is larger than {MAX_SCHEMA_BYTES} bytes")
-    root = parse_schema(data)
-    for text in (data.decode("utf-8"), json.dumps(root, ensure_ascii=False)):
-        if client.redact(text) != text:
-            raise SchemaCacheError("the schema contains the credential; refusing to store it")
-    try:
-        build_groups(root, operation_command)
-    except TreeError as exc:
-        raise SchemaCacheError(str(exc)) from None
-
-
 def _sync(state: AppState, env: Environment, explicit: bool) -> str:
-    previous = _cached_meta(state, env)
-    headers = {"If-None-Match": previous.etag} if previous and previous.etag else {}
     token = state.token(env, explicit)
-    with state.client(env, token) as client:
-        try:
-            response = client.request("GET", OPENAPI_PATH, headers=headers, follow=False)
-        except ApiError as exc:
-            raise CliError(f"schema sync failed: {exc.message}", exit_code_for(0)) from None
-        if response.status_code == HTTP_NOT_MODIFIED and previous is not None:
-            meta = touch_cache(state.cli, env.name, previous)
-            return f"unchanged ({meta.fingerprint[:FINGERPRINT_CHARS]})"
-        if response.status_code != HTTP_OK:
-            raise _refusal(state, env, response.status_code)
-        data = response.content
-        _validate(data, client)
-        etag = _safe_etag(response.headers.get("ETag"), client)
-    meta = write_cache(state.cli, env.name, env.origin, data, etag)
+    with open_cache(state.cli, env.name, create=True) as store, store.locked(LOCK_FILENAME):
+        previous = _cached_meta(store, env)
+        headers = {"If-None-Match": previous.etag} if previous and previous.etag else {}
+        with state.client(env, token) as client:
+            try:
+                fetched = fetch_schema(client, headers)
+            except ApiError as exc:
+                raise CliError(f"schema sync failed: {exc.message}", exit_code_for(0)) from None
+            if fetched.status == HTTP_NOT_MODIFIED and previous is not None:
+                current = _cached_meta(store, env)
+                if current is None or current.fingerprint != previous.fingerprint:
+                    raise SchemaCacheError("the cache changed during the sync; run it again")
+                meta = touch_in(store, previous)
+                return f"unchanged ({meta.fingerprint[:FINGERPRINT_CHARS]})"
+            if fetched.status != HTTP_OK:
+                raise _refusal(state, env, fetched.status)
+            vet_schema(fetched.data, client)
+        meta = write_to(store, env.url, env.origin, fetched.data, fetched.etag)
     return f"updated ({meta.fingerprint[:FINGERPRINT_CHARS]})"
 
 
@@ -151,6 +131,6 @@ def sync(ctx: click.Context, env_name: str | None) -> None:
     env, explicit = state.select()
     try:
         outcome = _sync(state, env, explicit)
-    except SchemaCacheError as exc:
-        raise CliError(f"schema sync failed: {exc}") from None
+    except (SchemaCacheError, PrivateDirError) as exc:
+        raise CliError(sanitize(f"schema sync failed: {exc}")) from None
     click.echo(f"schema for {env.name!r} {outcome}; commands for {env.url} now use it")

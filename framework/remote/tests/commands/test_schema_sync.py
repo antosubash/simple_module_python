@@ -74,12 +74,12 @@ def test_sync_writes_a_private_cache_without_the_token(make_cli, signed_in, serv
     assert "updated" in result.output and TOKEN not in result.output
     assert stat.S_IMODE(_env_dir().stat().st_mode) == 0o700
     files = {p.name: p for p in _env_dir().iterdir()}
-    assert set(files) == {"openapi.json", "meta.json"}
+    assert set(files) == {"openapi.json", "meta.json", "sync.lock"}
     for path in files.values():
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
         assert TOKEN.encode() not in path.read_bytes()
     meta = json.loads(files["meta.json"].read_text())
-    assert meta["origin"] == "http://localhost:8000" and meta["etag"] == 'W/"v1"'
+    assert meta["url"] == "http://localhost:8000" and meta["etag"] == 'W/"v1"'
     sent = [r for r in server.seen if r.url.path == OPENAPI]
     assert sent[0].headers["Authorization"] == f"Bearer {TOKEN}"
     assert "If-None-Match" not in sent[0].headers
@@ -170,7 +170,8 @@ def test_sync_refuses_bad_answers_and_writes_nothing(make_cli, signed_in, respon
     runner = signed_in(cli)
     result = runner.invoke(cli, ["schema", "sync"])
     assert result.exit_code != 0 and expected in result.output, result.output
-    assert not _env_dir().exists()
+    assert not (_env_dir() / "openapi.json").exists()
+    assert not (_env_dir() / "meta.json").exists()
 
 
 def test_sync_env_option_selects_the_environment(make_cli, signed_in, server):
