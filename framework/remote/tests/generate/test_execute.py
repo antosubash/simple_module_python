@@ -305,9 +305,7 @@ def test_optional_body_stays_absent(make_op):
 
 
 def test_required_array_body_without_input_is_an_error(make_op):
-    op = make_op(
-        method="POST", body_kind="json", body_required=True, body_schema={"type": "array"}
-    )
+    op = make_op(method="POST", body_kind="json", body_required=True, body_schema={"type": "array"})
     with pytest.raises(click.UsageError, match="needs a request body"):
         Harness(ok).run(op)
 

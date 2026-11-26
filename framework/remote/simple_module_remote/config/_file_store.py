@@ -140,3 +140,6 @@ class FileStore:
             del data[key]
             self._write(data)
             return True
+
+    def keys(self) -> list[str]:
+        return list(self._load())

@@ -60,7 +60,7 @@ def test_markup_in_cells_headers_and_keys_is_literal():
 
 def test_tty_output_strips_control_sequences_all_formats(make_tty):
     data = [{"id": "a\x1b]0;t\x07b", "n": "\x1b[31mred\x9b"}]
-    for fmt in ("json", "yaml", "id", "table"):
+    for fmt in ("json", "yaml", "table"):  # -o id refuses control characters instead
         out = make_tty()
         render(data, fmt=fmt, columns=None, quiet=False, is_tty=True, out=out)
         assert "\x1b" not in out.getvalue() and "\x9b" not in out.getvalue()
@@ -87,3 +87,14 @@ def test_id_format_without_any_identifier_is_an_error_and_writes_nothing():
 
 def test_id_format_empty_list_is_fine():
     assert run([], fmt="id") == ""
+
+
+@pytest.mark.parametrize("bad", ["a\nb", "a\tb", "a\x00b", "a\rb", "a\x9bb", ["x"], True])
+def test_id_format_refuses_unsafe_identifiers(bad, make_tty):
+    for out in (io.StringIO(), make_tty()):
+        with pytest.raises(NoIdentifierError, match="control characters"):
+            render(
+                [{"id": 1}, {"id": bad}],
+                fmt="id", columns=None, quiet=False, is_tty=False, out=out,
+            )  # fmt: skip
+        assert out.getvalue() == ""

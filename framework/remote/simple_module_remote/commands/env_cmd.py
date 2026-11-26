@@ -120,7 +120,10 @@ def remove_env(ctx: click.Context, name: str) -> None:
         config.current = None
     with state.guard():
         save_config(state.cli, config)
+        removed = state.store().delete_env(name)
     click.echo(f"removed environment {name}")
+    for key in removed:
+        click.echo(f"removed stored login {key}")
 
 
 @env_group.command("show", help="Show one environment (default: the current one).")

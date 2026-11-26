@@ -19,6 +19,9 @@ OUTPUT_FORMATS: tuple[str, ...] = ("table", "json", "yaml", "id")
 MAX_AUTO_COLUMNS = 8
 ID_KEYS = ("id", "name", "key", "slug", "email")
 NO_IDENTIFIER = "no identifier field in the response; use -o json"
+UNSAFE_IDENTIFIER = (
+    "identifier contains control characters or is not a string or number; use -o json"
+)
 
 
 class NoIdentifierError(ValueError):
@@ -80,11 +83,20 @@ def _identifier(item: Any) -> Any:
     return next((item[k] for k in ID_KEYS if item.get(k) is not None), None)
 
 
+def _plain_identifier(value: Any) -> bool:
+    """A string or integer with no control characters (a newline would forge a second id)."""
+    if isinstance(value, bool) or not isinstance(value, str | int):
+        return False
+    return not any(ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F for ch in str(value))
+
+
 def _ids(data: Any, out: TextIO) -> None:
     rows = _rows(data)
     values = [_identifier(item) for item in (rows if rows is not None else [data])]
     if any(value is None for value in values):
         raise NoIdentifierError(NO_IDENTIFIER)
+    if not all(_plain_identifier(value) for value in values):
+        raise NoIdentifierError(UNSAFE_IDENTIFIER)
     for value in values:
         out.write(sanitize_for(out, f"{value}") + "\n")
 

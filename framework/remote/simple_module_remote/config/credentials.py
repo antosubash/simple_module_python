@@ -20,6 +20,9 @@ from simple_module_remote.config.paths import env_prefix, env_var_name
 
 TOKEN_ENV_SUFFIX = "_TOKEN"
 MASK = "***"
+# Keyring backends cannot enumerate, so the keys stored are tracked under this name;
+# environment names are [a-z0-9-], so it never collides with a credential key.
+INDEX_KEY = "~index"
 
 
 class CredentialError(Exception):
@@ -114,23 +117,55 @@ class CredentialStore:
             raise CredentialError(f"stored credential {key!r} is corrupt; log in again")
         return StoredCredential(token=token, origin=origin)
 
+    def _index(self) -> list[str]:
+        raw = self._require_backend().get_password(self._service, INDEX_KEY)
+        try:
+            data = json.loads(raw) if raw else []
+        except ValueError:
+            return []
+        return [k for k in data if isinstance(k, str)] if isinstance(data, list) else []
+
+    def _set_index(self, keys: list[str]) -> None:
+        self._require_backend().set_password(self._service, INDEX_KEY, json.dumps(sorted(keys)))
+
     def put(self, key: str, cred: StoredCredential) -> None:
         try:
             if (file := self._file_store()) is not None:
                 file.put(key, cred.token, cred.origin)
             else:
                 payload = json.dumps({TOKEN_FIELD: cred.token, ORIGIN_FIELD: cred.origin})
-                self._require_backend().set_password(self._service, key, payload)
+                backend = self._require_backend()
+                backend.set_password(self._service, key, payload)
+                known = self._index()
+                if key not in known:
+                    self._set_index([*known, key])
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
         except keyring.errors.KeyringError:
             raise CredentialError("the OS keyring could not be written") from None
+
+    def delete_env(self, env: str) -> list[str]:
+        """Delete every credential of ``env`` (``env`` and ``env/<tenant>``); the keys removed."""
+        try:
+            if (file := self._file_store()) is not None:
+                candidates = file.keys()
+            else:
+                candidates = [env, *self._index()]
+        except FileStoreError as exc:
+            raise CredentialError(str(exc)) from None
+        except keyring.errors.KeyringError:
+            raise CredentialError("the OS keyring could not be read") from None
+        wanted = [k for k in dict.fromkeys(candidates) if k == env or k.startswith(env + "/")]
+        return [key for key in wanted if self.delete(key)]
 
     def delete(self, key: str) -> bool:
         try:
             if (file := self._file_store()) is not None:
                 return file.delete(key)
             backend = self._require_backend()
+            known = self._index()
+            if key in known:
+                self._set_index([k for k in known if k != key])
             if backend.get_password(self._service, key) is None:
                 return False
             backend.delete_password(self._service, key)
