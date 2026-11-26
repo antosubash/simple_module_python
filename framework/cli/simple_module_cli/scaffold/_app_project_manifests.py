@@ -49,7 +49,8 @@ _APP_NPM_DEV_DEPS = {
     "@vitejs/plugin-react": "^6.1.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
+    # shortcut: Vite 8.4 breaks UI dependency optimisation (#1212); widen after verification.
+    "vite": "~8.3.7",
 }
 
 # `@tailwindcss/typography` (pulled in by @simple-module-py/ui) pins

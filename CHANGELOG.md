@@ -65,6 +65,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Cap Vite at `~8.3.7` in fresh `smpy new` apps (workspace and flat layouts) and the dev host, keeping Vite 8.4's `INVALID_EXTERNAL_ID` UI dependency optimisation failure out of new installs (#1212).
 - Admin shell: improve primary text/button contrast, close the mobile drawer on Inertia navigation, reserve sidebar footer space, enlarge narrow/coarse touch targets, fit feature flags at tablet widths, wrap long user headings, use consistent section headings, and label search fields and the drawer toggle (#1184).
 
 - **Behaviour change:** ORM audit capture records `<computed by database>` as the new value of a field updated with a SQL expression (for example a `session_version` bump) instead of the SQL text, so such updates stay on record; expression-valued fields on create are omitted. Role-assignment audit labels show `role · user email` for readers with `users.manage`, and the audit UI shows the marker as translated text (#1172).

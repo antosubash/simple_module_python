@@ -48,3 +48,27 @@ def test_app_overrides_match_this_repos() -> None:
     repo_pkg = json.loads((_REPO_ROOT / "package.json").read_text(encoding="utf-8"))
     for name, spec in _APP_NPM_OVERRIDES.items():
         assert repo_pkg["overrides"][name] == spec
+
+
+@pytest.mark.parametrize("flat", [False, True])
+def test_scaffold_caps_vite_before_the_8_4_optimizer_regression(tmp_path: Path, flat: bool) -> None:
+    """GH #1212: both installed manifests must exclude the broken Vite minor."""
+    target = tmp_path / "app"
+    create_app_project(target, name="app", db="sqlite", tenancy=False, selected=[], flat=flat)
+    client = target / ("client_app" if flat else "host/client_app")
+    manifests = [client / "package.json"]
+    if flat:
+        manifests.append(target / "package.json")
+    for manifest in manifests:
+        pkg = json.loads(manifest.read_text(encoding="utf-8"))
+        assert pkg["devDependencies"]["vite"] == "~8.3.7", manifest
+
+
+def test_repo_and_lockfile_use_the_scaffolds_capped_vite_range() -> None:
+    lock = json.loads((_REPO_ROOT / "package-lock.json").read_text(encoding="utf-8"))
+    for location in ("", "host/client_app"):
+        manifest = _REPO_ROOT / location / "package.json"
+        pkg = json.loads(manifest.read_text(encoding="utf-8"))
+        assert pkg["devDependencies"]["vite"] == "~8.3.7", manifest
+        assert lock["packages"][location]["devDependencies"]["vite"] == "~8.3.7"
+    assert lock["packages"]["node_modules/vite"]["version"] == "8.3.7"
