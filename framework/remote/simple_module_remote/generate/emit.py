@@ -23,6 +23,7 @@ __all__ = ["emit", "print_error", "render_values", "say", "say_server"]
 
 ERROR_BODY_CHARS = 500
 CHUNK = 64 * 1024
+MAX_RENDER_BYTES = 64 * 1024 * 1024
 FILE_MODE = 0o666
 REDIRECT_HINT = (
     "hint: this response followed a redirect; the token is not forwarded on redirects, "
@@ -46,6 +47,33 @@ def is_binary(response: httpx.Response) -> bool:
     if not kind:
         return False
     return not (kind == "application/json" or kind.endswith("+json") or kind.startswith("text/"))
+
+
+def has_type(response: httpx.Response) -> bool:
+    return bool(response.headers.get("Content-Type", "").split(";", 1)[0].strip())
+
+
+def is_json(response: httpx.Response) -> bool:
+    kind = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+    return kind == "application/json" or kind.endswith("+json")
+
+
+def _read_capped(response: httpx.Response) -> bytes:
+    """The body, read in chunks; refuses one larger than :data:`MAX_RENDER_BYTES`."""
+    declared = response.headers.get("Content-Length", "")
+    if declared.isascii() and declared.isdigit() and int(declared) > MAX_RENDER_BYTES:
+        raise _TooLargeError
+    chunks, size = [], 0
+    for chunk in response.iter_bytes(CHUNK):
+        size += len(chunk)
+        if size > MAX_RENDER_BYTES:
+            raise _TooLargeError
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+class _TooLargeError(Exception):
+    pass
 
 
 def _safe_location(ctx: RunContext, location: str) -> str:
@@ -139,13 +167,22 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
         _write_file(response, out)
         say(ctx, f"wrote {out}")
         return 0
-    response.read()
-    if not response.content:
+    if not ctx.is_tty and has_type(response) and not is_json(response):
+        # A pipe gets a non-JSON body chunk by chunk; a terminal needs it sanitized instead.
+        if _write_stdout_bytes(ctx, response):
+            return 0
+    try:
+        body = _read_capped(response)
+    except _TooLargeError:
+        say(ctx, "error: response is too large to render; use --out FILE to save it")
+        return 1
+    if not body:
         return 0
     try:
-        data: Any = response.json()
+        data: Any = json.loads(body)
     except ValueError:
-        ctx.stdout.write(sanitize_for(ctx.stdout, response.text))
+        text = body.decode(response.charset_encoding or "utf-8", errors="replace")
+        ctx.stdout.write(sanitize_for(ctx.stdout, text))
         return 0
     render_values(ctx, data, values)
     return 0

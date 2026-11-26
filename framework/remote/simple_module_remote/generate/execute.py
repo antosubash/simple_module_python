@@ -23,7 +23,7 @@ from simple_module_remote.generate.emit import (
 )
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.pagination import iter_items, pagination_style
-from simple_module_remote.generate.params import json_response_schema, success_is_json
+from simple_module_remote.generate.params import json_response_schema
 from simple_module_remote.generate.prepare import DEFAULT_CONTENT_TYPE, Prepared, prepare_request
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import (
@@ -178,7 +178,8 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
             say(ctx, f"[{ctx.env.name}]")
         is_get = op.method == "GET"
         paged = is_get and bool(values.get("all_pages") or values.get("limit"))
-        stream = is_get and bool(values.get("out") or not success_is_json(op, ctx.root))
+        # Read nothing up front: emit() streams what is not rendered and caps what is.
+        stream = is_get
         try:
             return _exchange(ctx, client, op, prep, values, paged=paged, stream=stream)
         except ApiError as exc:

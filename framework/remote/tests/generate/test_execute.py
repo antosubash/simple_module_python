@@ -7,7 +7,7 @@ import httpx
 import pytest
 from simple_module_remote.config.environments import Environment
 from simple_module_remote.generate.context import RunContext
-from simple_module_remote.generate.emit import ERROR_BODY_CHARS
+from simple_module_remote.generate.emit import CHUNK, ERROR_BODY_CHARS
 from simple_module_remote.generate.execute import run_operation
 from simple_module_remote.generate.operations import Param
 from simple_module_remote.http.client import ApiClient
@@ -323,3 +323,52 @@ def test_id_output_without_identifier_exits_1_with_message(make_op):
     with pytest.raises(click.ClickException, match="use -o json") as info:
         h.run(make_op(), output="id")
     assert info.value.exit_code == 1
+
+
+class _Sink(io.RawIOBase):
+    """A byte sink that logs writes in order, interleaved with the chunks the server yields."""
+
+    def __init__(self, log):
+        self.log = log
+
+    def writable(self):
+        return True
+
+    def write(self, data):
+        self.log.append(("write", len(data)))
+        return len(data)
+
+
+def _streamed(h, log):
+    h.ctx.stdout = io.TextIOWrapper(
+        io.BufferedWriter(_Sink(log), buffer_size=1), write_through=True
+    )
+
+
+@pytest.mark.parametrize("kind", ["application/octet-stream", "text/plain"])
+def test_non_json_body_is_streamed_to_a_pipe_not_buffered(make_op, kind):
+    log: list = []
+
+    def body():
+        for i in range(6):
+            log.append(("pull", i))
+            yield b"x" * CHUNK
+
+    h = Harness(lambda r: httpx.Response(200, content=body(), headers={"Content-Type": kind}))
+    _streamed(h, log)
+    assert h.run(make_op()) == 0
+    kinds = [k for k, _ in log]
+    # Every chunk was written before the next one was pulled: nothing waited for the full body.
+    assert kinds[:4] == ["pull", "write", "pull", "write"]
+    assert sum(n for k, n in log if k == "write") == 6 * CHUNK
+
+
+def test_oversized_json_is_refused_with_a_hint(make_op, monkeypatch):
+    monkeypatch.setattr("simple_module_remote.generate.emit.MAX_RENDER_BYTES", 100)
+    h = Harness(
+        lambda r: httpx.Response(
+            200, content=b'["' + b"a" * 500 + b'"]', headers={"Content-Type": "application/json"}
+        )
+    )
+    assert h.run(make_op()) == 1
+    assert "--out" in h.err.getvalue() and h.out.getvalue() == ""
