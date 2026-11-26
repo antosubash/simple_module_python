@@ -138,8 +138,9 @@ class AppState:
 
     def run_context(self, env: Environment, explicit: bool) -> RunContext:
         def make_client() -> ApiClient:
-            client = self.client(env, self.token(env, explicit))
-            run_ctx.tenant = self._resolved(env, explicit).tenant_label  # one canonical name
+            resolved = self._resolved(env, explicit)
+            client = self.client(env, resolved.token)
+            run_ctx.tenant = resolved.tenant_label  # one canonical name
             return client
 
         run_ctx = RunContext(

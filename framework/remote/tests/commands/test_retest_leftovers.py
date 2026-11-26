@@ -34,7 +34,7 @@ def test_doctor_tenant_line_shows_slug_and_id(make_cli, logged_in):
     assert "ok    tenant: token is pinned to acme (t-1)" in out
 
 
-def test_banner_names_the_tenant_by_slug_however_it_was_typed(make_cli, logged_in, tmp_path):
+def test_banner_names_the_tenant_by_slug_however_it_was_typed(make_cli, logged_in):
     cli = make_cli(lambda r: httpx.Response(200, json=WHO))
     runner = logged_in(cli, login=False)
     runner.invoke(cli, ["--tenant", "t-1", "login", "--token-stdin"], input="tok\n")

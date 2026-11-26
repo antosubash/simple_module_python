@@ -168,7 +168,7 @@ def test_env_names_are_bounded_and_start_alphanumeric(make_cli, name):
     assert result.exit_code != 0
 
 
-def test_origin_is_normalised(make_cli):
+def test_origin_is_normalised():
     from simple_module_remote.config.environments import Environment
 
     assert Environment("a", "https://EXAMPLE.com:443/x").origin == "https://example.com"
@@ -186,7 +186,7 @@ def test_see_help_suffix_only_on_click_usage_errors(make_cli):
     cli = make_cli()
     bad_option = CliRunner().invoke(cli, ["env", "add", "x", "--nope"])
     assert "(see --help)" in bad_option.output
-    refusal = CliRunner().invoke(cli, ["env", "add", "fresh"])  # our own refusal
+    refusal = CliRunner().invoke(cli, ["env", "add", "fresh"])
     assert "--url is required" in refusal.output and "(see --help)" not in refusal.output
     protected = CliRunner().invoke(cli, ["users", "list-users", "--page", "x"])
     assert "(see --help)" in protected.output

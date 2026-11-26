@@ -69,7 +69,7 @@ def download(make_op):
     )
 
 
-def test_required_body_with_optional_fields_sends_empty_object(make_op, post):
+def test_required_body_with_optional_fields_sends_empty_object(make_op):
     op = make_op(
         method="PUT",
         body_kind="json",

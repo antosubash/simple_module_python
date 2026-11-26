@@ -201,7 +201,7 @@ def render_values(ctx: RunContext, data: Any, values: dict[str, Any]) -> None:
         raise click.ClickException(str(exc)) from None
 
 
-def _refuse_render_flags(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> None:
+def _refuse_render_flags(response: httpx.Response, values: dict[str, Any]) -> None:
     """-o/-q/--columns format JSON; refuse them for a body that is not (a CSV export)."""
     given = [
         f
@@ -231,9 +231,10 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
         _write_file(response, out)
         say(ctx, f"wrote {out}")
         return 0
-    if has_type(response) and not is_json(response) and not out:
-        _refuse_render_flags(ctx, response, values)
-    streamable = not ctx.is_tty and has_type(response) and not is_json(response)
+    non_json = has_type(response) and not is_json(response)
+    if non_json:
+        _refuse_render_flags(response, values)
+    streamable = not ctx.is_tty and non_json
     # A pipe gets a non-JSON body chunk by chunk; a terminal needs it sanitized instead.
     if streamable and _write_stdout_bytes(ctx, response):
         return 0
