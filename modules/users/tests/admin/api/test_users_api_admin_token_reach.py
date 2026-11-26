@@ -6,7 +6,7 @@ import uuid
 
 import httpx
 import pytest
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin
+from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
 from _users_admin_support import _make_user
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from simple_module_test.web.tenant_client import session_client

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin
+from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
 from audit_log.models import AuditEntry
 from background_tasks.models import TaskExecution
 from simple_module_db import all_tenants, tenant_context

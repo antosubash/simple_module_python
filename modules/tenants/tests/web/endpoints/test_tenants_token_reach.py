@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from _api_tokens_support import CSRF, create_pat
+from _api_tokens_support import CSRF, create_pat  # ty: ignore[import-not-found]
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW
 from simple_module_test.web.tenant_client import session_client
 from tenants.core.constants import SESSION_ACTIVE_TENANT, Permissions
@@ -23,7 +23,7 @@ async def _bearer_client(app, token: str):
 
 
 async def _admin_pat(app, scopes: list[str]) -> tuple[str, str, str]:
-    from _api_tokens_support import join_tenant, make_admin
+    from _api_tokens_support import join_tenant, make_admin  # ty: ignore[import-not-found]
 
     email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
     user_id = await make_admin(app, email)
@@ -39,7 +39,7 @@ async def test_pat_lists_only_its_pinned_tenant(app, user_client):
         foreign = await client.post(_URL, json={"name": "Theirs"})
         assert foreign.status_code == 201, foreign.text
     user_id, token, pinned = await _admin_pat(app, [Permissions.PLATFORM_MANAGE])
-    from _api_tokens_support import join_tenant
+    from _api_tokens_support import join_tenant  # ty: ignore[import-not-found]
 
     # The owner also belongs to a second tenant the token is not pinned to.
     second = await join_tenant(app, user_id, "adm2@example.com")
@@ -111,7 +111,7 @@ async def test_pat_cannot_suspend_its_own_tenant(app):
 
 
 async def test_session_admin_suspend_unchanged(app):
-    from _api_tokens_support import join_tenant, make_admin
+    from _api_tokens_support import join_tenant, make_admin  # ty: ignore[import-not-found]
 
     email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
     user_id = await make_admin(app, email)

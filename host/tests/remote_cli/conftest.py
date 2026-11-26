@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 import pytest
-from _api_tokens_support import (
+from _api_tokens_support import (  # ty: ignore[import-not-found]
     CSRF,
     create_pat,
     join_tenant,
@@ -137,7 +137,6 @@ async def make_actor(app):
 @pytest.fixture
 async def smdev(app, tmp_path, monkeypatch) -> AsyncIterator[Smdev]:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     for var in ("SMDEV_ENV", "SMDEV_TOKEN"):
         monkeypatch.delenv(var, raising=False)
     loop = asyncio.get_running_loop()

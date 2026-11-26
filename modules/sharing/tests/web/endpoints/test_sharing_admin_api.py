@@ -6,7 +6,7 @@ import uuid
 
 import httpx
 import pytest
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin
+from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
 from _sharing_support import NOTE_TYPE, SharingTestNote, create_note_table, register_note_type
 from sharing.core.constants import Permissions
 from simple_module_core.access.tenancy import TenantRole

@@ -95,7 +95,6 @@ extra-paths = [
     "modules/branding",
     "modules/tenants",
     "modules/api_tokens",
-    "modules/api_tokens/tests",
     "modules/mail",
     "modules/sharing",
     "host",

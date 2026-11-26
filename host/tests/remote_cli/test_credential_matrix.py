@@ -13,7 +13,7 @@ import json
 import uuid
 
 import pytest
-from _api_tokens_support import CSRF_HEADERS, SERVICE_URL, create_pat
+from _api_tokens_support import CSRF_HEADERS, SERVICE_URL, create_pat  # ty: ignore[import-not-found]
 from simple_module_core.access.tenancy import TenantRole
 from simple_module_test.web.tenant_client import create_user, session_client
 

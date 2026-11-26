@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 import httpx
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin
+from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin  # ty: ignore[import-not-found]
 from settings.core.constants import Permissions
 from simple_module_test.web.tenant_client import session_client
 from tenants.core.constants import SESSION_ACTIVE_TENANT
