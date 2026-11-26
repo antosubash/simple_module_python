@@ -242,7 +242,11 @@
       },
       "outbox_mode": {
         "label": "Modus der Ereigniszustellung",
-        "help": "Ob dauerhafte Ereignisse vom Task-Runner oder im Webprozess zugestellt werden."
+        "help": "Ob dauerhafte Ereignisse vom Task-Runner oder im Webprozess zugestellt werden.",
+        "choices": {
+          "celery": "Task-Runner (Celery)",
+          "inprocess": "Im Webprozess"
+        }
       },
       "outbox_max_attempts": {
         "label": "Maximale Zustellversuche",
