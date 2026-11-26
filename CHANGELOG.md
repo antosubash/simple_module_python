@@ -57,6 +57,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Security
 
+- **Behaviour change:** SMTP delivery and mail **Test connection** refuse hosts with any link-local, metadata, unspecified, multicast or reserved/broadcast DNS answer, checking embedded IPv4 endpoints in mapped IPv6, NAT64, 6to4 and Teredo addresses. Connections use a vetted IP while preserving TLS hostname verification; loopback, private relays and NAT64 translations of allowed IPv4 destinations remain allowed (#1228).
 - **Behaviour change:** Users login bootstrap credentials and click-to-fill buttons are available only to loopback clients in development. Non-loopback, missing or invalid client addresses, and any request carrying `Forwarded`, `X-Real-IP`, or `X-Forwarded-*` receive no credentials in HTML or Inertia JSON props. Partial reloads clear previously received credentials when the request becomes ineligible, and login responses use `Cache-Control: private, no-store`. Local proxies must preserve a forwarding header to be distinguished from local browsers (#1229).
 - **Behaviour change:** refuse OAuth sign-in by verified email when the local account already has a different identity from the same provider, preserving its existing links and roles (#1128). This applies to every provider, including GitHub and Google: a user who recreates their provider account is refused until the old link is removed. The refusal is logged at WARNING with the provider and local user id.
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
@@ -67,6 +68,7 @@ All notable changes to this project are documented in this file. The format is b
 
 - Cap Vite at `~8.3.7` in fresh `smpy new` apps (workspace and flat layouts) and the dev host, keeping Vite 8.4's `INVALID_EXTERNAL_ID` UI dependency optimisation failure out of new installs (#1212).
 - Admin shell: improve primary text/button contrast, close the mobile drawer on Inertia navigation, reserve sidebar footer space, enlarge narrow/coarse touch targets, fit feature flags at tablet widths, wrap long user headings, use consistent section headings, and label search fields and the drawer toggle (#1184).
+- Mail leaves pinned SMTP sockets under asyncio transport ownership after connection, preventing descriptor reuse during deferred shutdown; failed authentication always closes the SMTP client (#1228).
 
 - **Behaviour change:** ORM audit capture records `<computed by database>` as the new value of a field updated with a SQL expression (for example a `session_version` bump) instead of the SQL text, so such updates stay on record; expression-valued fields on create are omitted. Role-assignment audit labels show `role · user email` for readers with `users.manage`, and the audit UI shows the marker as translated text (#1172).
 - Audit log: index target-user history lookups by `(entity_type, entity_id)` to avoid scanning every entry of the same entity type (#1166; migration `819d8c5714a5`).

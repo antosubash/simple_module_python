@@ -25,12 +25,13 @@ async def test_nothing_installed_is_also_healthy() -> None:
 
 
 @pytest.fixture
-def smtp_client(monkeypatch) -> MagicMock:
+def smtp_client(monkeypatch, smtp_socket) -> MagicMock:
     client = MagicMock()
+    client.socket_transferred = False
     client.connect = AsyncMock()
     client.login = AsyncMock()
     client.quit = AsyncMock()
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.SMTP", MagicMock(return_value=client))
+    monkeypatch.setattr("mail.delivery._destination._SocketSMTP", MagicMock(return_value=client))
     core_mail.install_mail_sender(SmtpMailSender("h", 587, "user", "pw", "f@test", True))
     return client
 

@@ -7,8 +7,11 @@ from unittest.mock import AsyncMock
 import aiosmtplib
 import pytest
 from aiosmtplib.response import SMTPResponse
+from mail.delivery._destination import _SocketSMTP
 from mail.delivery.sender import SmtpMailSender
 from simple_module_core.mailer.mail import MailMessage
+
+pytestmark = pytest.mark.usefixtures("smtp_socket")
 
 
 @pytest.mark.parametrize("supported", [False, True])
@@ -18,8 +21,8 @@ from simple_module_core.mailer.mail import MailMessage
 async def test_non_ascii_local_parts_require_smtputf8(
     monkeypatch, supported, from_address, to
 ) -> None:
-    smtp = aiosmtplib.SMTP()
-    monkeypatch.setattr("aiosmtplib.api.SMTP", lambda **kwargs: smtp)
+    smtp = _SocketSMTP()
+    monkeypatch.setattr("mail.delivery._destination._SocketSMTP", lambda **kwargs: smtp)
     monkeypatch.setattr(smtp, "connect", AsyncMock())
     monkeypatch.setattr(smtp, "quit", AsyncMock())
     monkeypatch.setattr(smtp, "_ehlo_or_helo_if_needed", AsyncMock())
@@ -93,8 +96,8 @@ async def test_idn_domains_are_ascii_in_smtp_headers_and_envelopes(
     expected_from,
     display_name,
 ) -> None:
-    smtp = aiosmtplib.SMTP()
-    monkeypatch.setattr("aiosmtplib.api.SMTP", lambda **kwargs: smtp)
+    smtp = _SocketSMTP()
+    monkeypatch.setattr("mail.delivery._destination._SocketSMTP", lambda **kwargs: smtp)
     monkeypatch.setattr(smtp, "connect", AsyncMock())
     monkeypatch.setattr(smtp, "quit", AsyncMock())
     sendmail = AsyncMock(return_value=({}, "OK"))
