@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from ipaddress import IPv6Address, ip_address
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
@@ -10,7 +11,7 @@ from simple_module_db.engine.deps import get_db
 from simple_module_hosting.auth.auth_policy import login_redirect_url
 from simple_module_hosting.auth.csrf import get_csrf_token
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
-from simple_module_inertia import InertiaResponse
+from simple_module_inertia import InertiaResponse, always
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
@@ -52,18 +53,31 @@ def _mailer_delivers(request: Request) -> bool:
     return mailer_delivers(getattr(getattr(request.app.state, "users", None), "mailer", None))
 
 
+def _is_direct_loopback(request: Request) -> bool:
+    # Forwarding headers disqualify requests even after client-address rewriting.
+    if request.client is None or any(
+        name in {"forwarded", "x-real-ip"} or name.startswith("x-forwarded-")
+        for name in request.headers
+    ):
+        return False
+    try:
+        address = ip_address(request.client.host)
+    except ValueError:
+        return False
+    if isinstance(address, IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    return address.is_loopback
+
+
 @router.get("/login", response_model=None)
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     users_state = request.app.state.users
     users_settings = users_state.settings
     oauth_error = request.query_params.get("oauth_error")
-    # In development only, surface the bootstrap credentials as click-to-fill
-    # buttons so manual QA doesn't need to retype them. Never exposed in
-    # production, regardless of whether the vars are set. Uses the same
-    # resolution as the boot-time seeder so the buttons appear iff a seed
-    # admin would actually be created.
+    # Only direct loopback development requests get click-to-fill credentials,
+    # resolved the same way as the boot-time seeder.
     dev_accounts: list[dict[str, str]] = []
-    if request.app.state.sm.settings.is_development:
+    if request.app.state.sm.settings.is_development and _is_direct_loopback(request):
         resolved = resolve_bootstrap_credentials()
         for label, email_key, password_key in _DEV_ACCOUNT_SPECS:
             if resolved[email_key] and resolved[password_key]:
@@ -74,7 +88,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
                         "password": resolved[password_key],
                     }
                 )
-    return await inertia.render(
+    response = await inertia.render(
         _PAGE_LOGIN,
         {
             "csrfToken": get_csrf_token(request),
@@ -96,7 +110,8 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
                 ],
                 "read_only": users_settings.demo_read_only,
             },
-            "dev_accounts": dev_accounts,
+            # Clear previously received credentials even on a partial reload.
+            "dev_accounts": always(dev_accounts),
             # Where AuthMiddleware bounced them from, when it bounced them.
             # Read, not popped: a reload of the login page must not silently
             # downgrade the deep link to the default landing page. The POST
@@ -119,6 +134,9 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             "remember_me_days": users_settings.remember_me_max_age_seconds // _SECONDS_PER_DAY,
         },
     )
+    # HTML embeds the same secrets as JSON and must not be cached either.
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @router.post("/logout", response_model=None, dependencies=[Depends(require_browser_origin)])
