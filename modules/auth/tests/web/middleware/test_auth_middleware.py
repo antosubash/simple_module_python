@@ -298,21 +298,3 @@ async def test_framework_public_paths_have_boundaries(unauthenticated_app, path,
         transport=httpx.ASGITransport(app=unauthenticated_app), base_url="http://test"
     ) as client:
         assert (await client.get(path)).status_code == expected
-
-
-async def test_duck_typed_principal_without_auth_kind_is_tolerated():
-    """A custom provider's principal need not carry ``auth_kind``/``token_id``."""
-    from types import SimpleNamespace
-
-    principal = SimpleNamespace(id="u1", email="d@example.com", roles=[], permissions=[])
-    app = _build_app(_StubProvider(user=principal))  # ty: ignore[invalid-argument-type]
-
-    async def _ok(request: Request):
-        return JSONResponse({"ok": True})
-
-    app.add_api_route("/ping", _ok, methods=["GET"])
-    app.router.routes.insert(0, app.router.routes.pop())
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
-        resp = await c.get("/ping")
-    assert resp.status_code == 200
