@@ -177,6 +177,16 @@ class ApiClient:
         except httpx.HTTPError as exc:
             raise ApiError(0, message=f"request failed: {type(exc).__name__}") from None
 
+    def _unsafe_redirect(self, target: str) -> bool:
+        """True for a target with userinfo (or unparsable) or one that carries the token."""
+        try:
+            if "@" in urlsplit(target).netloc:
+                return True
+        except ValueError:
+            return True
+        decoded = (target, unquote(target), unquote(unquote(target)))
+        return bool(self._token) and any(self._token in text for text in decoded)
+
     def _follow(self, response: httpx.Response, stream: bool) -> httpx.Response:
         current = response
         for _ in range(MAX_HOPS):
@@ -187,15 +197,7 @@ class ApiClient:
             if not target.lower().startswith(("http://", "https://")):
                 current.close()
                 raise ApiError(0, message="redirect to an unsupported URL scheme")
-            try:
-                has_userinfo = "@" in urlsplit(target).netloc
-            except ValueError:
-                has_userinfo = True
-            if self._token and any(
-                self._token in text for text in (target, unquote(target), unquote(unquote(target)))
-            ):
-                has_userinfo = True
-            if has_userinfo:
+            if self._unsafe_redirect(target):
                 current.close()
                 raise ApiError(0, message="redirect to a URL carrying credentials or invalid")
             current.close()

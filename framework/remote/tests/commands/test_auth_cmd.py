@@ -163,6 +163,9 @@ def test_login_refuses_a_redirected_identity_check(make_cli, keyring_store, logg
         {**WHO, "scopes": [1]},
         {**WHO, "tenant_id": 5},
         {**WHO, "roles": "admin"},
+        {k: v for k, v in WHO.items() if k != "roles"},
+        {k: v for k, v in WHO.items() if k != "scopes"},
+        {k: v for k, v in WHO.items() if k != "tenant_id"},
     ],
 )
 def test_login_refuses_a_reply_that_is_not_an_identity(make_cli, keyring_store, logged_in, body):

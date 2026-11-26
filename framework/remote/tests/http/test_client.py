@@ -263,3 +263,15 @@ def test_redirect_carrying_the_token_is_refused() -> None:
         with _client(handler) as c, pytest.raises(ApiError) as err:
             c.request("GET", "/api/a")
         assert len(seen) == 1 and TOKEN not in str(err.value)
+
+
+def test_unicode_base_host_is_accepted() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        return httpx.Response(200)
+
+    with _client(handler, url="https://bücher.example/app") as c:
+        assert c.request("GET", "/api/x", params={"a": "1"}).status_code == 200
+    assert seen[0].url.path == "/app/api/x"

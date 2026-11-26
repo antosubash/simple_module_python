@@ -36,6 +36,10 @@ class ApiError(Exception):
         return f"ApiError(status={self.status})"
 
 
+def is_success(status: int) -> bool:
+    return OK_MIN <= status < REDIRECT_MIN
+
+
 def exit_code_for(status: int) -> int:
     if status in AUTH_STATUSES:
         return EXIT_AUTH

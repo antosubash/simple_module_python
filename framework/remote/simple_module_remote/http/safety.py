@@ -2,6 +2,8 @@
 
 from urllib.parse import SplitResult, unquote, urlsplit, urlunsplit
 
+import httpx
+
 from simple_module_remote.http.errors import UnsafePathError
 
 API_PREFIX = "/api/"
@@ -74,9 +76,10 @@ def validate_request_url(base: str, url: str, *, allow_query: bool = False) -> s
     dot segments resolved (``allow_query`` then admits the encoded query parameters).
     """
     try:
-        wanted, got = urlsplit(base), urlsplit(url)
+        # The same parser as the client, so IDNA hosts compare in their ASCII form.
+        wanted, got = urlsplit(str(httpx.URL(base))), urlsplit(str(httpx.URL(url)))
         same_origin = _origin(got) == _origin(wanted)
-    except ValueError:
+    except (ValueError, httpx.InvalidURL):
         raise UnsafePathError("request URL is not valid") from None
     prefix = wanted.path.rstrip("/") + API_PREFIX
     if (

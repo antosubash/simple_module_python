@@ -63,7 +63,10 @@ class CredentialStore:
         elif not isinstance(backend, keyring.backends.fail.Keyring):
             self._backend = backend
         if self._backend is None:
-            self._file = FileStore(cli)
+            try:
+                self._file = FileStore(cli)
+            except FileStoreError as exc:
+                raise CredentialError(str(exc)) from None
 
     @property
     def using_fallback(self) -> bool:

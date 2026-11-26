@@ -8,6 +8,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 import click
 import httpx
@@ -47,18 +48,27 @@ def is_binary(response: httpx.Response) -> bool:
     return not (kind == "application/json" or kind.endswith("+json") or kind.startswith("text/"))
 
 
+def _safe_location(ctx: RunContext, location: str) -> str:
+    """The Location value, or a placeholder when it holds the token raw or percent-decoded."""
+    for variant in (location, unquote(location), unquote(unquote(location))):
+        if ctx.redact(variant) != variant:
+            return "[redacted]"
+    return location
+
+
 def print_error(ctx: RunContext, response: httpx.Response) -> None:
     response.read()
-    text = ctx.redact(response.text)
+    text = response.text
     say(ctx, f"error: HTTP {response.status_code}")
     if text.strip():
         try:
-            say(ctx, json.dumps(json.loads(text), indent=2, ensure_ascii=False))
+            # Redact the final text: JSON escapes decode back to the token when pretty-printed.
+            say_server(ctx, json.dumps(json.loads(text), indent=2, ensure_ascii=False))
         except ValueError:
-            say(ctx, text[:ERROR_BODY_CHARS])
+            say_server(ctx, text, limit=ERROR_BODY_CHARS)
     location = response.headers.get("Location")
     if location and response.status_code < ERROR_MIN:
-        say_server(ctx, f"Location: {location}")
+        say(ctx, f"Location: {_safe_location(ctx, location)}")
     redirected = ApiClient.was_redirected(response)
     if response.status_code == 401 and redirected:
         say(ctx, REDIRECT_HINT)

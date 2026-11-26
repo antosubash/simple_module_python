@@ -245,3 +245,30 @@ def test_all_or_limit_with_out_is_refused_before_sending(make_op, tmp_path, flag
     with pytest.raises(click.UsageError):
         run_operation(ctx, make_op(params=PAGING), {"out": str(tmp_path / "f"), **flag})
     assert sent == []
+
+
+def test_json_escaped_token_is_redacted_after_pretty_printing(make_op):
+    escaped = "".join(f"\\u{ord(ch):04x}" for ch in REFLECTED)
+    body = '{"echo": "' + escaped + '"}'
+    ctx = ctx_for(lambda r: httpx.Response(400, text=body), token=REFLECTED)
+    run_operation(ctx, make_op(), {})
+    assert REFLECTED not in ctx.stderr.getvalue() and "[redacted]" in ctx.stderr.getvalue()
+
+
+def test_percent_encoded_token_in_location_is_not_printed(make_op):
+    encoded = REFLECTED.replace("-", "%2d")
+    ctx = ctx_for(
+        lambda r: httpx.Response(302, headers={"Location": f"https://x.example/?t={encoded}"}),
+        token=REFLECTED,
+    )
+    run_operation(ctx, make_op(method="POST", safe=True), {})
+    shown = ctx.stderr.getvalue()
+    assert REFLECTED not in shown and encoded not in shown and "Location: [redacted]" in shown
+
+
+def test_informational_status_is_a_failure_not_success(make_op):
+    ctx = ctx_for(lambda r: httpx.Response(101, text="switching"))
+    assert run_operation(ctx, make_op(), {}) == 2
+    assert ctx.stdout.getvalue() == "" and "HTTP 101" in ctx.stderr.getvalue()
+    paged = ctx_for(lambda r: httpx.Response(101, text="x"))
+    assert run_operation(paged, make_op(params=PAGING), {"all_pages": True}) == 2

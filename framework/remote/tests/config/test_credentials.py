@@ -1,5 +1,4 @@
 import fcntl
-import importlib
 import os
 import stat
 import sys
@@ -263,6 +262,13 @@ def test_fallback_store_works_without_fcntl(
     store: CredentialStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setitem(sys.modules, "fcntl", None)  # `import fcntl` now raises ImportError
-    importlib.reload(importlib.import_module("simple_module_remote.config._file_store"))
     store.put("a", StoredCredential(SECRET, ENV.origin))
     assert store.get("a") == StoredCredential(SECRET, ENV.origin)
+
+
+def test_no_secure_file_store_without_nofollow_support(
+    monkeypatch: pytest.MonkeyPatch, fail_keyring
+) -> None:
+    monkeypatch.delattr(os, "O_NOFOLLOW")
+    with pytest.raises(CredentialError, match="no secure file credential store"):
+        CredentialStore(CLI, backend=fail_keyring)

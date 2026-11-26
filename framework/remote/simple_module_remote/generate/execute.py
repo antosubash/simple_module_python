@@ -28,10 +28,10 @@ from simple_module_remote.generate.prepare import DEFAULT_CONTENT_TYPE, Prepared
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import (
     EXIT_USAGE,
-    REDIRECT_MIN,
     ApiError,
     UnsafePathError,
     exit_code_for,
+    is_success,
 )
 from simple_module_remote.output.sanitize import is_terminal
 
@@ -94,7 +94,7 @@ def _all_pages(
 
     def fetch(params: dict) -> Any:
         response = client.request(op.method, prep.path, params=params)
-        if response.status_code >= REDIRECT_MIN:
+        if not is_success(response.status_code):
             raise _HttpFailureError(response)
         try:
             return response.json()
@@ -139,7 +139,7 @@ def _exchange(
             return exit_code_for(failure.response.status_code)
         return 0
     with _send(client, op, prep, stream) as response:
-        if response.status_code >= REDIRECT_MIN:
+        if not is_success(response.status_code):
             print_error(ctx, response)
             return exit_code_for(response.status_code)
         return emit(ctx, response, values)

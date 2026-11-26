@@ -78,7 +78,14 @@ def test_generated_command_runs_with_stored_token(make_cli):
 
     def handler(req):
         body = (
-            {"id": "u", "email": "a@b", "auth_kind": "pat"}
+            {
+                "id": "u",
+                "email": "a@b",
+                "auth_kind": "pat",
+                "scopes": None,
+                "tenant_id": None,
+                "roles": [],
+            }
             if req.url.path.endswith("whoami")
             else [{"id": 1}]
         )

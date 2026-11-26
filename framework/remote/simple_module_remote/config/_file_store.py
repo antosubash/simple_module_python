@@ -38,6 +38,10 @@ class FileStoreError(Exception):
 
 class FileStore:
     def __init__(self, cli: str) -> None:
+        if not (hasattr(os, "O_NOFOLLOW") and hasattr(os, "getuid")):
+            raise FileStoreError(
+                "no secure file credential store on this platform; install an OS keyring backend"
+            )
         self._path = config_dir(cli) / CREDENTIALS_FILENAME
 
     def _load(self) -> dict[str, dict[str, str]]:

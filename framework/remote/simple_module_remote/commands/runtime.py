@@ -154,13 +154,15 @@ def _strings(value: object) -> bool:
 
 
 def _is_identity(data: dict) -> bool:
-    optional_text = data.get("tenant_id") is None or isinstance(data.get("tenant_id"), str)
+    if not {"scopes", "tenant_id", "roles"} <= data.keys():
+        return False
+    optional_text = data["tenant_id"] is None or isinstance(data["tenant_id"], str)
     scopes = data.get("scopes")
     return (
         all(isinstance(data.get(field), str) for field in WHOAMI_FIELDS)
         and optional_text
         and (scopes is None or _strings(scopes))
-        and _strings(data.get("roles", []))
+        and _strings(data["roles"])
     )
 
 
