@@ -31,6 +31,11 @@ export { LayoutComponentsProvider } from './layouts/LayoutComponentsProvider';
 export { PublicLayout } from './layouts/PublicLayout';
 export { SidebarLayout } from './layouts/SidebarLayout';
 export {
+  DESKTOP_SIDEBAR_QUERY,
+  type DrawerA11yOptions,
+  useDrawerA11y,
+} from './layouts/useDrawerA11y';
+export {
   type ApiFetchInit,
   type ApiOptions,
   type ApiResult,

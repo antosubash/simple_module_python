@@ -149,6 +149,33 @@ with no navbar items visible to a visitor show only the built-in layout controls
 
 `AdminLayout` renders the admin sidebar (`MenuSection.ADMIN_SIDEBAR`) with its own darker theme and a badge linking back to `/admin`. Pick it for a page whose URL is under `/admin` and whose menu entry registers into `ADMIN_SIDEBAR` — those three move together, and changing one leaves a page whose sidebar no longer lists it.
 
+### Custom drawer breakpoints
+
+Custom layouts can import `useDrawerA11y` and the `DrawerA11yOptions` type from
+`@simple-module-py/ui` or `@simple-module-py/ui/layouts/useDrawerA11y`:
+
+```tsx
+import { useDrawerA11y } from '@simple-module-py/ui/layouts/useDrawerA11y';
+
+useDrawerA11y(open, closeDrawer, drawerRef, {
+  desktopQuery: '(min-width: 48rem)',
+});
+```
+
+The optional fourth argument defaults to `(min-width: 64rem)`, matching the
+built-in sidebar's Tailwind `lg` breakpoint. Set `desktopQuery` to the media
+query where your own CSS docks or hides the drawer. Below that breakpoint, an
+open drawer traps focus, closes on Escape and locks body scrolling. Closing,
+unmounting or crossing to desktop restores the previous scroll style and returns
+focus to the opener; crossing to desktop also calls `closeDrawer`. Closed mobile
+drawers are inert and hidden from assistive technology, while desktop sidebars
+remain accessible.
+
+An inline options object is safe: the hook subscribes by query string value.
+Keep `closeDrawer` stable with `useCallback` to avoid restarting focus handling
+on unrelated renders. The hook manages focus and visibility; your layout still
+supplies the drawer's dialog role, accessible label and modal state when open.
+
 ### The app chrome
 
 Both signed-in layouts sit under a topbar carrying a breadcrumb, search, the ⌘K command palette and the locale switcher. Pages get all of it with no per-page wiring:
