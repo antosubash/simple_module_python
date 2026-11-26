@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import unquote
 
 import click
 
@@ -35,7 +36,8 @@ def _matching(root: dict, method: str, path: str) -> list[Operation]:
 def _synthetic(
     method: str, path: str, queries: list[tuple[str, str]], root: dict | None = None
 ) -> Operation:
-    matched = _matching(root, method, path) if root else []
+    # Risk comes from the endpoint the server will route to: match the decoded path.
+    matched = _matching(root, method, unquote(path)) if root else []
     names: dict[str, int] = {}
     for key, _ in queries:
         names[key] = names.get(key, 0) + 1

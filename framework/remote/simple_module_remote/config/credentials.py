@@ -9,13 +9,16 @@ import keyring
 import keyring.backends.fail
 import keyring.errors
 
-from simple_module_remote.config._file_store import FileStore, FileStoreError
+from simple_module_remote.config._file_store import (
+    ORIGIN_FIELD,
+    TOKEN_FIELD,
+    FileStore,
+    FileStoreError,
+)
 from simple_module_remote.config.environments import Environment
-from simple_module_remote.config.paths import env_prefix
+from simple_module_remote.config.paths import env_prefix, env_var_name
 
 TOKEN_ENV_SUFFIX = "_TOKEN"
-TOKEN_KEY = "token"
-ORIGIN_KEY = "origin"
 MASK = "***"
 
 
@@ -88,7 +91,7 @@ class CredentialStore:
             return None
         try:
             data = json.loads(raw)
-            token, origin = data[TOKEN_KEY], data[ORIGIN_KEY]
+            token, origin = data[TOKEN_FIELD], data[ORIGIN_FIELD]
         except (ValueError, KeyError, TypeError):
             raise CredentialError(f"stored credential {key!r} is corrupt; log in again") from None
         if not isinstance(token, str) or not isinstance(origin, str):
@@ -100,7 +103,7 @@ class CredentialStore:
             if self._file is not None:
                 self._file.put(key, cred.token, cred.origin)
             else:
-                payload = json.dumps({TOKEN_KEY: cred.token, ORIGIN_KEY: cred.origin})
+                payload = json.dumps({TOKEN_FIELD: cred.token, ORIGIN_FIELD: cred.origin})
                 self._require_backend().set_password(self._service, key, payload)
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
@@ -151,7 +154,7 @@ def resolve_token(
             return from_env
         raise CredentialError(
             f"{var} is set but ignored: it is only honoured when the environment is chosen "
-            f"explicitly (pass --env or set {env_prefix(cli)}_ENV)"
+            f"explicitly (pass --env or set {env_var_name(cli)})"
         )
     cred = store.get(credential_key(env.name, tenant))
     hint = login_hint(cli, env, tenant)

@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 import tomli_w
 
-from simple_module_remote.config.paths import config_dir, env_prefix
+from simple_module_remote.config.paths import config_dir, env_var_name
 
 CONFIG_FILENAME = "config.toml"
 ENV_NAME_RE = re.compile(r"^[a-z0-9-]+$")
@@ -139,7 +139,7 @@ def save_config(cli: str, config: Config) -> None:
 def select_env(
     config: Config, flag: str | None, environ: Mapping[str, str], cli: str
 ) -> tuple[Environment, bool]:
-    var = f"{env_prefix(cli)}_ENV"
+    var = env_var_name(cli)
     from_var = environ.get(var) or None
     name, explicit = flag or from_var, bool(flag or from_var)
     if not name:

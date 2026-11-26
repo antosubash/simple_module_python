@@ -1,4 +1,4 @@
-"""Where a CLI keeps its config and cache, and how its env vars are named."""
+"""Where a CLI keeps its config, and how its env vars are named."""
 
 import os
 from pathlib import Path
@@ -13,9 +13,10 @@ def config_dir(cli: str) -> Path:
     return _base("XDG_CONFIG_HOME", ".config") / cli
 
 
-def cache_dir(cli: str) -> Path:
-    return _base("XDG_CACHE_HOME", ".cache") / cli
-
-
 def env_prefix(cli: str) -> str:
     return cli.upper().replace("-", "_")
+
+
+def env_var_name(cli: str) -> str:
+    """The environment variable that selects the environment for *cli*."""
+    return f"{env_prefix(cli)}_ENV"

@@ -50,11 +50,6 @@ def test_auto_columns_capped_at_eight():
     assert "c7" in text and "c8" not in text
 
 
-class Tty(io.StringIO):
-    def isatty(self) -> bool:
-        return True
-
-
 def test_markup_in_cells_headers_and_keys_is_literal():
     text = run([{"[red]h[/red]": "[bold]x[/bold]"}], is_tty=True)
     assert "[bold]x[/bold]" in text and "[red]h[/red]" in text
@@ -62,10 +57,10 @@ def test_markup_in_cells_headers_and_keys_is_literal():
     assert "[link=http://evil]k[/link]" in kv and "[blue]v" in kv
 
 
-def test_tty_output_strips_control_sequences_all_formats():
+def test_tty_output_strips_control_sequences_all_formats(make_tty):
     data = [{"id": "a\x1b]0;t\x07b", "n": "\x1b[31mred\x9b"}]
     for fmt in ("json", "yaml", "id", "table"):
-        out = Tty()
+        out = make_tty()
         render(data, fmt=fmt, columns=None, quiet=False, is_tty=True, out=out)
         assert "\x1b" not in out.getvalue() and "\x9b" not in out.getvalue()
 

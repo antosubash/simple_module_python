@@ -11,7 +11,8 @@ AUTH_STATUSES = frozenset({401, 403})
 _CONFLICT_STATUSES = frozenset({409, 412})
 _NOT_FOUND = 404
 _SERVER_MIN = 500
-_CLIENT_MIN = 400
+ERROR_MIN = 400
+REDIRECT_MIN = 300
 
 
 class UnsafePathError(ValueError):
@@ -41,6 +42,6 @@ def exit_code_for(status: int) -> int:
         return EXIT_NOT_FOUND
     if status in _CONFLICT_STATUSES:
         return EXIT_CONFLICT
-    if status >= _SERVER_MIN or status < _CLIENT_MIN:
+    if status >= _SERVER_MIN or status < ERROR_MIN:
         return EXIT_SERVER_ERROR
     return EXIT_CLIENT_ERROR

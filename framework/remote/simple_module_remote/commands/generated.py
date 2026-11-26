@@ -8,14 +8,22 @@ import click
 
 from simple_module_remote.commands.runtime import state_of
 from simple_module_remote.generate.operations import Operation
-from simple_module_remote.generate.params import click_params_for, returns_list
+from simple_module_remote.generate.pagination import pagination_style
+from simple_module_remote.generate.params import (
+    click_params_for,
+    json_response_schema,
+    returns_list,
+)
 from simple_module_remote.output.sanitize import sanitize
 
 __all__ = ["operation_command"]
 
 
 def operation_command(op: Operation, root: dict) -> click.Command:
-    params = click_params_for(op, list_returning=returns_list(op, root))
+    pageable = (
+        returns_list(op, root) and pagination_style(op, json_response_schema(op, root)) is not None
+    )
+    params = click_params_for(op, list_returning=pageable)
     for param in params:
         if isinstance(param, click.Option) and param.help:
             param.help = sanitize(param.help)

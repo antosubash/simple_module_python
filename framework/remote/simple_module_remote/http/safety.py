@@ -34,12 +34,38 @@ def validate_base_url(url: str) -> str:
         parts = urlsplit(url)
     except ValueError:
         raise UnsafePathError("environment url is not a valid URL") from None
-    if parts.username or parts.password or parts.query or parts.fragment:
+    if (
+        parts.username
+        or parts.password
+        or parts.query
+        or parts.fragment
+        or "?" in url
+        or "#" in url
+    ):
         raise UnsafePathError("environment url must not carry credentials, query or fragment")
+    try:
+        port = parts.port  # raises ValueError for a malformed or out-of-range port
+    except ValueError:
+        port = 0
+    if port == 0:
+        raise UnsafePathError("environment url has an invalid port")
     host = parts.hostname
     if not host or parts.scheme not in ("http", "https"):
         shown = "" if "@" in url else f": {_redacted(parts)!r}"
         raise UnsafePathError(f"environment url must be http(s) with a host{shown}")
     if parts.scheme == "http" and host not in LOOPBACK_HOSTS:
         raise UnsafePathError(f"refusing plain http to non-loopback host {host!r}: use https")
+    return url
+
+
+def validate_request_url(base: str, url: str) -> str:
+    """Refuse a composed request URL that is not under ``base`` + ``/api/``."""
+    try:
+        wanted, got = urlsplit(base), urlsplit(url)
+        same_host = (got.scheme, got.netloc) == (wanted.scheme, wanted.netloc)
+    except ValueError:
+        raise UnsafePathError("request URL is not valid") from None
+    prefix = wanted.path.rstrip("/") + API_PREFIX
+    if not same_host or got.query or got.fragment or not got.path.startswith(prefix):
+        raise UnsafePathError("request URL would leave the environment's /api/ surface")
     return url

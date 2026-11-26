@@ -18,7 +18,7 @@ from simple_module_remote.http.errors import AUTH_STATUSES
 from simple_module_remote.output.render import OUTPUT_FORMATS, render
 from simple_module_remote.output.sanitize import sanitize_for
 
-__all__ = ["emit", "print_error", "render_values", "say"]
+__all__ = ["emit", "print_error", "render_values", "say", "say_server"]
 
 ERROR_BODY_CHARS = 500
 CHUNK = 64 * 1024
@@ -34,6 +34,11 @@ def say(ctx: RunContext, text: str) -> None:
     ctx.stderr.write(sanitize_for(ctx.stderr, text) + "\n")
 
 
+def say_server(ctx: RunContext, text: str) -> None:
+    """Like :func:`say` for text the server sent: the active token is stripped first."""
+    say(ctx, ctx.redact(text))
+
+
 def is_binary(response: httpx.Response) -> bool:
     kind = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
     if not kind:
@@ -47,12 +52,12 @@ def print_error(ctx: RunContext, response: httpx.Response) -> None:
     say(ctx, f"error: HTTP {response.status_code}")
     if text.strip():
         try:
-            say(ctx, json.dumps(json.loads(text), indent=2, ensure_ascii=False))
+            say_server(ctx, json.dumps(json.loads(text), indent=2, ensure_ascii=False))
         except ValueError:
-            say(ctx, text[:ERROR_BODY_CHARS])
+            say_server(ctx, text[:ERROR_BODY_CHARS])
     location = response.headers.get("Location")
     if location and response.status_code < 400:
-        say(ctx, f"Location: {location}")
+        say_server(ctx, f"Location: {location}")
     redirected = ApiClient.was_redirected(response)
     if response.status_code == 401 and redirected:
         say(ctx, REDIRECT_HINT)

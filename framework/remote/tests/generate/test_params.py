@@ -2,6 +2,7 @@ from pathlib import Path
 
 import click
 import pytest
+from simple_module_remote.commands.generated import operation_command
 from simple_module_remote.generate.naming import command_name
 from simple_module_remote.generate.operations import Operation, Param, parse_operations
 from simple_module_remote.generate.params import click_params_for, param_map, returns_list
@@ -19,16 +20,6 @@ def by_name(params):
     return {p.name: p for p in params}
 
 
-def make_op(**kw) -> Operation:
-    base = {
-        "operation_id": "x", "method": "GET", "path": "/api/x", "group": "g", "name": "n",
-        "params": (), "body_kind": "none", "body_schema": None, "summary": "",
-        "description": "", "safe": False, "confirm": False, "token_capable": True,
-    }  # fmt: skip
-    base.update(kw)
-    return Operation(**base)
-
-
 def test_query_options_and_types(ops):
     params = by_name(click_params_for(ops["users_list_users"]))
     assert isinstance(params["q_role"].type, click.Choice)
@@ -42,7 +33,7 @@ def test_path_arguments_in_order(ops):
     assert [a.name for a in args] == ["p_user_id"]
 
 
-def test_path_order_follows_template():
+def test_path_order_follows_template(make_op):
     op = make_op(
         path="/api/{b}/x/{a}",
         params=(Param("a", "path", True, {}, ""), Param("b", "path", True, {}, "")),
@@ -51,7 +42,7 @@ def test_path_order_follows_template():
     assert args == ["p_b", "p_a"]
 
 
-def test_param_name_collision_prefixed():
+def test_param_name_collision_prefixed(make_op):
     op = make_op(
         params=(Param("json", "query", False, {}, ""), Param("all", "query", False, {}, ""))
     )
@@ -80,7 +71,7 @@ def test_unexpressible_operation_still_builds(ops):
     assert "--json" in opts
 
 
-def test_returns_list():
+def test_returns_list(make_op):
     root = {
         "paths": {
             "/a": {"get": {"responses": {"200": {"content": {"application/json": {
@@ -120,7 +111,7 @@ def test_command_name_never_empty(op_id):
     assert command_name(op_id, None, None) == "operation"
 
 
-def test_help_is_a_reserved_option_name():
+def test_help_is_a_reserved_option_name(make_op):
     op = make_op(params=(Param("help", "query", False, {"type": "string"}, ""),))
     flags = [o for p in click_params_for(op) for o in p.opts]
     assert "--param-help" in flags
@@ -144,18 +135,29 @@ def _list_root(media: str) -> dict:
 @pytest.mark.parametrize(
     "media", ["application/json", "application/json; charset=utf-8", "application/problem+json"]
 )
-def test_returns_list_json_media_variants(media):
+def test_returns_list_json_media_variants(media, make_op):
     assert returns_list(make_op(), _list_root(media)) is True
 
 
-def test_returns_list_ignores_non_json_media():
+def test_returns_list_ignores_non_json_media(make_op):
     assert returns_list(make_op(), _list_root("text/csv")) is False
 
 
-def test_limit_zero_is_usage_error():
+def test_limit_zero_is_usage_error(make_op):
     from click.testing import CliRunner
 
     params = click_params_for(make_op(), list_returning=True)
     cmd = click.Command("c", params=params, callback=lambda **kw: None)
     assert CliRunner().invoke(cmd, ["--limit", "0"]).exit_code == 2
     assert CliRunner().invoke(cmd, ["--limit", "1"]).exit_code == 0
+
+
+def test_all_and_limit_only_where_paging_is_supported(make_op):
+    paging = tuple(Param(n, "query", False, {"type": "integer"}, "") for n in ("page", "per_page"))
+    root = _list_root("application/json")
+
+    def flags(op):
+        return {o for p in operation_command(op, root).params for o in getattr(p, "opts", [])}
+
+    assert "--all" not in flags(make_op()) and "--limit" not in flags(make_op())
+    assert {"--all", "--limit"} <= flags(make_op(params=paging))

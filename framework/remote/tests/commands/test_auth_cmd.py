@@ -1,4 +1,5 @@
 import httpx
+import pytest
 from click.testing import CliRunner
 
 SECRET = "pat-secret-123"
@@ -104,3 +105,48 @@ def test_env_default_tenant_checked_on_login(make_cli, keyring_store, logged_in)
 def test_root_usage_error_exits_1(make_cli):
     result = CliRunner().invoke(make_cli(), ["--schema", "live", "whoami"])
     assert result.exit_code == 1
+
+
+def test_login_both_flags_has_specific_message(make_cli):
+    cli = make_cli()
+    result = CliRunner().invoke(cli, ["login", "--token", "--token-stdin"])
+    assert result.exit_code == 1
+    assert "choose one of --token and --token-stdin" in result.output
+
+
+def test_login_unreachable_server_is_connection_failure(make_cli):
+    def boom(req):
+        raise httpx.ConnectError("down")
+
+    cli = make_cli(boom)
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    runner.invoke(cli, ["env", "use", "dev"])
+    result = runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
+    assert result.exit_code == 3, result.output
+    assert "cannot reach dev" in result.output and "not accepted" not in result.output
+
+
+def test_fresh_machine_hint_says_login_token(make_cli, tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
+    result = CliRunner().invoke(make_cli(), ["whoami"])
+    assert result.exit_code == 1 and "login --token`" in result.output
+
+
+def test_login_refuses_a_redirected_identity_check(make_cli, keyring_store, logged_in):
+    def handler(req):
+        return httpx.Response(302, headers={"Location": "https://elsewhere.example/who"})
+
+    cli = make_cli(handler)
+    runner = logged_in(cli, login=False)
+    result = runner.invoke(cli, ["login", "--token-stdin"], input=SECRET + "\n")
+    assert result.exit_code != 0 and keyring_store.data == {}
+    assert len(cli.requests) == 1
+
+
+@pytest.mark.parametrize("body", [{"ok": True}, {"id": "u", "email": "a@b"}, {"id": 1}, []])
+def test_login_refuses_a_reply_that_is_not_an_identity(make_cli, keyring_store, logged_in, body):
+    cli = make_cli(lambda r: httpx.Response(200, json=body))
+    runner = logged_in(cli, login=False)
+    result = runner.invoke(cli, ["login", "--token-stdin"], input=SECRET + "\n")
+    assert result.exit_code != 0 and keyring_store.data == {}

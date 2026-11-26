@@ -6,7 +6,7 @@ import hashlib
 
 import click
 
-from simple_module_remote.commands.runtime import state_of
+from simple_module_remote.commands.runtime import SCHEMA_BUNDLED, state_of
 
 __all__ = ["schema_fingerprint", "schema_group"]
 
@@ -32,7 +32,7 @@ def schema_group() -> None:
 @click.pass_context
 def status(ctx: click.Context) -> None:
     state = state_of(ctx)
-    click.echo("source:      bundled")
+    click.echo(f"source:      {SCHEMA_BUNDLED}")
     click.echo(f"path:        {state.schema_path}")
     click.echo(f"version:     {schema_info(state.root)}")
     click.echo(f"fingerprint: {schema_fingerprint(state.schema_path.read_bytes())}")

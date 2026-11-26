@@ -13,7 +13,7 @@ from simple_module_remote.commands.auth_cmd import login, logout, whoami
 from simple_module_remote.commands.doctor_cmd import doctor
 from simple_module_remote.commands.env_cmd import env_group
 from simple_module_remote.commands.generated import operation_command
-from simple_module_remote.commands.runtime import AppState, CliError
+from simple_module_remote.commands.runtime import SCHEMA_BUNDLED, AppState, CliError
 from simple_module_remote.commands.schema_cmd import schema_group
 from simple_module_remote.config.credentials import KeyringBackend
 from simple_module_remote.generate.tree import build_groups
@@ -21,7 +21,7 @@ from simple_module_remote.schema.loader import load_schema
 
 __all__ = ["build_cli"]
 
-SCHEMA_SOURCES = ("bundled",)
+SCHEMA_SOURCES = (SCHEMA_BUNDLED,)
 LOGIN_COMMAND = "login"
 
 
@@ -79,7 +79,7 @@ def build_cli(
             click.Option(
                 ["--schema", "schema_source"],
                 type=click.Choice(SCHEMA_SOURCES),
-                default="bundled",
+                default=SCHEMA_BUNDLED,
                 expose_value=False,
                 help="Command schema source.",
             ),

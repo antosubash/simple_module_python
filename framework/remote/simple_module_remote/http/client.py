@@ -3,15 +3,21 @@
 import time
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from types import TracebackType
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
 from simple_module_remote.config.environments import Environment
-from simple_module_remote.http.errors import ApiError
-from simple_module_remote.http.safety import validate_api_path, validate_base_url
+from simple_module_remote.http.errors import ApiError, UnsafePathError
+from simple_module_remote.http.safety import (
+    validate_api_path,
+    validate_base_url,
+    validate_request_url,
+)
 
 REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 MAX_HOPS = 5
@@ -24,14 +30,19 @@ REDIRECTED_EXTENSION = "smr_redirected"
 _STRIPPED_HEADERS = frozenset({"authorization", "cookie", "host", "user-agent"})
 
 
-def _retry_delay(value: str | None) -> float:
+def _retry_delay(value: str | None, now: datetime | None = None) -> float:
     if value is None:
         return DEFAULT_RETRY_AFTER
     text = value.strip()
     if text.isascii() and text.isdigit():
         return min(float(text), MAX_WAIT_SECONDS)
-    # An HTTP date or anything unparsable: wait the default.
-    return DEFAULT_RETRY_AFTER
+    try:
+        when = parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError):
+        return DEFAULT_RETRY_AFTER
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return min(max(0.0, (when - (now or datetime.now(UTC))).total_seconds()), MAX_WAIT_SECONDS)
 
 
 class ApiClient:
@@ -46,7 +57,7 @@ class ApiClient:
     ) -> None:
         self._base = validate_base_url(env.url).rstrip("/")
         self._sleep = sleep
-        self._max_retries = MAX_RETRIES
+        self._token = token
         headers = {"User-Agent": user_agent}
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -63,6 +74,10 @@ class ApiClient:
             transport=transport,
             timeout=TIMEOUT_SECONDS,
         )
+
+    def redact(self, text: str) -> str:
+        """``text`` with this client's token replaced, for anything shown to the user."""
+        return text.replace(self._token, "[redacted]") if self._token else text
 
     def __enter__(self) -> "ApiClient":
         return self
@@ -90,10 +105,12 @@ class ApiClient:
         data: Any = None,
         content: Any = None,
         headers: Mapping[str, str] | None = None,
+        follow: bool = True,
     ) -> httpx.Response:
         return self._execute(
-            method, path, params, json, files, data, content, headers, stream=False
-        )
+            method, path, params, json, files, data, content, headers,
+            stream=False, follow=follow,
+        )  # fmt: skip
 
     @contextmanager
     def stream(
@@ -123,23 +140,27 @@ class ApiClient:
         headers: Mapping[str, str] | None,
         *,
         stream: bool,
+        follow: bool = True,
     ) -> httpx.Response:
-        url = self._base + validate_api_path(path)
+        url = validate_request_url(self._base, self._base + validate_api_path(path))
         extra = {k: v for k, v in (headers or {}).items() if k.lower() not in _STRIPPED_HEADERS}
         verb = method.upper()
         attempts = 0
         while True:
-            request = self._client.build_request(
-                verb, url, params=params, json=json, files=files, data=data,
-                content=content, headers=extra,
-            )  # fmt: skip
+            try:
+                request = self._client.build_request(
+                    verb, url, params=params, json=json, files=files, data=data,
+                    content=content, headers=extra,
+                )  # fmt: skip
+            except httpx.InvalidURL:
+                raise UnsafePathError("the request URL is not valid") from None
             response = self._send(self._client, request, stream)
-            if response.status_code != TOO_MANY_REQUESTS or attempts >= self._max_retries:
+            if response.status_code != TOO_MANY_REQUESTS or attempts >= MAX_RETRIES:
                 break
             attempts += 1
             self._sleep(_retry_delay(response.headers.get("Retry-After")))
             response.close()
-        if verb == "GET" and response.status_code in REDIRECT_STATUSES:
+        if follow and verb == "GET" and response.status_code in REDIRECT_STATUSES:
             return self._follow(response, stream)
         return response
 
@@ -165,6 +186,13 @@ class ApiClient:
             if not target.lower().startswith(("http://", "https://")):
                 current.close()
                 raise ApiError(0, message="redirect to an unsupported URL scheme")
+            try:
+                has_userinfo = "@" in urlsplit(target).netloc
+            except ValueError:
+                has_userinfo = True
+            if has_userinfo:
+                current.close()
+                raise ApiError(0, message="redirect to a URL carrying credentials or invalid")
             current.close()
             self._follower.cookies.clear()
             current = self._send(

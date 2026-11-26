@@ -32,11 +32,13 @@ from simple_module_remote.generate.context import RunContext
 from simple_module_remote.generate.execute import run_operation
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.http.client import ApiClient
-from simple_module_remote.http.errors import EXIT_USAGE, ApiError, UnsafePathError
+from simple_module_remote.http.errors import EXIT_USAGE, REDIRECT_MIN, ApiError, UnsafePathError
 
-__all__ = ["WHOAMI_PATH", "AppState", "CliError", "fetch_whoami", "state_of"]
+__all__ = ["SCHEMA_BUNDLED", "WHOAMI_PATH", "AppState", "CliError", "fetch_whoami", "state_of"]
 
 WHOAMI_PATH = "/api/_meta/whoami"
+SCHEMA_BUNDLED = "bundled"
+WHOAMI_FIELDS = ("id", "email", "auth_kind")
 
 
 class CliError(click.ClickException):
@@ -149,8 +151,8 @@ def state_of(ctx: click.Context) -> AppState:
 
 def fetch_whoami(client: ApiClient) -> dict:
     """``GET /api/_meta/whoami``; raises :class:`ApiError` on any non-2xx or non-JSON reply."""
-    response = client.request("GET", WHOAMI_PATH)
-    if response.status_code >= 300:
+    response = client.request("GET", WHOAMI_PATH, follow=False)
+    if response.status_code >= REDIRECT_MIN:
         raise ApiError(response.status_code)
     try:
         data = response.json()
@@ -158,4 +160,6 @@ def fetch_whoami(client: ApiClient) -> dict:
         raise ApiError(response.status_code, message="whoami response is not JSON") from None
     if not isinstance(data, dict):
         raise ApiError(response.status_code, message="whoami response is not an object")
+    if not all(isinstance(data.get(field), str) for field in WHOAMI_FIELDS):
+        raise ApiError(response.status_code, message="whoami response is not an identity document")
     return data

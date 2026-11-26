@@ -5,8 +5,9 @@ from __future__ import annotations
 import re
 
 import click
+from click.core import ParameterSource
 
-from simple_module_remote.generate.naming import snake_name
+from simple_module_remote.generate.naming import kebab_name, snake_name
 from simple_module_remote.generate.operations import Operation, Param, is_json_media
 from simple_module_remote.output.render import OUTPUT_FORMATS
 from simple_module_remote.schema.loader import resolve_ref
@@ -33,6 +34,12 @@ _SCALARS: dict[str, click.ParamType] = {
     "number": click.FLOAT,
     "boolean": click.BOOL,
 }
+
+
+def _flag_only(ctx: click.Context, param: click.Parameter, value: bool) -> bool:
+    """``--yes`` counts only when typed on the command line, never from the environment."""
+    source = ctx.get_parameter_source(param.name or "")
+    return bool(value) and source == ParameterSource.COMMANDLINE
 
 
 def _slug(param: Param) -> str:
@@ -72,7 +79,7 @@ def _value_type(schema: dict) -> click.ParamType:
 
 
 def _param_option(dest: str, param: Param) -> click.Parameter:
-    kebab = _slug(param).replace("_", "-")
+    kebab = kebab_name(param.name) or "param"
     flag = f"--param-{kebab}" if kebab in RESERVED_OPTIONS else f"--{kebab}"
     schema = param.schema
     multiple = schema.get("type") == "array"
@@ -172,7 +179,13 @@ def click_params_for(op: Operation, *, list_returning: bool = False) -> list[cli
             click.Option(["--columns", "columns"], help="Comma-separated columns to show."),
             click.Option(["-q", "quiet"], is_flag=True, help="Print only identifiers."),
             click.Option(["--out", "out"], help="Write the response body to a file."),
-            click.Option(["--yes", "yes"], is_flag=True, help="Skip the confirmation prompt."),
+            click.Option(
+                ["--yes", "yes"],
+                is_flag=True,
+                allow_from_autoenv=False,
+                callback=_flag_only,
+                help="Skip the confirmation prompt.",
+            ),
         ]
     )
     if list_returning:

@@ -1,9 +1,13 @@
+import fcntl
+import os
 import stat
+import threading
 from pathlib import Path
 
 import keyring.backends.fail
 import keyring.errors
 import pytest
+from simple_module_remote.config._file_store import FileStore
 from simple_module_remote.config.credentials import (
     CredentialError,
     CredentialStore,
@@ -16,20 +20,6 @@ from simple_module_remote.config.environments import Environment
 CLI = "smdev"
 SECRET = "s3cr3t-token-value"
 ENV = Environment(name="prod", url="https://app.example.com/base")
-
-
-class FakeKeyring:
-    def __init__(self) -> None:
-        self.data: dict[tuple[str, str], str] = {}
-
-    def get_password(self, service_name: str, username: str) -> str | None:
-        return self.data.get((service_name, username))
-
-    def set_password(self, service_name: str, username: str, password: str) -> None:
-        self.data[(service_name, username)] = password
-
-    def delete_password(self, service_name: str, username: str) -> None:
-        del self.data[(service_name, username)]
 
 
 @pytest.fixture
@@ -58,7 +48,11 @@ def test_fallback_file_mode_0600_dir_0700(store: CredentialStore, tmp_path: Path
     path = tmp_path / CLI / "credentials.toml"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
-    assert [p.name for p in path.parent.iterdir()] == ["credentials.toml"]
+    assert sorted(p.name for p in path.parent.iterdir()) == [
+        "credentials.toml",
+        "credentials.toml.lock",
+    ]
+    assert stat.S_IMODE((path.parent / "credentials.toml.lock").stat().st_mode) == 0o600
 
 
 def test_fallback_refuses_loose_permissions(store: CredentialStore, tmp_path: Path) -> None:
@@ -77,9 +71,11 @@ def test_corrupt_file_error_has_no_token(store: CredentialStore, tmp_path: Path)
     assert SECRET not in str(err.value)
 
 
-def test_keyring_path_stores_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_keyring_path_stores_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, keyring_store
+) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    fake = FakeKeyring()
+    fake = keyring_store
     store = CredentialStore(CLI, backend=fake)
     assert not store.using_fallback
     store.put("prod", StoredCredential(SECRET, ENV.origin))
@@ -175,11 +171,14 @@ def test_corrupt_file_says_delete(store: CredentialStore, tmp_path: Path) -> Non
         store.get("prod")
 
 
-class BrokenKeyring(FakeKeyring):
+class BrokenKeyring:
     def get_password(self, service_name: str, username: str) -> str | None:
         raise keyring.errors.KeyringError(SECRET)
 
     def set_password(self, service_name: str, username: str, password: str) -> None:
+        raise keyring.errors.KeyringError(SECRET)
+
+    def delete_password(self, service_name: str, username: str) -> None:
         raise keyring.errors.KeyringError(SECRET)
 
 
@@ -192,3 +191,67 @@ def test_keyring_errors_map_to_credential_error() -> None:
         store.put("prod", StoredCredential(SECRET, ENV.origin))
     with pytest.raises(CredentialError):
         store.delete("prod")
+
+
+def test_readonly_credential_dir_is_clean_error(tmp_path, fail_keyring):
+    from simple_module_remote.config.credentials import (
+        CredentialError,
+        CredentialStore,
+        StoredCredential,
+    )
+
+    if os.geteuid() == 0:
+        pytest.skip("root ignores directory permissions")
+    directory = tmp_path / "config" / "smdev"
+    directory.mkdir(parents=True, mode=0o700)
+    directory.chmod(0o500)
+    store = CredentialStore("smdev", backend=fail_keyring)
+    try:
+        with pytest.raises(CredentialError) as err:
+            store.put("k", StoredCredential("tok-secret", "https://x"))
+    finally:
+        directory.chmod(0o700)
+    assert "PermissionError" in str(err.value) and "tok-secret" not in str(err.value)
+
+
+def test_fallback_updates_hold_an_exclusive_lock(
+    store: CredentialStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    held = {"locked": False}
+    real_flock = fcntl.flock
+    real_load = FileStore._load
+
+    def flock(fd: int, op: int) -> None:
+        real_flock(fd, op)
+        held["locked"] = op == fcntl.LOCK_EX
+
+    def load(self):
+        assert held["locked"], "read-modify-write ran without the cross-process lock"
+        return real_load(self)
+
+    monkeypatch.setattr("simple_module_remote.config._file_store.fcntl.flock", flock)
+    monkeypatch.setattr(FileStore, "_load", load)
+    store.put("a", StoredCredential(SECRET, ENV.origin))
+    assert store.delete("a") is True
+    assert store.delete("a") is False
+
+
+def test_fallback_update_waits_for_another_holder(store: CredentialStore, tmp_path: Path) -> None:
+    store.put("a", StoredCredential(SECRET, ENV.origin))
+    lock_path = tmp_path / CLI / "credentials.toml.lock"
+    fd = os.open(lock_path, os.O_RDWR)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    done = threading.Event()
+
+    def writer() -> None:
+        store.put("b", StoredCredential(SECRET, ENV.origin))
+        done.set()
+
+    thread = threading.Thread(target=writer)
+    thread.start()
+    try:
+        assert not done.wait(timeout=0.3)
+    finally:
+        os.close(fd)
+    thread.join(timeout=5)
+    assert done.is_set() and store.get("b") is not None

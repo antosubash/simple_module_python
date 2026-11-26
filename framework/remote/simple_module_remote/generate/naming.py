@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["RESERVED", "command_name", "group_name", "snake_name"]
+__all__ = ["RESERVED", "command_name", "group_name", "kebab_name", "snake_name"]
 
 RESERVED: frozenset[str] = frozenset(
     {"env", "login", "logout", "whoami", "doctor", "schema", "api", "raw"}
@@ -22,7 +22,7 @@ def snake_name(name: str) -> str:
     return re.sub(r"[^0-9a-zA-Z]+", "_", spaced).strip("_").lower()
 
 
-def _kebab(name: str) -> str:
+def kebab_name(name: str) -> str:
     return snake_name(name).replace("_", "-")
 
 
@@ -30,7 +30,7 @@ def group_name(tag: str | None) -> str:
     """``FeatureFlags`` -> ``feature-flags``; no tag -> ``host``."""
     if not tag:
         return UNTAGGED_GROUP
-    return _kebab(tag) or UNTAGGED_GROUP
+    return kebab_name(tag) or UNTAGGED_GROUP
 
 
 def command_name(
@@ -53,4 +53,4 @@ def command_name(
         prefix = f"{snake_name(tag)}_"
         if rest.startswith(prefix) and len(rest) > len(prefix):
             rest = rest[len(prefix) :]
-    return _kebab(rest) or _kebab(f"{method}_{path}") or "operation"
+    return kebab_name(rest) or kebab_name(f"{method}_{path}") or "operation"

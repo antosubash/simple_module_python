@@ -1,7 +1,9 @@
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 from simple_module_remote.config.environments import Environment
-from simple_module_remote.http.client import ApiClient
+from simple_module_remote.http.client import ApiClient, _retry_delay
 from simple_module_remote.http.errors import ApiError, UnsafePathError, exit_code_for
 
 UA = "smdev/1 simple_module_remote/0"
@@ -118,9 +120,20 @@ def test_429_retries_with_retry_after() -> None:
     assert sleeps == [2.0]
 
 
+def test_retry_after_http_date_uses_the_clock() -> None:
+    now = datetime(2030, 1, 1, 0, 0, 0, tzinfo=UTC)
+    assert _retry_delay("Tue, 01 Jan 2030 00:00:07 GMT", now) == 7.0
+    assert _retry_delay("Mon, 31 Dec 2029 23:59:00 GMT", now) == 0.0
+
+
 @pytest.mark.parametrize(
     ("header", "expected"),
-    [("Wed, 21 Oct 2099 07:28:00 GMT", 1.0), ("junk", 1.0), ("999", 30.0)],
+    [
+        ("Wed, 21 Oct 2099 07:28:00 GMT", 30.0),
+        ("Wed, 21 Oct 1999 07:28:00 GMT", 0.0),
+        ("junk", 1.0),
+        ("999", 30.0),
+    ],
 )
 def test_retry_after_forms(header: str, expected: float) -> None:
     codes = iter([429, 200])
@@ -179,3 +192,44 @@ def test_stream_follows_redirect_without_auth_and_flags_it() -> None:
 def test_direct_response_not_marked_redirected() -> None:
     with _client(lambda r: httpx.Response(200)) as c:
         assert not c.was_redirected(c.request("GET", "/api/x"))
+
+
+def test_redirect_with_userinfo_is_refused_and_not_followed() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        return httpx.Response(302, headers={"Location": "https://user:pw@evil.example/x"})
+
+    with _client(handler) as c, pytest.raises(ApiError) as err:
+        c.request("GET", "/api/a")
+    assert len(seen) == 1
+    assert "pw" not in str(err.value) and TOKEN not in str(err.value)
+
+
+def test_request_can_refuse_to_follow_redirects() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        return httpx.Response(302, headers={"Location": "https://o.example/x"})
+
+    with _client(handler) as c:
+        assert c.request("GET", "/api/a", follow=False).status_code == 302
+    assert len(seen) == 1
+
+
+def test_invalid_request_url_becomes_a_cli_level_error(monkeypatch) -> None:
+    with _client(lambda r: httpx.Response(200)) as c:
+
+        def boom(*args, **kwargs):
+            raise httpx.InvalidURL("bad")
+
+        monkeypatch.setattr(c._client, "build_request", boom)
+        with pytest.raises(UnsafePathError):
+            c.request("GET", "/api/x")
+
+
+def test_redact_strips_the_token() -> None:
+    with _client(lambda r: httpx.Response(200)) as c:
+        assert c.redact(f"Bearer {TOKEN} echoed") == "Bearer [redacted] echoed"

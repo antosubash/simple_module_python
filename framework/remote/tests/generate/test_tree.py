@@ -77,7 +77,11 @@ def test_fresh_machine_hint(make_cli):
 def test_generated_command_runs_with_stored_token(make_cli):
 
     def handler(req):
-        body = {"email": "a@b"} if req.url.path.endswith("whoami") else [{"id": 1}]
+        body = (
+            {"id": "u", "email": "a@b", "auth_kind": "pat"}
+            if req.url.path.endswith("whoami")
+            else [{"id": 1}]
+        )
         return httpx.Response(200, json=body)
 
     cli = make_cli(handler)

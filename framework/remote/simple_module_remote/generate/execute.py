@@ -19,6 +19,7 @@ from simple_module_remote.generate.emit import (
     print_error,
     render_values,
     say,
+    say_server,
 )
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.pagination import iter_items, pagination_style
@@ -26,8 +27,10 @@ from simple_module_remote.generate.params import json_response_schema, success_i
 from simple_module_remote.generate.prepare import DEFAULT_CONTENT_TYPE, Prepared, prepare_request
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import (
+    ERROR_MIN,
     EXIT_CLIENT_ERROR,
     EXIT_USAGE,
+    REDIRECT_MIN,
     ApiError,
     UnsafePathError,
     exit_code_for,
@@ -37,8 +40,6 @@ from simple_module_remote.output.sanitize import is_terminal
 __all__ = ["run_operation"]
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-REDIRECT_MIN = 300
-ERROR_MIN = 400
 
 
 class _HttpFailureError(Exception):
@@ -120,7 +121,7 @@ def _all_pages(
 def _fail(ctx: RunContext, exc: ApiError) -> int:
     say(ctx, f"error: {exc.message}")
     if exc.body_text.strip():
-        say(ctx, exc.body_text[:ERROR_BODY_CHARS])
+        say_server(ctx, exc.body_text[:ERROR_BODY_CHARS])
     return exit_code_for(exc.status)
 
 
@@ -172,6 +173,7 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
             _dry_run(ctx, op, prep, values)
             return 0
         client = stack.enter_context(ctx.client_factory())  # fail on credentials before prompting
+        ctx.redact = client.redact
         confirm_protected(
             ctx.env,
             mutation=mutation,

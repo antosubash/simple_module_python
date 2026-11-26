@@ -1,4 +1,8 @@
+import json
+
 import httpx
+import pytest
+from click.testing import CliRunner
 
 
 def test_api_get_with_query(make_cli, logged_in):
@@ -49,4 +53,104 @@ def test_api_get_rejects_body_flags(make_cli, logged_in):
     before = len(cli.requests)
     for flags in (["--json", "{}"], ["--set", "a=1"]):
         assert runner.invoke(cli, ["api", "GET", "/api/x", *flags]).exit_code == 1
+    assert len(cli.requests) == before
+
+
+def test_invalid_output_format_sends_nothing(make_cli, logged_in):
+    cli = make_cli(lambda r: httpx.Response(200, json=[]))
+    runner = logged_in(cli)
+    before = len(cli.requests)
+    for args in (
+        ["users", "list-users", "--page", "1", "-o", "bogus"],
+        ["api", "GET", "/api/x", "-o", "bogus"],
+    ):
+        result = runner.invoke(cli, args)
+        assert result.exit_code == 1, result.output
+        assert "bogus" in result.output
+    assert len(cli.requests) == before
+
+
+TOKEN_HINT = "smdev --env dev login --token"
+
+
+ENV_TOKEN = {"SMDEV_ENV": "dev", "SMDEV_TOKEN": "tok"}
+
+
+def test_unauthorized_response_prints_login_hint(make_cli):
+    cli = make_cli(lambda r: httpx.Response(401, json={"detail": "no"}))
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    for args in (["users", "list-users", "--page", "1"], ["api", "GET", "/api/x"]):
+        result = runner.invoke(cli, args, env=ENV_TOKEN)
+        assert result.exit_code == 4, result.output
+        assert TOKEN_HINT in result.output
+
+
+def test_api_forbidden_with_tenant_hint_names_tenant(make_cli):
+    cli = make_cli(lambda r: httpx.Response(403, json={}))
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    result = runner.invoke(cli, ["--tenant", "t-1", "api", "GET", "/api/x"], env=ENV_TOKEN)
+    assert result.exit_code == 4
+    assert "smdev --env dev --tenant t-1 login --token" in result.output
+
+
+@pytest.fixture
+def risk_schema(clean_schema):
+    data = json.loads(clean_schema.read_text())
+    data["paths"]["/api/files/{file_id}/purge"] = {
+        "get": {"tags": ["Files"], "operationId": "files_purge", "x-sm-token": True,
+                "x-cli-confirm": True,
+                "parameters": [{"name": "file_id", "in": "path", "required": True,
+                                "schema": {"type": "string"}}]}
+    }  # fmt: skip
+    data["paths"]["/api/jobs/{job_id}/poll"] = {
+        "post": {"tags": ["Jobs"], "operationId": "jobs_poll", "x-sm-token": True,
+                 "x-cli-safe": True,
+                 "parameters": [{"name": "job_id", "in": "path", "required": True,
+                                 "schema": {"type": "string"}}]}
+    }  # fmt: skip
+    clean_schema.write_text(json.dumps(data))
+    return clean_schema
+
+
+def test_api_inherits_confirm_from_matched_operation(make_cli, risk_schema, logged_in):
+    cli = make_cli(lambda r: httpx.Response(200, json={}), schema=risk_schema)
+    runner = logged_in(cli, protected=True)
+    before = len(cli.requests)
+    result = runner.invoke(cli, ["api", "GET", "/api/files/42/purge"])
+    assert result.exit_code == 1 and "--yes" in result.output
+    assert len(cli.requests) == before
+    assert runner.invoke(cli, ["api", "GET", "/api/files/42/purge", "--yes"]).exit_code == 0
+
+
+def test_api_inherits_safe_from_matched_operation(make_cli, risk_schema, logged_in):
+    cli = make_cli(lambda r: httpx.Response(200, json={}), schema=risk_schema)
+    runner = logged_in(cli, protected=True)
+    assert runner.invoke(cli, ["api", "POST", "/api/jobs/7/poll", "--json", "{}"]).exit_code == 0
+    # An unmatched mutation stays guarded.
+    assert runner.invoke(cli, ["api", "POST", "/api/other", "--json", "{}"]).exit_code == 1
+
+
+def test_encoded_path_alias_still_needs_confirmation(make_cli, risk_schema, logged_in):
+    cli = make_cli(lambda r: httpx.Response(200, json={}), schema=risk_schema)
+    runner = logged_in(cli, protected=True)
+    before = len(cli.requests)
+    result = runner.invoke(cli, ["api", "GET", "/api/files/42/%70urge"])
+    assert result.exit_code == 1 and "--yes" in result.output
+    assert len(cli.requests) == before
+
+
+def test_yes_ignored_even_with_click_auto_envvar(make_cli, logged_in):
+    cli = make_cli(lambda r: httpx.Response(200, json={}))
+    runner = logged_in(cli, protected=True)
+    before = len(cli.requests)
+    env = {"SMDEV_API_YES": "1", "SMDEV_USERS_CREATE_USER_YES": "1"}
+    api = runner.invoke(
+        cli, ["api", "POST", "/api/x", "--json", "{}"], env=env, auto_envvar_prefix="SMDEV"
+    )
+    gen = runner.invoke(
+        cli, ["users", "create-user", "--set", "email=a@b"], env=env, auto_envvar_prefix="SMDEV"
+    )
+    assert api.exit_code == 1 and gen.exit_code == 1
     assert len(cli.requests) == before

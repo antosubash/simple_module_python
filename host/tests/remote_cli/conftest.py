@@ -15,53 +15,13 @@ from typing import Any
 
 import httpx
 import pytest
+from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin
 from click.testing import CliRunner, Result
 from simple_module_test.web.tenant_client import create_user, session_client
 from smdev_cli import make_cli
 
 BASE_URL = "http://127.0.0.1"
-CSRF = "csrf-test-token"
-PAT_URL = "/api/api_tokens/tokens/"
 ENV_NAME = "local"
-
-
-async def make_admin(app: Any, email: str) -> str:
-    from users.core.bootstrap import create_admin
-
-    async with app.state.sm.db.session_factory() as session:
-        result = await create_admin(session, email=email, password="pw-123456", full_name="Admin")
-        return str(result.user.id)
-
-
-async def join_tenant(app: Any, user_id: str, email: str, tenant_id: str | None) -> str:
-    """Make *user_id* an owner of a new tenant (or of *tenant_id*); return its id."""
-    from simple_module_core.access.tenancy import TenantRole
-    from tenants.models import Membership, Tenant
-    from tenants.resolution.resolver import forget
-
-    async with app.state.sm.db.session_factory() as session:
-        if tenant_id is None:
-            tenant = Tenant(slug=f"t-{uuid.uuid4().hex[:12]}", name="Test Org")
-            session.add(tenant)
-            await session.flush()
-            tenant_id = tenant.id
-        session.add(
-            Membership(tenant_id=tenant_id, user_id=user_id, role=TenantRole.OWNER, email=email)
-        )
-        await session.commit()
-    forget(user_id)  # the resolver caches memberships per user
-    return tenant_id
-
-
-async def create_pat(client: httpx.AsyncClient, scopes: list[str]) -> dict:
-    """POST a personal token (the pattern of the api_tokens tests); return the body."""
-    resp = await client.post(
-        PAT_URL,
-        json={"name": "smdev", "scopes": scopes, "expires_in_days": 30},
-        headers={"X-CSRF-Token": CSRF},
-    )
-    assert resp.status_code == 201, resp.text
-    return resp.json()
 
 
 class FakeKeyring:
@@ -172,8 +132,7 @@ async def make_actor(app):
 @pytest.fixture
 async def smdev(app, tmp_path, monkeypatch) -> AsyncIterator[Smdev]:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    for var in ("SMDEV_ENV", "SMDEV_TOKEN", "SMDEV_YES"):
+    for var in ("SMDEV_ENV", "SMDEV_TOKEN"):
         monkeypatch.delenv(var, raising=False)
     loop = asyncio.get_running_loop()
     yield Smdev(app, loop, LoopBridgeTransport(app, loop), FakeKeyring())

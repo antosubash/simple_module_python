@@ -42,3 +42,15 @@ def test_doctor_names_token_env_var(make_cli):
     env = {"SMDEV_ENV": "dev", "SMDEV_TOKEN": "tok"}
     result = runner.invoke(cli, ["doctor"], env=env)
     assert "token from SMDEV_TOKEN" in result.output
+
+
+TOKEN_HINT = "smdev --env dev login --token"
+
+
+def test_login_usage_and_doctor_hints_say_token(make_cli, logged_in):
+    cli = make_cli(lambda r: httpx.Response(401, json={}))
+    runner = logged_in(cli, login=False)
+    doctor = runner.invoke(cli, ["doctor"]).output
+    assert f"fix: {TOKEN_HINT}" in doctor
+    fresh = CliRunner().invoke(make_cli(), ["users", "list-users", "--page", "1"], env={})
+    assert "login --token`" in fresh.output or "env add" in fresh.output

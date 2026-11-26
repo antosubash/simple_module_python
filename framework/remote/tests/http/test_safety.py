@@ -1,6 +1,10 @@
 import pytest
 from simple_module_remote.http.errors import UnsafePathError
-from simple_module_remote.http.safety import validate_api_path, validate_base_url
+from simple_module_remote.http.safety import (
+    validate_api_path,
+    validate_base_url,
+    validate_request_url,
+)
 
 
 @pytest.mark.parametrize(
@@ -32,7 +36,20 @@ def test_base_url_ok(url: str) -> None:
     assert validate_base_url(url) == url
 
 
-@pytest.mark.parametrize("url", ["http://h.example", "ftp://h", "https://u:p@h", "https://h?x=1"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://h.example",
+        "ftp://h",
+        "https://u:p@h",
+        "https://h?x=1",
+        "https://host/outside#",
+        "https://host/x?",
+        "https://host:abc",
+        "https://host:99999",
+        "https://host:0",
+    ],
+)
 def test_base_url_refused(url: str) -> None:
     with pytest.raises(UnsafePathError):
         validate_base_url(url)
@@ -45,3 +62,19 @@ def test_base_url_error_never_echoes_userinfo(url: str) -> None:
     with pytest.raises(UnsafePathError) as err:
         validate_base_url(url)
     assert "hunter2" not in str(err.value)
+
+
+def test_request_url_must_stay_under_base_api() -> None:
+    base = "https://h.example/app"
+    assert (
+        validate_request_url(base, "https://h.example/app/api/x") == "https://h.example/app/api/x"
+    )
+    for bad in (
+        "https://h.example/api/x",
+        "https://h.example/app/api/x?y=1",
+        "https://h.example/app/api/x#f",
+        "https://other.example/app/api/x",
+        "https://h.example/app/other",
+    ):
+        with pytest.raises(UnsafePathError):
+            validate_request_url(base, bad)

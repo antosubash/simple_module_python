@@ -2,16 +2,19 @@
 
 import contextlib
 import errno
+import fcntl
 import os
 import secrets
 import stat
 import tomllib
+from collections.abc import Generator
 
 import tomli_w
 
 from simple_module_remote.config.paths import config_dir
 
 CREDENTIALS_FILENAME = "credentials.toml"
+LOCK_SUFFIX = ".lock"
 TOKEN_FIELD = "token"
 ORIGIN_FIELD = "origin"
 LOOSE_MODE_MASK = 0o077
@@ -92,15 +95,32 @@ class FileStore:
         entry = self._load().get(key)
         return (entry[TOKEN_FIELD], entry[ORIGIN_FIELD]) if entry else None
 
+    @contextlib.contextmanager
+    def _locked(self) -> Generator[None]:
+        """Serialize read-modify-write cycles across processes on a sibling lock file."""
+        self._secure_dir()
+        lock_path = self._path.with_name(self._path.name + LOCK_SUFFIX)
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            fcntl.flock(fd, fcntl.LOCK_EX)
+        except OSError as exc:
+            raise FileStoreError(f"cannot lock {lock_path}: {exc.__class__.__name__}") from None
+        try:
+            yield
+        finally:
+            os.close(fd)  # closing the descriptor releases the lock
+
     def put(self, key: str, token: str, origin: str) -> None:
-        data = self._load()
-        data[key] = {TOKEN_FIELD: token, ORIGIN_FIELD: origin}
-        self._write(data)
+        with self._locked():
+            data = self._load()
+            data[key] = {TOKEN_FIELD: token, ORIGIN_FIELD: origin}
+            self._write(data)
 
     def delete(self, key: str) -> bool:
-        data = self._load()
-        if key not in data:
-            return False
-        del data[key]
-        self._write(data)
-        return True
+        with self._locked():
+            data = self._load()
+            if key not in data:
+                return False
+            del data[key]
+            self._write(data)
+            return True

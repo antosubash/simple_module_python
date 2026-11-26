@@ -1,4 +1,5 @@
 import copy
+import io
 import json
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import keyring.backends.fail
 import pytest
 from click.testing import CliRunner
 from simple_module_remote import build_cli
+from simple_module_remote.generate.operations import Operation
 
 MINI = Path(__file__).parent / "generate" / "fixtures" / "mini_openapi.json"
 CLI = "smdev"
@@ -46,8 +48,7 @@ class FakeKeyring:
 @pytest.fixture(autouse=True)
 def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    for var in ("SMDEV_ENV", "SMDEV_TOKEN", "SMDEV_YES"):
+    for var in ("SMDEV_ENV", "SMDEV_TOKEN"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -106,8 +107,12 @@ def fail_keyring():
 
 
 @pytest.fixture
-def logged_in():
-    """``logged_in(cli, ...)``: a runner with env ``dev`` added and selected, then logged in."""
+def logged_in(make_cli):
+    """``logged_in(cli, ...)``: a runner with env ``dev`` added and selected, then logged in.
+
+    The login itself goes through a sibling CLI that answers whoami correctly, so tests can
+    give ``cli`` any handler.
+    """
 
     def factory(cli, *, protected=False, extra=(), login=True) -> CliRunner:
         runner = CliRunner()
@@ -115,7 +120,34 @@ def logged_in():
         runner.invoke(cli, args + (["--protected"] if protected else []))
         runner.invoke(cli, ["env", "use", "dev"])
         if login:
-            runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
+            runner.invoke(make_cli(), ["login", "--token-stdin"], input="tok\n")
         return runner
 
     return factory
+
+
+@pytest.fixture
+def make_op():
+    """``make_op(**overrides)``: an :class:`Operation` with neutral defaults (``GET /api/x``)."""
+
+    def factory(**kw) -> Operation:
+        base = {
+            "operation_id": "x", "method": "GET", "path": "/api/x", "group": "g", "name": "n",
+            "params": (), "body_kind": "none", "body_schema": None, "summary": "",
+            "description": "", "safe": False, "confirm": False, "token_capable": True,
+        }  # fmt: skip
+        base.update(kw)
+        return Operation(**base)
+
+    return factory
+
+
+class Tty(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def make_tty():
+    """``make_tty()``: a StringIO that reports itself as a terminal."""
+    return Tty
