@@ -1,5 +1,5 @@
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +13,7 @@ vi.mock('@inertiajs/react', () => ({
   usePage: () => ({ props: {} }),
 }));
 
+import { router } from '@inertiajs/react';
 import Browse from '../audit_log/pages/Browse';
 
 const props: ComponentProps<typeof Browse> = {
@@ -29,6 +30,7 @@ const props: ComponentProps<typeof Browse> = {
     action: null,
     tenant_id: null,
     user_id: null,
+    target_user_id: null,
     correlation_id: null,
     from_date: null,
     to_date: null,
@@ -36,6 +38,26 @@ const props: ComponentProps<typeof Browse> = {
 };
 
 describe('audit_log Browse', () => {
+  it('shows the target chip and preserves it through Apply and export, then clears it', () => {
+    render(
+      <Browse
+        {...props}
+        target_user_label="target@example.com"
+        filters={{ ...props.filters, target_user_id: 'target-1', user_id: 'actor-1' }}
+      />,
+    );
+    expect(screen.getAllByText(/target@example\.com/)).toHaveLength(2);
+    expect(screen.queryByText(/target-1/)).not.toBeInTheDocument();
+    const exported = screen.getByRole('link', { name: keys.audit_log.browse.export_csv });
+    expect(exported.getAttribute('href')).toContain('target_user_id=target-1');
+    fireEvent.click(screen.getByRole('button', { name: keys.audit_log.filters.apply }));
+    expect(router.visit).toHaveBeenLastCalledWith(
+      '/admin/audit-log/?user_id=actor-1&target_user_id=target-1',
+    );
+    fireEvent.click(screen.getByRole('button', { name: keys.audit_log.filters.clear_target_user }));
+    expect(router.visit).toHaveBeenLastCalledWith('/admin/audit-log/?user_id=actor-1');
+  });
+
   it('mounts the filter form, empty state, and export link', () => {
     render(<Browse {...props} />);
     expect(screen.getByRole('heading', { name: keys.audit_log.browse.title })).toBeInTheDocument();

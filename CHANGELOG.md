@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Core audit-link registry: `AuditLink.for_model(..., user_id_field=...)` declares linked user ownership for target-user filtering; the link retains its model for live ownership lookups (#1166).
 - `@simple-module-py/ui`: `useLeaveGuard` accepts an optional fourth `allowVisit` predicate to skip the Inertia leave prompt for visits that preserve unsaved fields; `ConfirmActionDialog` forwards `onCloseAutoFocus`; `SectionTitle` forwards `ref` and `tabIndex` to its heading (#1149).
 - Users admin: remove individual linked OAuth sign-ins with confirmation and audit capture; warn about duplicate links per provider and explain how to sign in again when removing the last link (#1149).
 
@@ -51,7 +52,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Audit log: index target-user history lookups by `(entity_type, entity_id)` to avoid scanning every entry of the same entity type (#1166; migration `819d8c5714a5`).
 - **Behaviour change:** Keycloak and OIDC logout publish `UserLoggedOut` from the validated browser session even when an Authorization bearer token identifies the same or a different user. Identity capture uses local validation only and never renews tokens or calls the IdP; expired sessions publish no event, and cleanup revokes the original refresh token. Identity-capture failures are logged while logout cleanup continues (#1162).
+- Users admin: keep Recent activity scoped to actions by the user, clarify its empty state, and always show separate links to all activity by the user and changes to the account (BUG-001, #1166).
+- Audit log: add a `target_user_id` filter and removable chip for entries about a user, including registered linked OAuth accounts and role assignments; the users Edit page links separately to actor and target-user history (#1166).
 - Users admin: removing linked sign-ins preserves unsaved details without a leave prompt, restores keyboard focus without stealing it on later renders, scopes empty-card retention to the edited user, and refreshes stale links after a 404 removal response (#1149).
 - Keycloak user-cache writes tolerate malformed profile claims without losing the cached identity at sign-in. Missing or malformed emails preserve the last known address (empty for new identities); explicit null or empty `preferred_username` claims still clear the cached name (#1146).
 - Settings controls announce their field descriptions through `aria-describedby`, including boolean descriptions in the trailing column (#1138).

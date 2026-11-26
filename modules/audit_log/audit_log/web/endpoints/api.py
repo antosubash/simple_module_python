@@ -16,7 +16,6 @@ from audit_log.contracts.schemas import AuditEntryList
 from audit_log.core.constants import DEFAULT_PAGE_SIZE, Permissions
 from audit_log.entries.export import CSV_FILENAME, CSV_MEDIA_TYPE, stream_csv
 from audit_log.entries.filters import EntryFilters
-from audit_log.entries.resolve import actor_filter
 from audit_log.web.deps import AuditLogServiceDep
 
 router = APIRouter()
@@ -32,6 +31,7 @@ async def list_audit_entries(
     entity_id: str | None = Query(default=None),
     action: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
+    target_user_id: str | None = Query(default=None),
     correlation_id: str | None = Query(default=None),
     tenant_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
@@ -39,11 +39,15 @@ async def list_audit_entries(
     page: int = Query(default=1, ge=1, le=MAX_PAGE),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PER_PAGE),
 ) -> AuditEntryList:
-    filters = EntryFilters.for_date_only_range(
+    filters = EntryFilters.from_query(
+        directory=get_user_directory(request.app),
+        links=request.app.state.sm.audit_links,
+        dialect=service.db.bind.dialect.name,
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,
-        actor_match=actor_filter(get_user_directory(request.app), user_id or ""),
+        user_id=user_id,
+        target_user_id=target_user_id,
         correlation_id=correlation_id,
         tenant_id=tenant_id,
         from_date=from_date,
@@ -61,6 +65,7 @@ async def export_audit_entries(
     entity_id: str | None = Query(default=None),
     action: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
+    target_user_id: str | None = Query(default=None),
     correlation_id: str | None = Query(default=None),
     tenant_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
@@ -78,11 +83,15 @@ async def export_audit_entries(
     and the page always agree about which rows matched.
     """
     directory = get_user_directory(request.app)
-    filters = EntryFilters.for_date_only_range(
+    filters = EntryFilters.from_query(
+        directory=directory,
+        links=request.app.state.sm.audit_links,
+        dialect=service.db.bind.dialect.name,
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,
-        actor_match=actor_filter(directory, user_id or ""),
+        user_id=user_id,
+        target_user_id=target_user_id,
         correlation_id=correlation_id,
         from_date=from_date,
         to_date=to_date,

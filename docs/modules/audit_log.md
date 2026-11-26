@@ -110,7 +110,7 @@ Primary-key columns are excluded on create; ORM updates include their old and ne
 GET /api/audit_log/
 ```
 
-Requires `audit_log.view`. Returns `AuditEntryList`. Query filters (all optional): `entity_type`, `entity_id`, `action`, `user_id`, `from_date`, `to_date`, `page` (≥1), `page_size` (1–200, default 50). Results are ordered newest-first (`created_at` desc).
+Requires `audit_log.view`. Returns `AuditEntryList`. Query filters (all optional): `entity_type`, `entity_id`, `action`, `user_id`, `target_user_id`, `correlation_id`, `tenant_id`, `from_date`, `to_date`, `page` (≥1), `page_size` (1–200, default 50). Results are ordered newest-first (`created_at` desc).
 
 The JSON list, browse screen and CSV export share actor and date-range semantics
 (#698): `user_id` accepts an exact UUID or a name/email substring (an exact
@@ -118,6 +118,42 @@ stored actor id when the directory cannot search). `to_date` includes the whole
 day it names, even if supplied with a time. `from_date` remains the supplied
 lower bound. Service callers needing an exact upper timestamp can use
 `AuditLogService.list_entries` or construct `EntryFilters` directly.
+
+`target_user_id` selects entries **about** that exact user id (#1166), independently
+of the actor. It includes the directory's user entity, linked OAuth accounts and
+user-role assignments. For example, `/admin/audit-log/?target_user_id=<id>` shows
+an administrator's changes to that account; `?user_id=<id>` continues to show
+actions **by** the account. Both filters can be combined, and the tenant, entity,
+date and action filters still narrow the result. JSON, browse and CSV use the
+same predicate. The browse page shows a removable **Target user** chip and keeps
+it through pagination, Apply and export. The users Edit page's **See all in the
+audit log** link opens this target filter; its recent-activity summary continues
+to show actions by the user.
+
+The framework's `AuditLink.for_model` accepts an optional `user_id_field`
+argument. Modules declare linked ownership through the existing
+[`register_audit_links`](/framework/lifecycle#register_audit_linksregistry) hook:
+
+```python
+from simple_module_core.web.audit_links import AuditLink
+
+
+def register_audit_links(self, registry):
+    registry.register(AuditLink.for_model(LinkedAccount, url_template="", user_id_field="user_id"))
+```
+
+The field names the mapped attribute holding the owning user's id, rather than
+the actor. `for_model` retains the table model for live ownership lookups; use
+this factory when declaring ownership. Omit `user_id_field` for entities without
+linked user ownership. An empty `url_template` registers ownership for rows
+without an individual screen; otherwise keep the entity's usual URL template.
+The filter uses live rows and recorded `old`/`new` ownership in audit diffs, so
+retained creation history can identify OAuth accounts after deletion. User-role
+assignments also identify their user in the composite audit entity id. A deleted
+linked row with no retained ownership history cannot be attributed retroactively.
+Tenant-scoped linked models retain normal query scoping, and ownership history
+for those models is matched within the entry's tenant. The audit log itself
+remains a platform screen; `target_user_id` grants no additional access.
 
 ### View
 

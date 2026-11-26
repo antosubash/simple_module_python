@@ -122,12 +122,12 @@ class TestOtherModuleLabels:
     ) -> None:
         """Join rows have no owner and no screen — the tag still says something,
         in the same snake_case vocabulary as every claimed row's tag."""
-        await _seed_entry(app, entity_type="UserRole", entity_id="7")
+        await _seed_entry(app, entity_type="UnclaimedJoinRow", entity_id="7")
 
         entity = _entity(await _browse(authenticated_client), "7")
 
         assert entity["display"] == "7"
-        assert entity["table_name"] == "user_role"
+        assert entity["table_name"] == "unclaimed_join_row"
         assert entity["url"] is None
 
     async def test_a_stored_file_is_named_by_its_filename(

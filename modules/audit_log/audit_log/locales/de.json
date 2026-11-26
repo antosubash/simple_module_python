@@ -14,6 +14,8 @@
     "entity_type_all": "Alle Typen",
     "action_label": "Aktion",
     "action_all": "Alle Aktionen",
+    "target_user_label": "Betroffene Person",
+    "clear_target_user": "Filter für betroffene Person entfernen",
     "user_label": "Akteur",
     "user_placeholder": "Alle Personen",
     "date_range_label": "Zeitraum",

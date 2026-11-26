@@ -303,8 +303,9 @@
   },
   "recent_activity": {
     "title": "Letzte Aktivitäten",
-    "see_all": "Alle im Änderungsprotokoll anzeigen →",
-    "empty": "Für dieses Konto wurde noch nichts aufgezeichnet.",
+    "activity_by_user": "Alle Aktivitäten dieses Benutzers →",
+    "account_changes": "Änderungen an diesem Konto →",
+    "empty": "Dieser Benutzer hat noch nichts getan.",
     "summary": {
       "created": "{kind} {label} erstellt",
       "updated": "{kind} {label} aktualisiert",

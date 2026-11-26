@@ -24,7 +24,6 @@ from audit_log.core.constants import (
 )
 from audit_log.entries.filters import EntryFilters
 from audit_log.entries.resolve import (
-    actor_filter,
     actor_link,
     entity_link,
     resolve_actors,
@@ -77,6 +76,7 @@ async def browse(
     entity_id: str | None = Query(default=None),
     action: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
+    target_user_id: str | None = Query(default=None),
     correlation_id: str | None = Query(default=None),
     tenant_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
@@ -92,11 +92,15 @@ async def browse(
     # not a search: an all-spaces term means the box is empty, not that nobody
     # is called that.
     actor_term = (user_id or "").strip()
-    filters = EntryFilters.for_date_only_range(
+    filters = EntryFilters.from_query(
+        directory=directory,
+        links=request.app.state.sm.audit_links,
+        dialect=service.db.bind.dialect.name,
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,
-        actor_match=actor_filter(directory, actor_term),
+        user_id=actor_term,
+        target_user_id=target_user_id,
         correlation_id=correlation_id,
         from_date=from_date,
         to_date=to_date,
@@ -119,13 +123,18 @@ async def browse(
     links = request.app.state.sm.audit_links
     entity_types = _type_options(await service.distinct_entity_types(), links)
     actors = await resolve_actors(directory, db, [item.user_id for item in result.items])
+    refs = [(item.entity_type, item.entity_id) for item in result.items]
+    target_id = (target_user_id or "").strip()
+    target_ref = (directory.entity_type, target_id) if directory.entity_type and target_id else None
+    if target_ref is not None:
+        refs.append(target_ref)
     # Entity names are resolved against what *this* reader may see: naming the
     # row is a read of the row, and `audit_log.view` alone must not be a way
     # round the permission its owning module puts on that (GH #300).
     labels = await resolve_entity_labels(
         db,
         links,
-        [(item.entity_type, item.entity_id) for item in result.items],
+        refs,
         resolved_permissions_for(request),
     )
 
@@ -159,6 +168,7 @@ async def browse(
             "tenant_ids": await service.distinct_tenant_ids(),
             "platform_tenant_value": PLATFORM_TENANT_FILTER,
             "export_url": f"{API_PREFIX}/export.csv",
+            "target_user_label": labels.get(target_ref) if target_ref is not None else None,
             "filters": {
                 "entity_type": entity_type,
                 "entity_id": entity_id,
@@ -166,6 +176,7 @@ async def browse(
                 # The term, not what it matched: the box must keep showing
                 # what was typed into it.
                 "user_id": actor_term or None,
+                "target_user_id": (target_user_id or "").strip() or None,
                 "correlation_id": correlation_id,
                 "tenant_id": tenant_id or None,
                 "from_date": from_date.date().isoformat() if from_date else None,

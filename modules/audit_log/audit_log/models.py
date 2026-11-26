@@ -31,6 +31,7 @@ class AuditEntry(Base, table=True):  # ty: ignore[unsupported-base]
     __table_args__ = (
         Index("ix_audit_entry_entity_type", "entity_type"),
         Index("ix_audit_entry_entity_id", "entity_id"),
+        Index("ix_audit_entry_entity_lookup", "entity_type", "entity_id"),
         Index("ix_audit_entry_user_id", "user_id"),
         Index("ix_audit_entry_created_at", "created_at"),
         Index("ix_audit_entry_tenant_created", "tenant_id", "created_at"),
