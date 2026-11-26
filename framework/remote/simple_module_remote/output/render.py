@@ -12,16 +12,21 @@ from rich.text import Text
 
 from simple_module_remote.output.sanitize import sanitize, sanitize_for
 
-__all__ = ["OUTPUT_FORMATS", "NoIdentifierError", "render"]
+__all__ = ["OUTPUT_FORMATS", "NoIdentifierError", "UnknownColumnError", "render"]
 
 Format = Literal["table", "json", "yaml", "id"]
 OUTPUT_FORMATS: tuple[str, ...] = ("table", "json", "yaml", "id")
 MAX_AUTO_COLUMNS = 8
+MAX_CELL_CHARS = 200
 ID_KEYS = ("id", "name", "key", "slug", "email")
 NO_IDENTIFIER = "no identifier field in the response; use -o json"
 UNSAFE_IDENTIFIER = (
     "identifier contains control characters or is not a string or number; use -o json"
 )
+
+
+class UnknownColumnError(ValueError):
+    """``--columns`` named a field the rows do not have."""
 
 
 class NoIdentifierError(ValueError):
@@ -43,9 +48,10 @@ def _text(value: Any) -> Text:
 def _cell(value: Any) -> str:
     if value is None:
         return ""
-    if isinstance(value, dict | list):
-        return json.dumps(value, default=str)
-    return str(value)
+    text = json.dumps(value, default=str) if isinstance(value, dict | list) else str(value)
+    if len(text) > MAX_CELL_CHARS:
+        return text[: MAX_CELL_CHARS - 1] + "…"
+    return text
 
 
 def _auto_columns(rows: list[Any]) -> list[str]:
@@ -54,18 +60,35 @@ def _auto_columns(rows: list[Any]) -> list[str]:
     return scalars[:MAX_AUTO_COLUMNS]
 
 
+def _check_columns(columns: list[str], rows: list[Any]) -> None:
+    known = {key for row in rows if isinstance(row, dict) for key in row}
+    unknown = [c for c in columns if c not in known]
+    if unknown:
+        raise UnknownColumnError(
+            f"unknown column {', '.join(unknown)}; available: {', '.join(sorted(known))}"
+        )
+
+
 def _table(data: Any, columns: list[str] | None, out: TextIO) -> None:
     console = Console(file=out, highlight=False, color_system=None, soft_wrap=False)
     rows = _rows(data)
     table = Table(show_header=True, header_style="bold")
+    if rows is not None and not rows:
+        out.write("no results\n")
+        return
     if rows is None:
         table.add_column(Text("key"))
         table.add_column(Text("value"))
         pairs = data.items() if isinstance(data, dict) else [("value", data)]
+        if columns and isinstance(data, dict):
+            _check_columns(columns, [data])
+            pairs = [(k, v) for k, v in pairs if k in columns]
         for key, value in pairs:
             table.add_row(_text(key), _text(value))
     elif rows and all(isinstance(r, dict) for r in rows):
         cols = columns or _auto_columns(rows)
+        if columns:
+            _check_columns(columns, rows)
         for col in cols:
             table.add_column(Text(sanitize(col)))
         for row in rows:

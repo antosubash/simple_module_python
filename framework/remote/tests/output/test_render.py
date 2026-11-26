@@ -98,3 +98,22 @@ def test_id_format_refuses_unsafe_identifiers(bad, make_tty):
                 fmt="id", columns=None, quiet=False, is_tty=False, out=out,
             )  # fmt: skip
         assert out.getvalue() == ""
+
+
+def test_empty_list_table_says_no_results():
+    assert run([], fmt="table") == "no results\n"
+    assert run({"items": []}, fmt="table") == "no results\n"
+
+
+def test_columns_apply_to_single_objects_and_unknown_columns_fail():
+    from simple_module_remote.output.render import UnknownColumnError
+
+    text = run({"id": 1, "email": "a@b", "x": "y"}, fmt="table", columns=["id", "email"])
+    assert "email" in text and "x" not in text.replace("email", "")
+    with pytest.raises(UnknownColumnError, match="nope"):
+        run(ROWS, fmt="table", columns=["nope"])
+
+
+def test_huge_cells_are_cut():
+    text = run([{"blob": "z" * 5000}], fmt="table", columns=["blob"])
+    assert len(text) < 1000

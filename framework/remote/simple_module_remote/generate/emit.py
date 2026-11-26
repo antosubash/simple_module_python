@@ -16,7 +16,12 @@ import httpx
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import AUTH_STATUSES, ERROR_MIN
-from simple_module_remote.output.render import OUTPUT_FORMATS, NoIdentifierError, render
+from simple_module_remote.output.render import (
+    OUTPUT_FORMATS,
+    NoIdentifierError,
+    UnknownColumnError,
+    render,
+)
 from simple_module_remote.output.sanitize import sanitize_for
 
 __all__ = ["emit", "print_error", "render_values", "say", "say_server"]
@@ -176,13 +181,29 @@ def render_values(ctx: RunContext, data: Any, values: dict[str, Any]) -> None:
             is_tty=ctx.is_tty,
             out=ctx.stdout,
         )
-    except NoIdentifierError as exc:
+    except (NoIdentifierError, UnknownColumnError) as exc:
         raise click.ClickException(str(exc)) from None
+
+
+def _refuse_render_flags(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> None:
+    """-o/-q/--columns format JSON; refuse them for a body that is not (a CSV export)."""
+    given = [
+        f
+        for f, key in (("-o", "output"), ("-q", "quiet"), ("--columns", "columns"))
+        if values.get(key)
+    ]
+    if given:
+        kind = response.headers.get("Content-Type", "").split(";", 1)[0]
+        raise click.ClickException(
+            f"{'/'.join(given)} do not apply: the response is {kind}, not JSON "
+            "(redirect stdout or use --out FILE)"
+        )
 
 
 def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> int:
     out = values.get("out")
     if response.status_code == 204:
+        say(ctx, "done (204 No Content)")
         return 0
     if is_binary(response) and not out:
         if ctx.is_tty or not _write_stdout_bytes(ctx, response):
@@ -194,6 +215,8 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
         _write_file(response, out)
         say(ctx, f"wrote {out}")
         return 0
+    if has_type(response) and not is_json(response) and not out:
+        _refuse_render_flags(ctx, response, values)
     streamable = not ctx.is_tty and has_type(response) and not is_json(response)
     # A pipe gets a non-JSON body chunk by chunk; a terminal needs it sanitized instead.
     if streamable and _write_stdout_bytes(ctx, response):

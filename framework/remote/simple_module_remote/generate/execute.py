@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
+import sys
 from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
 from typing import Any
@@ -38,6 +41,19 @@ from simple_module_remote.output.sanitize import is_terminal
 __all__ = ["run_operation"]
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+_OS_REASONS: dict[type[OSError], str] = {
+    FileNotFoundError: "no such file or directory",
+    IsADirectoryError: "it is a directory",
+    PermissionError: "permission denied",
+}
+
+
+def _quiet_stdout() -> None:
+    """Point stdout at /dev/null so the interpreter's exit flush cannot fail again."""
+    with contextlib.suppress(OSError, ValueError, AttributeError):
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
 
 
 class _HttpFailureError(Exception):
@@ -101,6 +117,8 @@ def _all_pages(
         except ValueError:
             raise ApiError(response.status_code, response.text, "response is not JSON") from None
 
+    if "page" in prep.params:
+        raise click.UsageError("--all and --limit start at page 1: drop --page")
     show = is_terminal(ctx.stderr)
 
     def progress(count: int) -> None:
@@ -188,6 +206,11 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
             return _fail(ctx, exc)
         except httpx.HTTPError as exc:
             return _fail(ctx, ApiError(0, message=f"response failed: {type(exc).__name__}"))
+        except BrokenPipeError:
+            _quiet_stdout()  # the reader (head, grep -q) went away: not an error
+            return 0
         except OSError as exc:
-            say(ctx, f"error: cannot write output: {exc.__class__.__name__}")
+            say(
+                ctx, f"error: cannot write output: {_OS_REASONS.get(type(exc), type(exc).__name__)}"
+            )
             return EXIT_USAGE
