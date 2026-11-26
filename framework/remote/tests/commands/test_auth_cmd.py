@@ -256,7 +256,7 @@ def test_whoami_shows_slug_and_id_and_logout_names_the_tenant(make_cli, logged_i
     out = runner.invoke(cli, ["--tenant", "acme", "logout"])
     assert "logged out of dev/acme" in out.output
     again = runner.invoke(cli, ["--tenant", "acme", "logout"])
-    assert "no stored token for dev/acme" in again.output
+    assert again.exit_code == 1 and "no stored token for dev/acme" in again.output
 
 
 def test_stored_token_pinned_to_another_tenant_is_refused(make_cli, keyring_store, logged_in):
@@ -270,3 +270,18 @@ def test_stored_token_pinned_to_another_tenant_is_refused(make_cli, keyring_stor
     assert result.exit_code == 1 and cli.requests == []
     assert "pinned to tenant acme (t-1), not 'beta'" in result.output
     assert runner.invoke(cli, ["--tenant", "acme", "whoami"]).exit_code == 0
+
+
+def test_tenant_flag_is_ignored_with_a_note_on_a_single_tenant_server(
+    make_cli, keyring_store, logged_in
+):
+    single = {**WHO, "tenant_id": "default"}
+    cli = make_cli(lambda r: httpx.Response(200, json=single))
+    runner = logged_in(cli, login=False)
+    result = runner.invoke(cli, ["--tenant", "foo", "login", "--token-stdin"], input="tok\n")
+    assert result.exit_code == 0, result.output
+    assert "single-tenant server; --tenant foo is ignored" in result.output
+    again = runner.invoke(cli, ["--tenant", "foo", "whoami"])  # the pin check does not refuse it
+    assert again.exit_code == 0, again.output
+    doctor = runner.invoke(cli, ["--tenant", "foo", "doctor"]).output
+    assert "single-tenant server" in doctor and "FAIL" not in doctor

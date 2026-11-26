@@ -12,6 +12,7 @@ from simple_module_remote.config.credentials import (
     StoredCredential,
     credential_key,
     describe_tenant,
+    is_single_tenant,
     tenant_matches,
     validate_token,
 )
@@ -69,7 +70,12 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
             ) from None
         raise _api_failure(exc, "the token was not accepted; nothing was stored") from None
     wanted = state.tenant(env)
-    if wanted and not tenant_matches(wanted, who):
+    if wanted and is_single_tenant(who):
+        click.echo(
+            f"note: {env.name} is a single-tenant server; --tenant {sanitize(wanted)} is ignored",
+            err=True,
+        )
+    elif wanted and not tenant_matches(wanted, who):
         raise CliError(
             f"tenant {wanted!r} matches neither the slug nor the id of the token's tenant "
             f"{describe_tenant(who.get('tenant_slug'), who.get('tenant_id'))}; "
@@ -103,7 +109,9 @@ def logout(ctx: click.Context) -> None:
         removed = state.store().delete(where)
     except CredentialError as exc:
         raise CliError(str(exc)) from None
-    click.echo(f"logged out of {where}" if removed else f"no stored token for {where}")
+    if not removed:
+        raise CliError(f"no stored token for {where}")
+    click.echo(f"logged out of {where}")
 
 
 @click.command("whoami", help="Show the identity the selected environment sees.")

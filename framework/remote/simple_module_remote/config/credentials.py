@@ -69,6 +69,14 @@ def describe_tenant(slug: object, tenant_id: object) -> str:
     return str(slug or tenant_id or "none")
 
 
+SINGLE_TENANT_ID = "default"  # what a single-tenant server reports as the tenant id
+
+
+def is_single_tenant(who: Mapping[str, object]) -> bool:
+    """Whether whoami describes a single-tenant server (no real tenant to select)."""
+    return who.get("tenant_id") == SINGLE_TENANT_ID and not who.get("tenant_slug")
+
+
 def tenant_matches(wanted: str, who: Mapping[str, object]) -> bool:
     """Whether ``wanted`` (a slug or an id) names the tenant a token is pinned to."""
     return wanted in (who.get("tenant_id"), who.get("tenant_slug"))
@@ -250,7 +258,13 @@ def resolve_token(
             f"the stored token for {env.name!r} was issued for {cred.origin}, "
             f"but the environment now points at {env.origin}: run `{hint}`"
         )
-    if tenant and cred.tenant_id is not None and tenant not in (cred.tenant_id, cred.tenant_slug):
+    pinned = {"tenant_id": cred.tenant_id, "tenant_slug": cred.tenant_slug}
+    if (
+        tenant
+        and cred.tenant_id is not None
+        and not is_single_tenant(pinned)
+        and tenant not in (cred.tenant_id, cred.tenant_slug)
+    ):
         raise CredentialError(
             f"the stored token for {credential_key(env.name, tenant)!r} is pinned to tenant "
             f"{describe_tenant(cred.tenant_slug, cred.tenant_id)}, not {tenant!r}: run `{hint}`"

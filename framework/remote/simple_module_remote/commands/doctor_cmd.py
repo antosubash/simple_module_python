@@ -15,6 +15,7 @@ from simple_module_remote.commands.runtime import (
 from simple_module_remote.commands.schema_cmd import schema_info
 from simple_module_remote.config.credentials import (
     describe_tenant,
+    is_single_tenant,
     login_hint,
     tenant_matches,
     token_env_var,
@@ -108,6 +109,8 @@ def _check_identity(state: AppState, env: Environment, explicit: bool, report: _
     report.ok("whoami", str(who.get("email")))
     if wanted is None:
         report.ok("tenant", "no tenant selected")
+    elif is_single_tenant(who):
+        report.ok("tenant", "single-tenant server; --tenant is ignored")
     elif tenant_matches(wanted, who):
         report.ok("tenant", f"token is pinned to {wanted}")
     else:
