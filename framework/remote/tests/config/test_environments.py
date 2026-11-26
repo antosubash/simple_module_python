@@ -95,3 +95,33 @@ def test_origin() -> None:
 
 def test_env_prefix() -> None:
     assert env_prefix("my-app") == "MY_APP"
+
+
+@pytest.mark.parametrize("value", ['"true"', "1"])
+def test_protected_must_be_bool(xdg: Path, value: str) -> None:
+    _write(xdg / "config.toml", f'[env.prod]\nurl = "https://p.example"\nprotected = {value}\n')
+    with pytest.raises(ConfigError, match=r"prod.*protected"):
+        load_config(CLI, None)
+
+
+def test_tenant_must_be_string(xdg: Path) -> None:
+    _write(xdg / "config.toml", '[env.prod]\nurl = "https://p.example"\ntenant = 5\n')
+    with pytest.raises(ConfigError, match=r"prod.*tenant"):
+        load_config(CLI, None)
+
+
+def test_malformed_toml(xdg: Path) -> None:
+    _write(xdg / "config.toml", "[env.prod\n")
+    with pytest.raises(ConfigError, match="cannot read config"):
+        load_config(CLI, None)
+
+
+def test_env_without_url(xdg: Path) -> None:
+    _write(xdg / "config.toml", "[env.prod]\nprotected = true\n")
+    with pytest.raises(ConfigError, match="no url"):
+        load_config(CLI, None)
+
+
+def test_save_leaves_no_temp_file(xdg: Path) -> None:
+    save_config(CLI, Config(current="a"))
+    assert [p.name for p in xdg.iterdir()] == ["config.toml"]

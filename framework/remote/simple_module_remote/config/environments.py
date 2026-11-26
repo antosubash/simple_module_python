@@ -1,5 +1,6 @@
 """Named environments: load, merge defaults, save, and pick one."""
 
+import os
 import re
 import tomllib
 from collections.abc import Mapping
@@ -68,13 +69,12 @@ def _build(name: str, table: dict[str, object], base: Environment | None) -> Env
     if not isinstance(url, str) or not url:
         raise ConfigError(f"environment {name!r} has no url")
     tenant = table.get("tenant", base.tenant if base else None)
+    if tenant is not None and not isinstance(tenant, str):
+        raise ConfigError(f"environment {name!r}: 'tenant' must be a string")
     protected = table.get("protected", base.protected if base else False)
-    return Environment(
-        name=name,
-        url=url,
-        tenant=tenant if isinstance(tenant, str) else None,
-        protected=protected is True,
-    )
+    if not isinstance(protected, bool):
+        raise ConfigError(f"environment {name!r}: 'protected' must be true or false")
+    return Environment(name=name, url=url, tenant=tenant, protected=protected)
 
 
 def user_config_path(cli: str) -> Path:
@@ -115,7 +115,12 @@ def save_config(cli: str, config: Config) -> None:
     if tables:
         data[ENV_TABLE] = tables
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(tomli_w.dumps(data), encoding="utf-8")
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(tomli_w.dumps(data), encoding="utf-8")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def select_env(
