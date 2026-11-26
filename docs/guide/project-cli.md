@@ -187,6 +187,30 @@ environment is chosen explicitly (`--env` or `SMDEV_ENV`), so a stray variable
 can never be sent to the default environment. An environment made this way is
 not protected.
 
+## Credential matrix
+
+What a credential may do depends on the route, not on the CLI: each cell is the
+server's answer, and a refusal is HTTP 403 (exit code 4). The matrix below is
+pinned by `host/tests/remote_cli/test_credential_matrix.py`.
+
+| Credential | Host-level (users admin, system settings, tenant create) | Tenant-level in its tenant (members, invitations) | Tenant-level in another tenant |
+|---|---|---|---|
+| Platform-admin PAT pinned to tenant T | Yes, capped by the scopes it was minted with (a missing scope is 403) | Yes, within its scopes | Refused |
+| Tenant-admin PAT of T | 403: the user does not hold platform permissions | Yes | Refused |
+| Service key of T | Per its roles and scopes (content and settings work); never `admin` | 403: a service key is not a member, so no tenant resolves for the tenants module | Refused |
+
+A PAT sends no CSRF token: `RequiresCsrf` routes skip the check for tokens,
+while cookie sessions stay protected.
+
+Routes that take a tenant id and need platform permissions (for example
+`tenants list-tenants` or `create-tenant`) are host-level: they work with
+`tenants.platform.*` whichever tenant the token is pinned to. "Another tenant"
+only concerns tenant-level routes, which act on the token's active tenant and
+never on a tenant named in the URL. The CLI sends no tenant id to the server:
+`--tenant` only selects which stored login to use, and a login pinned to
+another tenant is refused before any request (exit code 1, "no stored
+credentials"). Use a separate `login` for each tenant.
+
 ## Live schema
 
 The commands come from the schema bundled with the CLI unless you sync the
