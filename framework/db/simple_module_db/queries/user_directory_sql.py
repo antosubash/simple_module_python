@@ -31,13 +31,15 @@ async def search_rows(
     return rows
 
 
-def name_or_email_contains(full_name: Any, email: Any, term: str) -> ColumnElement[bool]:
-    """Match a literal substring in either provider column, ignoring case."""
+def name_or_email_contains(
+    full_name: Any, email: Any, term: str, *, match_email: bool = True
+) -> ColumnElement[bool]:
+    """Match a literal substring in the name and optionally email, ignoring case."""
     pattern = like_contains_pattern(term)
-    return or_(
-        full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-        email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-    )
+    name_match = full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR)
+    if not match_email:
+        return name_match
+    return or_(name_match, email.ilike(pattern, escape=LIKE_ESCAPE_CHAR))
 
 
 def to_directory_user(

@@ -96,12 +96,15 @@ class UserDirectory(Protocol):
         exclude_ids: Collection[str] = (),
         active_only: bool = False,
         exact_email: bool = False,
+        match_email: bool = True,
     ) -> list[DirectoryUser]:
         """Users matching *term*, with every filter applied before *limit*.
 
         ``include_ids=None`` is unrestricted; an empty collection matches nobody.
         ``active_only`` excludes disabled accounts too. ``exact_email`` matches
         only the complete email (case insensitive), never a name or substring.
+        ``match_email=False`` restricts substring matching to full names, without
+        falling back to email for nameless users. ``exact_email`` takes precedence.
         Defaults preserve the unrestricted name/email search.
         """
         ...
@@ -120,7 +123,23 @@ class UserDirectory(Protocol):
         ...
 
 
-class NullUserDirectory:
+@runtime_checkable
+class EmailLookupUserDirectory(UserDirectory, Protocol):
+    """Optional exact-email lookup; legacy structural directories stay valid.
+
+    Providers can inherit this default, or implement the method themselves.
+    """
+
+    async def find_by_email(self, db: Any, email: str) -> DirectoryUser | None:
+        """Find one case-insensitive exact email in the directory's usual scope."""
+        email = email.strip()
+        if not email:
+            return None
+        found = await self.search(db, email, limit=1, exact_email=True)
+        return found[0] if found else None
+
+
+class NullUserDirectory(EmailLookupUserDirectory):
     """The directory when no auth provider registered one: it knows nobody."""
 
     entity_type: str | None = None
@@ -140,6 +159,7 @@ class NullUserDirectory:
         exclude_ids: Collection[str] = (),
         active_only: bool = False,
         exact_email: bool = False,
+        match_email: bool = True,
     ) -> list[DirectoryUser]:
         return []
 
@@ -211,6 +231,7 @@ __all__ = [
     "USER_DIRECTORY_STATE_ATTR",
     "DirectoryStats",
     "DirectoryUser",
+    "EmailLookupUserDirectory",
     "NullUserDirectory",
     "UserDirectory",
     "chunked",
