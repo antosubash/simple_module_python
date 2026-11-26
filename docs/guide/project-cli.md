@@ -39,7 +39,8 @@ uv run smdev env use staging
 uv run smdev env list
 ```
 
-Environment URLs are stored canonical: lowercase scheme and host, no default
+Environment URLs, including those in config files, are validated as written and then
+stored canonical: lowercase scheme and host, no default
 port (`:443`, `:80`), no trailing slash, and no userinfo (not even an empty
 `user@`). Logins stored before this normalisation still match: the credential's
 origin is normalised when compared. Plain `http://` is accepted only for loopback hosts. URLs may not contain
@@ -74,7 +75,9 @@ printed. A token must be printable ASCII with no spaces or control characters, a
 
 The one exception to "no redirects with the token" is a redirect to the same
 origin that stays under the environment's `/api/` prefix (FastAPI's trailing
-slash redirects): it is followed with the token. A redirect anywhere else (another
+slash redirects): it is followed with the token, but only when the URL that will
+be sent is a plain path (no backslash, no encoded dot, slash, backslash or
+percent); anything ambiguous is followed without it. A redirect anywhere else (another
 host, port or scheme, or a path outside `/api/`) is followed without it, and a
 401 from there is reported as "followed a redirect".
 
@@ -121,12 +124,14 @@ Output: a table when stdout is a terminal and the result is a list, otherwise
 JSON (so piping gives JSON). `-o table|json|yaml|id` overrides it. `--columns`
 picks table columns (an unknown name is an error; json and yaml are not
 filtered). Empty lists print `no results` as a table. `-o`, `-q` and `--columns`
-do not apply to a non-JSON response such as the audit CSV export. A mutating call
+do not apply to a non-JSON response such as the audit CSV export, and `-o id`/`-q`
+refuse a body they cannot turn into identifiers (binary, invalid JSON, empty). A mutating call
 prints a bracketed banner on stderr: `[env]`, or `[env/tenant]` with a tenant; a
 204 answer prints `done` on stderr. A closed pipe (`| head`) ends quietly.
 
 `--set` coerces by the body schema (numbers, booleans); an array field takes one
-element per `--set` (use `--set-json field=[...]` for several); `--set k=null`
+element per `--set` (repeat it to add more, each coerced by the items schema, or
+use `--set-json field=[...]`); `--set k=null`
 sends `null`; `--set k=@file` or `@-` reads the value from a file or stdin (one
 trailing newline stripped; a UTF-8 BOM is ignored); a value that must start with
 a literal `@` or be the text `null` needs `--set-json`. Order: `--json`, `--file`,
@@ -150,7 +155,14 @@ marks of the schema operation whose path template matches; an unmatched
 mutation is always confirmed. Re-running `env add` for an existing environment
 changes only the flags you pass (`--protected`/`--no-protected`, `--tenant`);
 `--url` is required only for a new environment. `env remove` of a name that a
-project default also defines resets it to the default. Changing the URL or tenant warns
+project default also defines resets it to the default. It deletes the
+environment's stored logins first; if the keyring refuses one, the environment is
+kept and the command fails so you can retry. A keyring cannot be listed, so
+logins for tenants the CLI never recorded may remain (the command says so);
+`logout` with `--tenant` removes one. A keyring login also takes a lock file
+(`keyring.lock`, no secrets) in the config directory so concurrent logins do not lose
+entries. A required raw body needs `--body-file`. Tenant ids and slugs the server
+reports must be short printable words without spaces or the token. Changing the URL or tenant warns
 that the stored login may no longer apply.
 
 ## CI
@@ -192,13 +204,3 @@ bodies are cut at 500 characters. A 429 answer is retried up to three times and
 the wait is announced on stderr. On a protected environment the typed name must
 match exactly. `--tenant` is ignored (with a note at login) on a single-tenant
 server, whose login is kept in the plain environment slot, and `logout` with no stored token exits 1.
-
-Re-ship hardening: a redirect keeps the token only when the URL httpx will send is
-a plain path under `/api/` (no backslash, no encoded dot, slash, backslash or
-percent). Environment URLs in config files are validated as written, then stored
-normalised. `-o id` and `-q` refuse bodies they cannot render (binary, invalid
-JSON). A required raw body needs `--body-file`. Repeating `--set` on an array field
-adds elements, each coerced by the items schema. `whoami` tenant slugs and ids
-from the server must be short printable words without spaces or the token, or the
-identity is rejected. `env remove` on a keyring tries the indexed keys plus the
-tenants the config has seen, and says when others may remain.

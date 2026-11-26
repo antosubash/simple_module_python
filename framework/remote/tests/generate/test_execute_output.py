@@ -43,3 +43,39 @@ def test_out_errors_are_readable(execute_harness, make_op, tmp_path):
     directory = execute_harness(json_ok({"a": 1}))
     assert directory.run(make_op(), out=str(tmp_path)) == 1
     assert "it is a directory" in directory.err.getvalue()
+
+
+@pytest.mark.parametrize("flags", [{"output": "id"}, {"quiet": True}])
+def test_id_mode_refuses_bodies_it_cannot_render(execute_harness, make_op, flags):
+    binary = httpx.Response(200, content=b"\x00\x01", headers={"Content-Type": "image/png"})
+    h = execute_harness(lambda r: binary)
+    with pytest.raises(click.ClickException, match="cannot be used here"):
+        h.run(make_op(), **flags)
+    assert h.out.getvalue() == ""
+    broken = httpx.Response(
+        200, content=b"not json at all", headers={"Content-Type": "application/json"}
+    )
+    h = execute_harness(lambda r: broken)
+    with pytest.raises(click.ClickException, match="cannot be used here"):
+        h.run(make_op(), **flags)
+    assert h.out.getvalue() == ""
+
+
+def test_id_mode_on_an_empty_200_is_an_error_not_silence(execute_harness, make_op):
+    h = execute_harness(
+        lambda r: httpx.Response(200, content=b"", headers={"Content-Type": "application/json"})
+    )
+    with pytest.raises(click.ClickException, match="empty"):
+        h.run(make_op(), output="id")
+    assert h.run(make_op()) == 0  # without id mode an empty body is still fine
+    h = execute_harness(lambda r: httpx.Response(204))
+    assert h.run(make_op(method="DELETE"), quiet=True) == 0  # 204 keeps its behaviour
+
+
+@pytest.mark.parametrize("kind", ["text/vnd.api+json", "foo/bar+json", "application/problem+json"])
+def test_any_plus_json_response_is_rendered_as_json(execute_harness, make_op, kind):
+    h = execute_harness(
+        lambda r: httpx.Response(200, content=b'{"id": 7}', headers={"Content-Type": kind})
+    )
+    assert h.run(make_op(), output="id") == 0
+    assert h.out.getvalue() == "7\n"

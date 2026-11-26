@@ -217,3 +217,21 @@ def test_repeated_set_on_an_array_field_accumulates_coerced_elements():
     assert build(sets=["ids=7"], body_schema=schema) == {"ids": [7]}
     with pytest.raises(BodyError, match="expected integer"):
         build(sets=["ids=x"], body_schema=schema)
+
+
+def test_array_accumulation_stops_when_the_field_or_a_parent_is_replaced():
+    schema = {
+        "type": "object",
+        "properties": {
+            "xs": {"type": "array", "items": {"type": "integer"}},
+            "p": {
+                "type": "object",
+                "properties": {"xs": {"type": "array", "items": {"type": "integer"}}},
+            },
+        },
+    }
+    assert build(sets=["xs=1", "xs=null", "xs=2"], body_schema=schema) == {"xs": [2]}
+    assert build(sets=["p.xs=1", "p.xs=2", "p.xs=null"], body_schema=schema) == {"p": {"xs": None}}
+    assert build(sets=["p.xs=1", "p.k=a", "p.xs=2"], body_schema=schema) == {
+        "p": {"xs": [1, 2], "k": "a"}
+    }

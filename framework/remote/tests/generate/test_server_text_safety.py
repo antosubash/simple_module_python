@@ -32,34 +32,12 @@ def test_unknown_column_error_is_sanitised_and_redacted(execute_harness, make_op
     assert TOKEN not in info.value.message and "‮" not in info.value.message
 
 
-@pytest.mark.parametrize(
-    ("detail", "expect"),
-    [
-        ("API tokens can only be managed from a signed-in browser session", "--session-only"),
-        ("Permission required: sessions.view", "permission"),
-        ("Permission required: file_storage.download", "permission"),
-    ],
-)
-def test_403_hint_prefers_the_session_only_signal(execute_harness, make_op, detail, expect):
+def test_real_guard_refusal_text_is_a_session_only_hint(execute_harness, make_op):
+    detail = (
+        "API tokens cannot be used on this route. Use a signed-in session, or a route "
+        "gated by a permission the token is scoped to."
+    )
     h = execute_harness(lambda r: httpx.Response(403, json={"detail": detail}))
     h.ctx.login_hint = "smdev login --token"
     assert h.run(make_op()) == 4
-    hint = next(ln for ln in h.err.getvalue().splitlines() if ln.startswith("hint:"))
-    assert expect in hint
-    assert ("--session-only" in hint) == (expect == "--session-only")
-
-
-@pytest.mark.parametrize("flags", [{"output": "id"}, {"quiet": True}])
-def test_id_mode_refuses_bodies_it_cannot_render(execute_harness, make_op, flags):
-    binary = httpx.Response(200, content=b"\x00\x01", headers={"Content-Type": "image/png"})
-    h = execute_harness(lambda r: binary)
-    with pytest.raises(click.ClickException, match="cannot be used here"):
-        h.run(make_op(), **flags)
-    assert h.out.getvalue() == ""
-    broken = httpx.Response(
-        200, content=b"not json at all", headers={"Content-Type": "application/json"}
-    )
-    h = execute_harness(lambda r: broken)
-    with pytest.raises(click.ClickException, match="cannot be used here"):
-        h.run(make_op(), **flags)
-    assert h.out.getvalue() == ""
+    assert "--session-only" in h.err.getvalue() and "lacks the permission" not in h.err.getvalue()

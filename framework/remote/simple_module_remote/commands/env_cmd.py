@@ -5,6 +5,7 @@ from __future__ import annotations
 import click
 
 from simple_module_remote.commands.runtime import AppState, CliError, state_of
+from simple_module_remote.config.credentials import CredentialDeleteError
 from simple_module_remote.config.environments import (
     Config,
     Environment,
@@ -146,6 +147,18 @@ def remove_env(ctx: click.Context, name: str) -> None:
         {e.tenant for e in config.envs.values() if e.tenant}
         | ({state.flag_tenant} if state.flag_tenant else set())
     )
+    # Logins first: if one cannot be deleted the environment stays, so the removal can be retried.
+    with state.guard():
+        store = state.store()
+    try:
+        removed = store.delete_env(name, tenants)
+    except CredentialDeleteError as exc:
+        for key in exc.removed:
+            click.echo(f"removed stored login {key}")
+        raise CliError(
+            f"{exc}; environment {name!r} was kept: fix the credential store and run "
+            f"`{state.cli} env remove {name}` again"
+        ) from None
     config.user_envs.discard(name)
     config.overrides.pop(name, None)
     config.envs.pop(name, None)
@@ -153,8 +166,6 @@ def remove_env(ctx: click.Context, name: str) -> None:
         config.current = None
     with state.guard():
         save_config(state.cli, config)
-        store = state.store()
-        removed = store.delete_env(name, tenants)
         reset = name in state.config().envs  # a project default of the same name remains
     if reset:
         click.echo(f"reset environment {name} to the project default")

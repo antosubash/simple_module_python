@@ -272,3 +272,20 @@ def test_informational_status_is_a_failure_not_success(make_op):
     assert ctx.stdout.getvalue() == "" and "HTTP 101" in ctx.stderr.getvalue()
     paged = ctx_for(lambda r: httpx.Response(101, text="x"))
     assert run_operation(paged, make_op(params=PAGING), {"all_pages": True}) == 2
+
+
+@pytest.mark.parametrize(
+    ("detail", "expect"),
+    [
+        ("API tokens can only be managed from a signed-in browser session", "--session-only"),
+        ("Permission required: sessions.view", "permission"),
+        ("Permission required: file_storage.download", "permission"),
+    ],
+)
+def test_403_hint_prefers_the_session_only_signal(execute_harness, make_op, detail, expect):
+    h = execute_harness(lambda r: httpx.Response(403, json={"detail": detail}))
+    h.ctx.login_hint = "smdev login --token"
+    assert h.run(make_op()) == 4
+    hint = next(ln for ln in h.err.getvalue().splitlines() if ln.startswith("hint:"))
+    assert expect in hint
+    assert ("--session-only" in hint) == (expect == "--session-only")

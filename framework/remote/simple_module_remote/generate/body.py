@@ -100,11 +100,16 @@ def _coerce(raw: str, key: str, schema: dict | None, root: dict) -> object:
     return raw
 
 
-def _existing(body: dict, key: str) -> list:
+def _existing(body: dict, key: str) -> list | None:
+    """The list currently at ``key`` (dotted), or ``None`` when it is not a list."""
     node: object = body
     for part in key.split("."):
-        node = node[part] if isinstance(node, dict) else {}
-    return node if isinstance(node, list) else []
+        node = node.get(part) if isinstance(node, dict) else None
+    return node if isinstance(node, list) else None
+
+
+def _related(a: str, b: str) -> bool:
+    return a == b or a.startswith(b + ".") or b.startswith(a + ".")
 
 
 def _assign(target: dict, key: str, value: object, flag: str) -> None:
@@ -171,12 +176,15 @@ def build_json_body(
             key, raw = split_pair(item, "--set", BodyError)
             schema = _property_schema(root, body_schema, key.split("."))
             value = _set_value(raw, key, stdin, schema, root)
-            if _type_of(schema, root) == "array" and isinstance(value, list):
-                if key in arrays:
-                    _existing(body, key).extend(value)  # a repeated --set adds an element
-                    continue
-                arrays.add(key)
+            current = _existing(body, key) if key in arrays else None
+            if current is not None and isinstance(value, list):
+                current.extend(value)  # a repeated --set on an array field adds an element
+                continue
+            # Replacing a field (or an ancestor) ends any array being accumulated under it.
+            arrays = {a for a in arrays if not _related(a, key)}
             _assign(body, key, value, "--set")
+            if _type_of(schema, root) == "array" and isinstance(value, list):
+                arrays.add(key)
     return body
 
 

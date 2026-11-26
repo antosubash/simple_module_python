@@ -1,7 +1,9 @@
 """Credentials bound to the server origin they were issued for."""
 
 import json
-from collections.abc import Collection, Mapping
+import os
+from collections.abc import Collection, Generator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -15,6 +17,7 @@ from simple_module_remote.config._file_store import (
     TOKEN_FIELD,
     FileStore,
     FileStoreError,
+    open_service_lock,
 )
 from simple_module_remote.config.environments import Environment
 from simple_module_remote.config.paths import env_prefix
@@ -28,6 +31,14 @@ INDEX_KEY = "~index"
 
 class CredentialError(Exception):
     """Raised for missing or unusable credentials; the message never contains a token."""
+
+
+class CredentialDeleteError(CredentialError):
+    """Some stored logins could not be deleted; ``removed`` were."""
+
+    def __init__(self, failed: list[str], removed: list[str]) -> None:
+        self.failed, self.removed = failed, removed
+        super().__init__(f"could not delete the stored login(s): {', '.join(failed)}")
 
 
 class KeyringBackend(Protocol):
@@ -100,12 +111,36 @@ class CredentialStore:
     def __init__(self, cli: str, *, backend: KeyringBackend | None = None) -> None:
         self._service = cli
         self._file: FileStore | None = None
+        self._lock_depth = 0
         self._backend: KeyringBackend | None = None
         if backend is None:
             if _keyring_usable():
                 self._backend = keyring.get_keyring()
         elif not isinstance(backend, keyring.backends.fail.Keyring):
             self._backend = backend
+
+    @contextmanager
+    def _service_lock(self) -> Generator[None]:
+        """Serialise keyring credential + index updates across processes (flock on a lock file).
+
+        Reentrant within this store. A no-op where ``fcntl`` is missing (Windows), where
+        concurrent logins can still lose an index entry; the file backend has its own lock.
+        """
+        if self._lock_depth or self._backend is None:
+            self._lock_depth += 1
+            try:
+                yield
+            finally:
+                self._lock_depth -= 1
+            return
+        fd = open_service_lock(self._service)
+        self._lock_depth += 1
+        try:
+            yield
+        finally:
+            self._lock_depth -= 1
+            if fd is not None:
+                os.close(fd)  # closing releases the lock
 
     @property
     def using_fallback(self) -> bool:
@@ -181,8 +216,11 @@ class CredentialStore:
                     {TOKEN_FIELD: cred.token, ORIGIN_FIELD: cred.origin, **cred.pins()}
                 )
                 backend = self._require_backend()
-                backend.set_password(self._service, key, payload)
-                self._update_index(add=key)
+                with self._service_lock():
+                    # Index first: a failed credential write leaves a harmless stale entry,
+                    # never an orphaned credential nobody can enumerate.
+                    self._update_index(add=key)
+                    backend.set_password(self._service, key, payload)
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
         except keyring.errors.KeyringError:
@@ -209,23 +247,36 @@ class CredentialStore:
 
     def delete_env(self, env: str, tenants: Collection[str] = ()) -> list[str]:
         """Delete every credential of ``env`` (``env`` and ``env/<tenant>``); the keys removed."""
-        return [key for key in self.keys_for_env(env, tenants) if self.delete(key)]
+        removed: list[str] = []
+        failed: list[str] = []
+        with self._service_lock():
+            for key in self.keys_for_env(env, tenants):
+                try:
+                    if self.delete(key):
+                        removed.append(key)
+                except CredentialError:
+                    failed.append(key)
+        if failed:
+            raise CredentialDeleteError(failed, removed)
+        return removed
 
     def delete(self, key: str) -> bool:
         try:
             if (file := self._file_store()) is not None:
                 return file.delete(key)
             backend = self._require_backend()
-            if backend.get_password(self._service, key) is None:
-                self._update_index(remove=key)  # a stale index entry
-                return False
-            backend.delete_password(self._service, key)
-            self._update_index(remove=key)  # only after the deletion succeeded
-            return True
+            with self._service_lock():
+                if backend.get_password(self._service, key) is None:
+                    self._update_index(remove=key)  # a stale index entry
+                    return False
+                try:
+                    backend.delete_password(self._service, key)
+                except keyring.errors.PasswordDeleteError:
+                    raise CredentialError(f"the OS keyring refused to delete {key!r}") from None
+                self._update_index(remove=key)  # only after the deletion succeeded
+                return True
         except FileStoreError as exc:
             raise CredentialError(str(exc)) from None
-        except keyring.errors.PasswordDeleteError:
-            return False
         except keyring.errors.KeyringError:
             raise CredentialError("the OS keyring could not be updated") from None
 

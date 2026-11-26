@@ -14,6 +14,7 @@ from simple_module_remote.config.paths import config_dir
 
 CREDENTIALS_FILENAME = "credentials.toml"
 LOCK_SUFFIX = ".lock"
+KEYRING_LOCK = "keyring.lock"
 TOKEN_FIELD = "token"
 ORIGIN_FIELD = "origin"
 PIN_FIELDS = ("tenant_id", "tenant_slug")  # optional: the tenant the token was pinned to
@@ -31,6 +32,22 @@ def _lock_exclusive(fd: int) -> None:
     except ImportError:
         return
     fcntl.flock(fd, fcntl.LOCK_EX)
+
+
+def open_service_lock(service: str) -> int | None:
+    """Open and exclusively lock the per-service keyring lock file; ``None`` without fcntl."""
+    try:
+        import fcntl
+    except ImportError:
+        return None
+    directory = config_dir(service)
+    try:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        fd = os.open(directory / KEYRING_LOCK, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+    except OSError:
+        return None  # an unwritable config dir must not block a login; best effort
+    return fd
 
 
 class FileStoreError(Exception):

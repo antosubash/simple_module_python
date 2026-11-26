@@ -15,7 +15,6 @@ import click
 import httpx
 
 from simple_module_remote.generate.context import RunContext
-from simple_module_remote.generate.operations import is_json_media
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import AUTH_STATUSES, ERROR_MIN
 from simple_module_remote.output.render import (
@@ -33,7 +32,9 @@ CHUNK = 64 * 1024
 MAX_RENDER_BYTES = 64 * 1024 * 1024
 FILE_MODE = 0o666
 # The server's wording for a route only a browser session may call (checked before scopes).
-_SESSION_ONLY = re.compile(r"browser session|session[- ]only|session required")
+_SESSION_ONLY = re.compile(
+    r"browser session|session[- ]only|session required|tokens cannot be used|signed-in session"
+)
 REDIRECT_HINT = (
     "hint: this response followed a redirect; the token is not forwarded on redirects, "
     "so the redirect target rejected the request."
@@ -66,16 +67,21 @@ def is_binary(response: httpx.Response) -> bool:
     kind = _media_type(response)
     if not kind:
         return False
-    return not (is_json_media(kind) or kind.startswith("text/"))
+    return not (_json_type(kind) or kind.startswith("text/"))
 
 
 def has_type(response: httpx.Response) -> bool:
     return bool(_media_type(response))
 
 
+def _json_type(kind: str) -> bool:
+    # Responses are read broadly: application/json and any */*+json. (Request media for the
+    # schema side, operations.is_json_media, is stricter: application/*+json only.)
+    return kind == "application/json" or kind.endswith("+json")
+
+
 def is_json(response: httpx.Response) -> bool:
-    # One definition of "JSON" with the schema side: application/json or application/*+json.
-    return is_json_media(_media_type(response))
+    return _json_type(_media_type(response))
 
 
 def _read_capped(response: httpx.Response) -> bytes:
@@ -210,6 +216,10 @@ def render_values(ctx: RunContext, data: Any, values: dict[str, Any]) -> None:
         raise click.ClickException(_clean(ctx, str(exc))[:ERROR_BODY_CHARS]) from None
 
 
+def _id_mode(values: dict[str, Any]) -> bool:
+    return values.get("output") == "id" or bool(values.get("quiet"))
+
+
 def _refuse_render_flags(values: dict[str, Any]) -> None:
     """-o/-q/--columns format JSON; refuse them for a body that is not (a CSV export)."""
     given = [
@@ -252,6 +262,8 @@ def emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> i
         say(ctx, "error: response is too large to render; use --out FILE to save it")
         return 1
     if not body:
+        if _id_mode(values):  # no body, no identifiers: not a silent success
+            raise click.ClickException("-o id/-q cannot be used here: the response is empty")
         return 0
     try:
         data: Any = json.loads(body)
