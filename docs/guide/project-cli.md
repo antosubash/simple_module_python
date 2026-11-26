@@ -11,7 +11,21 @@ OpenAPI schema by the `simple_module_remote` engine
 
 ```bash
 uv run smdev --help
+uv run smdev --version
 ```
+
+To use it outside a checkout, install the package as a tool; the bundled schema
+ships inside the wheel. `uv tool install` puts `smdev` in `~/.local/bin`: add that
+directory to `PATH` (uv warns when it is missing).
+
+```bash
+uv tool install ./host_cli
+```
+
+A downstream app gets its own CLI the same way: a small package with
+`[project.scripts]`, an `openapi.json` exported by `smpy openapi export --out ...`
+(re-export after API changes), an optional defaults file, and a `main()` calling
+`build_cli`. See [Remote CLI engine](/framework/remote-cli).
 
 ## Environments
 
@@ -25,13 +39,21 @@ uv run smdev env use staging
 uv run smdev env list
 ```
 
-Plain `http://` is accepted only for loopback hosts. The environment is chosen by
+Plain `http://` is accepted only for loopback hosts. URLs may not contain
+whitespace, control characters or backslashes; environment names are 1-40
+lowercase letters, digits or `-`, starting with a letter or digit. `local` exists
+before you add anything: `smdev env use local` is all a dev checkout needs. The environment is chosen by
 `--env`, then `SMDEV_ENV`, then the saved current environment. The config lives
 in `~/.config/smdev/` (or `$XDG_CONFIG_HOME/smdev/`).
 
 ## Sign in with a personal access token
 
-Create a token in the app (`/api-tokens/`), then store it:
+Sign in to the app in a browser, open `<environment url>/api-tokens/` and create
+a personal access token. Tick the permissions the commands you will run need: a
+token holds at most the scopes you give it, and a command the token cannot use
+answers 403 (the hint names the missing permission). Tokens cannot manage tokens
+(`smdev api --session-only` lists every route a token cannot call), and a token
+cannot act on your own account where the app forbids it. Then store it:
 
 ```bash
 printf '%s\n' "$PAT" | uv run smdev --env local login --token-stdin
@@ -44,7 +66,8 @@ It goes to the OS keyring, or to a `0600` file when none exists, and is bound to
 the environment's origin: if you later edit the environment URL, the stored
 token is refused and nothing is sent until you log in again. A token never
 travels in a URL, never follows a redirect to another origin, and is never
-printed. A token must be printable ASCII with no spaces or control characters.
+printed. A token must be printable ASCII with no spaces or control characters, at most
+4096 characters. `login --token` needs a terminal; pipe to `--token-stdin` otherwise.
 
 The one exception to "no redirects with the token" is a redirect to the same
 origin that stays under the environment's `/api/` prefix (FastAPI's trailing
@@ -77,10 +100,11 @@ tenant: log in with a token pinned to one, or pass `--tenant`. On a stock
 single-tenant install the server answers `403 tenant_required`, and the CLI
 says "the server needs a tenant" instead of suggesting a new login.
 
-Useful flags on every generated command: `--json`, `--file` (body, `-` for
+Flags: `--dry-run`, `-o`/`--output`, `--columns`, `-q`, `--out FILE` and `--yes` on
+every command (`--yes` only matters on a protected environment); body flags exist
+only on commands with a body: `--json`, `--file` (body, `-` for
 stdin), `--set key=value`, `--set-json key=<json>` (NaN and Infinity are
-refused), `--dry-run` (print the request, send nothing), `-o`/`--output`,
-`--columns`, `-q`, `--out FILE`, `--yes`. A body that is required but has only
+refused); `--dry-run` prints the request and sends nothing. A body that is required but has only
 optional fields is sent as `{}` when no body flag is given. `-o id` and `-q`
 print `id`, else `name`, `key`, `slug` or `email`, and fail with a hint to use
 `-o json` when a row has none (or the value holds control characters). Path
@@ -89,6 +113,25 @@ pipe; JSON responses larger than 64 MiB are refused with a hint to use `--out`.
 `smdev api METHOD /api/...` calls any path directly. `smdev schema status`
 shows where the command schema comes from, and `smdev doctor` checks
 connectivity, credentials and schema.
+
+Output: a table when stdout is a terminal and the result is a list, otherwise
+JSON (so piping gives JSON). `-o table|json|yaml|id` overrides it. `--columns`
+picks table columns (an unknown name is an error; json and yaml are not
+filtered). Empty lists print `no results` as a table. `-o`, `-q` and `--columns`
+do not apply to a non-JSON response such as the audit CSV export. A mutating call
+prints a bracketed banner on stderr: `[env]`, or `[env/tenant]` with a tenant; a
+204 answer prints `done` on stderr. A closed pipe (`| head`) ends quietly.
+
+`--set` coerces by the body schema (numbers, booleans); an array field takes one
+element per `--set` (use `--set-json field=[...]` for several); `--set k=null`
+sends `null`; `--set k=@file` or `@-` reads the value from a file or stdin (one
+trailing newline stripped; a UTF-8 BOM is ignored); a value that must start with
+a literal `@` or be the text `null` needs `--set-json`. Order: `--json`, `--file`,
+`--set-json`, `--set`. `--all` starts at page 1 (do not combine with `--page`).
+`smdev api METHOD /api/path [--query k=v ...]` calls any path; `smdev raw <group>
+<command>` is the same command tree as the top-level groups (kept for scripts
+that must not collide with future built-ins). `--schema bundled` is the only
+schema source today, and `smdev schema status` shows it.
 
 Exit codes: `0` success, `1` usage or local error, `2` other 4xx (also a leftover
 3xx), `3` 5xx or
@@ -103,7 +146,8 @@ despite using POST) skip the prompt. `api METHOD PATH` takes the safe/confirm
 marks of the schema operation whose path template matches; an unmatched
 mutation is always confirmed. Re-running `env add` for an existing environment
 changes only the flags you pass (`--protected`/`--no-protected`, `--tenant`);
-`--url` is required only for a new environment. Changing the URL or tenant warns
+`--url` is required only for a new environment. `env remove` of a name that a
+project default also defines resets it to the default. Changing the URL or tenant warns
 that the stored login may no longer apply.
 
 ## CI
@@ -131,3 +175,17 @@ After an API change run `make cli-schema` and commit
 `host_cli/smdev_cli/openapi.json`. CI (`make ci-cli-schema-fresh`) fails when it
 is stale, and `host/tests/remote_cli/test_schema_coverage.py` checks it against
 the live app.
+
+## Safety notes
+
+The config file (`config.toml`) holds no secrets and follows the umask; the
+credentials file is `0600` in a `0700` directory. Redirects the server sends are
+followed without the token unless they stay on the environment's origin under
+`/api/`; the tokenless follower refuses plain `http://` to non-loopback hosts,
+link-local and metadata addresses, and private or loopback addresses unless the
+environment itself is on one. Error text is sanitised for terminals (escape
+sequences, bidi overrides) before the token is redacted from it, and long error
+bodies are cut at 500 characters. A 429 answer is retried up to three times and
+the wait is announced on stderr. On a protected environment the typed name must
+match exactly. `--tenant` is ignored (with a note at login) on a single-tenant
+server, and `logout` with no stored token exits 1.

@@ -17,6 +17,19 @@ cli = build_cli("smdev", schema_path, defaults_path, version="1.0")
 in-memory keyring. The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
 [Project CLI](/guide/project-cli).
 
+## A CLI for your own app
+
+1. Export the schema: `smpy openapi export --out your_cli/openapi.json` (re-run it
+   after API changes; the dev host's `make cli-schema` wraps it and CI checks it).
+2. Optionally ship a defaults file (`[env.<name>] url = ...`, `protected = true`).
+3. Write `main()` around `build_cli(name, schema_path, defaults_path, version=...)`
+   (`host_cli/smdev_cli/__init__.py` is a complete example; `version` also feeds
+   the User-Agent and `--version`).
+4. Declare `[project.scripts]`, depend on `simple-module-remote`, and install with
+   `uv tool install ./your_cli`.
+
+CI without a config file: set `<CLI>_ENV`, `<CLI>_URL` and `<CLI>_TOKEN`.
+
 ## Architecture
 
 | Area | Role |
