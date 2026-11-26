@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from ipaddress import IPv6Address, ip_address
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
@@ -52,18 +53,28 @@ def _mailer_delivers(request: Request) -> bool:
     return mailer_delivers(getattr(getattr(request.app.state, "users", None), "mailer", None))
 
 
+def _is_direct_loopback(request: Request) -> bool:
+    # A local proxy must never make a remote visitor eligible for credentials.
+    if "x-forwarded-for" in request.headers or request.client is None:
+        return False
+    try:
+        address = ip_address(request.client.host)
+    except ValueError:
+        return False
+    if isinstance(address, IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    return address.is_loopback
+
+
 @router.get("/login", response_model=None)
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     users_state = request.app.state.users
     users_settings = users_state.settings
     oauth_error = request.query_params.get("oauth_error")
-    # In development only, surface the bootstrap credentials as click-to-fill
-    # buttons so manual QA doesn't need to retype them. Never exposed in
-    # production, regardless of whether the vars are set. Uses the same
-    # resolution as the boot-time seeder so the buttons appear iff a seed
-    # admin would actually be created.
+    # Only direct loopback development requests get click-to-fill credentials,
+    # resolved the same way as the boot-time seeder.
     dev_accounts: list[dict[str, str]] = []
-    if request.app.state.sm.settings.is_development:
+    if request.app.state.sm.settings.is_development and _is_direct_loopback(request):
         resolved = resolve_bootstrap_credentials()
         for label, email_key, password_key in _DEV_ACCOUNT_SPECS:
             if resolved[email_key] and resolved[password_key]:

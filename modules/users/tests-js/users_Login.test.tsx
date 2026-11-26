@@ -21,7 +21,6 @@ configureI18n({ locale: 'en', messages: {} });
 const props = {
   allow_signup: false,
   demo_signin: { accounts: [], read_only: false },
-  dev_accounts: [],
   login_redirect_url: '/dashboard',
   oauth_providers: [],
   remember_me_days: 30,
@@ -44,6 +43,28 @@ afterEach(() => {
 });
 
 describe('users Login', () => {
+  it.each([undefined, []])('renders the form without dev buttons for %s accounts', (accounts) => {
+    render(<Login {...props} dev_accounts={accounts} />);
+    expect(document.querySelector('input[type="email"]')).toBeInTheDocument();
+    expect(document.querySelector('input[type="password"]')).toBeInTheDocument();
+    expect(screen.queryByText(keys.users.login.dev_divider)).toBeNull();
+  });
+
+  it('fills credentials only when a dev account button is present and clicked', () => {
+    render(
+      <Login
+        {...props}
+        dev_accounts={[{ label: 'Admin', email: 'admin@example.com', password: 'AdminPass1!' }]}
+      />,
+    );
+    expect(screen.getByText(keys.users.login.dev_divider)).toBeInTheDocument();
+    expect(document.querySelector('input[type="email"]')).toHaveValue('');
+    expect(document.querySelector('input[type="password"]')).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: 'Admin' }));
+    expect(document.querySelector('input[type="email"]')).toHaveValue('admin@example.com');
+    expect(document.querySelector('input[type="password"]')).toHaveValue('AdminPass1!');
+  });
+
   it.each([
     ['account_not_verified', keys.users.login.oauth_account_not_verified],
     ['signup_disabled', keys.users.login.oauth_signup_disabled],
