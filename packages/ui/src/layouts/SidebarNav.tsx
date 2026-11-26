@@ -1,10 +1,5 @@
 import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
 import { NavIcon } from '../components/NavIcon';
 import type { MenuItem } from '../types';
@@ -71,24 +66,18 @@ export function SidebarNav({
           {group.items.map((item, index) => {
             const isActive = active?.url === item.url;
             return (
-              <Tooltip key={item.url}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={item.url}
-                    onClick={onNavigate}
-                    className={`${NAV_ROW} ${isActive ? theme.activeClass : theme.inactiveClass}`}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    {/* No icons on phones: the deck's drawer is a list of
-                        names, and the glyphs only crowd a 390px row. */}
-                    <NavIcon name={item.icon} className="hidden lg:block w-5 h-5" />
-                    {item.label}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="lg:hidden">
-                  {item.label}
-                </TooltipContent>
-              </Tooltip>
+              <Link
+                key={item.url}
+                href={item.url}
+                onClick={onNavigate}
+                className={`${NAV_ROW} ${isActive ? theme.activeClass : theme.inactiveClass}`}
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* No icons on phones: the deck's drawer is a list of
+                    names, and the glyphs only crowd a 390px row. */}
+                <NavIcon name={item.icon} className="hidden lg:block w-5 h-5" />
+                {item.label}
+              </Link>
             );
           })}
         </div>

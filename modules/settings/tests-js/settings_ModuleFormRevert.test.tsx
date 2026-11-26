@@ -154,6 +154,8 @@ test('revert right after a save shows the live default and hides Revert', async 
   fireEvent.click(revert);
   await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();
+  // Keyboard focus stays on the field, not on the page body.
+  expect(screen.getByDisplayValue('default-sender')).toHaveFocus();
 });
 
 test('a failed revert surfaces validation errors without clearing override or reloading', async () => {

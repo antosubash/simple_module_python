@@ -87,7 +87,16 @@ export function ModuleFieldRow({
       </div>
 
       <div className="min-w-0 [overflow-wrap:anywhere] @md:col-span-2 @xl:col-span-1 @xl:justify-self-start">
-        <FieldSource field={field} descriptionId={descriptionId} onReset={onReset} />
+        <FieldSource
+          field={field}
+          descriptionId={descriptionId}
+          onReset={() => {
+            // The Revert button unmounts once the override is gone; keep
+            // keyboard focus on the field instead of dropping it to the page.
+            document.getElementById(id)?.focus();
+            onReset();
+          }}
+        />
       </div>
 
       {/* Its own grid row, spanning the control and trailing columns: inside

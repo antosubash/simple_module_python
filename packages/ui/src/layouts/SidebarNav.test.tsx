@@ -71,4 +71,10 @@ describe('SidebarNav', () => {
     expect(screen.getByRole('link', { name: 'admin' })).toBeVisible();
     expect(screen.getByText('slot')).toBeVisible();
   });
+  test('nav links carry no tooltip trigger that would swallow Escape in the drawer', () => {
+    renderNav();
+    for (const item of items) {
+      expect(screen.getByRole('link', { name: item.label })).not.toHaveAttribute('data-state');
+    }
+  });
 });
