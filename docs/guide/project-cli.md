@@ -141,8 +141,8 @@ sends `null`; `--set k=@file` or `@-` reads the value from a file or stdin (one
 trailing newline stripped; a UTF-8 BOM is ignored); a value that must start with
 a literal `@` or be the text `null` needs `--set-json`. Order: `--json`, `--file`,
 `--set-json`, `--set`. `--all` starts at page 1 (do not combine with `--page`).
-`smdev api METHOD /api/path [--query k=v ...]` calls any path; `smdev raw <group>
-<command>` is the same command tree as the top-level groups (kept for scripts
+`smdev api METHOD /api/path [--query k=v ...]` calls any path;
+`smdev raw <group> <command>` is the same command tree as the top-level groups (kept for scripts
 that must not collide with future built-ins). `--schema bundled` is the only
 schema source today, and `smdev schema status` shows it.
 
