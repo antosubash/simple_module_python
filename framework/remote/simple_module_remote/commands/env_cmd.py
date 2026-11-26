@@ -146,7 +146,6 @@ def remove_env(ctx: click.Context, name: str) -> None:
         {e.tenant for e in config.envs.values() if e.tenant}
         | ({state.flag_tenant} if state.flag_tenant else set())
     )
-    )
     config.user_envs.discard(name)
     config.overrides.pop(name, None)
     config.envs.pop(name, None)
