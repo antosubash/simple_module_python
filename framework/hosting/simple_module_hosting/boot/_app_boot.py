@@ -59,6 +59,7 @@ def build_fastapi_app(settings: Settings, lifespan) -> FastAPI:
     install_openapi_filter(app)  # AuthMiddleware reads openapi_url: anonymous iff served
     # Module settings register before the complete Services container exists.
     app.state.boot_settings = settings
+    app.state.app_name = settings._app_name_default
     app.state.openapi_url = API_OPENAPI_URL if serve_openapi else None
     return app
 

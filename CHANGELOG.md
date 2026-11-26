@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Hosting: `build_host_app(..., app_name="Acme")` and `create_app(..., app_name="Acme")` supply an app-local default for the API title, branding, Inertia titles and users' account emails. Environment and DB overrides retain priority; scaffolded hosts pass their project name (#1225).
 - User directories: `search(..., match_email=False)` matches full names before the result limit, and every built-in provider supports case-insensitive exact `find_by_email`. The optional `EmailLookupUserDirectory` protocol supplies the lookup default without changing legacy structural conformance; default search behavior is unchanged. Third-party `UserDirectory` implementations keep working at runtime; to stay statically conformant they should accept the new keyword-only `match_email: bool = True` parameter on `search` (#1227).
 
 - Hosting: `api_equivalent(method, path)` / `api_exempt(reason)` view-route markers (`simple_module_hosting.auth.api_equivalent`) and `view_route_offenders(app)`; every shipped non-GET view route, and the module scaffold's form actions, now names the token-reachable `/api` route(s) that do the same (one per scope) or why none may (#1178). `POST /api/dashboard/doctor/rerun` deliberately accepts the delegable `dashboard.doctor` permission, while the `/admin/doctor` page needs the `admin` role

@@ -9,6 +9,7 @@ the ``shared`` dict for every request.
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -82,6 +83,25 @@ async def test_no_providers_leaves_shared_unchanged() -> None:
     ).json()
     assert "branding" not in body
     assert "auth" in body and "menus" in body
+
+
+async def test_host_branding_fallback_preserves_the_shared_contract() -> None:
+    app = _build_app()
+    app.state.host = SimpleNamespace(settings=SimpleNamespace(api_title="Acme"))
+    body = (
+        await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get("/shared")
+    ).json()
+    assert body["branding"] == {
+        "appName": "Acme",
+        "primaryColor": None,
+        "designPack": None,
+        "logoUrl": None,
+        "logoDarkUrl": None,
+        "faviconUrl": None,
+        "banner": None,
+        "footerText": None,
+        "footerLinks": None,
+    }
 
 
 async def test_provider_cannot_clobber_framework_keys(caplog) -> None:

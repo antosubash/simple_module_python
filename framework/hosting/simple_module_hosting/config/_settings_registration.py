@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.settings.module_settings import register_module_settings
 
+from simple_module_hosting.config._app_name import with_api_title_default
 from simple_module_hosting.config._host_services import _HostServices
 from simple_module_hosting.config._preapp_config import HOST_PACKAGE
 from simple_module_hosting.config.host_settings import HostSettings
@@ -17,7 +18,8 @@ def register_host_settings(app: FastAPI) -> None:
     The registry belongs to the framework (#500), so this no longer depends on
     the ``settings`` plugin having registered first, or being enabled at all.
     """
-    register_module_settings(app, HOST_PACKAGE, HostSettings, lambda s: _HostServices(settings=s))
+    cls = with_api_title_default(HostSettings, getattr(app.state, "app_name", None))
+    register_module_settings(app, HOST_PACKAGE, cls, lambda s: _HostServices(settings=s))
 
 
 def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]:

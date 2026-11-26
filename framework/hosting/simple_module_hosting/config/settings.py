@@ -20,6 +20,7 @@ class Settings(HostSettings, BootstrapSettings):
     """Combined bootstrap + host settings."""
 
     _secret_key_ephemeral: bool = PrivateAttr(default=False)
+    _app_name_default: str | None = PrivateAttr(default=None)
 
     @model_validator(mode="after")
     def _require_resolved_root(self) -> Settings:

@@ -40,10 +40,18 @@ class BrandingModule(ModuleBase):
         from branding.core.services import BrandingServices
         from branding.core.settings import BrandingSettings
 
+        settings_cls = BrandingSettings
+        default_name = getattr(app.state, "app_name", None)
+        if default_name is not None:
+
+            class AppBrandingSettings(BrandingSettings):
+                app_name: str = default_name
+
+            settings_cls = AppBrandingSettings
         register_module_settings(
             app,
             constants.PACKAGE,
-            BrandingSettings,
+            settings_cls,
             lambda s: BrandingServices(settings=s),
             # Branding ships its own management page; the generic module-settings
             # editor links there instead of double-editing the same fields.

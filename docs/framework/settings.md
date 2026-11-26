@@ -10,6 +10,28 @@ There are **three** separate settings surfaces in a running app. They serve diff
 
 ## Framework settings
 
+Set the application's default name in its entry point:
+
+```python
+from simple_module_hosting.boot.host import build_host_app
+
+app = build_host_app(__file__, app_name="Acme")
+```
+
+`create_app(app_name="Acme")` also supports this argument, including when
+passing an explicit `Settings` instance. Explicit settings values are preserved.
+The name defaults `host.api_title` and `branding.app_name`, including Inertia
+document titles, browser title suffixes and users' account emails. Without
+branding, titles and account emails use the resolved host API title.
+
+Precedence for the host title is **env → DB → code default → SimpleModule**:
+the existing `SM_API_TITLE` variable still wins over a stored `host.api_title`.
+Branding remains DB-only: a stored `branding.app_name` wins over the code
+default, including a stored value of `SimpleModule`. Clearing an override
+restores the code default. Defaults are local to each app, survive settings
+reloads and are not written to the DB. No new environment variable is required.
+Newly scaffolded hosts pass their project name automatically.
+
 `Settings` (in `simple_module_hosting.config.settings`) combines `BootstrapSettings` (env-only, read before the DB is open) and `HostSettings`. The pre-DB knobs are a pydantic `BaseSettings` subclass:
 
 ```python

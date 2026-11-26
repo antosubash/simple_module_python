@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 namespace = runpy.run_path(sys.argv[1])
 app = namespace['app']
+assert app.title == 'demo'
 assert '/api/scaffold-marker' in app.openapi()['paths']
 assert Path.cwd() == Path(sys.argv[2])
 assert os.environ['SM_PROJECT_ROOT'] == sys.argv[2]

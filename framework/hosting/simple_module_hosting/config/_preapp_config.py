@@ -214,6 +214,7 @@ def apply_host_overrides(
 def merge_host_settings(
     bootstrap: BootstrapSettings | None = None,
     *,
+    app_name: str | None = None,
     strict: bool | None = None,
     warn_unavailable: Callable[[str], None] | None = None,
 ) -> Settings:
@@ -228,6 +229,7 @@ def merge_host_settings(
     passes ``strict=False``. It can pass ``warn_unavailable`` to report why
     the DB settings could not be loaded.
     """
+    from simple_module_hosting.config._app_name import with_api_title_default
     from simple_module_hosting.config._secret_key import SECRET_KEY_FIELD, ensure_secret_key
 
     bootstrap = bootstrap or BootstrapSettings()
@@ -266,6 +268,7 @@ def merge_host_settings(
     # longer validates (a Literal narrowed in an upgrade) falls back to its
     # default with a WARNING instead of taking down every worker — and with
     # them the admin UI that could fix the row (#497).
-    settings = construct_leniently(Settings, stored, fixed=fixed)
+    settings = construct_leniently(with_api_title_default(Settings, app_name), stored, fixed=fixed)
     settings._secret_key_ephemeral = ephemeral
+    settings._app_name_default = app_name
     return settings
