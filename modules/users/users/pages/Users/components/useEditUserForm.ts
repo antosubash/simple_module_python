@@ -92,9 +92,7 @@ export function useEditUserForm(user: EditableUser) {
           visit.url.pathname === editPath &&
           visit.url.search === window.location.search) ||
         (visit.method === 'delete' &&
-          visit.url.pathname.startsWith(`${editPath}/linked-sign-ins/`) &&
-          visit.url.pathname.split('/').length === 6 &&
-          !visit.url.pathname.endsWith('/'))
+          visit.url.pathname.match(/^(.*)\/linked-sign-ins\/[^/]+$/)?.[1] === editPath)
       );
     },
     [user.id],

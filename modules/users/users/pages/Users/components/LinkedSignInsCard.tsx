@@ -58,7 +58,20 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
     if (!pending) return;
     const onFailure = () => {
       toast.error(t(keys.users.linked_sign_ins.remove_failed));
-      router.reload({ only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'] });
+      return false;
+    };
+    const onHttpFailure = (response: { status: number }) => {
+      onFailure();
+      // A 404 means another tab already removed the link: refresh the list only.
+      // Any other status (403, expired session) must not trigger a visit that
+      // could swap the page and drop unsaved details.
+      if (response.status === 404) {
+        router.reload({
+          only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'],
+          onHttpException: () => false,
+          onNetworkError: () => false,
+        });
+      }
       return false;
     };
     router.delete(`/admin/users/${userId}/linked-sign-ins/${pending.id}`, {
@@ -70,7 +83,7 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
       onStart: () => setRemoving(true),
       onSuccess: () => toast.success(t(keys.users.linked_sign_ins.removed)),
       onError: onFailure,
-      onHttpException: onFailure,
+      onHttpException: onHttpFailure,
       onNetworkError: onFailure,
       onFinish: () => {
         setRemoving(false);

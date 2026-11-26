@@ -145,9 +145,14 @@ test('cancel keeps the link; confirm deletes its view URL and reports success', 
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
 });
 
-test.each(['onError', 'onHttpException', 'onNetworkError'] as const)(
-  '%s reports failed removal and permits another attempt',
-  async (failure) => {
+test.each([
+  { failure: 'onError', status: undefined, reloads: false },
+  { failure: 'onNetworkError', status: undefined, reloads: false },
+  { failure: 'onHttpException', status: 403, reloads: false },
+  { failure: 'onHttpException', status: 404, reloads: true },
+] as const)(
+  '$failure ($status) reports failed removal; refreshes the list only after a 404',
+  async ({ failure, status, reloads }) => {
     render(<LinkedSignInsCard userId="user-1" links={links} hasDuplicates={false} />);
     const opener = screen.getByRole('button', { name: 'Remove' });
     fireEvent.click(opener);
@@ -158,19 +163,26 @@ test.each(['onError', 'onHttpException', 'onNetworkError'] as const)(
       onStart: () => void;
       onSuccess: () => void;
       onError: () => void;
-      onHttpException: () => void;
+      onHttpException: (response: { status: number }) => void;
       onNetworkError: () => void;
       onFinish: () => void;
     } = remove.mock.calls[0][1];
     act(() => {
-      options[failure]();
+      if (failure === 'onHttpException') options.onHttpException({ status: status ?? 500 });
+      else options[failure]();
       options.onFinish();
     });
     expect(error).toHaveBeenCalledWith('Could not remove sign-in');
     expect(screen.getByRole('button', { name: 'Remove' })).toBeEnabled();
-    expect(reload).toHaveBeenCalledWith(
-      expect.objectContaining({ only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'] }),
-    );
+    if (reloads) {
+      // The refresh must not let an error page replace the dirty form.
+      expect(reload).toHaveBeenCalledWith(
+        expect.objectContaining({ only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'] }),
+      );
+      expect(reload.mock.calls[0][0].onHttpException()).toBe(false);
+    } else {
+      expect(reload).not.toHaveBeenCalled();
+    }
     await waitFor(() => expect(opener).toHaveFocus());
   },
 );
@@ -213,7 +225,7 @@ test('a failure refresh that removes the stale row keeps focus in the card', asy
   fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }));
   const options = remove.mock.calls[0][1];
   act(() => {
-    options.onHttpException();
+    options.onHttpException({ status: 404 });
     options.onFinish();
   });
   await waitFor(() => expect(opener).toHaveFocus());
