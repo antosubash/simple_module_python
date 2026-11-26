@@ -23,6 +23,7 @@ from simple_module_test.app.layout import is_layout_shim
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES: tuple[str, ...] = (
+    "auth.contracts.events",
     "simple_module_core.modules._auth_providers",
     "users.core.token_secrets",
     "api_tokens.core.constants",
@@ -38,6 +39,7 @@ _SHIM_MODULES: tuple[str, ...] = (
     "background_tasks.core.invalidation_channel",
 )
 _EXPECTED = {
+    "auth.contracts.events.session_logout_event(request)",
     "ModuleBase._is_auth_provider",
     "global Redis invalidation channel bridge",
     "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",

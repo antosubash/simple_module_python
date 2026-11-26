@@ -42,7 +42,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout", dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request):
-    event = session_logout_event(request, local_account=False)
+    event = session_logout_event(getattr(request.state, "user", None), local_account=False)
     client = request.app.state.oidc.client
     if client is not None:
         try:

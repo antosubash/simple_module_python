@@ -58,7 +58,7 @@ async def logout(request: Request) -> Response:
     from keycloak.identity.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
-    event = session_logout_event(request, local_account=False)
+    event = session_logout_event(getattr(request.state, "user", None), local_account=False)
     refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))
     await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()
