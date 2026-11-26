@@ -11,6 +11,8 @@ import { TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+export const LINKED_SIGN_IN_PROPS = ['linked_sign_ins', 'has_duplicate_linked_sign_ins'];
+
 export interface LinkedSignIn {
   id: string;
   provider: string;
@@ -45,13 +47,9 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
 
   // A failed removal's refresh can remove the stale row after the dialog closes.
   useEffect(() => {
-    if (
-      lastFocus.current &&
-      !lastFocus.current.isConnected &&
-      document.activeElement === document.body
-    ) {
-      restoreFocus();
-    }
+    if (!lastFocus.current || lastFocus.current.isConnected) return;
+    lastFocus.current = null;
+    if (document.activeElement === document.body) restoreFocus();
   });
 
   function confirmRemove() {
@@ -67,7 +65,7 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
       // could swap the page and drop unsaved details.
       if (response.status === 404) {
         router.reload({
-          only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'],
+          only: LINKED_SIGN_IN_PROPS,
           onHttpException: () => false,
           onNetworkError: () => false,
         });
@@ -77,7 +75,7 @@ export function LinkedSignInsCard({ userId, links, hasDuplicates }: Props) {
     router.delete(`/admin/users/${userId}/linked-sign-ins/${pending.id}`, {
       headers: { 'X-CSRF-Token': currentCsrfToken() ?? '' },
       // Keep unsaved details intact: only the link list needs fresh props.
-      only: ['linked_sign_ins', 'has_duplicate_linked_sign_ins'],
+      only: LINKED_SIGN_IN_PROPS,
       preserveScroll: true,
       preserveState: true,
       onStart: () => setRemoving(true),

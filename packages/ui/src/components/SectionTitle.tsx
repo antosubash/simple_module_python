@@ -9,6 +9,11 @@ interface SectionTitleProps extends Pick<React.ComponentPropsWithRef<'h3'>, 'ref
   as?: 'h2' | 'h3';
 }
 
+/**
+ * A section heading with optional description and trailing controls.
+ * `ref` and `tabIndex` target the heading, not its wrapper; use `tabIndex={-1}`
+ * to restore focus programmatically without adding a tab stop.
+ */
 export function SectionTitle({
   children,
   description,

@@ -18,7 +18,8 @@ import { useEffect, useId, useState } from 'react';
 interface ConfirmActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Restore focus explicitly when a controlled dialog has no Radix trigger. */
+  /** Runs when the dialog closes. Call event.preventDefault() before restoring
+   *  focus yourself, for example when there is no Radix trigger. */
   onCloseAutoFocus?: React.ComponentProps<typeof AlertDialogContent>['onCloseAutoFocus'];
   /** Tints the icon tile and picks the confirm button's variant. */
   tone?: 'destructive' | 'primary';

@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `@simple-module-py/ui`: `useLeaveGuard` accepts an optional fourth `allowVisit` predicate to skip the Inertia leave prompt for visits that preserve unsaved fields; `ConfirmActionDialog` forwards `onCloseAutoFocus`; `SectionTitle` forwards `ref` and `tabIndex` to its heading (#1149).
 - Users admin: remove individual linked OAuth sign-ins with confirmation and audit capture; warn about duplicate links per provider and explain how to sign in again when removing the last link (#1149).
 
 - Users, Keycloak, and OIDC publish an in-process `UserLoggedOut` event after authenticated session logout (#1125).
@@ -47,7 +48,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- Users admin: removing linked sign-ins preserves unsaved details without a leave prompt, restores keyboard focus after confirmation, and refreshes stale links after a failed removal (#1149).
+- Users admin: removing linked sign-ins preserves unsaved details without a leave prompt, restores keyboard focus without stealing it on later renders, scopes empty-card retention to the edited user, and refreshes stale links after a 404 removal response (#1149).
 - Keycloak user-cache writes tolerate malformed profile claims without losing the cached identity at sign-in. Missing or malformed emails preserve the last known address (empty for new identities); explicit null or empty `preferred_username` claims still clear the cached name (#1146).
 - Settings controls announce their field descriptions through `aria-describedby`, including boolean descriptions in the trailing column (#1138).
 - **Behaviour change:** Users logout publishes `UserLoggedOut` for the validated browser session even when an Authorization bearer token identifies the same or a different user. A bearer token without a valid browser session publishes no logout event. `session_logout_event` accepts the validated session `UserContext`; passing a `Request` positionally or through `request=` remains supported with a `DeprecationWarning` until removal in `0.0.52` (#1129).

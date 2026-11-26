@@ -150,4 +150,6 @@ function Edit({
   );
 }
 
-export default Edit;
+export default function EditPage(props: Props) {
+  return <Edit key={props.user.id} {...props} />;
+}

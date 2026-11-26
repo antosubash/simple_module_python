@@ -13,7 +13,8 @@ import { type RefObject, useEffect } from 'react';
  * @param dirty   Whether there is anything worth warning about.
  * @param message The confirm copy, already translated.
  * @param saving  Set by the page while it is driving its own save visit.
- * @param allowVisit Explicit page-owned visits that preserve its unsaved fields.
+ * @param allowVisit Return true to skip the Inertia leave prompt for a visit
+ *   that preserves unsaved fields. Does not bypass the browser's unload warning.
  */
 export function useLeaveGuard(
   dirty: boolean,

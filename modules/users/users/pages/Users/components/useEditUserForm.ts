@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { adminFailureMessage } from '../../../ui/utils/failureMessage';
 import { api } from '../../api.generated';
+import { LINKED_SIGN_IN_PROPS } from './LinkedSignInsCard';
 
 export interface EditableUser {
   id: string;
@@ -80,9 +81,7 @@ export function useEditUserForm(user: EditableUser) {
       if (
         visit.preserveState !== true ||
         visit.only.length === 0 ||
-        !visit.only.every((prop) =>
-          ['linked_sign_ins', 'has_duplicate_linked_sign_ins'].includes(prop),
-        ) ||
+        !visit.only.every((prop) => LINKED_SIGN_IN_PROPS.includes(prop)) ||
         visit.url.origin !== window.location.origin
       )
         return false;

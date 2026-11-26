@@ -114,8 +114,55 @@ test('an initially unlinked account has no empty linked-sign-ins card', () => {
   expect(screen.queryByRole('heading', { name: 'Linked sign-ins' })).not.toBeInTheDocument();
 });
 
+test('reusing Edit for another user resets the linked-sign-ins card history', () => {
+  const { rerender } = render(<Edit {...props} />);
+  rerender(<Edit {...props} linked_sign_ins={[]} />);
+  expect(screen.getByRole('heading', { name: 'Linked sign-ins' })).toBeInTheDocument();
+  rerender(<Edit {...props} user={{ ...props.user, id: 'user-2' }} linked_sign_ins={[]} />);
+  expect(screen.queryByRole('heading', { name: 'Linked sign-ins' })).not.toBeInTheDocument();
+  rerender(<Edit {...props} linked_sign_ins={[]} />);
+  expect(screen.queryByRole('heading', { name: 'Linked sign-ins' })).not.toBeInTheDocument();
+});
+
+test('an unrelated rerender does not restore focus after a removed opener was left behind', async () => {
+  const { rerender } = render(<Edit {...props} />);
+  const opener = screen.getByRole('button', { name: 'Remove' });
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(opener).toHaveFocus());
+  const name = screen.getByLabelText('Full name');
+  act(() => name.focus());
+  rerender(<Edit {...props} linked_sign_ins={[]} />);
+  expect(name).toHaveFocus();
+  act(() => name.blur());
+  expect(document.body).toHaveFocus();
+  rerender(<Edit {...props} linked_sign_ins={[]} />);
+  expect(document.body).toHaveFocus();
+});
+
 test.each([
   { path: '/admin/users/user-1', method: 'get', only: partial, preserveState: true, allowed: true },
+  {
+    path: 'https://other.example/admin/users/user-1',
+    method: 'get',
+    only: partial,
+    preserveState: true,
+    allowed: false,
+  },
+  {
+    path: 'https://other.example/admin/users/user-1/linked-sign-ins/link-1',
+    method: 'delete',
+    only: partial,
+    preserveState: true,
+    allowed: false,
+  },
+  {
+    path: '/admin/users/user-1?different=search',
+    method: 'get',
+    only: partial,
+    preserveState: true,
+    allowed: false,
+  },
   {
     path: '/admin/users/user-1/linked-sign-ins/link-1',
     method: 'delete',
