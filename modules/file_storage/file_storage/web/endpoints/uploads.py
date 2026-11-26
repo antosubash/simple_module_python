@@ -169,7 +169,19 @@ async def part_urls(
     return PartUrlsOut(urls=urls, direct=direct)
 
 
-@router.put(constants.PATH_UPLOAD_PART, response_model=PartOut)
+@router.put(
+    constants.PATH_UPLOAD_PART,
+    response_model=PartOut,
+    # The body is read from request.stream(), so declare it for the schema and the CLI.
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+            },
+        }
+    },
+)
 async def put_part(
     upload_id: uuid.UUID,
     part_no: int,

@@ -124,3 +124,17 @@ async def test_edited_env_url_sends_nothing(smdev, make_actor):
     assert result.exit_code == 1, result.output
     assert "login --token" in result.output
     assert smdev.transport.requests == []
+
+
+async def test_put_part_takes_a_raw_body_file(smdev, make_actor, tmp_path):
+    ops = {op.operation_id: op for op in parse_operations(load_schema(SCHEMA_PATH))}
+    assert ops["file_storage_put_part"].body_kind == "raw"
+    await _ready(smdev, make_actor)
+    part = tmp_path / "part.bin"
+    part.write_bytes(b"abc")
+    result = await smdev.run(
+        "--env", "local", "file-storage", "put-part", "sid", "1", "--body-file", str(part),
+        "--dry-run",
+    )  # fmt: skip
+    assert result.exit_code == 0, result.output
+    assert "body-file" in result.output and "application/octet-stream" in result.output
