@@ -13,13 +13,12 @@ never sees ``app.state``) has no other source at all. Like every env var it
 beats a stored value (env → DB → default): ``env_seeded_fields`` reports both
 fields to the hydrator, since ``SM_REDIS_URL`` is read by their default
 factories where pydantic's env source cannot see it. With it unset, the two
-fields keep separate DB overrides for anyone who wants the broker and the
-backend on different Redis databases.
+fields keep separate DB overrides.
 
-``SM_BG_TASKS_BROKER_URL`` and ``SM_BG_TASKS_RESULT_BACKEND`` still work and
-take precedence over ``SM_REDIS_URL`` — a deployment that set them meant them —
-but log a deprecation warning when they hold a Redis URL (any other transport,
-such as ``memory://``, is theirs to set and logs nothing, GH #868). Being real
+``SM_BG_TASKS_BROKER_URL`` and ``SM_BG_TASKS_RESULT_BACKEND`` are supported
+per-field overrides for separate Redis databases or other transports (#1214).
+They take precedence over ``SM_REDIS_URL``. An INFO message suggests removing
+an override only when it equals the configured ``SM_REDIS_URL``. Being real
 env reads, they also beat a stored value (env → DB → default, GH #486). They
 are answered by pydantic's own env source now that ``env_prefix`` is set
 (GH #283), which is also what stops every other field being readable from its
@@ -53,7 +52,7 @@ from background_tasks.core.constants import (
 from background_tasks.core.settings_celery import _CELERY_RESTART, CelerySettingsFields
 from background_tasks.core.settings_env_checks import (
     forbid_localhost_broker_in_production,
-    warn_on_legacy_redis_vars,
+    warn_on_redundant_redis_vars,
 )
 from background_tasks.core.tracking import TrackingMode
 
@@ -171,7 +170,7 @@ class BackgroundTasksSettings(CelerySettingsFields):
 
     @model_validator(mode="after")
     def _check_broker_env(self) -> BackgroundTasksSettings:
-        """Deprecation warnings and the production localhost-broker refusal."""
-        warn_on_legacy_redis_vars(self.broker_url, self.result_backend)
+        """Redundant-override hints and the production localhost-broker refusal."""
+        warn_on_redundant_redis_vars(self.broker_url, self.result_backend)
         forbid_localhost_broker_in_production(self.broker_url, self.result_backend)
         return self

@@ -558,7 +558,19 @@ Built-in provider keys (the `{provider}` URL segment):
 | Google | `google` | |
 | GitHub | `github` | |
 | Microsoft (Entra ID) | `microsoft` | OpenID Connect with PKCE and a nonce; identity from the validated ID token (see below). `oauth_microsoft_tenant`: `"common"` (any account), `"organizations"` (work/school), `"consumers"` (personal), or a tenant GUID |
-| Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs + disables rather than breaking boot |
+| Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs a warning and retries on demand without breaking boot |
+
+If generic OIDC discovery fails at startup, the configured sign-in button stays
+visible. Login requests retry discovery after 30 seconds; repeated failures
+double the delay up to 10 minutes, measured with a monotonic clock. Each worker
+keeps its own backoff, and concurrent login requests share a discovery attempt.
+Cancelling a request leaves the shared discovery running for other callers.
+Discovery is retried on demand, without a background timer. Once discovery
+succeeds, that worker uses the recovered provider without a restart. Until then
+API callers receive HTTP 503 (`OAUTH_PROVIDER_UNAVAILABLE`); browser clicks return to the login page
+with the existing sign-in failure message. Startup logs one warning naming the
+discovery URL, with credentials, query strings and fragments omitted. Saving
+Users settings rebuilds the provider immediately and resets its backoff (#1226).
 
 A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email` and `is_verified_by_default` both follow whether the provider proved the email; Microsoft never does unless the opt-in below is on); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
 

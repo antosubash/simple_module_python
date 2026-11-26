@@ -36,6 +36,7 @@ from users.oauth.errors import (
     OAuthAccountLinkedElsewhereError,
     refuse_login,
 )
+from users.oauth.oidc_retry import OidcDiscoveryUnavailableError
 from users.oauth.profile import record_profile
 from users.web.deps import auth_backend, get_user_manager
 
@@ -62,14 +63,22 @@ def _login_secrets(value: object) -> LoginSecrets | None:
     return {"verifier": verifier, "nonce": nonce}
 
 
-def _resolve_provider(request: Request, provider: str) -> OAuthProvider:
-    """Return the configured provider by name, or raise 404."""
-    found = request.app.state.users.oauth_clients.get(provider)
-    if found is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="OAUTH_PROVIDER_NOT_FOUND"
-        )
-    return found
+async def _resolve_provider(request: Request, provider: str) -> OAuthProvider:
+    """Resolve configured SSO, without restoring stale clients after a reload."""
+    while True:
+        clients = request.app.state.users.oauth_clients
+        found = clients.get(provider)
+        if found is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="OAUTH_PROVIDER_NOT_FOUND"
+            )
+        client = await found.resolve_client()
+        if clients is not request.app.state.users.oauth_clients:
+            continue
+        if client is not found.client:
+            found = found._replace(client=client)
+            clients[provider] = found
+        return found
 
 
 async def _existing_account(
@@ -125,7 +134,12 @@ def register_oauth_routes(api_router: APIRouter) -> None:
     @router.get("/{provider}/login")
     async def begin(request: Request, provider: str) -> RedirectResponse:
         """Generate a state nonce, stash it in the session, redirect to the IdP."""
-        provider_obj = _resolve_provider(request, provider)
+        try:
+            provider_obj = await _resolve_provider(request, provider)
+        except OidcDiscoveryUnavailableError:
+            return refuse_login(
+                request, "OAUTH_PROVIDER_UNAVAILABLE", status.HTTP_503_SERVICE_UNAVAILABLE
+            )
         state = secrets.token_urlsafe(32)
         request.session[_SESSION_STATE_KEY_FMT.format(provider=provider)] = state
         login: LoginSecrets | None = None
@@ -151,7 +165,12 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         strategy=Depends(auth_backend.get_strategy),
     ) -> RedirectResponse:
         """Verify state, exchange code, find-or-create user, set cookie, redirect."""
-        provider_obj = _resolve_provider(request, provider)
+        try:
+            provider_obj = await _resolve_provider(request, provider)
+        except OidcDiscoveryUnavailableError:
+            return refuse_login(
+                request, "OAUTH_PROVIDER_UNAVAILABLE", status.HTTP_503_SERVICE_UNAVAILABLE
+            )
         state_key = _SESSION_STATE_KEY_FMT.format(provider=provider)
         expected_state = request.session.get(state_key)
         # Compared before anything is spent, so a forged or stray reply cannot

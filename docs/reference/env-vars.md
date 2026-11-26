@@ -176,8 +176,8 @@ their startup configuration. See [Background tasks](/modules/background_tasks).
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Per-field override for non-Redis transports or separate connections; takes precedence over `SM_REDIS_URL`. Production rejects a localhost broker. |
-| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Per-field override for non-Redis backends or separate connections; takes precedence over `SM_REDIS_URL`. Production rejects a localhost result backend. |
+| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Supported per-field override for separate Redis DBs/connections or non-Redis transports; takes precedence over `SM_REDIS_URL`. Production rejects a localhost broker. |
+| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Supported per-field override for separate Redis DBs/connections or non-Redis backends; takes precedence over `SM_REDIS_URL`. Production rejects a localhost result backend. |
 | `SM_BG_TASKS_TASK_DEFAULT_QUEUE` | `default` | Queue for tasks without an explicit route. |
 | `SM_BG_TASKS_TASK_ROUTES_OVERRIDE` | `{}` | JSON object mapping task patterns to queues or supported route options. |
 | `SM_BG_TASKS_VISIBILITY_TIMEOUT_SECONDS` | unset | Override the Redis visibility timeout. |
@@ -196,8 +196,18 @@ their startup configuration. See [Background tasks](/modules/background_tasks).
 | `SM_BG_TASKS_DB_RECYCLE` | `1800` | Worker connection recycling interval in seconds. |
 | `SM_BG_TASKS_DB_STATEMENT_TIMEOUT_MS` | unset | Override the host PostgreSQL statement timeout for workers. Zero omits it. |
 
-The per-field broker and result backend variables remain supported for other
-transports. They log a deprecation warning when set to Redis URLs.
+The per-field broker and result backend variables are supported and
+non-deprecated. To use separate Redis databases, set these on web, worker and
+beat processes:
+
+```dotenv
+SM_BG_TASKS_BROKER_URL=redis://host:6379/4
+SM_BG_TASKS_RESULT_BACKEND=redis://host:6379/5
+```
+
+They override both `SM_REDIS_URL` and stored settings. Only an override exactly
+equal to a configured `SM_REDIS_URL` logs an INFO hint that it is redundant and
+can be removed. Different values, or overrides without `SM_REDIS_URL`, are quiet.
 
 ### Tracking, retained logs and durable events
 
