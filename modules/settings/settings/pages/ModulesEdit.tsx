@@ -143,7 +143,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                     {m.package}
                   </code>
                   <span
-                    className={`text-[11.5px] max-lg:text-xs ${isActive ? 'opacity-75' : 'text-muted-foreground'}`}
+                    className={`text-[11.5px] max-lg:text-xs ${isActive ? '' : 'text-muted-foreground'}`}
                   >
                     {t(keys.settings.modules.field_count, { count: m.fields.length })}
                     {overridden > 0 && (

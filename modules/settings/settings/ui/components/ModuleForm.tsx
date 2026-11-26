@@ -3,6 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { apiResult } from '@simple-module-py/ui/lib/api';
+import { TOUCH_TARGET_CLASS } from '@simple-module-py/ui/lib/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../pages/api.generated';
 import type { FieldMeta } from './FieldInput';
@@ -90,9 +91,8 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
   const dirty = modifiedFields.size > 0;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
-  // Grouped only where the module said so. A single "General" heading over
-  // every field of a module that declared no groups is a heading that carries
-  // no information and costs a row of vertical space per module.
+  // Grouped only where the module said so: a lone "General" heading carries no
+  // information and costs a row per module.
   const groups = useMemo(() => {
     const g = new Map<string, FieldMeta[]>();
     for (const f of m.fields) {
@@ -184,9 +184,8 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
       ...prev,
       values: { ...prev.values, [name]: prev.baseline[name] },
     }));
-    // Take the field's live value from the reload itself: when the page never
-    // reloaded after a save, the fresh props equal the old ones and the
-    // [initial] effect does not fire, leaving the reverted value on screen.
+    // Take the live value from the reload: without a reload since the save the
+    // props are unchanged, so the [initial] effect would leave the old value.
     router.reload({
       only: ['modules'],
       onSuccess: (page) => {
@@ -231,7 +230,7 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
               {t(keys.settings.modules.unsaved_count, { count: modifiedFields.size })}
             </p>
           )}
-          <Button type="button" disabled={!dirty || busy} onClick={onSave} className="min-h-11">
+          <Button disabled={!dirty || busy} onClick={onSave} className={TOUCH_TARGET_CLASS}>
             {busy ? t(keys.settings.modules_form.saving) : t(keys.settings.modules_form.save)}
           </Button>
         </div>
