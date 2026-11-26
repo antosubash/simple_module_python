@@ -3,132 +3,67 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, TextIO
+from typing import Any
 from urllib.parse import urlencode
 
 import click
 import httpx
 
 from simple_module_remote.commands.confirm import confirm_protected
-from simple_module_remote.config.environments import Environment
+from simple_module_remote.generate.context import RunContext
+from simple_module_remote.generate.emit import (
+    ERROR_BODY_CHARS,
+    emit,
+    print_error,
+    render_values,
+    say,
+)
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.generate.params import json_response_schema, success_is_json
-from simple_module_remote.generate.prepare import Prepared, prepare_request
+from simple_module_remote.generate.prepare import DEFAULT_CONTENT_TYPE, Prepared, prepare_request
 from simple_module_remote.http.client import ApiClient
-from simple_module_remote.http.errors import ApiError, UnsafePathError, exit_code_for
+from simple_module_remote.http.errors import (
+    EXIT_CLIENT_ERROR,
+    EXIT_USAGE,
+    ApiError,
+    UnsafePathError,
+    exit_code_for,
+)
 from simple_module_remote.http.pagination import iter_items, pagination_style
-from simple_module_remote.output.render import OUTPUT_FORMATS, render
+from simple_module_remote.output.sanitize import is_terminal
 
 __all__ = ["RunContext", "run_operation"]
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-ERROR_BODY_CHARS = 500
-CHUNK = 64 * 1024
-REDIRECT_HINT = (
-    "hint: this response followed a redirect; the token is not forwarded on redirects, "
-    "so the redirect target rejected the request."
-)
+REDIRECT_MIN = 300
+ERROR_MIN = 400
 
 
-@dataclass
-class RunContext:
-    env: Environment
-    client_factory: Callable[[], ApiClient]
-    is_tty: bool
-    stdout: TextIO
-    stderr: TextIO
-    stdin: TextIO
-    prompt: Callable[[str], str]
-    root: dict
+class _HttpFailureError(Exception):
+    """A failed response met while paging; the response is already read."""
+
+    def __init__(self, response: httpx.Response) -> None:
+        super().__init__(f"HTTP {response.status_code}")
+        self.response = response
 
 
-def _is_binary(response: httpx.Response) -> bool:
-    kind = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
-    if not kind:
-        return False
-    return not (kind == "application/json" or kind.endswith("+json") or kind.startswith("text/"))
-
-
-def _print_error(ctx: RunContext, response: httpx.Response) -> None:
-    text = response.text
-    ctx.stderr.write(f"error: HTTP {response.status_code}\n")
-    if text.strip():
-        try:
-            ctx.stderr.write(json.dumps(json.loads(text), indent=2, ensure_ascii=False) + "\n")
-        except ValueError:
-            ctx.stderr.write(text[:ERROR_BODY_CHARS] + "\n")
-    if response.status_code == 401 and ApiClient.was_redirected(response):
-        ctx.stderr.write(REDIRECT_HINT + "\n")
-
-
-def _dry_run(ctx: RunContext, op: Operation, prep: Prepared) -> None:
+def _dry_run(ctx: RunContext, op: Operation, prep: Prepared, values: dict[str, Any]) -> None:
     url = ctx.env.url.rstrip("/") + prep.path
     if prep.params:
         url += "?" + urlencode(prep.params, doseq=True)
-    ctx.stdout.write(f"{op.method} {url}\n")
+    lines = [f"{op.method} {url}"]
     if prep.json is not None:
-        ctx.stdout.write(json.dumps(prep.json, indent=2, ensure_ascii=False) + "\n")
-
-
-def _write_file(response: httpx.Response, target: str) -> None:
-    with Path(target).open("wb") as handle:
-        for chunk in response.iter_bytes(CHUNK):
-            handle.write(chunk)
-
-
-def _write_stdout_bytes(ctx: RunContext, response: httpx.Response) -> bool:
-    sink = getattr(ctx.stdout, "buffer", None)
-    if sink is None:
-        return False
-    for chunk in response.iter_bytes(CHUNK):
-        sink.write(chunk)
-    sink.flush()
-    return True
-
-
-def _emit(ctx: RunContext, response: httpx.Response, values: dict[str, Any]) -> int:
-    out = values.get("out")
-    if response.status_code == 204:
-        return 0
-    if _is_binary(response) and not out:
-        if ctx.is_tty or not _write_stdout_bytes(ctx, response):
-            kind = response.headers.get("Content-Type", "binary")
-            ctx.stderr.write(f"error: binary response ({kind}); use --out FILE to save it\n")
-            return 1
-        return 0
-    if out:
-        _write_file(response, out)
-        ctx.stderr.write(f"wrote {out}\n")
-        return 0
-    response.read()
-    if not response.content:
-        return 0
-    try:
-        data: Any = response.json()
-    except ValueError:
-        ctx.stdout.write(response.text)
-        return 0
-    _render(ctx, data, values)
-    return 0
-
-
-def _render(ctx: RunContext, data: Any, values: dict[str, Any]) -> None:
-    fmt = values.get("output")
-    if fmt is not None and fmt not in OUTPUT_FORMATS:
-        raise click.UsageError(f"--output must be one of: {', '.join(OUTPUT_FORMATS)}")
-    columns = [c.strip() for c in (values.get("columns") or "").split(",") if c.strip()]
-    render(
-        data,
-        fmt=fmt,
-        columns=columns or None,
-        quiet=bool(values.get("quiet")),
-        is_tty=ctx.is_tty,
-        out=ctx.stdout,
-    )
+        lines.append(json.dumps(prep.json, indent=2, ensure_ascii=False))
+    if op.body_kind == "multipart":
+        lines += [f"upload {u}" for u in values.get("uploads") or ()]
+        lines += [f"form {s}" for s in values.get("sets") or ()]
+    elif op.body_kind == "raw" and values.get("body_file"):
+        kind = values.get("content_type") or DEFAULT_CONTENT_TYPE
+        lines.append(f"body-file {values['body_file']} ({kind})")
+    for line in lines:
+        ctx.stdout.write(line + "\n")
 
 
 @contextmanager
@@ -153,20 +88,23 @@ def _send(
 
 def _all_pages(
     ctx: RunContext, client: ApiClient, op: Operation, prep: Prepared, values: dict[str, Any]
-) -> int:
+) -> None:
     style = pagination_style(op, json_response_schema(op, ctx.root))
     if style is None:
-        if values.get("all_pages"):
-            raise click.UsageError("--all is not supported by this command")
-        return -1
+        raise click.UsageError("--all and --limit are not supported by this command")
 
     def fetch(params: dict) -> Any:
         response = client.request(op.method, prep.path, params=params)
-        if response.status_code >= 400 or not response.content:
-            raise ApiError(response.status_code, response.text)
-        return response.json()
+        if response.status_code >= REDIRECT_MIN:
+            raise _HttpFailureError(response)
+        try:
+            return response.json()
+        except ValueError:
+            raise ApiError(
+                response.status_code, response.text[:ERROR_BODY_CHARS], "response is not JSON"
+            ) from None
 
-    show = bool(getattr(ctx.stderr, "isatty", lambda: False)())
+    show = is_terminal(ctx.stderr)
 
     def progress(count: int) -> None:
         if show:
@@ -176,24 +114,62 @@ def _all_pages(
     items = list(iter_items(fetch, style, prep.params, values.get("limit"), progress))
     if show:
         ctx.stderr.write("\n")
-    _render(ctx, items, values)
-    return 0
+    render_values(ctx, items, values)
 
 
 def _fail(ctx: RunContext, exc: ApiError) -> int:
-    ctx.stderr.write(f"error: {exc.message}\n")
+    say(ctx, f"error: {exc.message}")
     if exc.body_text.strip():
-        ctx.stderr.write(exc.body_text[:ERROR_BODY_CHARS] + "\n")
+        say(ctx, exc.body_text[:ERROR_BODY_CHARS])
     return exit_code_for(exc.status)
+
+
+def _status_code(response: httpx.Response) -> int:
+    # A leftover 3xx means the request itself has to change, not that the server failed.
+    return (
+        EXIT_CLIENT_ERROR
+        if response.status_code < ERROR_MIN
+        else exit_code_for(response.status_code)
+    )
+
+
+def _exchange(
+    ctx: RunContext,
+    client: ApiClient,
+    op: Operation,
+    prep: Prepared,
+    values: dict[str, Any],
+    *,
+    paged: bool,
+    stream: bool,
+) -> int:
+    if paged:
+        try:
+            _all_pages(ctx, client, op, prep, values)
+        except _HttpFailureError as failure:
+            print_error(ctx, failure.response)
+            return _status_code(failure.response)
+        return 0
+    with _send(client, op, prep, stream) as response:
+        if response.status_code >= REDIRECT_MIN:
+            print_error(ctx, response)
+            return _status_code(response)
+        return emit(ctx, response, values)
 
 
 def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int:
     """Execute ``op`` with click ``values``; returns the process exit code."""
     mutation = op.method not in SAFE_METHODS
     with ExitStack() as stack:
-        prep = prepare_request(op, values, ctx.root, ctx.stdin, stack)
+        try:
+            prep = prepare_request(op, values, ctx.root, ctx.stdin, stack)
+        except UnsafePathError as exc:
+            raise click.UsageError(
+                f"{exc}; a path value may not contain '/' or '..', because it would change "
+                "which endpoint is called"
+            ) from None
         if values.get("dry_run"):
-            _dry_run(ctx, op, prep)
+            _dry_run(ctx, op, prep, values)
             return 0
         confirm_protected(
             ctx.env,
@@ -207,22 +183,19 @@ def run_operation(ctx: RunContext, op: Operation, values: dict[str, Any]) -> int
             path=prep.path,
         )
         if mutation:
-            ctx.stderr.write(f"[{ctx.env.name}]\n")
-        paged = op.method == "GET" and bool(values.get("all_pages") or values.get("limit"))
-        stream = op.method == "GET" and bool(values.get("out") or not success_is_json(op, ctx.root))
+            say(ctx, f"[{ctx.env.name}]")
+        is_get = op.method == "GET"
+        paged = is_get and bool(values.get("all_pages") or values.get("limit"))
+        stream = is_get and bool(values.get("out") or not success_is_json(op, ctx.root))
         try:
             with ctx.client_factory() as client:
-                if paged:
-                    code = _all_pages(ctx, client, op, prep, values)
-                    if code >= 0:
-                        return code
-                with _send(client, op, prep, stream) as response:
-                    if response.status_code >= 300:
-                        response.read()
-                        _print_error(ctx, response)
-                        return exit_code_for(response.status_code)
-                    return _emit(ctx, response, values)
+                return _exchange(ctx, client, op, prep, values, paged=paged, stream=stream)
         except ApiError as exc:
             return _fail(ctx, exc)
+        except httpx.HTTPError as exc:
+            return _fail(ctx, ApiError(0, message=f"response failed: {type(exc).__name__}"))
+        except OSError as exc:
+            say(ctx, f"error: cannot write output: {exc.__class__.__name__}")
+            return EXIT_USAGE
         except UnsafePathError as exc:
             raise click.UsageError(str(exc)) from None

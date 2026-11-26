@@ -106,13 +106,17 @@ def _body_options(op: Operation) -> list[click.Parameter]:
     return []
 
 
-def json_response_schema(op: Operation, root: dict) -> dict | None:
-    """The resolved JSON schema of the operation's success (200, else first 2xx) response."""
+def _success_response(op: Operation, root: dict) -> dict:
+    """The resolved success response object (200, else first 2xx); ``{}`` when absent."""
     node = ((root.get("paths") or {}).get(op.path) or {}).get(op.method.lower()) or {}
     responses = node.get("responses") or {}
     code = "200" if "200" in responses else next((c for c in responses if str(c)[:1] == "2"), None)
-    response = resolve_ref(root, responses.get(code) or {}) if code else {}
-    content = response.get("content") or {}
+    return resolve_ref(root, responses.get(code) or {}) if code else {}
+
+
+def json_response_schema(op: Operation, root: dict) -> dict | None:
+    """The resolved JSON schema of the operation's success response."""
+    content = _success_response(op, root).get("content") or {}
     media = next((v for k, v in content.items() if is_json_media(str(k))), None)
     if not isinstance(media, dict) or not isinstance(media.get("schema"), dict):
         return None
@@ -121,10 +125,7 @@ def json_response_schema(op: Operation, root: dict) -> dict | None:
 
 def success_is_json(op: Operation, root: dict) -> bool:
     """False when the success response declares content but none of it is JSON."""
-    node = ((root.get("paths") or {}).get(op.path) or {}).get(op.method.lower()) or {}
-    responses = node.get("responses") or {}
-    code = "200" if "200" in responses else next((c for c in responses if str(c)[:1] == "2"), None)
-    content = resolve_ref(root, responses.get(code) or {}).get("content") if code else None
+    content = _success_response(op, root).get("content")
     if not isinstance(content, dict) or not content:
         return True
     return any(is_json_media(str(k)) for k in content)

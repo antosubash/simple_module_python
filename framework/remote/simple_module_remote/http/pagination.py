@@ -37,12 +37,16 @@ def _items_of(payload: Any, style: PaginationStyle) -> tuple[list[Any], dict]:
     return [], {}
 
 
-def _exhausted(meta: dict, style: PaginationStyle, page: int, per_page: int) -> bool:
+def _exhausted(
+    meta: dict, style: PaginationStyle, page: int, requested: int, count: int
+) -> bool | None:
+    """Whether this was the last page according to the response metadata; ``None`` if unknown."""
     if style == "page_envelope" and isinstance(meta.get("pages"), int):
         return page >= meta["pages"]
     if style == "file_storage" and isinstance(meta.get("total"), int):
-        return page * per_page >= meta["total"]
-    return False
+        served = meta.get(PER_PAGE) if isinstance(meta.get(PER_PAGE), int) else requested
+        return (page - 1) * served + count >= meta["total"]
+    return None
 
 
 def iter_items(
@@ -67,6 +71,10 @@ def iter_items(
             seen += 1
             yield item
         on_progress(seen)
-        if len(items) < per_page or _exhausted(meta, style, page, per_page):
+        if not items:
+            return
+        done = _exhausted(meta, style, page, per_page, len(items))
+        # The server may clamp per_page, so a short page only ends the walk without metadata.
+        if done or (done is None and len(items) < per_page):
             return
         page += 1

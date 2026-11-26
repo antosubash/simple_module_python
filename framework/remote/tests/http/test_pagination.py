@@ -79,3 +79,20 @@ def test_empty_page_stops_and_default_per_page():
     server = Server(0, "array")
     assert list(iter_items(server, "page_per_page", {}, None, lambda n: None)) == []
     assert server.calls[0]["per_page"] == 100
+
+
+def test_clamped_per_page_continues_while_metadata_says_more():
+    def fetch(params):
+        page = params["page"]
+        return {"items": [page] * 2, "total": 6, "page": page, "per_page": 2, "pages": 3}
+
+    # Requested 100 but the server serves 2 per page.
+    assert list(iter_items(fetch, "page_envelope", {}, None, lambda n: None)) == [1, 1, 2, 2, 3, 3]
+
+    def files(params):
+        page = params["page"]
+        return {"items": [page] * 2, "total": 4, "page": page}
+
+    assert list(iter_items(files, "file_storage", {"per_page": 50}, None, lambda n: None)) == [
+        1, 1, 2, 2,
+    ]  # fmt: skip
