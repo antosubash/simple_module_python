@@ -48,7 +48,11 @@ def list_envs(ctx: click.Context) -> None:
 
 @env_group.command("add", help="Add or replace an environment.")
 @click.argument("name")
-@click.option("--url", required=True, help="Base URL of the app, e.g. https://app.example.com.")
+@click.option(
+    "--url",
+    default=None,
+    help="Base URL of the app, e.g. https://app.example.com (required for a new environment).",
+)
 @click.option("--tenant", default=None, help="Default tenant (kept when omitted).")
 @click.option(
     "--protected/--no-protected",
@@ -57,14 +61,22 @@ def list_envs(ctx: click.Context) -> None:
 )
 @click.pass_context
 def add_env(
-    ctx: click.Context, name: str, url: str, tenant: str | None, protected: bool | None
+    ctx: click.Context, name: str, url: str | None, tenant: str | None, protected: bool | None
 ) -> None:
     state = state_of(ctx)
     with state.guard():
         validate_env_name(name)
-        validate_base_url(url)
+        if url is not None:
+            validate_base_url(url)
     config = state.config()
     existing = config.envs.get(name)
+    if url is None:
+        if existing is None:
+            raise CliError(f"--url is required to add the new environment {name!r}")
+        url = existing.url
+    changed = existing is not None and (
+        url != existing.url or (tenant is not None and tenant != existing.tenant)
+    )
     # Only what was passed changes; the rest comes from the existing (or default) environment.
     overrides = dict(config.overrides.get(name, {}))
     overrides["url"] = url
@@ -84,7 +96,13 @@ def add_env(
     config.user_envs.add(name)
     with state.guard():
         save_config(state.cli, config)
-    click.echo(f"added environment {name} ({url})")
+    click.echo(f"{'updated' if existing else 'added'} environment {name} ({url})")
+    if changed:
+        click.echo(
+            f"warning: the stored login for {name} was issued for the old url/tenant and may "
+            f"no longer apply; run `{state.cli} --env {name} login --token` again",
+            err=True,
+        )
 
 
 @env_group.command("use", help="Make an environment the current one.")

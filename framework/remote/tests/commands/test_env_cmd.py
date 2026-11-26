@@ -64,3 +64,60 @@ def test_env_add_into_readonly_config_dir_is_clean(make_cli, tmp_path):
     assert result.exit_code == 1, result.output
     assert "Traceback" not in result.output and "PermissionError" in result.output
     assert str(config) in result.output
+
+
+def _login(runner, make_cli, *extra):
+    runner.invoke(make_cli(), [*extra, "login", "--token-stdin"], input="tok\n")
+
+
+def test_env_remove_deletes_every_stored_login(make_cli, keyring_store):
+    cli, runner = make_cli(), CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    runner.invoke(cli, ["env", "add", "devx", "--url", "http://localhost:8001"])
+    runner.invoke(cli, ["env", "use", "dev"])
+    _login(runner, make_cli)
+    _login(runner, make_cli, "--tenant", "t-1")
+    runner.invoke(cli, ["--env", "devx", "login", "--token-stdin"], input="tok\n")
+    assert {k[1] for k in keyring_store.creds} == {"dev", "dev/t-1", "devx"}
+    result = runner.invoke(cli, ["env", "remove", "dev"])
+    assert result.exit_code == 0, result.output
+    assert "removed stored login dev\n" in result.output
+    assert "removed stored login dev/t-1" in result.output
+    assert {k[1] for k in keyring_store.creds} == {"devx"}  # a prefix sibling is untouched
+
+
+def test_env_remove_deletes_file_store_logins(make_cli, fail_keyring):
+    cli, runner = make_cli(backend=fail_keyring), CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    runner.invoke(cli, ["env", "use", "dev"])
+    runner.invoke(cli, ["login", "--token-stdin"], input="tok\n")
+    runner.invoke(cli, ["--tenant", "t-1", "login", "--token-stdin"], input="tok\n")
+    result = runner.invoke(cli, ["env", "remove", "dev"])
+    assert "removed stored login dev/t-1" in result.output
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    runner.invoke(cli, ["env", "use", "dev"])
+    assert runner.invoke(cli, ["whoami"]).exit_code == 1  # no stored credentials remain
+
+
+def test_env_add_without_url_updates_an_existing_env(make_cli):
+    cli, runner = make_cli(), CliRunner()
+    runner.invoke(cli, ["env", "add", "prod", "--url", "https://app.example", "--protected"])
+    result = runner.invoke(cli, ["env", "add", "prod", "--no-protected"])
+    assert result.exit_code == 0, result.output
+    shown = runner.invoke(cli, ["env", "show", "prod"]).output
+    assert "protected: no" in shown and "https://app.example" in shown
+    assert "warning" not in result.output  # nothing that a login depends on changed
+
+
+def test_env_add_without_url_for_new_env_needs_url(make_cli):
+    result = CliRunner().invoke(make_cli(), ["env", "add", "fresh", "--protected"])
+    assert result.exit_code == 1 and "--url is required" in result.output
+
+
+def test_env_add_warns_when_url_or_tenant_change(make_cli):
+    cli, runner = make_cli(), CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    moved = runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:9000"])
+    assert "stored login" in moved.output and "login" in moved.output
+    retenant = runner.invoke(cli, ["env", "add", "dev", "--tenant", "acme"])
+    assert "stored login" in retenant.output

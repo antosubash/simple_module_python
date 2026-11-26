@@ -126,7 +126,11 @@ class CredentialStore:
         return [k for k in data if isinstance(k, str)] if isinstance(data, list) else []
 
     def _set_index(self, keys: list[str]) -> None:
-        self._require_backend().set_password(self._service, INDEX_KEY, json.dumps(sorted(keys)))
+        backend = self._require_backend()
+        if keys:
+            backend.set_password(self._service, INDEX_KEY, json.dumps(sorted(keys)))
+        elif backend.get_password(self._service, INDEX_KEY) is not None:
+            backend.delete_password(self._service, INDEX_KEY)
 
     def put(self, key: str, cred: StoredCredential) -> None:
         try:

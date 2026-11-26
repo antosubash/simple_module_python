@@ -35,6 +35,11 @@ class FakeKeyring:
     def __init__(self) -> None:
         self.data: dict[tuple[str, str], str] = {}
 
+    @property
+    def creds(self) -> dict[tuple[str, str], str]:
+        """The stored credentials, without the key index the store keeps beside them."""
+        return {k: v for k, v in self.data.items() if k[1] != "~index"}
+
     def get_password(self, service: str, username: str) -> str | None:
         return self.data.get((service, username))
 

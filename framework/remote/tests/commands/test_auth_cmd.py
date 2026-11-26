@@ -22,7 +22,7 @@ def test_login_token_stdin_stores_origin_bound(make_cli, keyring_store, logged_i
     assert result.exit_code == 0, result.output
     assert SECRET not in result.output
     assert cli.requests[0].url.path == "/api/_meta/whoami"
-    ((_, stored),) = keyring_store.data.items()
+    ((_, stored),) = keyring_store.creds.items()
     assert SECRET in stored and "http://localhost:8000" in stored
 
 
@@ -31,7 +31,7 @@ def test_login_prompt_token(make_cli, keyring_store, logged_in):
     runner = logged_in(cli, login=False)
     result = runner.invoke(cli, ["login", "--token"], input=SECRET + "\n")
     assert result.exit_code == 0, result.output
-    assert SECRET not in result.output and len(keyring_store.data) == 1
+    assert SECRET not in result.output and len(keyring_store.creds) == 1
 
 
 def test_login_rejects_token_argument(make_cli, logged_in):
@@ -69,7 +69,7 @@ def test_login_tenant_mismatch_refused(make_cli, keyring_store, logged_in):
     assert "t-1" in result.output and keyring_store.data == {}
     ok = runner.invoke(cli, ["--tenant", "t-1", "login", "--token-stdin"], input=SECRET + "\n")
     assert ok.exit_code == 0
-    assert next(iter(keyring_store.data))[1] == "dev/t-1"
+    assert next(iter(keyring_store.creds))[1] == "dev/t-1"
 
 
 def test_whoami_protected_banner(make_cli, logged_in):
