@@ -7,4 +7,6 @@ try:
 except PackageNotFoundError:  # pragma: no cover - source checkout without install
     __version__ = "0.0.0"
 
-__all__ = ["__version__"]
+from simple_module_remote.commands.root import build_cli
+
+__all__ = ["__version__", "build_cli"]
