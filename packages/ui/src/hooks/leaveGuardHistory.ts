@@ -33,7 +33,8 @@ function observeHistory(approve: Approve) {
   let group = newGroup();
   let index: number | undefined = 0;
   let currentUrl = window.location.href;
-  let returning = false;
+  let returning: { position: number; navigation: boolean; attempts: number } | undefined;
+  let returnTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
   const navigationIndex = () => (window as NavigationWindow).navigation?.currentEntry?.index;
   const readIndex = (state: unknown): number | undefined => {
@@ -89,24 +90,58 @@ function observeHistory(approve: Approve) {
     index = navigationIndex() ?? next;
     currentUrl = window.location.href;
   };
+  // Cached pre-wrapper pushState calls bypass tracking; Inertia 3.11 reads it
+  // dynamically. Unknown/inconsistent positions fall back to allowing traversal.
   history.replaceState = wrappedReplace;
   history.pushState = wrappedPush;
 
+  const finishReturn = () => {
+    returning = undefined;
+    clearTimeout(returnTimer);
+    returnTimer = undefined;
+    if (disposed) window.removeEventListener('popstate', guard, true);
+  };
+  const returnToLive = (actual: number) => {
+    if (!returning) return;
+    returning.attempts++;
+    clearTimeout(returnTimer);
+    // Out-of-range go() is silent. Expire even if the last guard unmounted.
+    returnTimer = setTimeout(() => {
+      finishReturn();
+      index = undefined;
+      currentUrl = window.location.href;
+    }, 1000);
+    history.go(returning.position - actual);
+  };
   const guard = (event: PopStateEvent) => {
+    const url = new URL(window.location.href);
+    const navigation = navigationIndex();
+    let target = navigation ?? readIndex(event.state);
     if (returning) {
-      returning = false;
-      event.stopImmediatePropagation();
-      if (disposed) window.removeEventListener('popstate', guard, true);
+      const actual = returning.navigation ? navigation : readIndex(event.state);
+      if (actual === returning.position && url.href === currentUrl) {
+        finishReturn();
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (actual !== undefined && actual !== returning.position && returning.attempts < 5) {
+        // More Back/Forward presses may precede the requested return popstate.
+        event.stopImmediatePropagation();
+        returnToLive(actual);
+        return;
+      }
+      // Unknown, aliased or repeatedly inconsistent positions cannot be undone safely.
+      finishReturn();
+      index = undefined;
+      currentUrl = url.href;
       return;
     }
-    const url = new URL(window.location.href);
     const previous = new URL(currentUrl);
     const hashOnly =
       url.href !== previous.href &&
       url.origin === previous.origin &&
       url.pathname === previous.pathname &&
       url.search === previous.search;
-    let target = navigationIndex() ?? readIndex(event.state);
     if (hashOnly) {
       // Some hash entries copy their predecessor's state, including its index.
       if (target === index && index !== undefined) {
@@ -117,12 +152,12 @@ function observeHistory(approve: Approve) {
       event.stopImmediatePropagation();
     }
     const delta = index !== undefined && target !== undefined ? index - target : 0;
-    if (!approve(!hashOnly && delta !== 0)) {
+    if (!approve(!hashOnly && delta !== 0) && index !== undefined && target !== undefined) {
       // Capture precedes Inertia's bubble listener. Neither it nor the return
       // traversal may restore a page or scroll over the live unsaved form.
       event.stopImmediatePropagation();
-      returning = true;
-      history.go(delta);
+      returning = { position: index, navigation: navigation !== undefined, attempts: 0 };
+      returnToLive(target);
       return;
     }
     // shortcut: untracked entries (pre-mount or native null-state hashes) have
