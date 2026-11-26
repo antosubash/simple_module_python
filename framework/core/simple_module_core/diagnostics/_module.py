@@ -48,8 +48,10 @@ class ModuleDiagnostics:
         for mod in modules:
             src_dir = self._find_source_dir(mod)
             if src_dir:
-                rendered_pages = find_render_calls(mod, src_dir)
-                diagnostics.extend(check_pages(mod, src_dir, rendered_pages))
+                rendered_pages, unresolved = find_render_calls(mod, src_dir)
+                diagnostics.extend(
+                    check_pages(mod, src_dir, rendered_pages, unresolved_renders=unresolved)
+                )
                 diagnostics.extend(check_js_workspace_files(mod, src_dir))
                 diagnostics.extend(check_inertia_api_calls(mod, src_dir))
                 diagnostics.extend(check_module_css(mod, src_dir))

@@ -638,7 +638,7 @@ Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — 
 | Code | Level | Trigger |
 |---|---|---|
 | SM001 | ERROR | Module missing `meta` |
-| SM003 | WARNING | `pages/<name>.tsx` exists but no matching `inertia.render()` call |
+| SM003 | WARNING; INFO when render targets are unresolved | `pages/<name>.tsx` exists but no resolved matching `inertia.render()` call in the module; check unresolved targets before treating it as orphaned |
 | SM004 | WARNING | `inertia.render("<Module>/<name>")` but no matching `.tsx` |
 | SM007 | INFO | Module defines no `register_*` hooks |
 | SM008 | ERROR (strict/static) / WARNING (lenient discovery) | Duplicate module name (strict discovery names both distributions) / schema prefix conflict |
