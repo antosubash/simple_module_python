@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["RESERVED", "command_name", "group_name"]
+__all__ = ["RESERVED", "command_name", "group_name", "snake_name"]
 
 RESERVED: frozenset[str] = frozenset(
     {"env", "login", "logout", "whoami", "doctor", "schema", "api", "raw"}
@@ -23,6 +23,11 @@ def _kebab(name: str) -> str:
     return _snake(name).replace("_", "-")
 
 
+def snake_name(name: str) -> str:
+    """Public snake-case helper (``X-Foo`` -> ``x_foo``)."""
+    return _snake(name)
+
+
 def group_name(tag: str | None) -> str:
     """``FeatureFlags`` -> ``feature-flags``; no tag -> ``host``."""
     if not tag:
@@ -30,8 +35,19 @@ def group_name(tag: str | None) -> str:
     return _kebab(tag) or UNTAGGED_GROUP
 
 
-def command_name(operation_id: str, tag: str | None, override: str | None) -> str:
-    """Strip the ``<snake(tag)>_`` prefix and kebab-case the rest; ``override`` wins."""
+def command_name(
+    operation_id: str,
+    tag: str | None,
+    override: str | None,
+    *,
+    method: str = "",
+    path: str = "",
+) -> str:
+    """Strip the ``<snake(tag)>_`` prefix and kebab-case the rest; ``override`` wins.
+
+    Never returns an empty string: an id with no usable characters falls back to the
+    kebab of ``<method>-<path>``, then to ``operation``.
+    """
     if override:
         return override
     rest = operation_id
@@ -39,4 +55,4 @@ def command_name(operation_id: str, tag: str | None, override: str | None) -> st
         prefix = f"{_snake(tag)}_"
         if rest.startswith(prefix) and len(rest) > len(prefix):
             rest = rest[len(prefix) :]
-    return _kebab(rest)
+    return _kebab(rest) or _kebab(f"{method}_{path}") or "operation"

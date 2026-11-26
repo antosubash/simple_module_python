@@ -52,16 +52,30 @@ def _collect_params(schema: dict, path_item: dict, op: dict) -> tuple[Param, ...
         loc, name = param.get("in"), param.get("name")
         if loc in ("path", "query") and isinstance(name, str):
             merged[(loc, name)] = param
-    return tuple(
-        Param(
-            name=name,
-            location=loc,  # ty: ignore[invalid-argument-type]
-            required=bool(p.get("required", False)) or loc == "path",
-            schema=resolve_ref(schema, p.get("schema") or {}),
-            description=str(p.get("description") or ""),
+    params: list[Param] = []
+    for (loc, name), p in merged.items():
+        location: Literal["path", "query"]
+        if loc == "path":
+            location = "path"
+        elif loc == "query":
+            location = "query"
+        else:
+            continue
+        params.append(
+            Param(
+                name=name,
+                location=location,
+                required=bool(p.get("required", False)) or location == "path",
+                schema=resolve_ref(schema, p.get("schema") or {}),
+                description=str(p.get("description") or ""),
+            )
         )
-        for (loc, name), p in merged.items()
-    )
+    return tuple(params)
+
+
+def _is_json_media(media: str) -> bool:
+    base = media.split(";", 1)[0].strip().lower()
+    return base == JSON_MEDIA or (base.startswith("application/") and base.endswith("+json"))
 
 
 def _body(schema: dict, op: dict) -> tuple[BodyKind, dict | None]:
@@ -70,8 +84,9 @@ def _body(schema: dict, op: dict) -> tuple[BodyKind, dict | None]:
     if not isinstance(content, dict) or not content:
         return "none", None
     kind: BodyKind
-    if JSON_MEDIA in content:
-        kind, media = "json", JSON_MEDIA
+    json_media = next((m for m in content if isinstance(m, str) and _is_json_media(m)), None)
+    if json_media is not None:
+        kind, media = "json", json_media
     elif MULTIPART_MEDIA in content:
         kind, media = "multipart", MULTIPART_MEDIA
     else:
@@ -101,7 +116,13 @@ def parse_operations(schema: dict) -> list[Operation]:
                     method=method.upper(),
                     path=path,
                     group=group_name(tag),
-                    name=command_name(op_id, tag, override if isinstance(override, str) else None),
+                    name=command_name(
+                        op_id,
+                        tag,
+                        override if isinstance(override, str) else None,
+                        method=method,
+                        path=path,
+                    ),
                     params=_collect_params(schema, item, op),
                     body_kind=kind,
                     body_schema=body_schema,
