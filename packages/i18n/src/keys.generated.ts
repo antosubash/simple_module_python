@@ -1073,6 +1073,7 @@ export const keys = {
     errors: {
       token_not_allowed: 'hosting.errors.token_not_allowed',
     },
+    permission_group: 'hosting.permission_group',
     settings_form: {
       description: 'hosting.settings_form.description',
       fields: {
@@ -1851,6 +1852,7 @@ export const keys = {
       admission_conflict: 'tenants.errors.admission_conflict',
       already_invited: 'tenants.errors.already_invited',
       already_member: 'tenants.errors.already_member',
+      cannot_suspend_own_tenant: 'tenants.errors.cannot_suspend_own_tenant',
       generic: 'tenants.errors.generic',
       invitation_email_mismatch: 'tenants.errors.invitation_email_mismatch',
       invitation_email_unverified: 'tenants.errors.invitation_email_unverified',

@@ -254,6 +254,8 @@ uv run smdev users admin-update-user <id> --set email=a@b.c --set full_name=Ada 
 
 Only operations a personal access token may call (`x-sm-token`) exist as commands. In CI set `SMDEV_ENV` and `SMDEV_TOKEN`. After an API change run `make cli-schema` and commit `host_cli/smdev_cli/openapi.json`. See `docs/guide/project-cli.md`.
 
+`smdev schema sync` caches the environment's own OpenAPI (needs `host.openapi.read`) so commands match the running server; `--schema live|bundled` chooses the source, and `schema status` shows which is in use. What each credential kind (platform-admin PAT, tenant-admin PAT, service key) may call is in the "Credential matrix" section of `docs/guide/project-cli.md`.
+
 ## Pitfalls
 
 - **Wrong shell for `--with`.** `uv run smpy new` `--with auth,users` (catalog keys, lowercase). `uv run smpy create-host` `--with Auth,Users` (`ModuleMeta.name`, PascalCase). They're not interchangeable.

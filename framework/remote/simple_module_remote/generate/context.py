@@ -29,6 +29,8 @@ class RunContext:
     # stdin and stderr are both terminals: a confirmation prompt can be answered.
     interactive: bool = False
     login_hint: str = ""
+    # Said after a 404/422: the command may come from a schema older than the server's.
+    schema_hint: str = ""
     tenant: str | None = None
     # The operation is known to refuse tokens (a session-only route reached through `api`).
     session_only: bool = False

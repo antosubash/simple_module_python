@@ -26,6 +26,8 @@ def audit_callback(session: Session, records: list[AuditRecord]) -> None:
                 changes=record.changes,
                 user_id=record.user_id,
                 correlation_id=record.correlation_id,
+                auth_kind=record.auth_kind,
+                token_id=record.token_id,
                 tenant_id=tenant_id,
             )
             session.add(entry)

@@ -48,11 +48,13 @@ router = APIRouter()
 # endpoints used to be unauthenticated relative to the role map — any logged-in
 # user could read or rewrite system settings (including secrets like
 # ``oauth_google_client_secret``). Each route now gates on the relevant
-# permission via the wildcard map.
+# permission via the wildcard map. Mutations also need ``settings.view``, as
+# their admin pages do (the view router is gated on it): a token scoped to
+# ``settings.edit`` alone must not do through the API what no page allows.
 _VIEW = [Depends(RequiresPermission(Permissions.VIEW))]
-_CREATE = [Depends(RequiresPermission(Permissions.CREATE))]
-_EDIT = [Depends(RequiresPermission(Permissions.EDIT))]
-_DELETE = [Depends(RequiresPermission(Permissions.DELETE))]
+_CREATE = [*_VIEW, Depends(RequiresPermission(Permissions.CREATE))]
+_EDIT = [*_VIEW, Depends(RequiresPermission(Permissions.EDIT))]
+_DELETE = [*_VIEW, Depends(RequiresPermission(Permissions.DELETE))]
 
 
 def _not_found() -> HTTPException:

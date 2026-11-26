@@ -29,3 +29,12 @@ def test_group_name(tag, expected):
 
 def test_reserved_names():
     assert {"env", "login", "logout", "whoami", "doctor", "schema", "api", "raw"} == RESERVED
+
+
+@pytest.mark.parametrize("override", ["\x1b[31mevil", "Upper", "-lead", "a b", "x" * 64, ""])
+def test_invalid_override_falls_back_to_the_derived_name(override):
+    assert command_name("users_list_users", "Users", override) == "list-users"
+
+
+def test_valid_override_wins():
+    assert command_name("users_list_users", "Users", "ls") == "ls"

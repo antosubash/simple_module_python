@@ -5,7 +5,6 @@ from __future__ import annotations
 import click
 
 from simple_module_remote.commands.runtime import (
-    SCHEMA_BUNDLED,
     WHOAMI_PATH,
     AppState,
     CliError,
@@ -149,6 +148,10 @@ def doctor(ctx: click.Context) -> None:
         if _check_url(state, env, report):
             _check_reachable(state, env, report)
             _check_identity(state, env, explicit, report)
-    report.ok("schema", f"{SCHEMA_BUNDLED} {state.schema_path} (version {schema_info(state.root)})")
+    report.ok(
+        "schema",
+        f"{state.schema_source} {state.schema_path} (version {schema_info(state.root)})"
+        + (f"; live: {state.schema_note}" if state.schema_note else ""),
+    )
     if report.failed:
         ctx.exit(1)

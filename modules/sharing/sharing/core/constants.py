@@ -39,6 +39,7 @@ USER_ROLE: Final = "user"
 PAGE_ADMIN: Final = "Sharing/Admin"
 
 API_PREFIX: Final = "/api/sharing"
+ADMIN_API_PATH: Final = "/admin"
 CANDIDATES_URL: Final = f"{API_PREFIX}/candidates"
 CANDIDATES_RATE: Final = "60/minute"
 CANDIDATES_DAILY_RATE: Final = "500/day"

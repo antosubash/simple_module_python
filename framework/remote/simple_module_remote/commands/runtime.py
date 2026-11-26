@@ -34,11 +34,21 @@ from simple_module_remote.generate.execute import run_operation
 from simple_module_remote.generate.operations import Operation
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import EXIT_USAGE, REDIRECT_MIN, ApiError, UnsafePathError
+from simple_module_remote.schema.cache import CacheMeta
 
-__all__ = ["SCHEMA_BUNDLED", "WHOAMI_PATH", "AppState", "CliError", "fetch_whoami", "state_of"]
+__all__ = [
+    "SCHEMA_BUNDLED",
+    "SCHEMA_LIVE",
+    "WHOAMI_PATH",
+    "AppState",
+    "CliError",
+    "fetch_whoami",
+    "state_of",
+]
 
 WHOAMI_PATH = "/api/_meta/whoami"
 SCHEMA_BUNDLED = "bundled"
+SCHEMA_LIVE = "live"
 WHOAMI_FIELDS = ("id", "email", "auth_kind")
 
 
@@ -61,6 +71,15 @@ class AppState:
     backend: KeyringBackend | None = None
     environ: Mapping[str, str] = field(default_factory=lambda: os.environ)
     flag_env: str | None = None
+    # The schema this invocation uses (see commands/schema_source.py).
+    schema_source: str = SCHEMA_BUNDLED
+    schema_meta: CacheMeta | None = None
+    schema_note: str = ""
+    # The bundled schema: the only one whose `x-cli-safe` may waive a confirmation.
+    bundled_root: dict = field(default_factory=dict)
+    # The environment resolved before parsing, as ``(--env value, env, explicit)``; the
+    # schema was chosen for it, so requests in this invocation must use the same one.
+    preselected: tuple[str | None, Environment, bool] | None = None
     flag_tenant: str | None = None
     _store: CredentialStore | None = None
     _tokens: dict[tuple[str, str | None, str], ResolvedToken] = field(default_factory=dict)
@@ -69,11 +88,19 @@ class AppState:
     def user_agent(self) -> str:
         return f"{self.cli}/{self.version} simple_module_remote/{engine_version}"
 
+    def use_schema(
+        self, source: str, path: Path, root: dict, meta: CacheMeta | None, note: str
+    ) -> None:
+        self.schema_source, self.schema_path, self.root = source, path, root
+        self.schema_meta, self.schema_note = meta, note
+
     def begin(self, env: str | None, tenant: str | None) -> None:
         """Start an invocation: set the root flags and forget tokens from earlier ones."""
         if tenant is not None:
             with self.guard():
                 validate_tenant(tenant)
+        if self.preselected is not None and self.preselected[0] != env:
+            raise CliError("could not read --env before parsing: put it before the command")
         self.flag_env = env
         self.flag_tenant = tenant
         self._tokens.clear()
@@ -91,6 +118,8 @@ class AppState:
             return load_config(self.cli, self.defaults_path)
 
     def select(self) -> tuple[Environment, bool]:
+        if self.preselected is not None and self.preselected[0] == self.flag_env:
+            return self.preselected[1], self.preselected[2]
         config = self.config()
         try:
             return select_env(config, self.flag_env, self.environ, self.cli)
@@ -155,13 +184,27 @@ class AppState:
             stdin=sys.stdin,
             prompt=lambda text: click.prompt(text, default="", show_default=False, err=True),
             root=self.root,
+            schema_hint=self.schema_hint(env),
         )
         return run_ctx
 
-    def run(self, op: Operation, values: dict[str, Any]) -> int:
+    def schema_hint(self, env: Environment) -> str:
+        """What to say after a 404/422 from a generated command: the schema may be stale."""
+        if self.schema_source == SCHEMA_LIVE:
+            return (
+                f"hint: the server may have changed: run `{self.cli} --env {env.name} schema sync`"
+            )
+        return (
+            "hint: this command comes from the bundled schema, which may not match the server; "
+            f"run `{self.cli} --env {env.name} schema sync`"
+        )
+
+    def run(self, op: Operation, values: dict[str, Any], *, generated: bool = True) -> int:
         """Select the environment and execute ``op``; returns the process exit code."""
         env, explicit = self.select()
         run_ctx = self.run_context(env, explicit)
+        if not generated:
+            run_ctx.schema_hint = ""  # `api METHOD PATH` is not tied to the schema
         with self.guard():
             return run_operation(run_ctx, op, values)
 

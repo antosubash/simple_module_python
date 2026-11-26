@@ -15,7 +15,13 @@ from fastapi import APIRouter, Depends, Request, Response
 from simple_module_core.access.permissions import grants
 from simple_module_core.access.user_directory import get_user_directory
 from simple_module_hosting.auth.permissions import RequiresPermission, resolved_permissions_for
-from simple_module_hosting.auth.token_guard import Authenticated
+from simple_module_hosting.auth.token_guard import (
+    GATE_SESSION,
+    Authenticated,
+    TokenAllowed,
+    is_token_principal,
+    mark_token_gate,
+)
 from simple_module_hosting.frontend.pagination import PageParamsDep
 from simple_module_hosting.pipeline.public_urls import public_origin
 
@@ -44,6 +50,16 @@ from tenants.web.deps import (
 
 router = APIRouter()
 
+
+async def require_session_only() -> None:
+    """Session-only gate: a token is pinned to one tenant, so switching, leaving
+    or accepting an invitation has no meaning for it. The token guard refuses
+    tokens before this runs; the body is a no-op."""
+
+
+mark_token_gate(require_session_only, GATE_SESSION)
+_SESSION_ONLY = [Depends(Authenticated()), Depends(require_session_only)]
+
 _VIEW = [Depends(RequiresPermission(Permissions.MEMBERS_VIEW))]
 _MANAGE = [Depends(RequiresPermission(Permissions.MEMBERS_MANAGE))]
 
@@ -63,31 +79,50 @@ async def _email_verified(request: Request, invitations: Any, user_id: str) -> b
     return getattr(getattr(request.state, "user", None), "email_verified", False) is True
 
 
-@router.get("/", response_model=list[MyTenantView], dependencies=[Depends(Authenticated())])
-async def list_mine(user_id: UserIdDep, service: TenantServiceDep) -> list[MyTenantView]:
+@router.get(
+    "/",
+    response_model=list[MyTenantView],
+    dependencies=[Depends(Authenticated()), Depends(TokenAllowed())],
+)
+async def list_mine(
+    request: Request, user_id: UserIdDep, service: TenantServiceDep
+) -> list[MyTenantView]:
     rows = await service.list_for_user(user_id)
+    user = getattr(request.state, "user", None)
+    if is_token_principal(user):
+        # A token is pinned to one tenant: show only that one (and only while
+        # the owner still has a membership row there), never the owner's others.
+        pinned = getattr(user, "tenant_id", None)
+        rows = [(t, role) for t, role in rows if pinned is not None and t.id == pinned]
     return [MyTenantView(**t.model_dump(), role=role) for t, role in rows]
 
 
 @router.post(
-    "/", response_model=MyTenantView, status_code=201, dependencies=[Depends(Authenticated())]
+    "/",
+    response_model=MyTenantView,
+    status_code=201,
+    dependencies=[Depends(Authenticated()), Depends(TokenAllowed())],
 )
 async def create_tenant(
     data: TenantCreate, request: Request, user_id: UserIdDep, service: TenantServiceDep
 ) -> MyTenantView:
     settings = request.app.state.tenants.settings
-    if not settings.allow_self_service and not grants(
-        resolved_permissions_for(request), Permissions.PLATFORM_MANAGE
-    ):
+    is_platform = grants(resolved_permissions_for(request), Permissions.PLATFORM_MANAGE)
+    # Self-service is a browser-session shortcut; a token must hold the
+    # (scope-capped) platform permission whatever the setting says.
+    token = is_token_principal(getattr(request.state, "user", None))
+    if not is_platform and (token or not settings.allow_self_service):
         raise TenantError("self_service_disabled", status_code=403)
     tenant = await service.create_tenant(
         data, owner_user_id=user_id, owner_email=_email_of(request)
     )
-    switch_active(request, tenant.id)
+    # A token principal has no session to switch; it stays pinned to its tenant.
+    if not is_token_principal(getattr(request.state, "user", None)):
+        switch_active(request, tenant.id)
     return MyTenantView(**tenant.model_dump(), role=MembershipRole.OWNER)
 
 
-@router.post("/{tenant_id}/switch", status_code=204, dependencies=[Depends(Authenticated())])
+@router.post("/{tenant_id}/switch", status_code=204, dependencies=_SESSION_ONLY)
 async def switch_tenant(
     tenant_id: str, request: Request, user_id: UserIdDep, service: TenantServiceDep
 ) -> Response:
@@ -133,7 +168,7 @@ async def remove_member(user_id: str, ctx: ManagerDep, service: TenantServiceDep
     return Response(status_code=204)
 
 
-@router.delete("/current/membership", status_code=204, dependencies=[Depends(Authenticated())])
+@router.delete("/current/membership", status_code=204, dependencies=_SESSION_ONLY)
 async def leave(ctx: ActiveTenantDep, service: TenantServiceDep) -> Response:
     """Leave the active tenant. The last owner cannot leave."""
     await service.remove_member(ctx.tenant_id, ctx.user_id, actor_role=ctx.role)
@@ -184,9 +219,7 @@ async def revoke_invitation(
     return Response(status_code=204)
 
 
-@router.post(
-    "/invitations/accept", response_model=MyTenantView, dependencies=[Depends(Authenticated())]
-)
+@router.post("/invitations/accept", response_model=MyTenantView, dependencies=_SESSION_ONLY)
 async def accept_invitation(
     payload: dict[str, str],
     request: Request,

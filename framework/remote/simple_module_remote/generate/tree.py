@@ -40,7 +40,7 @@ def build_groups(
         detail = "; ".join(
             f"{group} {name}".strip() + f" ({', '.join(ids)})" for group, name, ids in collisions
         )
-        raise TreeError(f"command name collisions in the schema: {detail}")
+        raise TreeError(sanitize(f"command name collisions in the schema: {detail}"))
     described = {
         group_name(t["name"]): str(t["description"])
         for t in schema.get("tags") or []

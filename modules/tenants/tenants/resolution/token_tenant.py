@@ -19,7 +19,7 @@ from typing import Any
 
 from auth.contracts.tokens import AUTH_KIND_SERVICE
 from simple_module_db import is_valid_tenant_id
-from simple_module_db.models.listeners import current_user_id
+from simple_module_hosting.auth.principal import forget_principal
 from starlette.requests import Request
 
 from tenants.core.constants import TenantStatus
@@ -43,7 +43,7 @@ async def _service_tenant(request: Request, tenant_id: Any) -> str | None:
         tenant = await db.get(Tenant, tenant_id)
     if tenant is None or tenant.status != TenantStatus.ACTIVE:
         request.state.tenant_suspended = tenant is not None
-        _forget_principal(request)
+        forget_principal(request)
         return None
     return tenant_id
 
@@ -57,15 +57,9 @@ async def _personal_tenant(request: Request, user: Any, tenant_id: Any) -> str |
         own = next((m for m in memberships if m.id == tenant_id), None)
     if own is None or own.status != TenantStatus.ACTIVE:
         request.state.tenant_suspended = own is not None
-        _forget_principal(request)
+        forget_principal(request)
         return None
     return _enter(request, user, own)
-
-
-def _forget_principal(request: Request) -> None:
-    request.state.user = None
-    request.state.resolved_permissions = set()
-    current_user_id.set(None)
 
 
 __all__ = ["pinned_token_tenant"]

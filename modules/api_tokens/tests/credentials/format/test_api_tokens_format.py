@@ -71,12 +71,13 @@ class TestUserContextFields:
         assert ctx.scopes is None
         assert not ctx.is_scoped
 
-    def test_session_dict_round_trip_keeps_kind_and_scopes(self):
+    def test_session_dict_drops_kind_and_scopes(self):
+        """A token principal never survives a trip through the session cookie."""
         ctx = UserContext(id="1", email="a@b", name="A", auth_kind="pat", scopes=["x.read"])
         back = UserContext.from_session_dict(ctx.to_session_dict())
         assert back is not None
-        assert back.auth_kind == "pat"
-        assert back.scopes == ["x.read"]
+        assert back.auth_kind == "session"
+        assert back.scopes is None
 
     def test_old_cookie_without_the_fields_is_a_session(self):
         back = UserContext.from_session_dict({"id": "1", "email": "a@b", "name": "A"})

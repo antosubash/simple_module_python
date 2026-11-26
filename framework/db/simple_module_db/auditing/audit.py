@@ -17,8 +17,6 @@ resolves the now-stable ``entity_id`` in ``after_flush_postexec``.
 
 from __future__ import annotations
 
-import re
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,7 +24,10 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ClauseElement
 
+from simple_module_db.auditing._pk import format_pk as format_pk
+from simple_module_db.auditing._pk import parse_uuid_pk as parse_uuid_pk
 from simple_module_db.auditing.audit_redaction import redact_changes, redact_entity_id
+from simple_module_db.models.credential import current_auth_kind, current_token_id
 from simple_module_db.models.mixins import SoftDeleteMixin
 
 # Fields injected by AuditMixin — always excluded from change diffs
@@ -52,6 +53,8 @@ class AuditRecord:
     changes: list[dict[str, Any]] = field(default_factory=list)
     user_id: str | None = None
     correlation_id: str | None = None
+    auth_kind: str | None = None
+    token_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +72,8 @@ class _PendingChange:
     changes: list[dict[str, Any]]
     user_id: str | None
     correlation_id: str | None
+    auth_kind: str | None = None
+    token_id: str | None = None
 
 
 def _is_excluded(obj: object) -> bool:
@@ -84,26 +89,6 @@ def _excluded_fields(obj: object) -> frozenset[str]:
 
 #: Recorded as the new value when an update assigns a SQL expression.
 COMPUTED_BY_DATABASE = "<computed by database>"
-
-_UUID_PK_PART = r"UUID\('([^']+)'\)"
-_UUID_COMPOSITE_PK = re.compile(rf"\({_UUID_PK_PART}(?:, {_UUID_PK_PART})+\)")
-
-
-def format_pk(values: tuple | list) -> str:
-    """One primary-key rendering for ``entity_id``: bare value, or a tuple string."""
-    if len(values) == 1:
-        return str(values[0]) if values[0] is not None else ""
-    return str(tuple(values))
-
-
-def parse_uuid_pk(value: str) -> tuple[uuid.UUID, ...] | None:
-    """Read composite UUID keys from ``format_pk``; unsupported ids return None."""
-    if _UUID_COMPOSITE_PK.fullmatch(value) is None:
-        return None
-    try:
-        return tuple(uuid.UUID(part) for part in re.findall(_UUID_PK_PART, value))
-    except ValueError:
-        return None
 
 
 def _entity_pk_str(obj: object) -> str:
@@ -166,6 +151,7 @@ def snapshot_changes(
     after flush, so the diff itself must be captured now.
     """
     pending: list[_PendingChange] = []
+    auth_kind, token_id = current_auth_kind.get(), current_token_id.get()
 
     excluded_cache: dict[type, frozenset[str]] = {}
     pk_cols_cache: dict[type, set[str]] = {}
@@ -206,6 +192,8 @@ def snapshot_changes(
                 changes=redact_changes(type(obj), changes, obj),
                 user_id=user_id,
                 correlation_id=correlation_id,
+                auth_kind=auth_kind,
+                token_id=token_id,
             )
         )
 
@@ -228,6 +216,8 @@ def snapshot_changes(
                     changes=changes,
                     user_id=user_id,
                     correlation_id=correlation_id,
+                    auth_kind=auth_kind,
+                    token_id=token_id,
                 )
             )
             continue
@@ -240,6 +230,8 @@ def snapshot_changes(
                     changes=changes,
                     user_id=user_id,
                     correlation_id=correlation_id,
+                    auth_kind=auth_kind,
+                    token_id=token_id,
                 )
             )
 
@@ -255,6 +247,8 @@ def snapshot_changes(
                 changes=[],
                 user_id=user_id,
                 correlation_id=correlation_id,
+                auth_kind=auth_kind,
+                token_id=token_id,
             )
         )
 
@@ -275,6 +269,8 @@ def finalize_records(pending: list[_PendingChange]) -> list[AuditRecord]:
             changes=p.changes,
             user_id=p.user_id,
             correlation_id=p.correlation_id,
+            auth_kind=p.auth_kind,
+            token_id=p.token_id,
         )
         for p in pending
     ]

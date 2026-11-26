@@ -124,6 +124,7 @@
   },
   "errors": {
     "slug_taken": "Diese Kennung wird bereits verwendet.",
+    "cannot_suspend_own_tenant": "Ein Token kann die Organisation, zu der es gehört, nicht sperren.",
     "self_service_disabled": "Das Erstellen von Organisationen ist deaktiviert. Bitten Sie einen Plattformadministrator, eine für Sie zu erstellen.",
     "validation_failed": "Bitte prüfen Sie das Formular und versuchen Sie es erneut.",
     "tenant_suspended": "Diese Organisation ist gesperrt.",

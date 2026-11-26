@@ -36,6 +36,7 @@ def operation_command(op: Operation, root: dict) -> click.Command:
         if code:
             ctx.exit(code)
 
+    route = sanitize(f"{op.method} {op.path}")
     summary = sanitize(op.summary)
     text = sanitize(op.description) or summary
     if not success_is_json(op, root):
@@ -44,6 +45,6 @@ def operation_command(op: Operation, root: dict) -> click.Command:
         op.name,
         params=params,
         callback=callback,
-        help=f"{text}\n\n{op.method} {op.path}" if text else f"{op.method} {op.path}",
+        help=f"{text}\n\n{route}" if text else route,
         short_help=summary or None,
     )

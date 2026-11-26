@@ -1,0 +1,98 @@
+"""Audit rows record how the actor authenticated and, for tokens, which one (#1178)."""
+
+from __future__ import annotations
+
+from _api_tokens_support import CSRF, admin_session, create_pat  # ty: ignore[import-not-found]
+from audit_log.models import AuditEntry
+from background_tasks.models import TaskExecution
+from simple_module_db import all_tenants, tenant_context
+from simple_module_db.models.credential import current_auth_kind, current_token_id
+from simple_module_test.web.tenant_client import session_client
+from sqlalchemy import update
+from sqlmodel import col, select
+from tenants.core.constants import Permissions
+
+_URL = "/api/tenants/"
+
+
+async def _tenant_rows(app, name: str) -> list[AuditEntry]:
+    async with app.state.sm.db.session_factory() as session:
+        stmt = select(AuditEntry).where(col(AuditEntry.entity_type) == "Tenant")
+        rows = (await session.execute(stmt)).scalars().all()
+    return [r for r in rows if any(c.get("new") == name for c in r.changes)]
+
+
+async def test_pat_mutation_records_pat_and_token_id(app):
+    import httpx
+
+    async with session_client(app, await admin_session(app)) as c:
+        body = await create_pat(c, [Permissions.PLATFORM_MANAGE])
+    app.state.tenants.settings.allow_self_service = False
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+        headers={"Authorization": f"Bearer {body['token']}"},
+    ) as bc:
+        resp = await bc.post(_URL, json={"name": "Attr Pat"})
+    assert resp.status_code == 201, resp.text
+    rows = await _tenant_rows(app, "Attr Pat")
+    assert rows
+    assert {r.auth_kind for r in rows} == {"pat"}
+    assert {r.token_id for r in rows} == {str(body["item"]["id"])}
+
+
+async def test_session_mutation_records_session_without_token(app):
+    data = await admin_session(app)
+    app.state.tenants.settings.allow_self_service = True
+    async with session_client(app, data) as c:
+        resp = await c.post(_URL, json={"name": "Attr Session"}, headers={"X-CSRF-Token": CSRF})
+    assert resp.status_code == 201, resp.text
+    rows = await _tenant_rows(app, "Attr Session")
+    assert rows
+    assert {r.auth_kind for r in rows} == {"session"}
+    assert {r.token_id for r in rows} == {None}
+
+
+async def test_bulk_statement_carries_credential(app):
+    async with app.state.sm.db.session_factory() as session:
+        row = TaskExecution(task_name="attr.bulk")
+        session.add(row)
+        await session.commit()
+        entity_id = str(row.id)
+    kind = current_auth_kind.set("service")
+    tok = current_token_id.set("tok-1")
+    try:
+        async with app.state.sm.db.session_factory() as session:
+            with tenant_context("tenant-a"):
+                await session.execute(update(TaskExecution).values(worker="w-attr"))
+                await session.commit()
+    finally:
+        current_token_id.reset(tok)
+        current_auth_kind.reset(kind)
+    async with app.state.sm.db.session_factory() as session:
+        with all_tenants():
+            stmt = select(AuditEntry).where(
+                col(AuditEntry.entity_type) == TaskExecution.__name__,
+                col(AuditEntry.action) == "bulk_updated",
+                col(AuditEntry.entity_id) == entity_id,
+            )
+            rows = (await session.execute(stmt)).scalars().all()
+    assert [(r.auth_kind, r.token_id) for r in rows] == [("service", "tok-1")]
+
+
+async def test_audit_api_returns_fields(app, authenticated_client):
+    async with app.state.sm.db.session_factory() as session:
+        session.add(
+            AuditEntry(
+                entity_type="AttrApi",
+                entity_id="1",
+                action="updated",
+                auth_kind="pat",
+                token_id="tok-9",
+            )
+        )
+        await session.commit()
+    resp = await authenticated_client.get("/api/audit_log/", params={"entity_type": "AttrApi"})
+    assert resp.status_code == 200, resp.text
+    item = resp.json()["items"][0]
+    assert (item["auth_kind"], item["token_id"]) == ("pat", "tok-9")

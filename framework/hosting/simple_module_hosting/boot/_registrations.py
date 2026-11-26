@@ -15,6 +15,8 @@ from simple_module_core.web.body_limits import BodyLimitRegistry
 from simple_module_core.web.cors import CorsPolicyRegistry
 from simple_module_core.web.rate_limit import RateLimitRegistry
 
+from simple_module_hosting.auth.host_permissions import HostPermissions
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
@@ -64,6 +66,8 @@ def run_module_registrations(
     the last one's name would be a lie.
     """
     resource_type_registry = resource_type_registry or ResourceTypeRegistry()
+    # The framework's own permissions first, so a module's grants can name them.
+    perm_registry.add_catalogue(HostPermissions)
     for mod in modules:
         with menu_registry.admin_surface(mod.meta.admin):
             mod.register_menu_items(menu_registry)

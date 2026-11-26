@@ -4,13 +4,26 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["RESERVED", "command_name", "group_name", "kebab_name", "snake_name"]
+__all__ = [
+    "RESERVED",
+    "command_name",
+    "group_name",
+    "kebab_name",
+    "snake_name",
+    "valid_command_name",
+]
 
 RESERVED: frozenset[str] = frozenset(
     {"env", "login", "logout", "whoami", "doctor", "schema", "api", "raw"}
 )
 
 UNTAGGED_GROUP = "host"
+# What an `x-cli-name` override may be: the same alphabet derived names use.
+_COMMAND_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+
+
+def valid_command_name(name: str) -> bool:
+    return bool(_COMMAND_NAME.fullmatch(name))
 
 
 def snake_name(name: str) -> str:
@@ -41,12 +54,12 @@ def command_name(
     method: str = "",
     path: str = "",
 ) -> str:
-    """Strip the ``<snake(tag)>_`` prefix and kebab-case the rest; ``override`` wins.
+    """Strip the ``<snake(tag)>_`` prefix and kebab-case the rest; a valid ``override`` wins.
 
     Never returns an empty string: an id with no usable characters falls back to the
     kebab of ``<method>-<path>``, then to ``operation``.
     """
-    if override:
+    if override and valid_command_name(override):
         return override
     rest = operation_id
     if tag:

@@ -868,6 +868,46 @@ anonymous authentication forms explicitly expose their session token instead.
 Safe methods are never checked, and bare test apps without `SessionMiddleware`
 are exempt, so unit tests need no ceremony.
 
+## Form actions name their API equivalent
+
+A page route refuses API tokens, so anything a browser changes through a view
+form must also be reachable through the JSON API, or the project CLI cannot do
+it. Every non-GET view route (any route outside `/api/` with `POST`, `PUT`,
+`PATCH` or `DELETE`) declares either:
+
+- one or more `api_equivalent(method, path)`: the `/api` operation that makes
+  the same change, by method and path template exactly as registered. A view
+  acting on several scopes (system and tenant) declares one per scope. Each
+  target must admit tokens (a `RequiresPermission` gate, or `TokenAllowed`) and
+  should require at least what the view does, router-level guards included.
+- exactly one `api_exempt(reason)`: why no token may do this. Use the reason constants
+  `EXEMPT_LOGOUT`, `EXEMPT_AUTH_FLOW`, `EXEMPT_SELF_ACCOUNT`,
+  `EXEMPT_TOKEN_MANAGEMENT`, `EXEMPT_SETUP` or `EXEMPT_LOCALE`.
+
+```python
+from simple_module_hosting.auth.api_equivalent import api_equivalent
+
+
+@router.post(
+    "/{item_id}",
+    response_model=None,
+    dependencies=[
+        Depends(RequiresPermission(Permissions.EDIT)),
+        Depends(api_equivalent("PUT", "/api/orders/{item_id}")),
+    ],
+)
+async def edit_submit(item_id: int, data: OrderUpdate) -> RedirectResponse: ...
+```
+
+Both markers are no-op dependencies. When no API route exists yet, add one under
+the same permissions, calling the same service. In this repository
+`host/tests/test_view_api_equivalents.py` walks the built app and fails on a
+missing or conflicting declaration, a target that is not a registered route,
+or a target that refuses tokens (judged on the route that dispatches first;
+mounted sub-apps included). An app can run the same check with
+`simple_module_hosting.auth.api_equivalent.view_route_offenders(app)`.
+`smpy create-module` already declares them on the scaffold's two form actions.
+
 ## Prop types (Inertia v3)
 
 The adapter is the in-repo `simple_module_inertia` package, which speaks the

@@ -31,6 +31,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_inertia import InertiaResponse
 
+from simple_module_hosting.auth.api_equivalent import EXEMPT_SETUP, api_exempt
 from simple_module_hosting.auth.csrf import RequiresCsrf, get_csrf_token
 from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_hosting.i18n.i18n_deps import TranslatorDep
@@ -97,7 +98,7 @@ async def setup_index(
     return response
 
 
-@router.post("/test-connections")
+@router.post("/test-connections", dependencies=[Depends(api_exempt(EXEMPT_SETUP))])
 async def test_connections(request: Request) -> dict:
     """Re-run the connection checks without reloading the page."""
     return {"checks": await connection_status(request)}
@@ -117,7 +118,7 @@ async def _read_form(request: Request) -> dict:
     return data
 
 
-@router.post("/steps/{step_id}")
+@router.post("/steps/{step_id}", dependencies=[Depends(api_exempt(EXEMPT_SETUP))])
 async def run_step_action(step_id: str, request: Request) -> dict:
     """Complete one step through the action its module registered.
 

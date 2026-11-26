@@ -15,15 +15,17 @@ from pydantic import ValidationError
 from simple_module_core.settings.module_settings import module_settings_registry
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.i18n.i18n_deps import TranslatorDep
+from simple_module_hosting.rate_limit.rate_limit_deps import RateLimit
 
 from settings.core.constants import Permissions
 from settings.core.service import SettingService
+from settings.module_settings.connection import run_connection_test
 from settings.module_settings.discovery import (
     SECRET_MASK,
     collect_module_settings,
     overrides_by_package,
 )
-from settings.module_settings.props import serialize
+from settings.module_settings.props import serialize, testable_packages
 from settings.module_settings.reload import (
     EnvPinnedError,
     apply_changes_and_reload,
@@ -37,9 +39,10 @@ router = APIRouter(prefix="/modules", tags=["Settings Modules"])
 # Per-module settings UI exposes raw secret values (mailer password, JWT
 # signing keys, etc.) — every endpoint here is gated on the same permissions
 # the scoped API uses so a non-admin can't read or mutate module config.
+# Mutations need ``settings.view`` too, like the admin page they back.
 _VIEW = [Depends(RequiresPermission(Permissions.VIEW))]
-_EDIT = [Depends(RequiresPermission(Permissions.EDIT))]
-_DELETE = [Depends(RequiresPermission(Permissions.DELETE))]
+_EDIT = [*_VIEW, Depends(RequiresPermission(Permissions.EDIT))]
+_DELETE = [*_VIEW, Depends(RequiresPermission(Permissions.DELETE))]
 
 
 def _masked_fields(app: FastAPI, package: str) -> frozenset[str]:
@@ -113,6 +116,21 @@ async def list_modules(
     overrides = await overrides_by_package(service)
     views = collect_module_settings(request.app, overrides)
     return {"modules": serialize(views)}
+
+
+@router.get("/testable", dependencies=_VIEW)
+async def list_testable(request: Request) -> dict[str, list[str]]:
+    """Package -> names of its connection checks (the view's ``testable`` prop)."""
+    return testable_packages(request.app)
+
+
+@router.post(
+    "/{package}/test-connection",
+    dependencies=[*_EDIT, Depends(RateLimit("10/minute", key="user"))],
+)
+async def test_module_connection(package: str, request: Request) -> dict[str, Any]:
+    """Run a module's connection checks; same payload as the view route."""
+    return await run_connection_test(request.app, package)
 
 
 @router.put("/{package}", dependencies=_EDIT)

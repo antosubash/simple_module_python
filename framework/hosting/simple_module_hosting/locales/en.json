@@ -33,6 +33,7 @@
     "description": "Manage users, access, appearance and system configuration.",
     "empty": "No admin tools are available to your account."
   },
+  "permission_group": "Host",
   "settings_form": {
     "title": "Application",
     "description": "App-wide settings for tenancy, language, logging, security, request limits, the API and the database connection.",
