@@ -1,6 +1,7 @@
 # Project CLI: a per-project command line over the REST API
 
-Status: design, awaiting approval (2026-11-26).
+Status: design, revised after a four-reviewer council (security, operator UX,
+architecture, feasibility), awaiting approval (2026-11-26).
 
 ## Intent
 
@@ -23,350 +24,349 @@ the API**, against any environment of any project, from a laptop or CI.
 ## Goals
 
 1. A framework package that turns a project's OpenAPI schema into a full
-   command tree: one command per API operation, grouped by module.
+   command tree: one command per token-capable API operation, grouped by module.
 2. Hand-written ("curated") commands layered on top for the jobs people do
-   most, contributed per module.
-3. Named environments with per-environment credentials, a current environment,
-   and a guard on protected environments (prod).
-4. `smpy new` scaffolds the project CLI, and `smpy add cli` adds it to an existing app.
-   One command refreshes its bundled schema.
-5. Close the gaps where the UI can do something the API cannot, and add a guard
-   so new gaps fail CI.
+   most, contributed per module through one provider interface.
+3. Named environments with credentials bound to the server they were issued for,
+   a current environment, and a guard on protected environments (prod).
+4. `smpy new` scaffolds the project CLI and `smpy add cli` adds it to an existing
+   app. One command refreshes its bundled schema.
+5. Make every UI action reachable with an API token: close the API gaps, fix the
+   routes that refuse tokens today, and add a guard so new gaps fail CI.
 
 ## Non-goals
 
 - Replacing or extending `smpy` with operator commands.
-- Direct database commands. The existing `users create-admin` stays as the
-  bootstrap path for a deployment with no admin yet.
+- Direct database commands. `users create-admin` stays the bootstrap path for a
+  deployment with no admin yet.
 - A TUI or interactive wizard.
-- Browser or device-code login in v1 (follow-up issue; v1 uses API tokens).
-- Logout and other browser-session-only routes; they have no CLI meaning.
+- Token management from the CLI (create/list/revoke stay in the UI, see § 4).
+- Self-account flows (own profile, own sessions, logout, accepting an invitation,
+  switching the browser's active tenant). They are about a browser session.
 
 ## Anti-goals (a failure even if it works)
 
 - The CLI imports server code (FastAPI app, SQLModel models, module packages)
   or needs `SM_DATABASE_URL`. It must install as a small client.
 - A hand-maintained list of commands that drifts behind the API.
-- A second permission model. The CLI can do exactly what its token can do
-  through the API, nothing more.
-- Tokens stored in the repo, the project config file, or shell history.
+- A second permission model, or a CLI path that widens what a token may do.
+- Tokens stored in the repo, the project config file, shell history or logs.
+- A token sent to any host other than the one it was stored for.
 
 ## Constraints from the codebase
 
-- operationIds are already `<module>_<endpoint function name>`, deduplicated on
-  clash (`framework/hosting/simple_module_hosting/boot/_openapi.py`), and each
-  API router is tagged with its module. That gives stable group and command names.
-- `smpy openapi export` writes a project's schema without a server
-  (`framework/cli/simple_module_cli/commands/openapi_cmd.py`). The schema covers
-  exactly the modules that project installs, including project-specific ones.
-- `/api/openapi.json` is public only when the `openapi_public` host setting is
-  on (off by default in production), so the CLI cannot rely on fetching it.
-- `smpy openapi export` builds the app with `create_app` directly, without the
-  host's own routers or `customize` hook, and with the module set of the local
-  config. It can miss host routes, and environments may differ in module set.
-- Host routers can add untagged `/api` routes, whose operationId is the bare
-  function name.
-- `api_tokens` gives remote auth: `Authorization: Bearer smpat_…` (personal,
-  acts as its owner capped by scopes) or `smsk_…` (service key). Not part of the
-  `smpy new` scaffold today.
+- **Tokens are opt-in per route.** `simple_module_hosting.auth.token_guard`
+  refuses a token principal unless the route's dependency tree admits it
+  (`route_admits_tokens`): `RequiresPermission` and `TokenAllowed` admit,
+  `Authenticated()` alone does **not**, page routes never do. So today tenant
+  list/create and users `/me` refuse tokens.
+- **`RequiresCsrf` rejects token requests.** It skips the check only when no
+  session is mounted (`auth/csrf.py:110`); `SessionMiddleware` is always
+  mounted, so a bearer request without a CSRF token gets 403. The users,
+  tenants and settings APIs don't use it; pagebuilder's save/publish/upload do.
 - **Every token is pinned to the tenant it was issued in**
   (`modules/tenants/tenants/resolution/token_tenant.py`); a PAT also needs its
-  owner to stay an active member. A token can never act in another tenant.
-- Token management routes (`/api/api_tokens/tokens`, admin tokens) require a
-  browser-session principal on purpose: a leaked token cannot mint tokens.
-- List endpoints do not share one pagination shape: some return `Page`, `users`
-  admin list returns a bare array with offset/limit, `file_storage` has its own envelope.
-- Inertia pages post to view routes (`SM018`). Most mutations also exist under
-  `/api`; the audit below lists the ones that do not.
-- 300-line file cap, ty, Ruff, no magic strings, area layout for framework
-  packages (`docs/framework-layout.md`).
+  owner to stay an active member. Token management routes require a browser
+  session on purpose (`api_tokens/web/deps.py`).
+- operationIds are `<module>_<function>` with clash dedupe that leaves the first
+  one unsuffixed (`boot/_openapi.py`). Host routers can add untagged ops. The
+  security block advertises bearer on every non-public op, even ones that refuse
+  tokens, so it cannot drive the generator.
+- `smpy openapi export` builds the app with `create_app` and lenient settings,
+  without the host's own routers or `customize`. Importing `host.main` instead
+  builds the real app but reads stored settings and is strict outside development.
+- `/api/openapi.json` is public only when `openapi_public` is on (off by
+  default in production).
+- List endpoints don't share a pagination shape: `Page`, users admin
+  (`page`/`per_page`, bare array), file_storage's envelope.
+- Audit rows carry `user_id` and `correlation_id` only; a PAT action looks like a
+  UI action by its owner.
+- 300-line cap, ty, Ruff, no magic strings, framework area layout, lockstep releases.
 
 ## Approaches considered
 
-1. **Hand-written commands only.** Each module ships a command group; the
-   project CLI bundles groups for its modules. Best ergonomics, but every
-   endpoint needs a command, so it lags the UI and "everything" never holds.
-2. **Generated only.** A generic engine plus the project's `openapi.json`
-   produces one command per operation. Full, automatic coverage including
-   project modules; ergonomics are raw (`--json` bodies, operation-derived names).
+1. **Hand-written commands only.** Best ergonomics, but every endpoint needs a
+   command, so it lags the UI and "everything" never holds.
+2. **Generated only.** Full automatic coverage; raw ergonomics.
 3. **Hybrid (chosen).** Generated commands as the base for complete coverage,
-   curated commands per module for daily jobs, each project's CLI a thin package
-   built on the framework engine. Chosen because it is the only option where
-   "everything the UI does" stays true as modules are added, while still giving
-   the common jobs good commands.
+   curated commands for daily jobs, each project's CLI a thin package on the
+   framework engine. The only option where "everything the UI does" stays true
+   as modules are added, while the common jobs still get good commands.
 
 ## Design
 
 ### 1. Engine package: `simple_module_remote`
 
 New framework package `framework/remote/` (PyPI `simple_module_remote`), area
-layout, published in lockstep. Dependencies: `typer`, `httpx`, `keyring`,
-`tomli-w`, `pyyaml`, `rich` (via typer). No dependency on any other
-`simple_module_*` package.
+layout, lockstep. Dependencies: `typer`, `httpx`, `keyring`, `tomli-w`, `pyyaml`.
+No dependency on any other `simple_module_*` package (import-isolation test).
 
 Public entry: `build_cli(name: str, schema_path: Path, defaults_path: Path | None) -> typer.Typer`.
-
-Areas (my call on names): `config/` (environments, credentials), `http/`
-(client, auth header, tenant header, errors, pagination), `schema/` (load,
-cache, select live vs bundled), `generate/` (OpenAPI → Typer), `output/`
-(table, json, yaml), `curated/` (entry-point loading and merge), `commands/`
-(built-in `env`, `login`, `logout`, `whoami`, `schema`, `api`).
+Areas (my call on names): `config/`, `http/`, `schema/`, `generate/`, `output/`,
+`curated/` (provider loading + first-party providers), `commands/` (built-ins).
 
 ### 2. Generated commands
 
-- **Group** = operation's first tag (the module), kebab-cased: `users`,
-  `tenants`, `pagebuilder`. Untagged operations (host routers) go in a `host` group.
-- **Command** = operationId with the `<module>_` prefix removed, kebab-cased:
-  `users_update_user` → `users update-user`. Clashes after dedupe keep the
-  deduped id.
-- **Path params** → positional arguments in path order.
-- **Query params** → `--option` with type, default, enum choices and help from
-  the schema. Arrays repeat the option.
-- **JSON body** →
-  - `--json '<object>'`, `--file body.json`, or `--file -` (stdin);
-  - `--set field=value` (repeatable) for top-level scalar fields, coerced by
-    schema type, merged over `--json`/`--file`;
-  - required fields missing after merge are reported before sending.
-- **Multipart body** → `--upload field=path` for file parts, `--set` for the rest.
-- **Responses** → `--output table|json|yaml` (`-o`). Default: `table` on a TTY
-  for arrays and list envelopes, `json` otherwise. `--columns a,b` picks table columns.
-- **Pagination**: `--all` follows pages for the shapes in use: the framework `Page`
-  envelope, the `file_storage` envelope, and bare arrays with `offset`/`limit`
-  (or `page`/`page_size`) query params, stopping on a short page. Operations
-  matching none of these don't get `--all`.
-- **Binary responses** (file downloads, exports): `--out <path>` writes the body;
-  without it, a binary body is refused on a TTY and streamed to stdout otherwise.
-  Redirect responses are followed for downloads.
-- **Escape hatch**: `<cli> api METHOD /api/path [--json …]` sends any request
-  with the environment's auth, for anything the generator cannot express.
-- Help text comes from the operation summary/description and parameter
-  descriptions, so docstrings on endpoints become CLI help.
-- Exit codes: 0 ok; 1 usage error; 2 HTTP 4xx (body printed to stderr);
-  3 HTTP 5xx or network error; 4 auth error (401/403, with a hint to run `login`).
+**Which operations.** Hosting adds an `x-sm-token: true|false` extension to every
+operation when it builds the schema, computed with `route_admits_tokens`. The
+generator builds commands only for `true`; the rest are listed by
+`<cli> api --session-only` so it is clear why they are absent. Coverage test:
+every token-capable operation in the dev host schema maps to exactly one command.
+
+**Names.**
+- Group = first tag, kebab-cased (`FeatureFlags` → `feature-flags`); untagged → `host`.
+- Command = operationId minus `<module>_`, kebab-cased
+  (`tenants_change_role` → `tenants change-role`).
+- A route can pin its CLI name with `openapi_extra={"x-cli-name": "…"}`;
+  overrides are keyed by operation, not by deduped id.
+- Built-in names (`env`, `login`, `logout`, `whoami`, `doctor`, `schema`, `api`,
+  `raw`) are reserved. Collisions after normalisation fail the coverage test, so
+  they are fixed with `x-cli-name` at the source, never by route order.
+- The full generated tree is also always reachable under `<cli> raw <group> <cmd>`,
+  so scripts have a stable entry point even where a curated command takes the name.
+
+**Input.**
+- Path params → positional args; query params → typed options (enum choices,
+  defaults, repeated for arrays) with help from the schema.
+- JSON body: `--json '<obj>'`, `--file body.json`, `--file -`; plus
+  `--set a.b=1` (dotted paths, coerced by the resolved schema incl. `$ref`),
+  `--set-json k='[...]'`, `--set k=@file`, and `--set k=null`. Merged in that
+  order; missing required fields reported before sending. Open-dict payloads
+  (pagebuilder Puck data) are sent as given; the server validates.
+- Multipart: `--upload field=path` + `--set`. Raw-body uploads (file_storage
+  stream endpoints): `--body-file path [--content-type]`.
+- `--dry-run` on every mutating command prints method, URL and body, sends nothing.
+
+**Output.** `-o table|json|yaml|id` (default table on a TTY for lists, json
+otherwise); `--columns`; `-q` prints ids only. JSON output is the server
+response unchanged, so it is stable as the API is. `--out <path>` for binary
+bodies (refused on a TTY without it). `--all` follows the known shapes (`Page`,
+`page/per_page` arrays, file_storage envelope), shows progress, takes `--limit`.
+
+**Exit codes.** 0 ok · 1 usage · 2 other 4xx · 3 5xx/network · 4 401/403 (with a
+`login` hint) · 5 404 · 6 409/412. 429 is retried up to 3 times honouring `Retry-After`.
+
+**HTTP safety.** Requests go only to `env.url` + a path that is relative, starts
+with `/api/`, and has no scheme, `@` or `//`. OpenAPI `servers` is ignored. The
+`api METHOD /api/path` escape hatch follows the same rule. Redirects (presigned
+downloads) are followed by a separate client with no `Authorization` header.
+An `http://` URL is refused unless the host is loopback. Every request sends
+`User-Agent: <cli>/<ver> simple_module_remote/<ver>`.
+
+**Startup.** No command-tree cache in v1; measure `<cli> --help` on the dev host
+schema and add a JSON (never pickle) cache only if it exceeds 300 ms.
 
 ### 3. Curated commands
 
-- Entry-point group `simple_module_remote.commands`; each value resolves to a
-  `typer.Typer` plus the tag it belongs to (declared as `tag:attr`, my call on
-  the exact format). Mounted only when that tag exists in the active schema, so
-  a project without `tenants` never shows tenant commands.
-- A curated command with the same name as a generated one **replaces** it; the
-  generated one stays reachable as `<cli> raw <group> <command>`.
-- Curated commands receive a context object (configured HTTP client, output
-  formatter, current environment). They call the API only.
-- Curated command packages import only `simple_module_remote` and the stdlib.
-  A test enforces this for the in-repo ones.
+**Provider interface.** A provider is a `module:attr` factory returning a
+descriptor: target tag, the operationIds it needs, and a function that registers
+Typer commands given a context (HTTP client, output formatter, environment).
+It is mounted only when its tag exists and **all** its required operations are
+present and token-capable in the active schema; otherwise it is hidden and
+`doctor` says why (this handles servers older or newer than the CLI). A curated
+command with a generated command's name replaces it in the group (the generated
+one stays under `raw`). `--help` shows each curated command's provider.
 
-Shipped in this repo, inside `simple_module_remote` under `curated/` (they are
-part of the engine distribution so the project CLI does not install server
-packages):
+- First-party providers (users, settings, tenants) live in `simple_module_remote`
+  under `curated/`, so the project CLI installs no server packages; lockstep
+  releases plus required-operation gating cover version skew.
+- Third-party providers register entry point `simple_module_remote.commands`
+  and are loaded **only if listed** in the project's `defaults.toml`
+  (`[curated] providers = [...]`). Duplicate providers for one name are an error.
+- Providers import only `simple_module_remote` and the stdlib (tested in-repo).
 
 | Group | Commands |
 |---|---|
-| `users` | `list` (search, role filter), `show <email\|id>`, `invite <email> [--role]`, `invite-bulk <csv>`, `disable`/`enable`/`unlock <user>`, `set-roles <user> <role…>`, `reset-link <user>` |
-| `settings` | `list [module]`, `get <module.key>`, `set <module.key> <value>`, `unset <module.key>`, `export [module] > file`, `import file [--dry-run]` |
+| `users` | `list` (search, role), `show <email\|id>`, `invite <email> [--role]`, `invite-bulk <csv>`, `disable`/`enable`/`unlock`, `set-roles <user> <role…>`, `reset-link`, `sign-ins <user>`, `unlink-sign-in` |
+| `settings` | `list [module]`, `get <module.key>`, `set <module.key> <value>`, `unset`, `export [module]`, `import <file> [--dry-run]`, `diff --from <env> --to <env> [module]` |
+| `tenants` | `list`, `show`, `create`, `members`, `invite <email> [--role]` (existing invitation flow), `remove-member`, `set-role`, `suspend`/`reactivate` |
 
-`settings export`/`import` moves **non-secret overrides** between environments
-(staging → prod); it is not a backup. Masked/secret fields are left out of the
-export. Import goes one module at a time through the existing per-module API,
-`--dry-run` prints the client-side diff against the target, modules with their
-own settings page are skipped with a note, and a failure stops at that module
-and reports what was already applied (not atomic across modules).
-| `tenants` | `list`, `show`, `create`, `members`, `invite <email> [--role]` (existing invitation flow; the person accepts it), `remove-member`, `set-role` |
+Users can be named by email or id (resolved with a lookup).
 
-There is **no `tokens` group**. Tokens are created and revoked in the UI only,
-because token management stays session-only (a leaked token must not mint or
-hide tokens). These routes go on the parity allowlist (§ 7) with that reason.
+**Settings export/import** moves non-secret overrides between environments; it
+is not a backup. Secret fields are found by the server's `is_secret` flag (never
+by matching the mask) and left out; import refuses any value equal to the
+mask; the export file is written 0600 and a warning is shown when exporting to a
+TTY. Import goes one module at a time through the per-module API, skips
+modules with their own settings page with a note, stops at the first failure
+and reports what was applied, and ends with a "set manually" list (secrets,
+skipped modules). `diff` compares two environments' exports.
 
-User arguments accept an email or id; the curated command resolves it with a
-lookup call.
+**Pagebuilder** curated commands (`pages list`, `pages pull <slug>` to JSON,
+`pages push <file>` with a block diff then save draft, `pages publish`,
+`media upload`) ship from `smpy_modules` as a small provider distribution
+(`smpy_pagebuilder_remote`), filed upstream. Generated `pagebuilder` commands
+work once the server fixes in § 7 and the upstream gate fixes land.
 
-**Pagebuilder** lives in `smpy_modules`, so its curated commands
-(`pages list`, `pages pull <slug> [--locale]` to a JSON file, `pages push <file>`
-showing a block diff then saving a draft, `pages publish <slug>`, `media upload`)
-ship there as a separate small distribution (`smpy_pagebuilder_remote`), filed as
-an upstream issue. Until it lands, every pagebuilder operation is available
-through the generated `pagebuilder` group.
+### 4. Environments, credentials and login
 
-### 4. Environments and credentials
-
-- Config file: `~/.config/<cli>/config.toml`:
-
-  ```toml
-  current = "staging"
-
-  [env.staging]
-  url = "https://staging.example.org"
-  tenant = "acme"          # optional default tenant
-  protected = false
-
-  [env.prod]
-  url = "https://example.org"
-  protected = true
-  ```
-
-- The project CLI package can bake in default environments (`defaults.toml`
-  next to the bundled schema), merged under the user's config, so a new team
-  member gets `dev/staging/prod` URLs without typing them. No secrets in it.
-- Commands: `env list`, `env add <name> --url … [--protected]`,
-  `env use <name>`, `env remove <name>`, `env show`.
-- Selection order: `--env/-e`, `<CLI>_ENV`, `current`.
-- Credentials: `login [--env]` prompts for a token with hidden input,
-  verifies it with a whoami call, and stores it in the OS keyring under
-  service `<cli>` and key `<env>`. If no keyring backend is available,
-  it falls back to `~/.config/<cli>/credentials.toml` with mode 0600 and a warning.
-  `<CLI>_TOKEN` overrides for CI. `logout` deletes the stored token.
-- `whoami` prints the user, auth kind (pat/service), scopes, active tenant
-  and environment.
-- **Protected environments**: any non-GET request asks for confirmation that
-  names the environment, unless `--yes` is passed. When not on a TTY, `--yes` is required.
-- `--tenant <slug>` (or the environment default) selects **which stored token**
-  to use (see § 6).
+- Config `~/.config/<cli>/config.toml` (`current`, `[env.<name>] url, tenant,
+  protected`). The project package bakes default environments into
+  `defaults.toml` (no secrets), merged under user config. Env names match
+  `[a-z0-9-]+`.
+- `env list|add|use|remove|show`; selection: `--env/-e`, `<CLI>_ENV`, `current`.
+  `<CLI>` is the CLI name upper-cased with `-` → `_`.
+- **Credentials are bound to an origin.** Each stored token records the URL
+  origin it was issued for; if the env's URL no longer matches, the CLI refuses
+  to send it and asks for a fresh `login`. Store: OS keyring (service `<cli>`,
+  key `<env>` or `<env>/<tenant>`); fallback `credentials.toml` created with
+  `O_EXCL` at 0600 in a 0700 dir, refused if group/world-readable.
+  `<CLI>_TOKEN` (CI) is honoured only with an explicit `--env` or `<CLI>_ENV`.
+  Tokens are never accepted as an argument, never echoed, never in `-v` output.
+- **Login.** `login [--env] [--tenant]` takes a token pasted at a hidden prompt
+  or `--token-stdin`, calls `whoami`, checks the token's pinned tenant matches
+  `--tenant` (if given), stores it, then runs `schema sync`. Tokens are made in
+  the UI ("API tokens" page). See the open question below on browser login.
+- **Tenants.** One credential per (environment, tenant): `--tenant acme` (or the
+  env default) picks `<env>/acme`; missing → the CLI names the `login` command.
+  `whoami` shows the pinned tenant. Ignored on a single-tenant app.
+- `whoami`: user, auth kind, scopes, pinned tenant, env name and URL; a banner
+  when the env is protected.
+- `doctor`: env resolves, URL reachable over https, token valid and bound to
+  this origin, tenant matches, schema source and age, curated providers hidden
+  and why. The scaffolded README's first-run flow is `env use` → `login` →
+  `whoami` → `doctor`.
+- **Protected environments.** Any mutation (generated, curated or `api`), and any
+  GET whose operation carries `x-cli-confirm: true` (bulk PII reads), asks you to
+  type the env name; the prompt shows name and URL. `--yes` skips it and is
+  required off a TTY; it is never read from an environment variable. Operations
+  marked `x-cli-safe: true` (read-like POSTs such as test-connection) don't ask.
+  Every mutation prints `[<env>]` to stderr.
+- Shell completion via Typer, with dynamic completion of env names.
 
 ### 5. Schema: bundled and live
 
-- The project CLI ships `openapi.json` produced by `smpy openapi export`.
-- `smpy openapi export` gains `--app <module:attr>` to export from the host's real
-  app object (`host.main:app` in a scaffolded app), so host routers and
-  `customize` are included. The scaffolded `make cli-schema` uses it.
-- New authenticated endpoint `GET /api/_meta/openapi` in `simple_module_hosting`
-  returns the running app's schema. It is guarded by a new host permission
-  (`host.openapi.read`, granted to admin by default) and served whatever
-  `openapi_public` is set to. ETag supported. This is what lets the CLI match an
-  environment whose module set or version differs from the bundled schema.
-- `schema sync [--env]` downloads it into
-  `~/.cache/<cli>/<env>/openapi.json`. When a cached live schema exists for the
-  current environment, the engine uses it; otherwise it falls back to the bundled one.
-  So one CLI binary works against environments on different versions.
-- `schema status` shows which schema is in use, its version (the `info.version`
-  of the app) and the age of the cache. A 404 or 422 from the API adds a hint
-  to run `schema sync` when the cache is older than the bundled schema or missing.
-- Startup cost: the parsed command tree is cached keyed on schema hash, so
-  `<cli> --help` stays fast with large schemas (target < 300 ms).
+- The project CLI ships `openapi.json`. `smpy openapi export --app <factory>`
+  exports from the project's real app factory (host routers and `customize`
+  included) **without a database**: the scaffolded host exposes a factory the
+  exporter calls with lenient, offline settings (mechanism left to the builder;
+  the requirement is no DB and identical routes to the deployed app).
+- New `GET /api/_meta/openapi` in `simple_module_hosting`: requires permission
+  `host.openapi.read` (admin by default, assignable to scoped tokens so CI can
+  sync), admits tokens, never public whatever `openapi_public` says, excluded
+  from the schema it serves, `Cache-Control: private`, weak ETag.
+- `schema sync [--env]` caches it at `~/.cache/<cli>/<env>/openapi.json` with its
+  origin and fingerprint; a URL change invalidates it. The engine uses the live
+  cache for that env when present, else bundled. `--schema bundled|live` pins the
+  source; `schema status` shows source, `info.version`, fingerprint and age. A
+  404/422 adds a `schema sync` hint when the cache is missing or stale.
 
-### 6. Tenancy over the API
+### 6. Credential matrix
 
-No server change. Tokens stay pinned to their issuing tenant; the CLI does not
-widen that boundary. Instead the CLI keeps **one credential per (environment,
-tenant)**:
+PR 2 produces and tests a matrix of which credential can do what, documented in
+the guide. Expected shape, to confirm against the code:
 
-- `login --env prod --tenant acme` stores the token under key `prod/acme`;
-  `login --env prod` with no tenant stores the environment's default token
-  (`prod`), used for host-level work (users, settings, `tenants create`).
-- `--tenant acme` (or the environment's `tenant` default) picks `prod/acme`.
-  If none is stored, the CLI says so and names the `login` command to run.
-- `whoami` shows which tenant the active token is pinned to, so a mismatch is
-  visible. On a single-tenant app, `--tenant` is ignored.
-- Working in a tenant just created with `tenants create` needs a token issued in
-  that tenant; the docs say so.
+| Operation class | PAT (platform admin, pinned to tenant T) | PAT (tenant admin of T) | Service key (tenant T) |
+|---|---|---|---|
+| Host-level: users admin, system settings, tenant create/suspend | yes, capped by scopes and users safety rules (no granting `admin`) | no | per roles chosen at creation |
+| Tenant-level in T: members, invitations, tenant settings, content | yes | yes | content and settings per roles; members/invitations no (needs a real membership) |
+| Tenant-level in another tenant | no (needs a token issued there) | no | no |
 
-### 7. Closing API gaps
+### 7. Server changes: every UI action reachable with a token
 
-Scope of "everything": every UI **mutation** has a bearer-usable API operation,
-and every **read the UI needs to drive a mutation** (for example the user's
-linked sign-ins before unlinking one) has one too. Plain page reads already
-backed by `/api` lists need nothing new.
+**Token gates and CSRF.**
+- `RequiresCsrf` skips the check when the principal was authenticated by a
+  bearer token (`auth_kind` pat/service), decided by how the request
+  authenticated, not by header presence. Cookie sessions are unchanged.
+  Security review before merge; contract test: PAT + mutation → 2xx, cookie
+  session without token → 403.
+- Tenant list (memberships) and create get token-admitting gates; create's
+  platform-permission check must run for tokens.
+- New token-admitting identity endpoint for `whoami` (user, auth kind, scopes,
+  pinned tenant), in `simple_module_hosting` so it works with any auth provider.
 
-The review checked the view-route mutations. Settings rows, both permission
-edits, feature-flag toggle/clear and share revoke **already have** API
-operations calling the same services. Remaining gaps to verify and close:
+**API gaps** (verified by the council):
 
-| Module | View route | Action |
-|---|---|---|
-| settings | `POST /test-connection/{package}` | test a module's connection settings |
-| users | `DELETE /{user_id}/linked-sign-ins/{id}` (+ a read listing them) | unlink an OAuth sign-in |
-| dashboard | `POST /rerun` (admin) | rerun dashboard checks |
+| Module | Missing for tokens |
+|---|---|
+| settings | test-connection (+ list of testable packages), rate-limited per user |
+| users | user detail, role catalog (if not already token-capable), linked sign-ins list + unlink |
+| dashboard | doctor results + rerun, under a new permission (the current guard excludes scoped principals) |
+| sharing | admin share listing; revoke via API accepts `MANAGE` like the view does |
 
-Excluded on purpose: `logout` routes (keycloak, oidc, users) and token management
-(§ 3).
+Each new endpoint calls the same service as its view route, with the same
+permission, no `RequiresCsrf`, and has a token test.
 
-For each, add an `/api` endpoint that calls the same service function as the
-view route, with the same permission. The view route keeps working.
-Each new endpoint gets a test.
+**Audit attribution.** Add nullable `auth_kind` and `token_id` to `audit_entry`
+(migration on the `audit_log` branch), filled from the principal.
 
-**Guard**: a host test enumerates every non-GET view route in the built app.
-Each one must either map to an API operation (declared with a small route
-marker, `api_equivalent="<operationId>"`, my call on the mechanism) or appear in
-an allowlist with a reason (logout, browser-only flows). A new UI-only mutation
-then fails CI. The same rule is documented in `docs/module-authoring.md` and
-the `simple-module-conventions` skill, and is offered to `smpy_modules` as an
-upstream issue.
+**Guard.** Every non-GET view route declares either `api_equivalent=(METHOD,
+"/api/…")` or an exemption with a reason (logout, self-account, token
+management). A host test builds the app once and checks each declared target
+exists **and** admits tokens. Prerequisite reads are covered by the curated
+contract tests. The scaffold's view template gets the declaration in the same
+PR; the rule goes in `docs/module-authoring.md` and the conventions skill, and
+to `smpy_modules` as an upstream issue (with pagebuilder's reader gate marking).
 
 ### 8. The project CLI package (scaffold)
 
-`smpy new` gains the CLI by default (`--no-cli` to skip). `smpy add cli`
-adds it to an existing app. Generated layout in the app repo:
-
 ```text
 cli/
-├── pyproject.toml        # name "<project>-cli", [project.scripts] <project> = "<project>_cli:main"
+├── pyproject.toml        # "<project>-cli", [project.scripts] <project> = "<project>_cli:main"
 ├── <project>_cli/
 │   ├── __init__.py       # main = build_cli("<project>", schema, defaults)
 │   ├── openapi.json      # bundled schema (committed)
-│   └── defaults.toml     # default environments, no secrets
-└── README.md             # install, login, env setup
+│   └── defaults.toml     # default environments, allowed providers; no secrets
+└── README.md             # install, first-run flow
 ```
 
-- The CLI name defaults to the project slug; `--cli-name` overrides.
-- Depends only on `simple_module_remote` (+ curated distributions for
-  installed external modules that ship one, e.g. `smpy_pagebuilder_remote`).
-- `make cli-schema` (scaffolded app Makefile) runs `smpy openapi export
-  --app host.main:app --out cli/<project>_cli/openapi.json`. A scaffolded CI check fails
-  when it is stale, mirroring `ci-api-types-fresh`.
-- Install: `uv tool install ./cli` locally. A scaffolded release-workflow step
-  builds the wheel as a CI artifact. Publishing to an index is left to each project.
-- `smpy new` also adds `simple_module_api_tokens` to the scaffold when the CLI
-  is enabled, since the CLI needs tokens (migration included in the scaffold's
-  initial revisions).
-- This repo's dev host gets its own CLI (`smdev`) under `host/cli/` so the
-  engine is exercised end to end in CI.
+- `smpy new` includes it by default (`--no-cli` to skip) and adds
+  `simple_module_api_tokens` with its initial migration. `--cli-name` overrides
+  the name (defaults to project slug).
+- `smpy add cli` is idempotent and never overwrites edited files. If the app
+  lacks `api_tokens`, it reports the dependency, enablement and the migration to
+  generate as separate steps instead of guessing.
+- `make cli-schema` runs the export; a scaffolded CI check fails when stale.
+- Install: `uv tool install ./cli`; a release-workflow step builds the wheel.
+- This repo's dev host gets `smdev` under `host/cli/`.
 
 ### 9. Testing
 
-- Engine unit tests: schema → command tree (names, params, body handling,
-  multipart, enums), output formats, pagination, exit codes, config and
-  credential precedence, protected-env confirmation.
-- Contract tests against the real app: build the dev host app in-process
-  (existing `app` fixture), mount an httpx transport into the engine, and drive
-  generated and curated commands through `typer.testing.CliRunner` with a real
-  PAT: list/create/update users, set a setting, create a tenant and invite a
-  member, a tenant-pinned token cannot touch another tenant, a token cannot reach
-  token-management routes.
-- A schema-coverage test: every operation in the dev host schema produces
-  exactly one reachable command.
-- Import-isolation test: importing `simple_module_remote` and curated packages
-  pulls in no `fastapi`, `sqlmodel` or `simple_module_*` server package.
-- A guard test for UI-only mutations (§ 7).
-- Manual end-to-end before merge: run the dev host, create a PAT in the UI,
-  `smdev login`, run each curated command against it, and record a terminal session.
+- Engine unit tests: schema → tree (names, collisions, reserved names, params,
+  body merge, multipart, raw body, `x-sm-token` filtering), output, pagination,
+  exit codes, config and credential precedence, origin binding, path safety,
+  redirect without auth, protected-env confirmation.
+- Contract tests against the in-process dev host app (httpx transport, real PAT
+  and service key) through `CliRunner`: every curated command, CSRF on token
+  mutations, a tenant-pinned token refused in another tenant, token-management
+  routes refused, the credential matrix.
+- Coverage test (every token-capable op → one command), import-isolation test,
+  guard test.
+- Manual run before each merge: dev host, PAT from the UI, `smdev login`, curated
+  commands, recorded terminal session in the PR.
 
 ### 10. Docs and release
 
-- `docs/guide/project-cli.md` (install, environments, login, generated vs
-  curated, tenants, protected envs, CI usage with `<CLI>_TOKEN`), and
-  `docs/framework/remote-cli.md` (writing curated commands, entry point,
-  import rule). Sidebar entries.
-- Update `skills/simple-module-cli` and `simple-module-conventions` (API-equivalent rule).
-- Wire the new package: root `pyproject.toml` testpaths and ty extra-paths,
-  the `publish-pypi` matrix, `CHANGELOG.md`.
+`docs/guide/project-cli.md` (install, first run, environments, tenants, credential
+matrix, protected envs, CI), `docs/framework/remote-cli.md` (providers, `x-cli-*`
+extensions, `api_equivalent`). Sidebar, `skills/simple-module-cli`,
+`simple-module-conventions`, root `pyproject.toml` wiring, `publish-pypi`
+matrix, `CHANGELOG.md`.
 
 ## Delivery order
 
-Separate PRs, in dependency order:
+1. **Engine + smdev**: `simple_module_remote` (generated commands, env,
+   credentials, output, `api`, `doctor`), `x-sm-token` in hosting, the
+   token-aware identity endpoint. Usable against the dev host.
+2. **Server**: CSRF for tokens, tenant gates, API gaps, audit attribution,
+   `/api/_meta/openapi` + `schema sync`, guard test, credential matrix.
+3. **Curated**: users, settings, tenants.
+4. **Scaffold + docs**: `smpy new`/`add cli`, `export --app`, freshness check.
+5. **Upstream** (`smpy_modules`): pagebuilder reader gate and CSRF use, provider
+   distribution, guard adoption. Issues filed.
 
-1. **Engine core**: `simple_module_remote` with generated commands, environments,
-   credentials, output, `api` escape hatch, `smdev` for the dev host, tests.
-2. **Server side**: `/api/_meta/openapi` plus `schema sync`; `smpy openapi export
-   --app`; API-gap endpoints plus the guard test.
-3. **Curated commands**: users, settings, tenants, tokens.
-4. **Scaffold**: `smpy new` / `smpy add cli`, `make cli-schema`, freshness check, docs.
-5. **Upstream** (`smpy_modules`): `smpy_pagebuilder_remote` curated commands and
-   the API-equivalent guard; issues filed, not done in this repo.
+## Open question for the author
+
+**Browser login in v1?** Tokens are pinned per tenant and made only in the UI,
+so with 3 environments and several tenants the operator mints and pastes one
+token per pair. A device-style login (`plotwiki login --tenant acme` opens the
+browser; you approve while signed in; the server mints a PAT for that tenant
+and hands it to the CLI) removes that chore without letting a token mint
+tokens, since approval needs a browser session. Cost: one more PR on the server
+(an approval page and a polling endpoint in `api_tokens`), slotted between 2 and 3.
 
 ## Left to the builder
 
-- Exact internal module names inside `simple_module_remote`, the curated
-  entry-point value format, and the route-marker mechanism for `api_equivalent`.
-- Table rendering details and default columns per curated list command.
-- Whether the command-tree cache is pickle or JSON.
-- Which existing "me" endpoint backs `whoami`, or whether a small one is added.
+- Internal module names in `simple_module_remote`, the descriptor's exact type.
+- Table defaults per curated list command.
+- The offline export mechanism (§ 5), within the stated requirement.
