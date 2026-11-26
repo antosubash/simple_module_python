@@ -57,7 +57,7 @@ Session-only routes do not appear.
 uv run smdev users admin-list-users -o json
 uv run smdev users admin-update-user <id> --set email=a@example.com --set full_name=Ada
 uv run smdev users admin-update-user <id> --json '{"email": "a@example.com"}' --dry-run
-uv run smdev tenants list-members --all-pages
+uv run smdev tenants list-members --all
 ```
 
 Useful flags on every generated command: `--json`, `--file` (body, `-` for
@@ -73,9 +73,12 @@ network failure, `4` HTTP 401/403, `5` HTTP 404, `6` HTTP 409/412.
 ## Protected environments
 
 `--protected` makes a mutating call (or an operation marked `x-cli-confirm`)
-ask you to type the environment name first. Non-interactive runs must pass
-`--yes`. Operations marked `x-cli-safe` (read-only despite using POST) skip the
-prompt.
+ask you to type the environment name first. Runs without a terminal on both
+stdin and stderr must pass `--yes`. Operations marked `x-cli-safe` (read-only
+despite using POST) skip the prompt. `api METHOD PATH` takes the safe/confirm
+marks of the schema operation whose path template matches; an unmatched
+mutation is always confirmed. Re-running `env add` for an existing environment
+changes only the flags you pass (`--protected`/`--no-protected`, `--tenant`).
 
 ## CI
 

@@ -22,7 +22,7 @@ in-memory keyring. The dev host's wrapper is `host_cli/smdev_cli/`; usage is in
 | Area | Role |
 |---|---|
 | `schema/` | Load and `$ref`-resolve the bundled OpenAPI file |
-| `generate/` | Operations, naming, parameters, bodies, execution, pagination |
+| `generate/` | Operations, naming, parameters, bodies, execution, confirmation, pagination |
 | `config/` | Environments, origin-bound credentials, XDG paths |
 | `http/` | Guarded `httpx` client: `/api/` only, no credentials in URLs, no cross-origin redirects with auth |
 | `output/` | Table/JSON/YAML rendering with terminal-escape sanitising |
