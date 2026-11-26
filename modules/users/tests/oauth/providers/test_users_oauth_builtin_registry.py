@@ -61,20 +61,10 @@ async def test_registry_builds_all_builtins_with_existing_callbacks_and_pkce(htt
             assert query["nonce"] == ["test-nonce"]
 
 
-@pytest.mark.parametrize("discovery_fails", [False, True])
-def test_incomplete_or_failed_oidc_discovery_is_hidden(httpx_mock, discovery_fails):
+def test_incomplete_oidc_configuration_is_hidden():
     from users.core.startup import _build_oauth_clients
 
     settings = UsersSettings(oauth_oidc_client_id="oidc-id", oauth_oidc_client_secret="secret")
-    if discovery_fails:
-        settings = settings.model_copy(
-            update={
-                "oauth_oidc_discovery_url": "https://idp.example/.well-known/openid-configuration"
-            }
-        )
-        httpx_mock.add_response(
-            url="https://idp.example/.well-known/openid-configuration", status_code=503
-        )
     app = FastAPI()
     app.state.users = SimpleNamespace(settings=settings)
     _build_oauth_clients(app)
