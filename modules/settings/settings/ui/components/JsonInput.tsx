@@ -1,10 +1,11 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 type Props = {
   id?: string;
   'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
   name: string;
   value: unknown;
   nullable: boolean;
@@ -27,6 +28,7 @@ function toText(value: unknown): string {
 export function JsonInput({
   id,
   'aria-describedby': describedBy,
+  'aria-invalid': serverInvalid,
   name,
   value,
   nullable,
@@ -34,6 +36,7 @@ export function JsonInput({
   onChange,
 }: Props) {
   const { t } = useT();
+  const hintId = useId();
   const [text, setText] = useState(() => toText(value));
   const [invalid, setInvalid] = useState(false);
   // The last value this input emitted. Anything else arriving as `value` came
@@ -72,15 +75,17 @@ export function JsonInput({
     <div className="flex flex-col gap-1">
       <Textarea
         id={id}
-        aria-describedby={describedBy}
+        aria-describedby={[describedBy, invalid && hintId].filter(Boolean).join(' ') || undefined}
         rows={3}
         value={text}
-        aria-invalid={invalid}
+        aria-invalid={invalid || serverInvalid}
         onChange={(e) => update(e.target.value)}
         className={`font-mono text-xs ${className}`}
       />
       {invalid && (
-        <p className="text-xs text-destructive">{t(keys.settings.modules_form.invalid_json)}</p>
+        <p id={hintId} role="alert" className="text-xs text-destructive">
+          {t(keys.settings.modules_form.invalid_json)}
+        </p>
       )}
     </div>
   );

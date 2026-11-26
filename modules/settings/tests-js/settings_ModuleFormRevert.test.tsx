@@ -7,13 +7,17 @@ import type { FieldMeta } from '../settings/ui/components/FieldInput';
 import { ModuleForm, type ModuleView } from '../settings/ui/components/ModuleForm';
 
 const mocks = vi.hoisted(() => ({ reload: vi.fn() }));
-vi.mock('@inertiajs/react', () => ({ router: { reload: mocks.reload }, Head: () => null }));
+vi.mock('@inertiajs/react', () => ({
+  router: { reload: mocks.reload, replace: vi.fn(), on: () => () => {} },
+  Head: () => null,
+}));
 configureI18n({
   locale: 'en',
   messages: {
     'settings.modules_form.save': 'Save',
     'settings.modules_form.saved_toast': 'Saved',
     'settings.modules_form.reset_to_default': 'Revert',
+    'settings.modules_form.discard_changes': 'Discard changes',
     'settings.modules.unsaved_count_one': '{count} unsaved',
   },
 });
@@ -84,6 +88,7 @@ test('switching modules starts a fresh edit buffer even when field names match',
   render(<ModulesEdit modules={[users, mail]} />);
   fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'users draft' } });
   fireEvent.click(screen.getByRole('button', { name: /mail/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
   expect(screen.getByLabelText('sender')).toHaveValue('mail original');
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
 });

@@ -1,11 +1,13 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
+import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import { ArrowRight, Box, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowRight, Box, Search, TriangleAlert } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ModuleForm, type ModuleView } from '../ui/components/ModuleForm';
 import { ROUTES } from './routes';
 
@@ -22,8 +24,50 @@ function ModulesEdit({ modules, testable = {} }: Props) {
     () => modules.filter((m) => m.fields.length > 0 || m.manage_url),
     [modules],
   );
-  const [selected, setSelected] = useState(visible[0]?.package);
+  function moduleFromUrl(url: string) {
+    const pkg = new URL(url, window.location.origin).searchParams.get('module');
+    return visible.find((m) => m.package === pkg)?.package ?? visible[0]?.package;
+  }
+  const [selected, setSelected] = useState(() => moduleFromUrl(window.location.href));
   const [q, setQ] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [pending, setPending] = useState<string>();
+  const saving = useRef(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const discarded = useRef(false);
+
+  useLeaveGuard(
+    dirty,
+    t(keys.settings.modules_form.leave_warning),
+    saving,
+    (visit) =>
+      visit.method === 'get' &&
+      visit.url.href === window.location.href &&
+      visit.preserveState === true &&
+      visit.only.length === 1 &&
+      visit.only[0] === 'modules',
+  );
+
+  useEffect(
+    () =>
+      router.on('navigate', ({ detail: { page } }) => {
+        setSelected(moduleFromUrl(page.url));
+      }),
+    [visible],
+  );
+
+  function select(pkg: string) {
+    setDirty(false);
+    setSelected(pkg);
+    const url = new URL(window.location.href);
+    url.searchParams.set('module', pkg);
+    router.replace({
+      url: `${url.pathname}${url.search}${url.hash}`,
+      preserveState: true,
+      preserveScroll: true,
+    });
+  }
 
   const filtered = useMemo(() => {
     if (!q) return visible;
@@ -71,7 +115,14 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                 <button
                   key={m.package}
                   type="button"
-                  onClick={() => setSelected(m.package)}
+                  onClick={(event) => {
+                    if (m.package === selected) return;
+                    if (dirty) {
+                      returnFocus.current = event.currentTarget;
+                      discarded.current = false;
+                      setPending(m.package);
+                    } else select(m.package);
+                  }}
                   // `shrink-0`: inside a scrolling flex column the buttons
                   // were shrinkable, so a long module list on a phone squashed
                   // every row to a 5px sliver instead of scrolling.
@@ -100,6 +151,11 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                 </button>
               );
             })}
+            {filtered.length === 0 && visible.length > 0 && (
+              <p role="status" className="px-3 py-2 text-sm text-muted-foreground">
+                {t(keys.settings.modules.no_results)}
+              </p>
+            )}
           </nav>
           <div className="mt-auto border-t border-border pt-3.5 max-lg:mt-3.5">
             <a
@@ -116,7 +172,11 @@ function ModulesEdit({ modules, testable = {} }: Props) {
         <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:px-8 lg:pb-10">
           {/* One h1 per screen (#422); the selected module's own heading in
               ModuleForm is an h2 beneath it. */}
-          <h1 className="mb-4 font-display text-[27px] font-bold tracking-[-0.02em]">
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="mb-4 font-display text-[27px] font-bold tracking-[-0.02em]"
+          >
             {t(keys.settings.modules.title)}
           </h1>
           {current?.manage_url ? (
@@ -146,12 +206,34 @@ function ModulesEdit({ modules, testable = {} }: Props) {
               key={current.package}
               module={current}
               checks={testable[current.package] ?? []}
+              onDirtyChange={setDirty}
             />
           ) : (
             <p className="text-muted-foreground">{t(keys.settings.modules.empty_title)}</p>
           )}
         </main>
       </div>
+      <ConfirmActionDialog
+        open={pending !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setPending(undefined);
+        }}
+        icon={TriangleAlert}
+        title={t(keys.settings.modules_form.discard_title)}
+        description={t(keys.settings.modules_form.leave_warning)}
+        confirmLabel={t(keys.settings.modules_form.discard_changes)}
+        cancelLabel={t(keys.settings.form.cancel_button)}
+        onConfirm={() => {
+          if (pending) {
+            discarded.current = true;
+            select(pending);
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          (discarded.current ? heading.current : returnFocus.current)?.focus();
+        }}
+      />
     </>
   );
 }

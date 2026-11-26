@@ -100,7 +100,7 @@ describe('ModuleForm', () => {
     fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByText(/item rejected/)).toBeVisible());
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('item rejected');
     // The error is a row of its own beneath the control, not a child of the
     // control's cell, where it wrapped a word per line.
     const error = screen.getByText(/item rejected/);

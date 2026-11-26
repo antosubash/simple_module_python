@@ -64,8 +64,9 @@ export interface SettingsFieldRendererProps {
   onChange: (name: string, value: unknown) => void;
   value: unknown;
   id?: string;
-  /** Forward to the control to associate it with the field description. */
+  /** Forward to the control to associate its description and validation feedback. */
   'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
 }
 
 export type MenuIcon = ComponentType<{

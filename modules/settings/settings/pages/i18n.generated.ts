@@ -78,6 +78,7 @@ export const keys = {
       managed_open: 'settings.modules.managed_open',
       managed_title: 'settings.modules.managed_title',
       no_fields: 'settings.modules.no_fields',
+      no_results: 'settings.modules.no_results',
       overridden_count: 'settings.modules.overridden_count',
       overridden_count_one: 'settings.modules.overridden_count_one',
       overridden_count_other: 'settings.modules.overridden_count_other',
@@ -103,8 +104,12 @@ export const keys = {
       unsaved_count_other: 'settings.modules.unsaved_count_other',
     },
     modules_form: {
+      discard_changes: 'settings.modules_form.discard_changes',
+      discard_title: 'settings.modules_form.discard_title',
       env_pinned: 'settings.modules_form.env_pinned',
+      hide_secret: 'settings.modules_form.hide_secret',
       invalid_json: 'settings.modules_form.invalid_json',
+      leave_warning: 'settings.modules_form.leave_warning',
       not_set: 'settings.modules_form.not_set',
       option_off: 'settings.modules_form.option_off',
       option_on: 'settings.modules_form.option_on',
@@ -115,6 +120,7 @@ export const keys = {
       saved_toast: 'settings.modules_form.saved_toast',
       saving: 'settings.modules_form.saving',
       set_new_value: 'settings.modules_form.set_new_value',
+      show_secret: 'settings.modules_form.show_secret',
       validation_failed: 'settings.modules_form.validation_failed',
     },
     nav: {
@@ -223,6 +229,7 @@ type ModuleTranslationResources = {
   readonly 'settings.modules.managed_open': '';
   readonly 'settings.modules.managed_title': '';
   readonly 'settings.modules.no_fields': '';
+  readonly 'settings.modules.no_results': '';
   readonly 'settings.modules.overridden_count_one': '';
   readonly 'settings.modules.overridden_count_other': '';
   readonly 'settings.modules.search_placeholder': '';
@@ -242,8 +249,12 @@ type ModuleTranslationResources = {
   readonly 'settings.modules.title': '';
   readonly 'settings.modules.unsaved_count_one': '';
   readonly 'settings.modules.unsaved_count_other': '';
+  readonly 'settings.modules_form.discard_changes': '';
+  readonly 'settings.modules_form.discard_title': '';
   readonly 'settings.modules_form.env_pinned': '';
+  readonly 'settings.modules_form.hide_secret': '';
   readonly 'settings.modules_form.invalid_json': '';
+  readonly 'settings.modules_form.leave_warning': '';
   readonly 'settings.modules_form.not_set': '';
   readonly 'settings.modules_form.option_off': '';
   readonly 'settings.modules_form.option_on': '';
@@ -254,6 +265,7 @@ type ModuleTranslationResources = {
   readonly 'settings.modules_form.saved_toast': '';
   readonly 'settings.modules_form.saving': '';
   readonly 'settings.modules_form.set_new_value': '';
+  readonly 'settings.modules_form.show_secret': '';
   readonly 'settings.modules_form.validation_failed': '';
   readonly 'settings.nav.settings': '';
   readonly 'settings.permission_group': '';

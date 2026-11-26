@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { apiResult } from '@simple-module-py/ui/lib/api';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../pages/api.generated';
 import type { FieldMeta } from './FieldInput';
 import { ModuleFieldRow } from './ModuleFieldRow';
@@ -24,6 +24,7 @@ type Props = {
   module: ModuleView;
   /** Names of the health checks this module registered, if any. */
   checks?: string[];
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 function notEqual(a: unknown, b: unknown): boolean {
@@ -34,7 +35,7 @@ function notEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
-export function ModuleForm({ module: m, checks = [] }: Props) {
+export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
   const { t } = useT();
   const initial = useMemo(() => {
     const o: Record<string, unknown> = {};
@@ -45,6 +46,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   const [{ values, baseline }, setBuffer] = useState({ values: initial, baseline: initial });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [saved, setSaved] = useState(false);
   const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
   const [formErrors, setFormErrors] = useState<string[]>([]);
@@ -74,6 +76,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   }, [values, baseline]);
 
   const dirty = modifiedFields.size > 0;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   // Grouped only where the module said so. A single "General" heading over
   // every field of a module that declared no groups is a heading that carries
@@ -103,6 +106,8 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   }
 
   async function onSave() {
+    if (submitting.current || !dirty) return;
+    submitting.current = true;
     setBusy(true);
     setSaved(false);
     setErrors({});
@@ -132,9 +137,12 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
       setSaved(true);
     }
     setBusy(false);
+    submitting.current = false;
   }
 
   async function onReset(name: string) {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setSaved(false);
     setErrors({});
@@ -147,6 +155,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     if (!result.ok) {
       handleFailure(result);
       setBusy(false);
+      submitting.current = false;
       return;
     }
     setSavedOverrides((prev) => ({ ...prev, [name]: false }));
@@ -172,6 +181,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
       },
     });
     setBusy(false);
+    submitting.current = false;
   }
 
   return (
@@ -229,7 +239,11 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
               {fields.map((f) => (
                 <ModuleFieldRow
                   key={f.name}
-                  field={{ ...f, db_override: savedOverrides[f.name] ?? f.db_override }}
+                  field={{
+                    ...f,
+                    value: baseline[f.name],
+                    db_override: savedOverrides[f.name] ?? f.db_override,
+                  }}
                   package={m.package}
                   value={values[f.name]}
                   modified={modifiedFields.has(f.name)}
