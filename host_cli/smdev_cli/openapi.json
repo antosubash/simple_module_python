@@ -7038,7 +7038,7 @@
             }
           }
         },
-        "x-sm-token": true,
+        "x-sm-token": false,
         "security": [
           {
             "bearerAuth": []
@@ -7086,7 +7086,7 @@
             }
           }
         },
-        "x-sm-token": true,
+        "x-sm-token": false,
         "security": [
           {
             "bearerAuth": []
@@ -7117,7 +7117,7 @@
             }
           }
         },
-        "x-sm-token": true,
+        "x-sm-token": false,
         "security": [
           {
             "bearerAuth": []
@@ -7169,7 +7169,7 @@
             }
           }
         },
-        "x-sm-token": true,
+        "x-sm-token": false,
         "security": [
           {
             "bearerAuth": []
@@ -7238,7 +7238,7 @@
             }
           }
         },
-        "x-sm-token": true,
+        "x-sm-token": false,
         "security": [
           {
             "bearerAuth": []
@@ -7288,7 +7288,7 @@
             }
           }
         },
-        "x-sm-token": true,
+        "x-sm-token": false,
         "security": [
           {
             "bearerAuth": []
@@ -7340,7 +7340,7 @@
             }
           }
         },
-        "x-sm-token": true,
+        "x-sm-token": false,
         "security": [
           {
             "bearerAuth": []

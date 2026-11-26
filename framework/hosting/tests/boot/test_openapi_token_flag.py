@@ -26,3 +26,22 @@ def test_schema_included_head_carries_token_flag():
     )
     install_openapi_filter(app)
     assert app.openapi()["paths"]["/api/probe"]["head"]["x-sm-token"] is True
+
+
+def test_session_only_gate_exports_token_flag_false():
+    from simple_module_hosting.auth.token_guard import GATE_SESSION, mark_token_gate
+
+    async def session_only() -> None:
+        return None
+
+    mark_token_gate(session_only, GATE_SESSION)
+    app = FastAPI()
+    # A permission gate beside the session gate must not make the route look token-capable.
+    app.add_api_route(
+        "/api/mint",
+        lambda: None,
+        methods=["POST"],
+        dependencies=[Depends(session_only), Depends(TokenAllowed())],
+    )
+    install_openapi_filter(app)
+    assert app.openapi()["paths"]["/api/mint"]["post"]["x-sm-token"] is False

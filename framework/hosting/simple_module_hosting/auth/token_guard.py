@@ -15,6 +15,9 @@ So the rule is fail-closed and decided per route, from its dependency tree:
 * A **page** route (anything rendering through Inertia, and every route on a
   module's view router) refuses tokens even when gated: tokens are API
   credentials, and a page's props are a second, unscoped read API.
+* A **session-only** route (a dependency marked :data:`GATE_SESSION`, which refuses any
+  token itself) is exported as refusing tokens too, so the OpenAPI ``x-sm-token`` flag
+  and the CLI agree with the runtime.
 * :class:`TokenAllowed` on a (non-page) route admits tokens explicitly, for a route that
   is safe for any token without naming a permission.
 * :class:`Authenticated` ("any signed-in user") is a gate for SM031 and the
@@ -59,6 +62,9 @@ GATE_AUTHENTICATED = "authenticated"
 
 GATE_PAGE = "page"
 """A page (Inertia) route: tokens are refused even behind a permission."""
+
+GATE_SESSION = "session"
+"""A session-only route: it refuses tokens itself, even behind a permission."""
 
 _POLICY_ATTR = "_sm_token_policy"
 
@@ -144,7 +150,7 @@ def dependant_gate_kinds(dependant: Any) -> set[str]:
 
 def gate_kinds_admit_tokens(kinds: Set[str]) -> bool:
     """Whether a route with these dependency gates admits API tokens."""
-    if GATE_PAGE in kinds:
+    if GATE_PAGE in kinds or GATE_SESSION in kinds:
         return False
     if GATE_ALLOW in kinds:
         return True
@@ -245,6 +251,7 @@ __all__ = [
     "GATE_AUTHENTICATED",
     "GATE_PAGE",
     "GATE_PERMISSION",
+    "GATE_SESSION",
     "TOKEN_GATE_ATTR",
     "Authenticated",
     "TokenAllowed",

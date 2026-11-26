@@ -28,6 +28,7 @@ from simple_module_hosting.auth.token_guard import (
     GATE_ALLOW,
     GATE_AUTHENTICATED,
     GATE_PERMISSION,
+    GATE_SESSION,
     dependant_gate_kinds,
     gate_kinds_admit_tokens,
 )
@@ -46,7 +47,7 @@ API_PREFIX = "/api/"
 UNGUARDED_ROUTE_CODE = "SM031"
 _PARAM = re.compile(r"\{[^}]*\}")
 _PLACEHOLDERS = ("x", "0", "00000000-0000-0000-0000-000000000000")
-_GUARD_KINDS = frozenset({GATE_PERMISSION, GATE_ALLOW, GATE_AUTHENTICATED})
+_GUARD_KINDS = frozenset({GATE_PERMISSION, GATE_ALLOW, GATE_AUTHENTICATED, GATE_SESSION})
 
 
 class ApiOperation(NamedTuple):

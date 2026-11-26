@@ -120,3 +120,16 @@ async def test_a_broad_service_key_never_causes_a_500(app, actor, bearer):
         if resp.status_code >= 500:
             failures.append((path, resp.status_code))
     assert failures == []
+
+
+async def test_session_only_token_routes_are_exported_as_token_refusing(app):
+    """The OpenAPI ``x-sm-token`` flag (what the CLI reads) matches the runtime refusal."""
+    ops = {
+        (method.upper(), path): op
+        for path, item in app.openapi()["paths"].items()
+        if path.startswith("/api/api_tokens")
+        for method, op in item.items()
+        if isinstance(op, dict) and "x-sm-token" in op
+    }
+    assert ops, "expected api_tokens API operations in the schema"
+    assert not [key for key, op in ops.items() if op["x-sm-token"]], ops
