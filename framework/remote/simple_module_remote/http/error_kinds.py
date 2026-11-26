@@ -8,8 +8,9 @@ from http import HTTPStatus
 
 __all__ = ["detail_of", "detail_text", "schema_mismatch", "token_problem"]
 
-# Starlette's exact body for a path no route matches. The framework's own domain
-# 404s say "Not found" (resource_deps) or name what is missing, so the match is exact.
+# Starlette's exact body for a path no route matches: a route or method mismatch
+# signal. An endpoint raising a bare 404 looks identical; most domain 404s say
+# "Not found" (resource_deps) or name what is missing, so the match is exact.
 _ROUTE_NOT_FOUND = "Not Found"
 # 422 error types that mean the request's shape differs from what the server expects.
 # A value the server could not parse (bool_parsing, too_short, ...) is the caller's.
@@ -32,26 +33,38 @@ def detail_of(text: str) -> object:
     return body.get("detail") if isinstance(body, dict) else None
 
 
+def _is_json(text: str) -> bool:
+    try:
+        json.loads(text)
+    except ValueError:
+        return False
+    return True
+
+
 def detail_text(text: str) -> str:
     """The response's string ``detail``, else ``""``."""
     detail = detail_of(text)
     return detail if isinstance(detail, str) else ""
 
 
-def token_problem(status: int, detail: object) -> bool:
+def token_problem(status: int, text: str) -> bool:
     """Whether logging in again could help: a 401, or a 403 about the credential.
 
     A 403 that explains a refusal of the action ("You cannot assign roles you do
-    not hold.", or a structured ``{"code": ...}``) came from a server that
-    accepted the token.
+    not hold.", a structured ``{"code": ...}``, or a plain-text body) came from a
+    server that accepted the token.
     """
     if status == HTTPStatus.UNAUTHORIZED:
         return True
-    if detail is None or (isinstance(detail, str) and not detail.strip()):
-        return True
+    detail = detail_of(text)
+    if detail is None and not _is_json(text):
+        detail = text  # a plain-text body is the server's explanation
+    if detail is None:
+        return True  # JSON without a detail
     if not isinstance(detail, str):
         return False
-    return _CREDENTIAL_403.fullmatch(detail.strip().lower()) is not None
+    wording = detail.strip().lower()
+    return not wording or _CREDENTIAL_403.fullmatch(wording) is not None
 
 
 def schema_mismatch(status: int, text: str) -> bool:

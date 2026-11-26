@@ -17,7 +17,6 @@ import httpx
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.error_kinds import (
-    detail_of,
     detail_text,
     schema_mismatch,
     token_problem,
@@ -131,7 +130,7 @@ def _auth_hint(ctx: RunContext, status: int, text: str) -> None:
         msg = f"hint: tokens cannot call this route; `{cli} api --session-only` lists such routes"
     elif "permission" in lowered or "scope" in lowered:
         msg = "hint: the token lacks the permission named above; create one with the needed scopes"
-    elif ctx.login_hint and token_problem(status, detail_of(text)):
+    elif ctx.login_hint and token_problem(status, text):
         msg = (
             f"hint: the token may be missing or expired; run `{ctx.login_hint}` "
             "(or pipe it to --token-stdin)"

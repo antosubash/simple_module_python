@@ -12,7 +12,7 @@ from simple_module_remote.generate.pairs import split_pair
 from simple_module_remote.output.reasons import os_reason
 from simple_module_remote.schema.loader import resolve_ref, unwrap_nullable
 
-__all__ = ["BodyError", "build_json_body", "missing_required", "type_of"]
+__all__ = ["BodyError", "build_json_body", "missing_required", "object_shape", "type_of"]
 
 STDIN = "-"
 _TRUE = frozenset({"true", "1", "yes"})
@@ -52,13 +52,33 @@ def _parse_json(text: str, flag: str) -> object:
         raise BodyError(f"{flag}: invalid JSON ({exc} is not allowed)") from None
 
 
+def object_shape(root: dict, schema: dict) -> tuple[dict, set[str]]:
+    """Properties and required names of an object schema, through a nullable wrapper
+    and one level of ``allOf`` (how FastAPI composes models). ``--set`` and the
+    ``--help`` field list both read fields this way, so what help shows is what
+    ``--set`` coerces."""
+    node = unwrap_nullable(root, resolve_ref(root, schema))
+    composed = node.get("allOf")
+    parts = [node, *(composed if isinstance(composed, list) else [])]
+    props: dict = {}
+    required: set[str] = set()
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        part = resolve_ref(root, part)
+        if isinstance(found := part.get("properties"), dict):
+            props.update(found)
+        if isinstance(names := part.get("required"), list):
+            required.update(n for n in names if isinstance(n, str))
+    return props, required
+
+
 def _property_schema(root: dict, schema: dict | None, parts: Sequence[str]) -> dict | None:
     current = schema
     for part in parts:
         if current is None:
             return None
-        props = resolve_ref(root, current).get("properties")
-        nxt = props.get(part) if isinstance(props, dict) else None
+        nxt = object_shape(root, current)[0].get(part)
         current = nxt if isinstance(nxt, dict) else None
     return resolve_ref(root, current) if current is not None else None
 

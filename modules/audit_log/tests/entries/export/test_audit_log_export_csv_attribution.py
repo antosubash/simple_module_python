@@ -1,7 +1,8 @@
 """The CSV export says how each change was made (#1242).
 
-PR #1236 records ``auth_kind`` and ``token_id`` on every entry; without them in
-the file, an exported log cannot tell a CLI change from a browser one.
+PR #1236 records ``auth_kind`` and ``token_id`` when the credential is known;
+without them in the file, an exported log cannot tell a token's change from a
+signed-in session's.
 """
 
 from __future__ import annotations

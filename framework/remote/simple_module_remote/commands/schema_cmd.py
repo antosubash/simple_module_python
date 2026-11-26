@@ -130,8 +130,9 @@ def _sync(state: AppState, env: Environment, explicit: bool) -> str:
                     raise SchemaCacheError("the cache changed during the sync; run it again")
                 touch_in(store, previous)
                 cached = load_from(store, env.name, env.url, env.origin)
-                shown = schema_fingerprint(cached.root) if cached else previous.fingerprint
-                return f"unchanged ({shown[:FINGERPRINT_CHARS]})"
+                if cached is None:
+                    raise SchemaCacheError("the cache changed during the sync; run it again")
+                return f"unchanged ({schema_fingerprint(cached.root)})"
             if fetched.status != HTTP_OK:
                 raise _refusal(state, env, fetched.status)
             root = vet_schema(fetched.data, client)

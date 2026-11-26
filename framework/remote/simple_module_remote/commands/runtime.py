@@ -189,7 +189,8 @@ class AppState:
         return run_ctx
 
     def schema_hint(self, env: Environment) -> str:
-        """What to say after a 404/422 from a generated command: the schema may be stale."""
+        """The hint for a generated command whose error suggests a stale schema
+        (``http.error_kinds.schema_mismatch`` decides when)."""
         if self.schema_source == SCHEMA_LIVE:
             return (
                 f"hint: the server may have changed: run `{self.cli} --env {env.name} schema sync`"

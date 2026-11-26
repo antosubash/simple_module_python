@@ -79,3 +79,14 @@ def test_a_domain_error_does_not_blame_the_schema(execute_harness, make_op, stat
 )
 def test_a_route_or_shape_mismatch_suggests_schema_sync(execute_harness, make_op, status, body):
     assert _run(execute_harness, make_op, status, body) == [SCHEMA]
+
+
+@pytest.mark.parametrize(
+    ("text", "hinted"),
+    [("Action denied by policy", False), ("Forbidden", True), ("", True)],
+)
+def test_a_plain_text_403_is_read_as_the_explanation(execute_harness, make_op, text, hinted):
+    h = execute_harness(lambda r: httpx.Response(403, text=text))
+    h.ctx.login_hint = LOGIN
+    assert h.run(make_op(method="POST")) == 4
+    assert any(LOGIN in ln for ln in _hints(h)) == hinted

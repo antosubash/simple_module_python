@@ -1,5 +1,7 @@
 """The body-field summary behind --help (#1241)."""
 
+import io
+
 from simple_module_remote.generate.body_help import (
     MAX_HELP_FIELDS,
     BodyField,
@@ -33,7 +35,7 @@ def test_recursive_array_has_a_bounded_label():
             "items": {"$ref": "#/components/schemas/Tree"}}}}}  # fmt: skip
     body = {"properties": {"tree": {"$ref": "#/components/schemas/Tree"}}}
     (field,), _ = body_field_summary(body, root)
-    assert field.kind.startswith("list of list of") and field.kind.endswith("list")
+    assert field.kind == "list of list of list of list of list"  # MAX_LABEL_DEPTH = 4
 
 
 def test_nullable_type_array_shows_its_type():
@@ -54,6 +56,26 @@ def test_all_of_and_nullable_wrappers_are_read():
 
 
 def test_keys_set_cannot_address():
-    assert set_addressable("full_name")
-    for name in ("a.b", "a=b", "a b", "a\nb", ""):
+    assert set_addressable("full_name") and set_addressable("full name")
+    for name in ("a.b", "a=b", "a\nb", ""):
         assert not set_addressable(name)
+
+
+def test_set_coerces_fields_help_finds_through_all_of_and_nullable():
+    """What --help lists is what --set coerces: a composed integer is sent as one."""
+    from simple_module_remote.generate.body import build_json_body
+
+    body = {"anyOf": [{"type": "null"}, {"allOf": [
+        {"properties": {"n": {"type": "integer"}}},
+        {"properties": {"tags": {"type": "array", "items": {"type": "string"}}}},
+    ]}]}  # fmt: skip
+    sent = build_json_body(
+        json_arg=None,
+        file_arg=None,
+        sets=("n=5", "tags=a", "full name=x"),
+        set_jsons=(),
+        body_schema=body,
+        root={},
+        stdin=io.StringIO(""),
+    )
+    assert sent == {"n": 5, "tags": ["a"], "full name": "x"}

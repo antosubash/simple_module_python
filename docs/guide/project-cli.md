@@ -47,7 +47,8 @@ origin is normalised when compared. Plain `http://` is accepted only for loopbac
 whitespace, control characters or backslashes; environment names are 1-40
 lowercase letters, digits or `-`, starting with a letter or digit. `local` exists
 before you add anything: `smdev env use local` is all a dev checkout needs, and a `login` to a configured environment while none is current makes it the
-current one (a one-off `SMDEV_URL` environment is not saved). The environment is chosen by
+current one (a one-off `SMDEV_URL` environment is not saved, and a config that
+cannot be written only warns). The environment is chosen by
 `--env`, then `SMDEV_ENV`, then the saved current environment. The config lives
 in `~/.config/smdev/` (or `$XDG_CONFIG_HOME/smdev/`).
 
@@ -124,7 +125,7 @@ arguments may not be empty. A non-JSON response (a download) is streamed to a
 pipe; JSON responses larger than 64 MiB are refused with a hint to use `--out`.
 `smdev api METHOD /api/...` calls any path directly. A generated command's
 `--help` lists up to 40 top-level JSON body fields with their types (`*` marks the
-required ones; quoted names cannot be set with `--set`). `smdev schema status`
+required ones; a quoted name contains `.` or `=` and cannot be set with `--set`). `smdev schema status`
 shows where the command schema comes from, and `smdev doctor` checks
 connectivity, credentials and schema.
 
@@ -262,7 +263,8 @@ the environment at another URL therefore drops its cache until the next sync. `-
 and a `schema sync` hint when it cannot be used (built-ins such as
 `schema sync` still run); `--schema bundled` ignores the cache. When a generated
 command gets an answer that suggests the schema is out of date (a 404 with no detail
-or the router's exact `Not Found`, a 405, or a 422 for a missing or unknown field), the
+or the router's exact `Not Found`, which an endpoint raising a bare 404 also sends; a
+405 for an unsupported method; or a 422 for a missing or unknown field), the
 error ends with a hint to run `schema sync`; a domain 404 (`member_not_found`, `Not
 found`) or a value the server could not parse does not. A 403 suggests logging in again
 only when it is about the credential (no detail, or a whole message such as `Not
