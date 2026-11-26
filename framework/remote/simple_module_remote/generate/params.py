@@ -13,6 +13,7 @@ from simple_module_remote.output.render import OUTPUT_FORMATS
 from simple_module_remote.schema.loader import resolve_ref
 
 __all__ = [
+    "PATH_VAR",
     "RESERVED_OPTIONS",
     "click_params_for",
     "json_response_schema",
@@ -28,7 +29,7 @@ RESERVED_OPTIONS: frozenset[str] = frozenset(
     }
 )  # fmt: skip
 
-_PATH_VAR = re.compile(r"\{([^}]+)\}")
+PATH_VAR = re.compile(r"\{([^}]+)\}")  # one ``{param}`` placeholder (name captured)
 _SCALARS: dict[str, click.ParamType] = {
     "integer": click.INT,
     "number": click.FLOAT,
@@ -52,7 +53,7 @@ def _dest(param: Param) -> str:
 
 
 def _ordered(op: Operation) -> list[Param]:
-    order = {name: i for i, name in enumerate(_PATH_VAR.findall(op.path))}
+    order = {name: i for i, name in enumerate(PATH_VAR.findall(op.path))}
     paths = sorted(
         (p for p in op.params if p.location == "path"), key=lambda p: order.get(p.name, 99)
     )

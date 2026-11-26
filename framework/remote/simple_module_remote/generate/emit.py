@@ -14,6 +14,7 @@ import click
 import httpx
 
 from simple_module_remote.generate.context import RunContext
+from simple_module_remote.generate.operations import is_json_media
 from simple_module_remote.http.client import ApiClient
 from simple_module_remote.http.errors import AUTH_STATUSES, ERROR_MIN
 from simple_module_remote.output.render import (
@@ -57,7 +58,7 @@ def is_binary(response: httpx.Response) -> bool:
     kind = _media_type(response)
     if not kind:
         return False
-    return not (kind == "application/json" or kind.endswith("+json") or kind.startswith("text/"))
+    return not (is_json_media(kind) or kind.startswith("text/"))
 
 
 def has_type(response: httpx.Response) -> bool:
@@ -65,8 +66,8 @@ def has_type(response: httpx.Response) -> bool:
 
 
 def is_json(response: httpx.Response) -> bool:
-    kind = _media_type(response)
-    return kind == "application/json" or kind.endswith("+json")
+    # One definition of "JSON" with the schema side: application/json or application/*+json.
+    return is_json_media(_media_type(response))
 
 
 def _read_capped(response: httpx.Response) -> bytes:

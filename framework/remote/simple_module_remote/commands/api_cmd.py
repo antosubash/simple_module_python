@@ -11,7 +11,7 @@ import click
 from simple_module_remote.commands.runtime import state_of
 from simple_module_remote.generate.operations import Operation, Param, parse_operations
 from simple_module_remote.generate.pairs import split_pairs
-from simple_module_remote.generate.params import click_params_for, param_map
+from simple_module_remote.generate.params import PATH_VAR, click_params_for, param_map
 from simple_module_remote.generate.tree import session_only_operations
 from simple_module_remote.http.errors import UnsafePathError
 from simple_module_remote.http.safety import validate_api_path
@@ -20,14 +20,13 @@ __all__ = ["api"]
 
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 BODY_METHODS = ("POST", "PUT", "PATCH", "DELETE")
-_TEMPLATE_VAR = re.compile(r"\{[^}]+\}")
 
 
 def _matching(root: dict, method: str, path: str) -> list[Operation]:
     """Schema operations whose path template matches ``path``: they define its risk."""
     found = []
     for op in parse_operations(root):
-        pattern = "[^/]+".join(re.escape(part) for part in _TEMPLATE_VAR.split(op.path))
+        pattern = "[^/]+".join(re.escape(part) for part in PATH_VAR.split(op.path)[::2])
         if op.method == method and re.fullmatch(pattern, path):
             found.append(op)
     return found

@@ -431,6 +431,12 @@ Screens that take a tenant id from the URL can vet it without importing
 `feature_flags` uses it to 404 on an unknown tenant when setting or listing
 overrides; clearing stays unvalidated so a stale override can still be removed.
 
+In the same way the module publishes `app.state.tenant_slug`, and
+`await simple_module_core.access.tenancy.tenant_slug(app, tenant_id)` answers the
+tenant's slug, or `None` when the id is unknown or no module owns tenants.
+`GET /api/_meta/whoami` returns it as `tenant_slug` for the request's resolved
+tenant, so clients such as the project CLI can show and accept a slug.
+
 ## Audit log
 
 `audit_log` stamps every entry with the tenant bound when the write flushed,
