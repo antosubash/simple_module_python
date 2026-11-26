@@ -124,6 +124,35 @@ test('reusing Edit for another user resets the linked-sign-ins card history', ()
   expect(screen.queryByRole('heading', { name: 'Linked sign-ins' })).not.toBeInTheDocument();
 });
 
+test('the user key preserves partial-reload edits and resets them only after an allowed user visit', () => {
+  const { rerender } = render(<Edit {...props} />);
+  fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Unsaved name' } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'unsaved@example.com' } });
+  const partialVisit = { only: partial, preserveState: true };
+  expect(visit('/admin/users/user-1', 'get', partialVisit)).toBe(true);
+  rerender(<Edit {...props} linked_sign_ins={[]} />);
+  expect(screen.getByLabelText('Full name')).toHaveValue('Unsaved name');
+  expect(screen.getByLabelText('Email')).toHaveValue('unsaved@example.com');
+  expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+
+  // Exercise the real router's before event: cancellation precedes any swap.
+  router.visit('/admin/users/user-2', { preserveState: true });
+  expect(window.confirm).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText('Full name')).toHaveValue('Unsaved name');
+
+  vi.mocked(window.confirm).mockReturnValue(true);
+  expect(visit('/admin/users/user-2', 'get', { preserveState: true })).toBe(true);
+  expect(window.confirm).toHaveBeenCalledTimes(2);
+  // Equal persisted fields must still start a fresh form for the new user.
+  rerender(<Edit {...props} user={{ ...props.user, id: 'user-2' }} />);
+  expect(screen.getByLabelText('Full name')).toHaveValue('Jane');
+  expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com');
+  expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  vi.mocked(window.confirm).mockClear();
+  expect(visit('/admin/users/')).toBe(true);
+  expect(window.confirm).not.toHaveBeenCalled();
+});
+
 test('an unrelated rerender does not restore focus after a removed opener was left behind', async () => {
   const { rerender } = render(<Edit {...props} />);
   const opener = screen.getByRole('button', { name: 'Remove' });

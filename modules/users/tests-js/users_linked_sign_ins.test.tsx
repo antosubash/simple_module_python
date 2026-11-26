@@ -208,7 +208,12 @@ test.each(['Cancel', 'Escape'])(
   async (close) => {
     render(<LinkedSignInsCard userId="user-1" links={links} hasDuplicates={false} />);
     const opener = screen.getByRole('button', { name: 'Remove' });
+    act(() => opener.focus());
+    expect(opener).toHaveFocus();
     fireEvent.click(opener);
+    expect(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }),
+    ).toHaveFocus();
     if (close === 'Cancel') fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     else fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
