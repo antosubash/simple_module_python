@@ -31,21 +31,21 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-test('the settings screen has one main landmark inside the admin shell', () => {
+function renderSettingsScreen() {
   render(
     <AdminLayout>
       <ModulesEdit modules={[]} />
     </AdminLayout>,
   );
+}
+
+test('the settings screen has one main landmark inside the admin shell', () => {
+  renderSettingsScreen();
   expect(screen.getAllByRole('main')).toHaveLength(1);
 });
 
 test('each admin navigation landmark has a distinct translated label', () => {
-  render(
-    <AdminLayout>
-      <ModulesEdit modules={[]} />
-    </AdminLayout>,
-  );
+  renderSettingsScreen();
   const navs = screen.getAllByRole('navigation');
   expect(navs).toHaveLength(4);
   for (const label of ['Section navigation', 'Footer links', 'Breadcrumb', 'Settings modules']) {
@@ -54,11 +54,7 @@ test('each admin navigation landmark has a distinct translated label', () => {
 });
 
 test('a closed search dialog contributes no heading before the page heading', () => {
-  render(
-    <AdminLayout>
-      <ModulesEdit modules={[]} />
-    </AdminLayout>,
-  );
+  renderSettingsScreen();
   expect(screen.getAllByRole('heading')[0].tagName).toBe('H1');
 });
 
