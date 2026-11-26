@@ -15,7 +15,12 @@ from typing import Any
 
 import httpx
 import pytest
-from _api_tokens_support import CSRF, create_pat, join_tenant, make_admin
+from _api_tokens_support import (  # ty: ignore[import-not-found]
+    CSRF,
+    create_pat,
+    join_tenant,
+    make_admin,
+)
 from click.testing import CliRunner, Result
 from simple_module_test.web.tenant_client import create_user, session_client
 from smdev_cli import make_cli
