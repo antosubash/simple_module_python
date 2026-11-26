@@ -42,6 +42,7 @@ vi.mock('@simple-module-py/i18n', () => {
     useT: () => ({ t: (key: string) => labels[key] ?? key }),
     keys: {
       ui: {
+        nav: { breadcrumb: 'ui.nav.breadcrumb' },
         topbar: { log_out: 'ui.topbar.log_out' },
         switcher: { label: 'ui.switcher.label', single_locale: 'ui.switcher.single_locale' },
         command_palette: {

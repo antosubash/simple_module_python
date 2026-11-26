@@ -170,3 +170,31 @@ def test_doctor_reports_live_state(page: Page, e2e_username: str, e2e_password: 
     # dev-server panel whose port was wrong.
     expect(page.get_by_text("modules/billing/router.py")).to_have_count(0)
     expect(page.get_by_text("Vite HMR")).to_have_count(0)
+
+
+def test_admin_shell_landmarks_and_mobile_drawer(
+    page: Page, e2e_username: str, e2e_password: str
+) -> None:
+    """One main landmark, labelled navs (#1160), and on a phone the drawer
+    closes on a single Escape from a nav link and the doctor page does not
+    scroll sideways (#1154, #1163)."""
+    page.goto("/")
+    _login(page, e2e_username, e2e_password)
+    page.goto("/admin/settings/")
+    expect(page.get_by_role("main")).to_have_count(1)
+    for name in ("Section navigation", "Breadcrumb", "Footer links", "Settings modules"):
+        expect(page.get_by_role("navigation", name=name)).to_have_count(1)
+
+    page.set_viewport_size({"width": 375, "height": 812})
+    opener = page.get_by_role("button", name="Open sidebar")
+    opener.click()
+    drawer = page.get_by_role("dialog")
+    expect(drawer).to_be_visible()
+    drawer.get_by_role("link", name="Users", exact=True).focus()
+    page.keyboard.press("Escape")
+    expect(drawer).to_have_count(0)
+    expect(opener).to_be_focused()
+
+    page.goto("/admin/doctor/")
+    expect(page.get_by_role("heading", name="Doctor", level=1)).to_be_visible()
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")

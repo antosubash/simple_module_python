@@ -23,7 +23,7 @@ export interface Oklch {
 
 /**
  * The default theme's primary ramp, mirrored from
- * `packages/ui/src/styles/globals.css` (`--color-primary-*`). Only lightness and
+ * `packages/ui/src/styles/theme.css` (`--color-primary-*`). Only lightness and
  * chroma are used; the hue is replaced per brand colour. Keep in sync with the
  * stylesheet — a unit test pins the step list.
  */

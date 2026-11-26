@@ -94,11 +94,11 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
       <button
         type="button"
         onClick={() => changeOpen(true)}
-        className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground max-lg:min-h-11 pointer-coarse:min-h-11"
       >
         <Search className="size-3.5" aria-hidden="true" />
         <span>{t(keys.ui.command_palette.trigger)}</span>
-        <kbd className="ml-1 font-mono text-[10px] tracking-wide opacity-70">⌘K</kbd>
+        <kbd className="ml-1 font-mono text-[10px] max-lg:text-xs tracking-wide opacity-70">⌘K</kbd>
       </button>
 
       <CommandDialog

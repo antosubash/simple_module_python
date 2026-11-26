@@ -126,7 +126,8 @@
     "managed_title": "Managed on its own page",
     "managed_description": "{module} ships a purpose-built settings page; edit it there so validation and previews apply.",
     "managed_open": "Open {module} settings",
-    "no_results": "No matching modules"
+    "no_results": "No matching modules",
+    "navigation_label": "Settings modules"
   },
   "modules_form": {
     "save": "Save",
@@ -146,7 +147,8 @@
     "hide_secret": "Hide",
     "leave_warning": "You have unsaved changes. Discard them?",
     "discard_title": "Discard changes?",
-    "discard_changes": "Discard changes"
+    "discard_changes": "Discard changes",
+    "revert_field": "Revert {field}"
   },
   "nav": {
     "settings": "Settings"

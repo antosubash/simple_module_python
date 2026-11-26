@@ -56,7 +56,7 @@ export function SidebarUserMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className={`flex w-full min-h-11 lg:min-h-0 items-center gap-3 rounded-lg px-2 py-2 text-left ${hoverBg} transition-colors`}
+            className={`flex w-full min-h-11 lg:min-h-0 pointer-coarse:min-h-11 items-center gap-3 rounded-lg px-2 py-2 text-left ${hoverBg} transition-colors`}
           >
             {/* Two letters on a neutral surface, per the deck — a coloured
                 ring read as a status indicator the avatar does not carry. */}

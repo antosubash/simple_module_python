@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import { BRAND_ACCENT, BRAND_FOOTER_LINKS, type BrandLink } from '../lib/brand';
 import { BrandingMark } from './BrandingMark';
 
@@ -38,6 +39,7 @@ export function BrandingFooter({
   links,
   footerText,
 }: BrandingFooterProps): React.ReactElement {
+  const { t } = useT();
   // An empty array is treated as "unset" too: it is what the server sends
   // for a deployment that has cleared its links, and a footer with no links
   // at all reads as broken rather than deliberate.
@@ -62,7 +64,10 @@ export function BrandingFooter({
             caption={caption}
           />
         </div>
-        <nav className="flex flex-wrap items-center gap-5 text-xs text-muted-foreground">
+        <nav
+          aria-label={t(keys.ui.nav.footer)}
+          className="flex flex-wrap items-center gap-5 text-xs text-muted-foreground"
+        >
           {shown.map((link, index) => (
             <a
               // Index-keyed: `links` is admin-supplied and nothing enforces
@@ -71,7 +76,7 @@ export function BrandingFooter({
               // biome-ignore lint/suspicious/noArrayIndexKey: see above
               key={index}
               href={link.href}
-              className="transition-colors hover:text-foreground"
+              className="inline-flex items-center justify-center transition-colors hover:text-foreground max-lg:min-h-11 max-lg:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
               rel="noopener noreferrer"
             >
               {link.label}

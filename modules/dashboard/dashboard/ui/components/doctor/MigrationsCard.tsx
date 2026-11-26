@@ -68,7 +68,7 @@ export function MigrationsCard({ migrations, commands, onCopyCommand }: Props) {
                   {row.id.slice(0, SHORT_ID)}
                 </code>
                 {row.module && (
-                  <code className="shrink-0 rounded-full border border-border px-2 py-0.5 font-mono text-[11.5px]">
+                  <code className="shrink-0 rounded-full border border-border px-2 py-0.5 font-mono text-[11.5px] max-lg:text-xs">
                     {row.module}
                   </code>
                 )}

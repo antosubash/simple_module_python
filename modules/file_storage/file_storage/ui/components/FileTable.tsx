@@ -40,7 +40,7 @@ const TAP_TARGET =
   'relative max-lg:before:absolute max-lg:before:-inset-3.5 max-lg:before:content-[""]';
 
 const HEAD =
-  'bg-secondary/40 text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+  'bg-secondary/40 text-[11px] max-lg:text-xs font-semibold uppercase tracking-[0.08em] ' +
   'text-muted-foreground sm:px-6';
 
 // The select-all box has the same bleed as the rows, but nothing above the

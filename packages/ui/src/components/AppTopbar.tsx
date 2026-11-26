@@ -79,14 +79,19 @@ export function AppTopbar({ navItems, accountItems, currentUrl, activeMenuItem }
 
   return (
     <header className="sticky top-0 z-20 hidden h-[var(--app-chrome-h)] shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-7 lg:flex">
-      <Breadcrumb>
+      <Breadcrumb aria-label={t(keys.ui.nav.breadcrumb)}>
         <BreadcrumbList className="text-[13px]">
           {section ? (
             <>
               <BreadcrumbItem>
                 {leaf ? (
                   <BreadcrumbLink asChild>
-                    <Link href={section.url}>{section.label}</Link>
+                    <Link
+                      href={section.url}
+                      className="inline-flex items-center pointer-coarse:min-h-11"
+                    >
+                      {section.label}
+                    </Link>
                   </BreadcrumbLink>
                 ) : (
                   <BreadcrumbPage>{section.label}</BreadcrumbPage>
@@ -119,7 +124,7 @@ export function AppTopbar({ navItems, accountItems, currentUrl, activeMenuItem }
             href={logout.url}
             method="post"
             as="button"
-            className="inline-flex items-center rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="inline-flex items-center rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11"
           >
             {t(keys.ui.topbar.log_out)}
           </Link>
