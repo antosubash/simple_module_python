@@ -15,6 +15,7 @@ from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.frontend.pagination import page_params
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.admin.api_detail import detail_router
 from users.admin.events import publish_admin_event
 from users.admin.links import admin_link_base
 from users.admin.service import UserService
@@ -53,6 +54,7 @@ admin_router = APIRouter(
 
 # Bulk invite and resend live in their own modules (this file is near the
 # 300-line cap) but mount here so they inherit the users.manage guard above.
+admin_router.include_router(detail_router)
 admin_router.include_router(bulk_router)
 admin_router.include_router(resend_router)
 

@@ -5866,6 +5866,314 @@
         "security": []
       }
     },
+    "/api/users/admin/roles": {
+      "get": {
+        "tags": [
+          "Users",
+          "users-admin"
+        ],
+        "summary": "Admin List Roles",
+        "description": "Assignable roles, as the Edit page's ``roles`` prop.",
+        "operationId": "users_admin_list_roles",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoleOption"
+                  },
+                  "type": "array",
+                  "title": "Response Users Admin List Roles"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/users/admin/{user_id}": {
+      "get": {
+        "tags": [
+          "Users",
+          "users-admin"
+        ],
+        "summary": "Admin Get User",
+        "description": "One user, as the Edit page's ``user`` prop.",
+        "operationId": "users_admin_get_user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Users",
+          "users-admin"
+        ],
+        "summary": "Admin Update User",
+        "description": "Update a user's email and full name.",
+        "operationId": "users_admin_update_user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserDetailsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Users",
+          "users-admin"
+        ],
+        "summary": "Admin Delete User",
+        "description": "Hard-delete a user. An admin cannot delete their own account.",
+        "operationId": "users_admin_delete_user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/users/admin/{user_id}/linked-sign-ins": {
+      "get": {
+        "tags": [
+          "Users",
+          "users-admin"
+        ],
+        "summary": "Admin List Linked Sign Ins",
+        "description": "External sign-ins linked to a user.",
+        "operationId": "users_admin_list_linked_sign_ins",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedSignInList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/users/admin/{user_id}/linked-sign-ins/{link_id}": {
+      "delete": {
+        "tags": [
+          "Users",
+          "users-admin"
+        ],
+        "summary": "Admin Unlink Sign In Api",
+        "description": "Unlink one sign-in; another user's link is a 404 (same rules as the view).",
+        "operationId": "users_admin_unlink_sign_in_api",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Link Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-sm-token": true,
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/users/admin/invite/bulk": {
       "post": {
         "tags": [
@@ -6207,115 +6515,6 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "x-sm-token": true,
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionCookie": []
-          }
-        ]
-      }
-    },
-    "/api/users/admin/{user_id}": {
-      "patch": {
-        "tags": [
-          "Users",
-          "users-admin"
-        ],
-        "summary": "Admin Update User",
-        "description": "Update a user's email and full name.",
-        "operationId": "users_admin_update_user",
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "User Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserDetailsUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserListItem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "x-sm-token": true,
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionCookie": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "Users",
-          "users-admin"
-        ],
-        "summary": "Admin Delete User",
-        "description": "Hard-delete a user. An admin cannot delete their own account.",
-        "operationId": "users_admin_delete_user",
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "User Id"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -8567,6 +8766,78 @@
         ],
         "title": "InvitationView"
       },
+      "LinkedSignIn": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "last_sign_in_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sign In At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider"
+        ],
+        "title": "LinkedSignIn"
+      },
+      "LinkedSignInList": {
+        "properties": {
+          "linked_sign_ins": {
+            "items": {
+              "$ref": "#/components/schemas/LinkedSignIn"
+            },
+            "type": "array",
+            "title": "Linked Sign Ins"
+          },
+          "has_duplicate_linked_sign_ins": {
+            "type": "boolean",
+            "title": "Has Duplicate Linked Sign Ins"
+          }
+        },
+        "type": "object",
+        "required": [
+          "linked_sign_ins",
+          "has_duplicate_linked_sign_ins"
+        ],
+        "title": "LinkedSignInList"
+      },
       "LogItem": {
         "properties": {
           "id": {
@@ -9194,6 +9465,24 @@
           "role"
         ],
         "title": "RoleChange"
+      },
+      "RoleOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "RoleOption"
       },
       "RoleOut": {
         "properties": {

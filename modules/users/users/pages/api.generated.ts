@@ -227,6 +227,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Roles
+         * @description Assignable roles, as the Edit page's ``roles`` prop.
+         */
+        get: operations["users_admin_list_roles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/admin/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Get User
+         * @description One user, as the Edit page's ``user`` prop.
+         */
+        get: operations["users_admin_get_user"];
+        put?: never;
+        post?: never;
+        /**
+         * Admin Delete User
+         * @description Hard-delete a user. An admin cannot delete their own account.
+         */
+        delete: operations["users_admin_delete_user"];
+        options?: never;
+        head?: never;
+        /**
+         * Admin Update User
+         * @description Update a user's email and full name.
+         */
+        patch: operations["users_admin_update_user"];
+        trace?: never;
+    };
+    "/api/users/admin/{user_id}/linked-sign-ins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Linked Sign Ins
+         * @description External sign-ins linked to a user.
+         */
+        get: operations["users_admin_list_linked_sign_ins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/admin/{user_id}/linked-sign-ins/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Admin Unlink Sign In Api
+         * @description Unlink one sign-in; another user's link is a 404 (same rules as the view).
+         */
+        delete: operations["users_admin_unlink_sign_in_api"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/admin/invite/bulk": {
         parameters: {
             query?: never;
@@ -314,30 +402,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/users/admin/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Admin Delete User
-         * @description Hard-delete a user. An admin cannot delete their own account.
-         */
-        delete: operations["users_admin_delete_user"];
-        options?: never;
-        head?: never;
-        /**
-         * Admin Update User
-         * @description Update a user's email and full name.
-         */
-        patch: operations["users_admin_update_user"];
         trace?: never;
     };
     "/api/users/admin/{user_id}/disable": {
@@ -663,6 +727,26 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** LinkedSignIn */
+        LinkedSignIn: {
+            /** Id */
+            id: string;
+            /** Provider */
+            provider: string;
+            /** Username */
+            username?: string | null;
+            /** Subject */
+            subject?: string | null;
+            /** Last Sign In At */
+            last_sign_in_at?: string | null;
+        };
+        /** LinkedSignInList */
+        LinkedSignInList: {
+            /** Linked Sign Ins */
+            linked_sign_ins: components["schemas"]["LinkedSignIn"][];
+            /** Has Duplicate Linked Sign Ins */
+            has_duplicate_linked_sign_ins: boolean;
+        };
         /**
          * LoginRequest
          * @description The sign-in form, posted url-encoded.
@@ -700,6 +784,13 @@ export interface components {
         RoleAssignment: {
             /** Role Names */
             role_names: string[];
+        };
+        /** RoleOption */
+        RoleOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /**
          * SelfPasswordChange
@@ -1243,6 +1334,182 @@ export interface operations {
             };
         };
     };
+    users_admin_list_roles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleOption"][];
+                };
+            };
+        };
+    };
+    users_admin_get_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserListItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    users_admin_delete_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    users_admin_update_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserDetailsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserListItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    users_admin_list_linked_sign_ins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedSignInList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    users_admin_unlink_sign_in_api: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     users_admin_bulk_invite: {
         parameters: {
             query?: never;
@@ -1393,70 +1660,6 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserListItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_admin_delete_user: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_admin_update_user: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserDetailsUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
                 headers: {
                     [name: string]: unknown;
                 };
