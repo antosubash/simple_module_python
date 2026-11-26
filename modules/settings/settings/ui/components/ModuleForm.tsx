@@ -161,8 +161,8 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
     submitting.current = false;
   }
 
-  async function onReset(name: string) {
-    if (submitting.current) return;
+  async function onReset(name: string): Promise<boolean> {
+    if (submitting.current) return false;
     submitting.current = true;
     setBusy(true);
     setSaved(false);
@@ -177,7 +177,7 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
       handleFailure(result);
       setBusy(false);
       submitting.current = false;
-      return;
+      return false;
     }
     setSavedOverrides((prev) => ({ ...prev, [name]: false }));
     setBuffer((prev) => ({
@@ -203,6 +203,7 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
     });
     setBusy(false);
     submitting.current = false;
+    return true;
   }
 
   return (

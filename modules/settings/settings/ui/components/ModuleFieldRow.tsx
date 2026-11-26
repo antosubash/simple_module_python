@@ -12,7 +12,8 @@ interface Props {
   disabled?: boolean;
   error?: string;
   onChange: (name: string, value: unknown) => void;
-  onReset: () => void;
+  /** May resolve `false` when the revert failed or was ignored. */
+  onReset: () => unknown;
 }
 
 /**
@@ -99,9 +100,9 @@ export function ModuleFieldRow({
         <FieldSource
           field={field}
           descriptionId={descriptionId}
-          onReset={() => {
+          onReset={async () => {
             refocusAfterRevert.current = true;
-            onReset();
+            if ((await onReset()) === false) refocusAfterRevert.current = false;
           }}
         />
       </div>
