@@ -66,6 +66,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- **Behaviour change:** Doctor resolves imported page constants and module aliases, including relative imports within the scanned package. Unresolved render targets downgrade SM003 to informational findings instead of false unused-page warnings; SM004 still warns about resolved targets with missing pages (#1219).
 - Cap Vite at `~8.3.7` in fresh `smpy new` apps (workspace and flat layouts) and the dev host, keeping Vite 8.4's `INVALID_EXTERNAL_ID` UI dependency optimisation failure out of new installs (#1212).
 - Admin shell: improve primary text/button contrast, close the mobile drawer on Inertia navigation, reserve sidebar footer space, enlarge narrow/coarse touch targets, fit feature flags at tablet widths, wrap long user headings, use consistent section headings, and label search fields and the drawer toggle (#1184).
 - Mail leaves pinned SMTP sockets under asyncio transport ownership after connection, preventing descriptor reuse during deferred shutdown; failed authentication always closes the SMTP client (#1228).
