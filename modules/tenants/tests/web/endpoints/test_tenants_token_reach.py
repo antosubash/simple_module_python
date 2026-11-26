@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from _api_tokens_support import (  # ty: ignore[import-not-found]
+    CSRF,
     admin_session,
     bearer_client,
     join_tenant,
@@ -70,11 +71,22 @@ async def test_session_only_routes_refuse_tokens(app):
             assert "API tokens cannot be used" in resp.text, (url, resp.text)
 
 
+async def _active_tenant(client) -> str | None:
+    page = await client.get(
+        "/tenants/", headers={"X-Inertia": "true", "Accept": "application/json"}
+    )
+    assert page.status_code == 200, page.text
+    active = page.json()["props"]["tenant"]["active"]
+    return active["id"] if active else None
+
+
 async def test_session_switch_still_works(user_client):
-    async with user_client("s@x.io") as (client, user_id):
-        t = (await client.post(_URL, json={"name": "One"})).json()
-        assert (await client.post(f"/api/tenants/{t['id']}/switch")).status_code == 204
-        assert user_id
+    async with user_client("s@x.io") as (client, _):
+        first = (await client.post(_URL, json={"name": "One"})).json()
+        second = (await client.post(_URL, json={"name": "Two"})).json()
+        assert await _active_tenant(client) == second["id"]  # creating switches to it
+        assert (await client.post(f"/api/tenants/{first['id']}/switch")).status_code == 204
+        assert await _active_tenant(client) == first["id"]
 
 
 async def test_pat_cannot_suspend_its_own_tenant(app):
@@ -95,8 +107,16 @@ async def test_pat_cannot_suspend_its_own_tenant(app):
 
 
 async def test_session_admin_suspend_unchanged(app):
+    from simple_module_db.scoping.tenancy import all_tenants
+    from tenants.models import Tenant
+
     data = await admin_session(app)
     tenant_id = data[SESSION_ACTIVE_TENANT]
     async with session_client(app, data) as c:
-        resp = await c.post(f"/api/tenants/admin/{tenant_id}/suspend")
-    assert resp.status_code != 409, resp.text
+        resp = await c.post(
+            f"/api/tenants/admin/{tenant_id}/suspend", headers={"X-CSRF-Token": CSRF}
+        )
+    assert resp.status_code == 200, resp.text
+    async with app.state.sm.db.session_factory() as s:
+        with all_tenants():
+            assert (await s.get(Tenant, tenant_id)).status == "suspended"

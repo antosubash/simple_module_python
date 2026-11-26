@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_db import TenantIsolationError
 from simple_module_hosting.auth.csrf import RequiresCsrf
 from simple_module_hosting.auth.permissions import RequiresPermission
 from simple_module_hosting.auth.resource_deps import resource_principal
@@ -21,6 +22,8 @@ from sharing.core.constants import ADMIN_API_PATH, Permissions
 from sharing.core.service import SharingError
 from sharing.web.deps import SharingServiceDep, http_error
 from sharing.web.listing import list_admin_shares
+
+TENANT_REQUIRED = "tenant_required"
 
 router = APIRouter(prefix=ADMIN_API_PATH)
 
@@ -60,3 +63,7 @@ async def admin_revoke_share(
         await service.revoke(who, share_id)
     except SharingError as exc:
         raise http_error(exc) from None
+    except TenantIsolationError:
+        # Strict tenancy and no active tenant (a platform admin before picking one):
+        # same fail-closed answer the tenant-level APIs give.
+        raise HTTPException(status_code=403, detail=TENANT_REQUIRED) from None

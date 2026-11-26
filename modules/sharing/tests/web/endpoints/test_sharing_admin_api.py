@@ -118,3 +118,30 @@ async def test_strict_tenancy_admin_without_active_tenant_gets_empty_page(note_a
     body = resp.json()
     assert (body["items"], body["total"], body["page"]) == ([], 0, 1)
     assert page.json()["props"]["tenant_required"] is True
+
+
+async def test_strict_tenancy_admin_revoke_without_active_tenant_is_403(note_app):
+    email = f"adm-{uuid.uuid4().hex[:8]}@example.com"
+    user_id = await make_admin(note_app, email)
+    data = {"user_id": user_id, "sm_csrf_token": CSRF}
+    async with session_client(note_app, data) as client:
+        resp = await client.post(
+            f"{LIST_URL}/{uuid.uuid4()}/revoke", headers={"X-CSRF-Token": CSRF}
+        )
+    assert resp.status_code == 403, resp.text
+    assert resp.json()["detail"] == "tenant_required"
+
+
+async def test_revoke_maps_tenant_isolation_without_the_tenants_handler():
+    """The endpoint answers 403 itself, so it does not depend on a module's global handler."""
+    from fastapi import HTTPException
+    from sharing.web.endpoints.admin_api import admin_revoke_share
+    from simple_module_db import MissingTenantError
+
+    class Service:
+        async def revoke(self, who, share_id):
+            raise MissingTenantError("no active tenant")
+
+    with pytest.raises(HTTPException) as err:
+        await admin_revoke_share(uuid.uuid4(), Service(), who=None)
+    assert err.value.status_code == 403 and err.value.detail == "tenant_required"

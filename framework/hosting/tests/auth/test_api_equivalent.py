@@ -194,3 +194,21 @@ def test_target_refusing_tokens_is_an_offender():
     assert view_route_offenders(app) == [
         "DELETE /things/{thing_id}: DELETE /api/things/{thing_id} refuses API tokens"
     ]
+
+
+def test_earlier_param_route_shadows_a_later_literal_target():
+    app = FastAPI()
+    app.post("/api/items/{item_id}")(lambda item_id: None)  # first: no gate, refuses
+    app.post("/api/items/special", dependencies=[Depends(RequiresPermission(_PERM))])(lambda: None)
+    _view(app, Depends(api_equivalent("POST", "/api/items/special")))
+    assert view_route_offenders(app) == [
+        "POST /things/{thing_id}: POST /api/items/special refuses API tokens"
+    ]
+
+
+def test_literal_route_first_is_the_one_a_literal_target_reaches():
+    app = FastAPI()
+    app.post("/api/items/special", dependencies=[Depends(RequiresPermission(_PERM))])(lambda: None)
+    app.post("/api/items/{item_id}")(lambda item_id: None)
+    _view(app, Depends(api_equivalent("POST", "/api/items/special")))
+    assert view_route_offenders(app) == []

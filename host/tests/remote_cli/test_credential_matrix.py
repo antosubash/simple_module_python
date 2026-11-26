@@ -13,7 +13,12 @@ import json
 import uuid
 
 import pytest
-from _api_tokens_support import CSRF_HEADERS, create_pat, create_service_key  # ty: ignore[import-not-found]
+from _api_tokens_support import (  # ty: ignore[import-not-found]
+    CSRF_HEADERS,
+    bearer_client,
+    create_pat,
+    create_service_key,
+)
 from simple_module_core.access.tenancy import TenantRole
 from simple_module_test.web.tenant_client import create_user, session_client
 
@@ -35,6 +40,7 @@ LIST_MEMBERS = ("tenants", "list-members")
 INVITE = ("tenants", "invite")
 LIST_FLAGS = ("feature-flags", "list-flags")
 LIST_SETTINGS = ("settings", "list-settings")
+MEMBERS_URL = "/api/tenants/current/members"
 
 
 async def _login(smdev, token: str) -> None:
@@ -166,8 +172,11 @@ async def test_service_key_holding_member_permissions_still_has_no_tenant(smdev,
 
 
 async def _credentials(smdev, make_actor, app) -> dict[str, str]:
+    return await _credentials_for(smdev, app, await make_actor())
+
+
+async def _credentials_for(smdev, app, admin) -> dict[str, str]:
     app.state.sm.permissions.map_role("user", [MEMBERS_VIEW, FLAGS_VIEW])
-    admin = await make_actor()
     return {
         "platform-admin pat": await smdev.token_for(admin),
         "tenant-admin pat": await _tenant_admin_token(
@@ -192,14 +201,35 @@ async def test_tenant_level_route_in_another_tenant_is_refused(smdev, make_actor
 
 @pytest.mark.parametrize("kind", ["platform-admin pat", "tenant-admin pat"])
 async def test_tenant_level_route_only_ever_shows_the_pinned_tenant(smdev, make_actor, app, kind):
-    creds = await _credentials(smdev, make_actor, app)
+    pinned = await make_actor()
+    creds = await _credentials_for(smdev, app, pinned)
     other = await make_actor()  # the CLI never sends a tenant id; the token's pin decides
     await _login(smdev, creds[kind])
     result = await _run(smdev, *LIST_MEMBERS)
     assert result.exit_code == EXIT_OK, result.output
     data = json.loads(result.output)
     emails = {m["email"] for m in (data["items"] if isinstance(data, dict) else data)}
+    assert pinned.email in emails  # the pinned tenant's known member is listed
     assert other.email not in emails
+
+
+@pytest.mark.parametrize("kind", ["platform-admin pat", "tenant-admin pat"])
+async def test_conflicting_tenant_header_cannot_move_a_token(make_actor, app, smdev, kind):
+    """A bearer request naming another tenant (``tenant_header``) is not moved there.
+
+    The resolver pins a token to its own tenant and ignores the selector, so the answer is
+    the pinned tenant's members: 200, never the other tenant's.
+    """
+    header = app.state.sm.settings.tenant_header
+    assert header  # the test settings enable the selector, or this proves nothing
+    pinned = await make_actor()
+    creds = await _credentials_for(smdev, app, pinned)
+    other = await make_actor()
+    async with bearer_client(app, creds[kind]) as bc:
+        resp = await bc.get(MEMBERS_URL, headers={header: other.tenant_id})
+    assert resp.status_code == 200, resp.text
+    emails = {m["email"] for m in resp.json()["items"]}
+    assert pinned.email in emails and other.email not in emails
 
 
 # ---- PAT mutation on a RequiresCsrf route ------------------------------------------------

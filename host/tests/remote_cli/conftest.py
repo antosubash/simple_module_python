@@ -137,6 +137,7 @@ async def make_actor(app):
 @pytest.fixture
 async def smdev(app, tmp_path, monkeypatch) -> AsyncIterator[Smdev]:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     for var in ("SMDEV_ENV", "SMDEV_TOKEN"):
         monkeypatch.delenv(var, raising=False)
     loop = asyncio.get_running_loop()

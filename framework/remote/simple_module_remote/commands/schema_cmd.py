@@ -7,7 +7,12 @@ import hashlib
 import click
 
 from simple_module_remote.commands.runtime import SCHEMA_LIVE, AppState, CliError, state_of
-from simple_module_remote.commands.schema_fetch import OPENAPI_PATH, fetch_schema, vet_schema
+from simple_module_remote.commands.schema_fetch import (
+    OPENAPI_PATH,
+    fetch_schema,
+    replayable_etag,
+    vet_schema,
+)
 from simple_module_remote.config._private_dir import PrivateDir, PrivateDirError
 from simple_module_remote.config.environments import Environment, validate_env_name
 from simple_module_remote.http.errors import AUTH_STATUSES, ApiError, exit_code_for
@@ -101,7 +106,8 @@ def _sync(state: AppState, env: Environment, explicit: bool) -> str:
     token = state.token(env, explicit)
     with open_cache(state.cli, env.name, create=True) as store, store.locked(LOCK_FILENAME):
         previous = _cached_meta(store, env)
-        headers = {"If-None-Match": previous.etag} if previous and previous.etag else {}
+        etag = replayable_etag(previous.etag) if previous else None
+        headers = {"If-None-Match": etag} if etag else {}
         with state.client(env, token) as client:
             try:
                 fetched = fetch_schema(client, headers)

@@ -22,11 +22,12 @@ Both return a no-op dependency carrying the declaration, used as::
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterator
 from typing import Any, NamedTuple
 
 from fastapi.routing import iter_route_contexts
-from starlette.routing import Mount
+from starlette.routing import Mount, compile_path
 
 from simple_module_hosting.auth.token_guard import dependant_gate_kinds, gate_kinds_admit_tokens
 
@@ -133,20 +134,42 @@ def _walk(routes: Any, prefix: str = "") -> Iterator[tuple[str, frozenset[str], 
             yield prefix + path, methods, dependant
 
 
-def _api_operations(app: Any) -> dict[tuple[str, str], bool]:
-    """``(method, path template)`` of every ``/api`` route -> whether it admits tokens.
+class _ApiRoute(NamedTuple):
+    pattern: re.Pattern[str]
+    methods: frozenset[str]
+    admits: bool
 
-    Judged on the first registration in dispatch order: that is the route a
-    request for this method and path reaches; a later duplicate is shadowed.
-    """
-    found: dict[tuple[str, str], bool] = {}
+
+_PLACEHOLDER = "_sm_sample_"
+_PARAM = re.compile(r"\{[^}]*\}")
+
+
+def _api_routes(app: Any) -> list[_ApiRoute]:
+    """Every ``/api`` route in dispatch order, with whether it admits tokens."""
+    found: list[_ApiRoute] = []
     for path, methods, dependant in _walk(app.routes):
         if not path.startswith(_API_PREFIX):
             continue
+        pattern, _, _ = compile_path(path)
         admits = gate_kinds_admit_tokens(dependant_gate_kinds(dependant))
-        for method in methods:
-            found.setdefault((method, path), admits)
+        found.append(_ApiRoute(pattern, methods, admits))
     return found
+
+
+def _resolve(routes: list[_ApiRoute], declared: ApiEquivalent) -> bool | None:
+    """Whether the route a request for *declared* reaches admits tokens; ``None`` if none does.
+
+    A request is dispatched to the first route (in dispatch order) whose path and method
+    match, so a declared template is resolved the same way: each ``{param}`` becomes a
+    placeholder value and the first matching route is judged. An earlier route with a
+    different template (``/api/items/{id}``) can therefore shadow a later literal one
+    (``/api/items/special``).
+    """
+    sample = _PARAM.sub(_PLACEHOLDER, declared.path)
+    for route in routes:
+        if declared.method in route.methods and route.pattern.match(sample):
+            return route.admits
+    return None
 
 
 def _declaration_problem(declarations: list[ApiEquivalent | ApiExempt]) -> str | None:
@@ -166,11 +189,11 @@ def view_route_offenders(app: Any) -> list[str]:
 
     A route needs at least one :class:`ApiEquivalent` (one per scope it acts
     on) or exactly one :class:`ApiExempt`, never both. Each equivalent must
-    name a registered ``/api`` operation (method and exact path template) whose
-    route, the first in dispatch order, admits tokens. Each offender is one
+    name a registered ``/api`` operation (method and path template) whose
+    route, the first in dispatch order that matches it, admits tokens. Each offender is one
     human-readable line.
     """
-    api = _api_operations(app)
+    api = _api_routes(app)
     offenders: list[str] = []
     for path, methods, dependant in _walk(app.routes):
         mutating = sorted(methods - _SAFE)
@@ -186,7 +209,7 @@ def view_route_offenders(app: Any) -> list[str]:
             if not isinstance(declared, ApiEquivalent):
                 continue
             target = f"{declared.method} {declared.path}"
-            admits = api.get((declared.method, declared.path))
+            admits = _resolve(api, declared)
             if admits is None:
                 offenders.append(f"{label}: {target} is not a registered route")
             elif not admits:

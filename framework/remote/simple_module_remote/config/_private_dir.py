@@ -24,7 +24,8 @@ from simple_module_remote.config._file_store import LOOSE_MODE_MASK, _lock_exclu
 __all__ = ["PrivateDir", "PrivateDirError", "private_dirs_supported"]
 
 _DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-_READ_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+# O_NONBLOCK: opening a FIFO must not wait for a writer; regular files ignore it.
+_READ_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
 _NEW_FLAGS = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
 _LOCK_FLAGS = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
 

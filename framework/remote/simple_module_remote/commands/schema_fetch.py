@@ -17,7 +17,7 @@ from simple_module_remote.http.errors import ApiError
 from simple_module_remote.output.sanitize import sanitize
 from simple_module_remote.schema.cache import MAX_SCHEMA_BYTES, SchemaCacheError, parse_schema
 
-__all__ = ["OPENAPI_PATH", "Fetched", "fetch_schema", "vet_schema"]
+__all__ = ["OPENAPI_PATH", "Fetched", "fetch_schema", "replayable_etag", "vet_schema"]
 
 OPENAPI_PATH = "/api/_meta/openapi"
 MAX_ETAG_CHARS = 256
@@ -36,10 +36,16 @@ def _too_large() -> SchemaCacheError:
     return SchemaCacheError(f"the schema is larger than {MAX_SCHEMA_BYTES} bytes")
 
 
-def _safe_etag(value: str | None, client: ApiClient) -> str | None:
-    if value is None or len(value) > MAX_ETAG_CHARS or not value.isprintable():
+def replayable_etag(value: str | None) -> str | None:
+    """*value* when it can be stored and sent back as ``If-None-Match`` (printable ASCII)."""
+    if value is None or len(value) > MAX_ETAG_CHARS:
         return None
-    return value if client.redact(value) == value else None
+    return value if value.isascii() and value.isprintable() else None
+
+
+def _safe_etag(value: str | None, client: ApiClient) -> str | None:
+    tag = replayable_etag(value)
+    return tag if tag is not None and client.redact(tag) == tag else None
 
 
 def fetch_schema(client: ApiClient, headers: dict[str, str]) -> Fetched:
