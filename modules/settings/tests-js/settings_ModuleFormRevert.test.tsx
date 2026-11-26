@@ -121,6 +121,7 @@ test('saving the default removes Revert without changing other fields', async ()
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Saved'));
   expect(screen.getByRole('button', { name: 'Revert host' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Revert sender' })).not.toBeInTheDocument();
 });
 
 test('a failed save keeps a defaulted field without Revert', async () => {
