@@ -267,10 +267,11 @@ describe('Controls follow the declared field', () => {
 });
 
 describe('Test connection', () => {
-  test('names the single check it is about to run', () => {
+  test('names the single check after the module it belongs to', () => {
     render(<ModuleForm module={moduleView([retentionDays])} checks={['users.mailer']} />);
 
-    expect(screen.getByRole('button', { name: /Test mailer connection/ })).toBeVisible();
+    // The module's display title, translatable, rather than the raw check id.
+    expect(screen.getByRole('button', { name: /Test Users connection/ })).toBeVisible();
   });
 
   test('falls back to the generic label when a module registered several', () => {

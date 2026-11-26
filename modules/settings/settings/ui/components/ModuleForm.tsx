@@ -282,7 +282,9 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
         ))}
       </div>
 
-      {checks.length > 0 && <TestConnectionButton pkg={m.package} checks={checks} />}
+      {checks.length > 0 && (
+        <TestConnectionButton pkg={m.package} checks={checks} title={text.title()} />
+      )}
 
       <SaveBar
         unsaved={modifiedFields.size}

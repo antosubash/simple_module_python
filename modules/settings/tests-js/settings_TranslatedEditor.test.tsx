@@ -28,6 +28,7 @@ configureI18n({
     'mail.settings_form.fields.backend.choices.console': 'Console (log only)',
     'settings.modules_form.option_on': 'On',
     'settings.modules_form.option_off': 'Off',
+    'settings.modules.test_connection': 'Test {name} connection',
   },
 });
 
@@ -36,6 +37,7 @@ vi.mock('@inertiajs/react', () => ({ router: { reload: vi.fn() } }));
 import type { FieldMeta } from '../settings/ui/components/FieldInput';
 import { FieldSource } from '../settings/ui/components/FieldSource';
 import { ModuleForm } from '../settings/ui/components/ModuleForm';
+import { TestConnectionButton } from '../settings/ui/components/TestConnectionButton';
 
 function field(overrides: Partial<FieldMeta> & { name: string }): FieldMeta {
   return {
@@ -174,4 +176,9 @@ test('a moved value shows its default the way the control labels it', () => {
   ]);
   expect(screen.getByText('Default: Console (log only)')).toBeVisible();
   expect(screen.getByText('Default: On')).toBeVisible();
+});
+
+test('a single connection check is named after the translated module, not its check id', () => {
+  render(<TestConnectionButton pkg="mail" checks={['mail.mailer']} title="E-Mail" />);
+  expect(screen.getByRole('button', { name: 'Test E-Mail connection' })).toBeVisible();
 });
