@@ -24,9 +24,9 @@ class BodyError(Exception):
 
 def _read_text(source: str, stdin: TextIO, flag: str) -> str:
     if source == STDIN:
-        return stdin.read()
+        return stdin.read().removeprefix("\ufeff")
     try:
-        return Path(source).read_text(encoding="utf-8")
+        return Path(source).read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError) as exc:
         raise BodyError(f"{flag}: cannot read {source}: {exc.__class__.__name__}") from None
 
@@ -93,6 +93,8 @@ def _coerce(raw: str, key: str, schema: dict | None, root: dict) -> object:
             return number
     except ValueError:
         raise BodyError(f"--set {key}: expected {kind}, got {raw!r}") from None
+    if kind == "array":
+        return [raw]  # one element; use --set-json for several
     if kind == "boolean":
         lowered = raw.strip().lower()
         if lowered in _TRUE:
@@ -119,7 +121,7 @@ def _assign(target: dict, key: str, value: object, flag: str) -> None:
 def _set_value(raw: str, key: str, stdin: TextIO, schema: dict | None, root: dict) -> object:
     if raw.startswith("@"):
         text = _read_text(raw[1:], stdin, f"--set {key}")
-        return text[:-1] if text.endswith("\n") else text
+        return text.removesuffix("\n").removesuffix("\r")
     if raw == "null":
         return None
     return _coerce(raw, key, schema, root)
@@ -153,6 +155,9 @@ def build_json_body(
             body = loaded
     if not isinstance(body, dict | list):
         raise BodyError("request body must be a JSON object or array")
+    expected = _type_of(body_schema, root)
+    if expected == "object" and isinstance(body, list):
+        raise BodyError("this command takes a JSON object, but --json/--file gave an array")
     if (sets or set_jsons) and not isinstance(body, dict):
         raise BodyError("--set/--set-json need an object body, but --json/--file gave an array")
     if isinstance(body, dict):

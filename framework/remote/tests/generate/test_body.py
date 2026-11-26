@@ -166,3 +166,29 @@ def test_non_finite_numbers_are_rejected_naming_the_flag(literal, tmp_path):
     f.write_text(f'{{"ratio": {literal}}}')
     with pytest.raises(BodyError, match=r"--file: invalid JSON"):
         build(file_arg=str(f))
+
+
+def test_set_on_an_array_field_wraps_one_element():
+    schema = {
+        "type": "object",
+        "properties": {"roles": {"type": "array", "items": {"type": "string"}}},
+    }
+    assert build(sets=["roles=admin"], body_schema=schema) == {"roles": ["admin"]}
+
+
+def test_set_at_file_and_stdin_strip_one_trailing_crlf(tmp_path):
+    assert build(sets=["name=@-"], stdin=io.StringIO("a\r\nb\r\n")) == {"name": "a\r\nb"}
+    f = tmp_path / "v.txt"
+    f.write_bytes("﻿hello\r\n".encode())
+    assert build(sets=[f"name=@{f}"]) == {"name": "hello"}
+
+
+def test_file_with_a_bom_is_read(tmp_path):
+    f = tmp_path / "b.json"
+    f.write_bytes('﻿{"name": "n"}'.encode())
+    assert build(file_arg=str(f)) == {"name": "n"}
+
+
+def test_array_for_an_object_body_is_refused():
+    with pytest.raises(BodyError, match="takes a JSON object"):
+        build(json_arg="[1]")

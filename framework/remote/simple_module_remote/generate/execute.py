@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from collections.abc import Generator
+from pathlib import Path
 from contextlib import ExitStack, contextmanager
 from typing import Any
 from urllib.parse import urlencode
@@ -64,6 +65,16 @@ class _HttpFailureError(Exception):
         self.response = response
 
 
+def _upload_line(spec: str) -> str:
+    field, _, raw = spec.partition("=")
+    path = Path(raw.removeprefix("@"))
+    try:
+        size = f"{path.stat().st_size} bytes"
+    except OSError:
+        size = "unreadable"
+    return f"upload {field}={path} (filename {path.name}, {size})"
+
+
 def _dry_run(ctx: RunContext, op: Operation, prep: Prepared, values: dict[str, Any]) -> None:
     url = ctx.env.url.rstrip("/") + prep.path
     if prep.params:
@@ -72,7 +83,7 @@ def _dry_run(ctx: RunContext, op: Operation, prep: Prepared, values: dict[str, A
     if prep.json is not None:
         lines.append(json.dumps(prep.json, indent=2, ensure_ascii=False))
     if op.body_kind == "multipart":
-        lines += [f"upload {u}" for u in values.get("uploads") or ()]
+        lines += [_upload_line(u) for u in values.get("uploads") or ()]
         lines += [f"form {s}" for s in values.get("sets") or ()]
     elif op.body_kind == "raw" and values.get("body_file"):
         kind = values.get("content_type") or DEFAULT_CONTENT_TYPE

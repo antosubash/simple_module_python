@@ -71,7 +71,9 @@ def _json_body(op: Operation, values: dict[str, Any], root: dict, stdin: TextIO)
     return body
 
 
-def _multipart(values: dict[str, Any], stack: ExitStack, prep: Prepared) -> None:
+def _multipart(
+    op: Operation, values: dict[str, Any], root: dict, stack: ExitStack, prep: Prepared
+) -> None:
     files = []
     for field_name, raw in split_pairs(values.get("uploads"), "--upload"):
         path = raw[1:] if raw.startswith("@") else raw
@@ -84,6 +86,13 @@ def _multipart(values: dict[str, Any], stack: ExitStack, prep: Prepared) -> None
         files.append((field_name, (Path(path).name, handle)))
     prep.files = files or None
     prep.data = dict(split_pairs(values.get("sets"), "--set")) or None
+    given = {name for name, _ in files} | set(prep.data or {})
+    missing = missing_required(dict.fromkeys(given), op.body_schema, root)
+    if missing:
+        raise click.UsageError(
+            f"missing required form fields: {', '.join(missing)} (use --upload field=path "
+            "or --set field=value)"
+        )
 
 
 def prepare_request(
@@ -103,7 +112,7 @@ def prepare_request(
     if op.body_kind == "json":
         prep.json = _json_body(op, values, root, stdin)
     elif op.body_kind == "multipart":
-        _multipart(values, stack, prep)
+        _multipart(op, values, root, stack, prep)
     elif op.body_kind == "raw" and values.get("body_file"):
         try:
             prep.content = Path(values["body_file"]).read_bytes()

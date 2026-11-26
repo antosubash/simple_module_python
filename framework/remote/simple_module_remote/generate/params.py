@@ -107,7 +107,11 @@ def _body_options(op: Operation) -> list[click.Parameter]:
         ]
     if op.body_kind == "multipart":
         return [
-            click.Option(["--upload", "uploads"], multiple=True, help="Upload: field=@path."),
+            click.Option(
+                ["--upload", "uploads"],
+                multiple=True,
+                help="Upload a file: field=path (or field=@path).",
+            ),
             click.Option(["--set", "sets"], multiple=True, help="Form field: key=value."),
         ]
     if op.body_kind == "raw":
@@ -193,7 +197,9 @@ def click_params_for(op: Operation, *, list_returning: bool = False) -> list[cli
             [
                 click.Option(["--all", "all_pages"], is_flag=True, help="Fetch every page."),
                 click.Option(
-                    ["--limit", "limit"], type=click.IntRange(min=1), help="Maximum rows."
+                    ["--limit", "limit"],
+                    type=click.IntRange(min=1),
+                    help="Maximum rows (implies --all).",
                 ),
             ]
         )

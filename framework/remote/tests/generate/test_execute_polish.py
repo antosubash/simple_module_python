@@ -104,3 +104,21 @@ def test_out_errors_are_readable(make_op, tmp_path):
     directory = H(json_ok({"a": 1}))
     assert directory.run(make_op(), out=str(tmp_path)) == 1
     assert "it is a directory" in directory.err.getvalue()
+
+
+def test_multipart_missing_required_field_is_reported_before_sending(make_op, tmp_path):
+    op = make_op(
+        method="POST",
+        body_kind="multipart",
+        body_schema={"type": "object", "required": ["file"], "properties": {"file": {}}},
+    )
+    h = H(json_ok({}))
+    with pytest.raises(click.UsageError, match="missing required form fields: file"):
+        h.run(op)
+    assert h.requests == []
+    f = tmp_path / "logo.png"
+    f.write_bytes(b"abc")
+    assert h.run(op, uploads=(f"file=@{f}",)) == 0
+    dry = H(json_ok({}))
+    dry.run(op, dry_run=True, uploads=(f"file={f}",))
+    assert "filename logo.png, 3 bytes" in dry.out.getvalue()
