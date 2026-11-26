@@ -22,32 +22,24 @@ logger = logging.getLogger("background_tasks.settings")
 _REDIS_SCHEMES = frozenset({"redis", "rediss"})
 
 
-def warn_on_legacy_redis_vars(broker_url: str, result_backend: str) -> None:
-    """Nudge deployments off the per-field names onto ``SM_REDIS_URL``.
+def warn_on_redundant_redis_vars(broker_url: str, result_backend: str) -> None:
+    """Suggest removing only overrides already supplied by ``SM_REDIS_URL``.
 
-    Warns rather than failing: ``smpy_gis``, ``smpy_saas``,
-    ``laco_wiki_python`` and the ``nodes-k8s`` manifests all set these, and
-    breaking them on upgrade buys nothing. It runs as a model validator rather
-    than in the default factory because ``env_prefix`` means the env source
-    answers these names before any default is consulted, so the factory never
-    sees them.
-
-    Only a Redis URL is warned about (#868): for anything else, such as the
-    in-process ``memory://`` + ``cache+memory://`` pair or an AMQP broker,
-    ``SM_REDIS_URL`` can't express the value and these vars are the way to
-    set it.
+    Per-field overrides support separate Redis DBs and non-Redis transports
+    (#1214). Check the effective value too: explicit constructor arguments can
+    supersede the environment. Never log URLs, which may contain credentials.
     """
-    for value, legacy_var in (
+    redis_url = os.environ.get(ENV_REDIS_URL)
+    if not redis_url or redis_url.partition("://")[0].lower() not in _REDIS_SCHEMES:
+        return
+    for value, env_var in (
         (broker_url, f"{ENV_PREFIX}BROKER_URL"),
         (result_backend, f"{ENV_PREFIX}RESULT_BACKEND"),
     ):
-        if os.environ.get(legacy_var) != value:
-            continue
-        if value.partition("://")[0].lower() in _REDIS_SCHEMES:
-            logger.warning(
-                "%s is deprecated; use %s instead (one URL seeds both the "
-                "broker and the result backend).",
-                legacy_var,
+        if os.environ.get(env_var) == value == redis_url:
+            logger.info(
+                "%s is redundant with %s and can be removed.",
+                env_var,
                 ENV_REDIS_URL,
             )
 
@@ -74,8 +66,8 @@ def forbid_localhost_broker_in_production(broker_url: str, result_backend: str) 
             f"{names} must not point at localhost when SM_ENVIRONMENT={env!r}. "
             f"Set {ENV_REDIS_URL} on the container to the Redis service host "
             "(e.g. redis://redis:6379/0) — one URL seeds both the broker and "
-            f"the result backend. ({env_names} still override it per field; "
-            "they are deprecated for a Redis URL, but stay the way to set any "
-            "other transport.) Environment variables are read before the "
+            f"the result backend. ({env_names} override it per field for "
+            "separate Redis databases or other transports.) "
+            "Environment variables are read before the "
             "DB-backed settings exist, so one is what satisfies this at boot."
         )
