@@ -1,3 +1,5 @@
+import os
+
 import httpx
 import pytest
 from click.testing import CliRunner
@@ -173,3 +175,16 @@ def test_login_refuses_a_reply_that_is_not_an_identity(make_cli, keyring_store, 
     runner = logged_in(cli, login=False)
     result = runner.invoke(cli, ["login", "--token-stdin"], input=SECRET + "\n")
     assert result.exit_code != 0 and keyring_store.data == {}
+
+
+def test_env_token_works_without_a_secure_file_store(make_cli, fail_keyring, monkeypatch):
+    monkeypatch.delattr(os, "O_NOFOLLOW")
+    cli = make_cli(lambda r: httpx.Response(200, json=WHO), backend=fail_keyring)
+    runner = CliRunner()
+    runner.invoke(cli, ["env", "add", "dev", "--url", "http://localhost:8000"])
+    env = {"SMDEV_ENV": "dev", "SMDEV_TOKEN": "tok"}
+    result = runner.invoke(cli, ["whoami"], env=env)
+    assert result.exit_code == 0, result.output
+    assert cli.requests[-1].headers["Authorization"] == "Bearer tok"
+    stored = runner.invoke(cli, ["--env", "dev", "whoami"])
+    assert stored.exit_code == 1 and "no secure file credential store" in stored.output

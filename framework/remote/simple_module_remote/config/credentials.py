@@ -62,15 +62,18 @@ class CredentialStore:
                 self._backend = keyring.get_keyring()
         elif not isinstance(backend, keyring.backends.fail.Keyring):
             self._backend = backend
-        if self._backend is None:
-            try:
-                self._file = FileStore(cli)
-            except FileStoreError as exc:
-                raise CredentialError(str(exc)) from None
 
     @property
     def using_fallback(self) -> bool:
-        return self._file is not None
+        return self._backend is None
+
+    def _file_store(self) -> FileStore | None:
+        """The fallback file store, built on first use (raises FileStoreError if unsupported)."""
+        if self._backend is not None:
+            return None
+        if self._file is None:
+            self._file = FileStore(self._service)
+        return self._file
 
     def _require_backend(self) -> KeyringBackend:
         if self._backend is None:
@@ -79,8 +82,8 @@ class CredentialStore:
 
     def get(self, key: str) -> StoredCredential | None:
         try:
-            if self._file is not None:
-                found = self._file.get(key)
+            if (file := self._file_store()) is not None:
+                found = file.get(key)
                 return StoredCredential(*found) if found else None
             return self._keyring_get(key)
         except FileStoreError as exc:
@@ -103,8 +106,8 @@ class CredentialStore:
 
     def put(self, key: str, cred: StoredCredential) -> None:
         try:
-            if self._file is not None:
-                self._file.put(key, cred.token, cred.origin)
+            if (file := self._file_store()) is not None:
+                file.put(key, cred.token, cred.origin)
             else:
                 payload = json.dumps({TOKEN_FIELD: cred.token, ORIGIN_FIELD: cred.origin})
                 self._require_backend().set_password(self._service, key, payload)
@@ -115,8 +118,8 @@ class CredentialStore:
 
     def delete(self, key: str) -> bool:
         try:
-            if self._file is not None:
-                return self._file.delete(key)
+            if (file := self._file_store()) is not None:
+                return file.delete(key)
             backend = self._require_backend()
             if backend.get_password(self._service, key) is None:
                 return False

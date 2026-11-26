@@ -271,4 +271,6 @@ def test_no_secure_file_store_without_nofollow_support(
 ) -> None:
     monkeypatch.delattr(os, "O_NOFOLLOW")
     with pytest.raises(CredentialError, match="no secure file credential store"):
-        CredentialStore(CLI, backend=fail_keyring)
+        CredentialStore(CLI, backend=fail_keyring).get("prod")
+    with pytest.raises(CredentialError, match="no secure file credential store"):
+        CredentialStore(CLI, backend=fail_keyring).put("prod", StoredCredential(SECRET, ENV.origin))
