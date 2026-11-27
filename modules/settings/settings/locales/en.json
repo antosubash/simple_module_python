@@ -152,5 +152,22 @@
   "audit": {
     "setting": "Setting"
   },
-  "permission_group": "Settings"
+  "permission_group": "Settings",
+  "validation": {
+    "greater_than": "Must be greater than {limit}.",
+    "greater_than_equal": "Must be at least {limit}.",
+    "less_than": "Must be less than {limit}.",
+    "less_than_equal": "Must be at most {limit}.",
+    "integer": "Enter a whole number.",
+    "number": "Enter a number.",
+    "boolean": "Enter true or false.",
+    "required": "This field is required.",
+    "string_too_short": "Use at least {limit} characters.",
+    "string_too_long": "Use at most {limit} characters.",
+    "too_long": "Use at most {limit} items.",
+    "url": "Enter a valid URL.",
+    "url_scheme": "Use a URL with one of these schemes: {expected}.",
+    "choice": "Choose one of: {expected}.",
+    "json": "Enter valid JSON."
+  }
 }

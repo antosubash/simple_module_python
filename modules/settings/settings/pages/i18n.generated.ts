@@ -148,6 +148,23 @@ export const keys = {
       value: 'settings.table.value',
       value_type: 'settings.table.value_type',
     },
+    validation: {
+      boolean: 'settings.validation.boolean',
+      choice: 'settings.validation.choice',
+      greater_than: 'settings.validation.greater_than',
+      greater_than_equal: 'settings.validation.greater_than_equal',
+      integer: 'settings.validation.integer',
+      json: 'settings.validation.json',
+      less_than: 'settings.validation.less_than',
+      less_than_equal: 'settings.validation.less_than_equal',
+      number: 'settings.validation.number',
+      required: 'settings.validation.required',
+      string_too_long: 'settings.validation.string_too_long',
+      string_too_short: 'settings.validation.string_too_short',
+      too_long: 'settings.validation.too_long',
+      url: 'settings.validation.url',
+      url_scheme: 'settings.validation.url_scheme',
+    },
     value_types: {
       bool: 'settings.value_types.bool',
       float: 'settings.value_types.float',
@@ -284,6 +301,21 @@ type ModuleTranslationResources = {
   readonly 'settings.table.scope': '';
   readonly 'settings.table.value': '';
   readonly 'settings.table.value_type': '';
+  readonly 'settings.validation.boolean': '';
+  readonly 'settings.validation.choice': '';
+  readonly 'settings.validation.greater_than': '';
+  readonly 'settings.validation.greater_than_equal': '';
+  readonly 'settings.validation.integer': '';
+  readonly 'settings.validation.json': '';
+  readonly 'settings.validation.less_than': '';
+  readonly 'settings.validation.less_than_equal': '';
+  readonly 'settings.validation.number': '';
+  readonly 'settings.validation.required': '';
+  readonly 'settings.validation.string_too_long': '';
+  readonly 'settings.validation.string_too_short': '';
+  readonly 'settings.validation.too_long': '';
+  readonly 'settings.validation.url': '';
+  readonly 'settings.validation.url_scheme': '';
   readonly 'settings.value_types.bool': '';
   readonly 'settings.value_types.float': '';
   readonly 'settings.value_types.int': '';
