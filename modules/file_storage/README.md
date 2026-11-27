@@ -68,7 +68,6 @@ Backend and S3 credentials are configured from the admin UI at **/admin/settings
 ## Depends on
 
 - `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_settings`
-- `aiofiles`
 - Optional: `aioboto3` (install the `[s3]` extra)
 - Optional: `simple_module_background_tasks` (install the `[tasks]` extra)
 

@@ -5,11 +5,18 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+from file_storage.backends import _fs_confined
+from file_storage.backends._fs_confined import Directory
 from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.core import constants
 
 
-async def test_stale_objects_skip_parts_and_walk_in_worker(tmp_path, monkeypatch):
+@pytest.mark.parametrize("confined", [True, False])
+async def test_stale_objects_skip_parts_and_walk_in_worker(tmp_path, monkeypatch, confined):
+    if confined and not _fs_confined.CONFINED:
+        pytest.skip("Descriptor-relative filesystem APIs unavailable.")
+    monkeypatch.setattr(_fs_confined, "CONFINED", confined)
     backend = FilesystemBackend(tmp_path)
     old = backend._resolve("old/object.bin")
     fresh = backend._resolve("fresh/object.bin")
@@ -20,17 +27,28 @@ async def test_stale_objects_skip_parts_and_walk_in_worker(tmp_path, monkeypatch
         path.write_bytes(b"data")
         os.utime(path, (1, 1))
     os.utime(fresh, (200, 200))
-    original_walk = os.walk
+    original_names = Directory.names
     caller_thread = threading.get_ident()
     walked = []
 
-    def checked_walk(root):
+    def checked_names(directory):
         assert threading.get_ident() != caller_thread
-        for entry in original_walk(root):
-            walked.append(Path(entry[0]))
-            yield entry
+        walked.append(directory.path)
+        return original_names(directory)
 
-    monkeypatch.setattr(os, "walk", checked_walk)
+    if confined:
+        monkeypatch.setattr(Directory, "names", checked_names)
+    else:
+        original_walk = os.walk
+
+        def checked_walk(root):
+            assert threading.get_ident() != caller_thread
+            for entry in original_walk(root):
+                walked.append(Path(entry[0]))
+                yield entry
+
+        monkeypatch.setattr(os, "walk", checked_walk)
     keys = [key async for key in backend.list_stale_objects(datetime.fromtimestamp(100, UTC))]
     assert set(keys) == {"old/object.bin"}
+    assert walked
     assert not any(constants.FS_MULTIPART_DIR in path.parts for path in walked)

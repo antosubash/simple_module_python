@@ -120,21 +120,22 @@ async def test_cancellation_waits_for_write_before_closing(
 
 
 async def test_io_task_cancelled_by_loop_shutdown_does_not_spin():
-    """Cancelling the inner executor task (as loop shutdown does) must propagate."""
-    gate = threading.Event()
-    waiter = asyncio.create_task(s3_put._io(gate.wait, 3))
+    """Shutdown waits for worker I/O before propagating cancellation."""
+    entered, release = threading.Event(), threading.Event()
 
-    me = asyncio.current_task()
-    inner = None
-    for _ in range(1000):  # yield until _io has scheduled its executor task
-        await asyncio.sleep(0)
-        inner = next((t for t in asyncio.all_tasks() if t not in (waiter, me)), None)
-        if inner is not None:
-            break
-    assert inner is not None
-    inner.cancel()
+    def worker():
+        entered.set()
+        assert release.wait(3)
+
+    existing_tasks = asyncio.all_tasks()
+    waiter = asyncio.create_task(s3_put._io(worker))
     try:
-        with pytest.raises(asyncio.CancelledError):
-            await asyncio.wait_for(waiter, 2)
+        assert await asyncio.to_thread(entered.wait, 3)
+        for task in asyncio.all_tasks() - existing_tasks:
+            task.cancel()
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(asyncio.shield(waiter), 0.1)
     finally:
-        gate.set()
+        release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(waiter, 2)

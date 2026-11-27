@@ -25,7 +25,6 @@ dependencies = [
     "simple_module_db==0.0.49",
     "simple_module_hosting==0.0.49",
     "simple_module_settings==0.0.49",
-    "aiofiles>=23,<26",
     "pillow>=10,<14",
 ]
 
