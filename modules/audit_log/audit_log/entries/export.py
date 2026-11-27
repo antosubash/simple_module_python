@@ -35,10 +35,14 @@ CSV_COLUMNS = (
     "entity_label",
     "actor",
     "changes",
-    # Appended last, not slotted in beside ``actor``: consumers that read the
-    # file by position (a spreadsheet macro, ``cut -d,``) predate the column
-    # and must keep finding ``changes`` where it always was.
+    # New columns are appended, never slotted in beside ``actor``: consumers
+    # that read the file by position (a spreadsheet macro, ``cut -d,``) predate
+    # them and must keep finding ``changes`` where it always was.
     "tenant_id",
+    # The credential that made the change (``session``, ``bearer``, ``pat``,
+    # ``service``) and, for an API token, which one (#1242).
+    "auth_kind",
+    "token_id",
 )
 CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 CSV_FILENAME = "audit-log.csv"
@@ -102,6 +106,8 @@ def _row(entry: AuditEntryRead, *, entity_label: str, actor: str) -> list[str]:
             actor,
             format_changes(entry.changes),
             entry.tenant_id or "",
+            entry.auth_kind or "",
+            entry.token_id or "",
         )
     ]
 

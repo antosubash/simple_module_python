@@ -6,7 +6,13 @@ import sys
 
 import click
 
-from simple_module_remote.commands.runtime import WHOAMI_PATH, CliError, fetch_whoami, state_of
+from simple_module_remote.commands.runtime import (
+    WHOAMI_PATH,
+    AppState,
+    CliError,
+    fetch_whoami,
+    state_of,
+)
 from simple_module_remote.config.credentials import (
     CredentialError,
     StoredCredential,
@@ -18,6 +24,7 @@ from simple_module_remote.config.credentials import (
     tenant_matches,
     validate_token,
 )
+from simple_module_remote.config.environments import save_config
 from simple_module_remote.config.resolve import find_credential
 from simple_module_remote.http.errors import AUTH_STATUSES, ApiError, exit_code_for
 from simple_module_remote.output.sanitize import sanitize
@@ -112,6 +119,26 @@ def login(ctx: click.Context, prompt_token: bool, token_stdin: bool) -> None:
     if store.using_fallback:
         click.echo("warning: no OS keyring; token stored in a 0600 file", err=True)
     click.echo(f"logged in to {where} as {sanitize(str(who.get('email', 'unknown')))}")
+    _adopt_as_current(state, env.name)
+
+
+def _adopt_as_current(state: AppState, name: str) -> None:
+    """With no current environment yet, a configured one just logged in to becomes it (#1241).
+
+    The login itself has already succeeded, so a config that cannot be saved is a
+    warning, not a failure.
+    """
+    try:
+        config = state.config()
+        if config.current is not None or name not in config.envs:
+            return  # a choice already made, or a one-off environment from <CLI>_URL
+        config.current = name
+        with state.guard():
+            save_config(state.cli, config)
+    except CliError as exc:
+        click.echo(f"warning: {name} was not made the current environment: {exc}", err=True)
+        return
+    click.echo(f"current environment: {name}", err=True)
 
 
 @click.command("logout", help="Remove the stored token for the selected environment.")

@@ -16,6 +16,11 @@ import httpx
 
 from simple_module_remote.generate.context import RunContext
 from simple_module_remote.http.client import ApiClient
+from simple_module_remote.http.error_kinds import (
+    detail_text,
+    schema_mismatch,
+    token_problem,
+)
 from simple_module_remote.http.errors import AUTH_STATUSES, ERROR_MIN, SCHEMA_STALE_STATUSES
 from simple_module_remote.output.render import (
     OUTPUT_FORMATS,
@@ -110,17 +115,9 @@ def _safe_location(ctx: RunContext, location: str) -> str:
     return location
 
 
-def _detail(text: str) -> str:
-    try:
-        detail = json.loads(text).get("detail")
-    except (ValueError, AttributeError):
-        return ""
-    return detail if isinstance(detail, str) else ""
-
-
-def _auth_hint(ctx: RunContext, text: str) -> None:
+def _auth_hint(ctx: RunContext, status: int, text: str) -> None:
     """Point at re-login only when the token itself is the problem."""
-    detail = _detail(text)
+    detail = detail_text(text)
     lowered = detail.lower()
     shown = _clean(ctx, detail)[:ERROR_BODY_CHARS]  # sanitise, redact, then cut
     msg: str | None = None
@@ -133,7 +130,7 @@ def _auth_hint(ctx: RunContext, text: str) -> None:
         msg = f"hint: tokens cannot call this route; `{cli} api --session-only` lists such routes"
     elif "permission" in lowered or "scope" in lowered:
         msg = "hint: the token lacks the permission named above; create one with the needed scopes"
-    elif ctx.login_hint:
+    elif ctx.login_hint and token_problem(status, text):
         msg = (
             f"hint: the token may be missing or expired; run `{ctx.login_hint}` "
             "(or pipe it to --token-stdin)"
@@ -163,8 +160,12 @@ def print_error(ctx: RunContext, response: httpx.Response) -> None:
     if response.status_code == 401 and redirected:
         say(ctx, REDIRECT_HINT)
     elif response.status_code in AUTH_STATUSES:
-        _auth_hint(ctx, text)
-    elif response.status_code in SCHEMA_STALE_STATUSES and ctx.schema_hint:
+        _auth_hint(ctx, response.status_code, text)
+    elif (
+        response.status_code in SCHEMA_STALE_STATUSES
+        and ctx.schema_hint
+        and schema_mismatch(response.status_code, text)
+    ):
         say(ctx, ctx.schema_hint)
 
 

@@ -12,7 +12,7 @@ from simple_module_remote.generate.pairs import split_pair
 from simple_module_remote.output.reasons import os_reason
 from simple_module_remote.schema.loader import resolve_ref, unwrap_nullable
 
-__all__ = ["BodyError", "build_json_body", "missing_required"]
+__all__ = ["BodyError", "build_json_body", "missing_required", "object_shape", "type_of"]
 
 STDIN = "-"
 _TRUE = frozenset({"true", "1", "yes"})
@@ -52,18 +52,41 @@ def _parse_json(text: str, flag: str) -> object:
         raise BodyError(f"{flag}: invalid JSON ({exc} is not allowed)") from None
 
 
+def object_shape(root: dict, schema: dict) -> tuple[dict, list[str]]:
+    """Properties and required names of an object schema, through a nullable wrapper
+    and one level of ``allOf`` (how FastAPI composes models). ``--set`` and the
+    ``--help`` field list both read fields this way, so what help shows is what
+    ``--set`` coerces."""
+    outer = resolve_ref(root, schema)
+    inner = unwrap_nullable(root, outer)
+    parts: list = []
+    for node in (outer, inner) if inner is not outer else (outer,):
+        composed = node.get("allOf")
+        parts += [node, *(composed if isinstance(composed, list) else [])]
+    props: dict = {}
+    required: dict[str, None] = {}  # ordered set: errors list fields in schema order
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        part = resolve_ref(root, part)
+        if isinstance(found := part.get("properties"), dict):
+            props.update(found)
+        if isinstance(names := part.get("required"), list):
+            required.update(dict.fromkeys(n for n in names if isinstance(n, str)))
+    return props, list(required)
+
+
 def _property_schema(root: dict, schema: dict | None, parts: Sequence[str]) -> dict | None:
     current = schema
     for part in parts:
         if current is None:
             return None
-        props = resolve_ref(root, current).get("properties")
-        nxt = props.get(part) if isinstance(props, dict) else None
+        nxt = object_shape(root, current)[0].get(part)
         current = nxt if isinstance(nxt, dict) else None
     return resolve_ref(root, current) if current is not None else None
 
 
-def _type_of(schema: dict | None, root: dict) -> str | None:
+def type_of(schema: dict | None, root: dict) -> str | None:
     if not schema:
         return None
     schema = unwrap_nullable(root, schema)
@@ -74,7 +97,7 @@ def _type_of(schema: dict | None, root: dict) -> str | None:
 
 
 def _coerce(raw: str, key: str, schema: dict | None, root: dict) -> object:
-    kind = _type_of(schema, root)
+    kind = type_of(schema, root)
     try:
         if kind == "integer":
             return int(raw)
@@ -162,7 +185,7 @@ def build_json_body(
             body = loaded
     if not isinstance(body, dict | list):
         raise BodyError("request body must be a JSON object or array")
-    expected = _type_of(body_schema, root)
+    expected = type_of(body_schema, root)
     if expected == "object" and isinstance(body, list):
         raise BodyError("this command takes a JSON object, but --json/--file gave an array")
     if (sets or set_jsons) and not isinstance(body, dict):
@@ -183,7 +206,7 @@ def build_json_body(
             # Replacing a field (or an ancestor) ends any array being accumulated under it.
             arrays = {a for a in arrays if not _related(a, key)}
             _assign(body, key, value, "--set")
-            if _type_of(schema, root) == "array" and isinstance(value, list):
+            if type_of(schema, root) == "array" and isinstance(value, list):
                 arrays.add(key)
     return body
 
@@ -192,7 +215,5 @@ def missing_required(body: dict, body_schema: dict | None, root: dict) -> list[s
     """Top-level required property names absent from ``body``."""
     if not body_schema:
         return []
-    required = resolve_ref(root, body_schema).get("required")
-    if not isinstance(required, list):
-        return []
-    return [name for name in required if isinstance(name, str) and name not in body]
+    required = object_shape(root, body_schema)[1]
+    return [name for name in required if name not in body]

@@ -80,6 +80,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Project CLI engine (#1241): a 403 that explains a refused action no longer suggests logging in again; the `schema sync` hint appears only for a route or method mismatch (404 with no detail or the router's exact `Not Found`, 405) or a 422 for a missing or unknown field; a generated command's `--help` lists up to 40 top-level JSON body fields (`*` = required); the schema fingerprint hashes content, so the bundled and live copies of one schema match; `login` to a configured environment makes it current when none is (a config that cannot be written only warns).
+- Audit log CSV export adds `auth_kind` and `token_id` columns after `tenant_id` (#1242).
 - **Behaviour change:** single-tenant resource principals, permission grant sources, and request feature-flag helpers use the install's tenant ID (`default_tenant`, otherwise `DEFAULT_TENANT_ID`), so tenant flag overrides for `"default"` apply without extra configuration. Headless principals use the same ID; database stamping, unbound read scope, and multi-tenant resolution are unchanged (#1261).
 
 - Hosting and settings: error responses replace lone Unicode surrogates with U+FFFD while preserving validation payload fields, so malformed string input keeps its 422 status. Browser error pages, maintenance responses, standalone Inertia validation and form errors use the same sanitization (#1258).

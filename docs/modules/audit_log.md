@@ -202,8 +202,12 @@ every tenant's entries, filtered by a *Tenant* control whose *Platform* choice
 selects the entries with no tenant (writes made with nothing bound, or inside
 `all_tenants()`).
 
-The CSV export carries the tenant as its **last** column, after `changes`, so a
-consumer that reads the file by position keeps working.
+The CSV export carries the tenant after `changes`, followed by `auth_kind` (the
+credential that made the change: `session`, `bearer`, `pat` or `service`) and
+`token_id` (the API token's id, for `pat` and `service`). Both are blank for system
+writes and for entries recorded before revision `c5e8a1f3d702`. New
+columns are only ever appended, so a consumer that reads the file by position
+keeps working.
 
 **Attribution follows the active tenant, not the actor's role.** A platform
 admin who has an organisation active when they act is acting *in* that

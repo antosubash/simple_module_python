@@ -3,6 +3,7 @@ import stat
 
 import httpx
 import pytest
+from simple_module_remote.commands.schema_cmd import schema_fingerprint
 from simple_module_remote.config.paths import cache_dir
 
 OPENAPI = "/api/_meta/openapi"
@@ -182,3 +183,36 @@ def test_sync_env_option_selects_the_environment(make_cli, signed_in, server):
     result = runner.invoke(cli, ["schema", "sync", "--env", "dev"])
     assert result.exit_code == 0, result.output
     assert (_env_dir() / "openapi.json").exists()
+
+
+def _fingerprint(output: str) -> str:
+    return next(ln for ln in output.splitlines() if ln.startswith("fingerprint:")).split()[-1]
+
+
+def test_identical_schema_has_one_fingerprint(make_cli, signed_in, clean_schema):
+    """However a schema is serialised, bundled and live show one fingerprint (#1241)."""
+    doc = json.loads(clean_schema.read_text())
+    reordered = json.dumps(dict(reversed(list(doc.items()))), indent=4).encode()
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == OPENAPI:
+            if req.headers.get("If-None-Match") == 'W/"v1"':
+                return httpx.Response(304)
+            return httpx.Response(200, content=reordered, headers={"ETag": 'W/"v1"'})
+        if req.url.path == "/api/_meta/whoami":
+            return httpx.Response(200, json=WHOAMI)
+        return httpx.Response(404, json={"detail": "Not Found"})
+
+    cli = make_cli(handler)
+    runner = signed_in(cli)
+    bundled = _fingerprint(runner.invoke(cli, ["schema", "status"]).output)
+    synced = runner.invoke(cli, ["schema", "sync"])
+    assert synced.exit_code == 0, synced.output
+    assert f"updated ({bundled})" in synced.output
+    live = runner.invoke(cli, ["schema", "status"]).output
+    assert "source:      live" in live and _fingerprint(live) == bundled
+    assert f"unchanged ({bundled})" in runner.invoke(cli, ["schema", "sync"]).output
+
+
+def test_a_lone_surrogate_does_not_break_the_fingerprint():
+    assert len(schema_fingerprint({"info": {"description": "\ud800"}})) == 12
