@@ -90,10 +90,7 @@
   },
   "modules": {
     "title": "Module Settings",
-    "back_link": "Back to overrides",
     "empty_title": "No modules with settings",
-    "no_fields": "No fields declared.",
-    "secret_badge": "secret",
     "browse_link": "Per-module forms",
     "search_placeholder": "Search settings…",
     "field_count_one": "{count} field",
@@ -103,13 +100,6 @@
     "unsaved_count_one": "{count} unsaved change",
     "unsaved_count_other": "{count} unsaved changes",
     "browse_free_form_link": "Browse raw overrides →",
-    "table": {
-      "field": "Field",
-      "env_var": "Env var",
-      "value": "Value",
-      "default": "Default",
-      "description": "Description"
-    },
     "test_connection": "Test {name} connection",
     "test_connection_generic": "Test connection",
     "testing": "Testing…",
