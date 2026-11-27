@@ -190,10 +190,21 @@ Upload through the module's service while its request tenant and uploader are
 bound, passing the same tag before any file becomes visible:
 
 ```python
-stored = await files.upload(upload, owner_module=FILE_OWNER_LICENCE)
+from fastapi import Depends, File, UploadFile
+
+from file_storage.contracts import FileStorageService, get_file_storage_service
+from guides.core.constants import FILE_OWNER_LICENCE
+
+
+async def upload_licence(
+    upload: UploadFile = File(...),
+    files: FileStorageService = Depends(get_file_storage_service),
+):
+    stored = await files.upload(upload, owner_module=FILE_OWNER_LICENCE)
+    return {"file_id": stored.id}
 ```
 
-Here `files` is the service supplied by `file_storage.web.deps.get_file_storage_service`.
+Both the service and its FastAPI dependency are public exports of `file_storage.contracts`.
 Trusted service callers remain responsible for their own authorization. The
 registry-backed service refuses `public=True` for a never-publishable or unknown
 tag before writing bytes. A service constructed directly should receive the

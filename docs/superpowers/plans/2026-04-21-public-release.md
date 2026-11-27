@@ -2170,11 +2170,11 @@ pip install "simple-module-file-storage[s3]"
 From another module:
 
 ```python
-from file_storage.service import FileStorageService  # type: ignore[import-not-found]
+from file_storage.contracts import FileStorageService, get_file_storage_service
 
 
 async def attach_receipt(
-    svc: FileStorageService = Depends(FileStorageService),
+    svc: FileStorageService = Depends(get_file_storage_service),
     upload: UploadFile = File(...),
 ):
     record = await svc.save(upload, folder="receipts/")
