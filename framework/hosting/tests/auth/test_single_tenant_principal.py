@@ -21,9 +21,9 @@ from simple_module_hosting.pipeline.tenancy import single_tenant_id
 
 @pytest.mark.parametrize("default,expected", [(None, "default"), ("main", "main")])
 @pytest.mark.parametrize("builder", [False, True])
-@pytest.mark.parametrize("authenticated", [False, True])
+@pytest.mark.parametrize("authentication", ["anonymous", "authenticated", "demoted"])
 async def test_single_tenant_principal_and_flags_use_install_id(
-    default, expected, builder, authenticated
+    default, expected, builder, authentication
 ):
     db = init_db("sqlite+aiosqlite:///:memory:")
     if default:
@@ -44,8 +44,13 @@ async def test_single_tenant_principal_and_flags_use_install_id(
         db=db, permissions=permissions, feature_flags=flags, tenancy=TenancyMode.SINGLE
     )
     request = Request({"type": "http", "app": app})
-    user = SimpleNamespace(id="user", roles=[], tenant_id=None)
-    request.state.user = user if authenticated else None
+    user = SimpleNamespace(
+        id="user",
+        roles=[],
+        tenant_id=None,
+        required_permission="test.revoked" if authentication == "demoted" else None,
+    )
+    request.state.user = user if authentication != "anonymous" else None
     ambient = current_tenant_id.get()
     try:
         principal = await resource_principal(request)
@@ -53,6 +58,8 @@ async def test_single_tenant_principal_and_flags_use_install_id(
         assert single_tenant_id(app) == expected
         assert flags.is_enabled("test.feature", principal.tenant_id)
         assert is_flag_enabled(request, "test.feature")
+        authenticated = authentication == "authenticated"
+        assert principal.user_id == ("user" if authenticated else None)
         assert principal.permissions == ({"test.tenant"} if authenticated else set())
         if authenticated:
             del request.state.resource_principal

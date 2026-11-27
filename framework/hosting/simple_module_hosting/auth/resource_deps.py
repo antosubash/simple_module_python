@@ -55,15 +55,10 @@ async def resource_principal(request: Request) -> ResourcePrincipal:
     shows them public rows at most.
     """
     user = getattr(request.state, "user", None)
-    if user is None:
-        return ResourcePrincipal(
-            user_id=None,
-            tenant_id=request_tenant_id(request)
-            if tenancy_mode(request.app) is TenancyMode.SINGLE
-            else None,
-        )
-    held = await ensure_resolved_permissions(request)
-    user = getattr(request.state, "user", None)  # resolution may demote a stale token
+    held: set[str] = set()
+    if user is not None:
+        held = await ensure_resolved_permissions(request)
+        user = getattr(request.state, "user", None)  # resolution may demote a stale token
     if user is None:
         return ResourcePrincipal(
             user_id=None,
