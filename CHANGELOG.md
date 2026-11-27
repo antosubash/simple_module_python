@@ -77,6 +77,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Settings: drop locale keys no page uses (`settings.modules.back_link`, `no_fields`, `secret_badge`, `table.*`) (#1233).
+
 - **Behaviour change:** Host GZip negotiation honors `Accept-Encoding` quality values across repeated fields, case-insensitive `gzip`/`x-gzip` tokens and wildcard fallback. Explicit `q=0` and malformed quality values refuse the coding; size thresholds, media exclusions and `Vary` behavior are unchanged (#1243).
 - **Behaviour change:** `useDrawerA11y` accepts an optional fourth `{ desktopQuery }` argument for custom layout breakpoints, retaining the 64rem default and stable subscriptions for inline options. Modal drawers lock body scrolling and restore the previous style on close, desktop transition or unmount. The hook and options type are available from the UI package root and existing subpath (#1224).
 - **Behaviour change:** Users keeps configured generic OIDC sign-in visible after failed boot discovery and retries on demand with exponential backoff (30 seconds to 10 minutes) and shared retries per worker. Unavailable providers return HTTP 503 to API callers or the existing friendly browser error; discovery recovery needs no restart, settings reload resets retries, and boot warnings redact secrets (#1226).

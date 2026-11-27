@@ -90,10 +90,7 @@
   },
   "modules": {
     "title": "Moduleinstellungen",
-    "back_link": "Zurück zu den Überschreibungen",
     "empty_title": "Keine Module mit Einstellungen",
-    "no_fields": "Keine Felder deklariert.",
-    "secret_badge": "geheim",
     "browse_link": "Formulare pro Modul",
     "search_placeholder": "Einstellungen suchen…",
     "field_count_one": "{count} Feld",
@@ -103,13 +100,6 @@
     "unsaved_count_one": "{count} ungespeicherte Änderung",
     "unsaved_count_other": "{count} ungespeicherte Änderungen",
     "browse_free_form_link": "Rohe Überschreibungen anzeigen →",
-    "table": {
-      "field": "Feld",
-      "env_var": "Umgebungsvariable",
-      "value": "Wert",
-      "default": "Standard",
-      "description": "Beschreibung"
-    },
     "test_connection": "Verbindung zu {name} testen",
     "test_connection_generic": "Verbindung testen",
     "testing": "Wird getestet…",
