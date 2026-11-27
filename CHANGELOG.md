@@ -77,6 +77,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- **Behaviour change:** UI: `ConfirmActionDialog` restores focus to its opener after Escape, Cancel or confirmation, while preserving caller-provided focus handling and safely handling removed or unfocusable openers (#1255).
 - Settings: drop locale keys no page uses (`settings.modules.back_link`, `no_fields`, `secret_badge`, `table.*`) (#1233).
 
 - **Behaviour change:** Host GZip negotiation honors `Accept-Encoding` quality values across repeated fields, case-insensitive `gzip`/`x-gzip` tokens and wildcard fallback. Explicit `q=0` and malformed quality values refuse the coding; size thresholds, media exclusions and `Vary` behavior are unchanged (#1243).

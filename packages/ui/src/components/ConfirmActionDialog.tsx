@@ -13,13 +13,13 @@ import { Label } from '@simple-module-py/ui/components/ui/label';
 import { cn } from '@simple-module-py/ui/lib/utils';
 import type { LucideIcon } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 interface ConfirmActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Runs when the dialog closes. Call event.preventDefault() before restoring
-   *  focus yourself, for example when there is no Radix trigger. */
+  /** Runs before restoring focus to the opener. Call event.preventDefault()
+   *  to manage focus yourself. */
   onCloseAutoFocus?: React.ComponentProps<typeof AlertDialogContent>['onCloseAutoFocus'];
   /** Tints the icon tile and picks the confirm button's variant. */
   tone?: 'destructive' | 'primary';
@@ -70,6 +70,7 @@ export function ConfirmActionDialog({
 }: ConfirmActionDialogProps) {
   const inputId = useId();
   const [typed, setTyped] = useState('');
+  const opener = useRef<{ target: HTMLElement; dialog: EventTarget | null } | null>(null);
 
   // Reopening the dialog must re-ask for the confirmation, not inherit the
   // answer someone typed before they cancelled.
@@ -82,7 +83,36 @@ export function ConfirmActionDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
+      <AlertDialogContent
+        onOpenAutoFocus={(event) => {
+          opener.current =
+            document.activeElement instanceof HTMLElement &&
+            document.activeElement !== document.body
+              ? { target: document.activeElement, dialog: event.currentTarget }
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          const previous = opener.current;
+          // A queued close belongs to the old content if the dialog reopened.
+          if (!previous || previous.dialog !== event.currentTarget) return;
+          opener.current = null;
+          const { target } = previous;
+          if (event.defaultPrevented || !target.isConnected) return;
+          // A navigation or another dialog may already have moved focus.
+          if (
+            document.activeElement !== document.body &&
+            !(
+              event.currentTarget instanceof HTMLElement &&
+              event.currentTarget.contains(document.activeElement)
+            )
+          )
+            return;
+          target.focus();
+          // Leave Radix's fallback intact if the opener can no longer take focus.
+          if (document.activeElement === target) event.preventDefault();
+        }}
+      >
         {/* Not AlertDialogMedia: that slot is size-16 and row-spans beside the
             title on desktop, where the deck wants a 40px tile above it. */}
         <AlertDialogHeader className="place-items-start gap-2 text-left">
