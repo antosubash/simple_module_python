@@ -57,9 +57,7 @@ def _accepts_gzip(value: str) -> bool:
         quality = 1.0
         if separator:
             match = _QUALITY.fullmatch(parameter.strip())
-            if match is None:
-                continue
-            quality = float(match[1])
+            quality = float(match[1]) if match else 0.0
         accepted[coding] = quality > 0
     return accepted.get("gzip", accepted.get("*", False))
 
@@ -116,7 +114,7 @@ class HostGZipMiddleware(GZipMiddleware):
             await self.app(scope, receive, send_with_exclusions)
 
         responder: IdentityResponder
-        if _accepts_gzip(Headers(scope=scope).get("accept-encoding", "")):
+        if _accepts_gzip(",".join(Headers(scope=scope).getlist("accept-encoding"))):
             responder = GZipResponder(
                 select_response, self.minimum_size, self.compresslevel, **_RESPONDER_OPTIONS
             )

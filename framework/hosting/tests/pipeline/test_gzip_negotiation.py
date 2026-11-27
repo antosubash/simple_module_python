@@ -18,6 +18,8 @@ from starlette.responses import Response
         ("GZip ; Q = 0.5", "gzip"),
         ("x-gzip", "gzip"),
         ("gzip;q=broken", None),
+        ("gzip;q=broken, *", None),
+        ("*, x-gzip;q=broken", None),
     ],
 )
 async def test_middleware_negotiates_gzip(accept_encoding, encoding):
@@ -31,6 +33,21 @@ async def test_middleware_negotiates_gzip(accept_encoding, encoding):
     assert response.headers.get("content-encoding") == encoding
     assert response.content == body
     assert "accept-encoding" in response.headers["vary"].lower()
+
+
+@pytest.mark.parametrize(
+    ("values", "encoding"), [(("*", "gzip;q=0"), None), (("*;q=0", "gzip"), "gzip")]
+)
+async def test_middleware_combines_accept_encoding_fields(values, encoding):
+    body = b"payload" * 300
+    app = compression.HostGZipMiddleware(Response(body, media_type="text/plain"))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/", headers=[("Accept-Encoding", value) for value in values])
+
+    assert response.headers.get("content-encoding") == encoding
+    assert response.content == body
 
 
 async def test_wildcard_keeps_small_response_uncompressed():
@@ -71,7 +88,7 @@ async def test_wildcard_keeps_small_response_uncompressed():
         ("*, gzip;q=0", False),
         ("*;q=0, gzip;q=0.1", True),
         ("x-gzip;q=0, *", False),
-        ("gzip;q=broken, *", True),
+        ("gzip;q=broken, *", False),
         ("gzip;q=broken, gzip;q=0.5", True),
         (", , gzip,", True),
     ],
@@ -84,6 +101,7 @@ def test_accepts_gzip(value, accepted):
     "quality",
     ["", "-0.1", "1.1", "2", "nan", "inf", "+0.5", ".5", "0.1234", '"0.5"', "0.5;q=1"],
 )
-def test_malformed_quality_is_ignored(quality):
+def test_malformed_quality_is_treated_as_zero(quality):
     assert compression._accepts_gzip(f"gzip;q={quality}") is False
+    assert compression._accepts_gzip(f"gzip;q={quality}, *") is False
     assert compression._accepts_gzip(f"*;q={quality}") is False
