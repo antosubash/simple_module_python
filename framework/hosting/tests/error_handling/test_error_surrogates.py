@@ -118,7 +118,7 @@ async def test_validation_sanitizes_all_error_fields(surrogate_client):
             "type": "value_error",
             "loc": ["body", "field�", 0],
             "msg": "bad�",
-            "input": {"key�": ["�", None, 3]},
+            "input": {"key\\ud800": ["�", None, 3]},
             "ctx": {"hint": "�", "valid": "ä😀"},
         }
     ]
@@ -160,7 +160,7 @@ async def test_inertia_body_errors_survive_redirect_and_json_render(surrogate_cl
     assert response.status_code == 303
     page = await surrogate_client.get(response.headers["location"], headers={"X-Inertia": "true"})
     assert page.status_code == 200
-    assert json.loads(page.content.decode("utf-8"))["props"]["errors"] == {"field�": "bad�"}
+    assert json.loads(page.content.decode("utf-8"))["props"]["errors"] == {"field\\ud800": "bad�"}
 
 
 @pytest.mark.parametrize("path,status", [("/http-error", 422), ("/not-found", 404)])

@@ -74,7 +74,7 @@ async def test_inertia_validation_flash_replaces_surrogate_keys_and_messages() -
     exc = RequestValidationError([{"loc": ("body", "field\ud800"), "msg": "bad\udfff"}])
     resp = await inertia_request_validation_exception_handler(req, exc)
     assert resp.status_code == 303
-    assert req.session["_errors"] == {"form": {"field�": "bad�"}}
+    assert req.session["_errors"] == {"form": {"field\\ud800": "bad�"}}
 
 
 @pytest.mark.parametrize("bag", [None, "order"])
@@ -103,7 +103,8 @@ def test_error_payload_sanitizer_keeps_surrogate_keys_distinct():
 
     from simple_module_inertia.protocol.validation import sanitize_error_payload
 
-    payload = sanitize_error_payload({"\ud800": "a\udc00", "\udfff": 1, "�": 2, "ok": ["x"]})
+    raw = {chr(0xD800): "a" + chr(0xDC00), chr(0xDFFF): 1, "\ufffd": 2, "ok": ["x"]}
+    payload = sanitize_error_payload(raw)
 
     assert set(payload) == {"\\ud800", "\\udfff", "�", "ok"}
     assert payload["\\ud800"] == "a�"
