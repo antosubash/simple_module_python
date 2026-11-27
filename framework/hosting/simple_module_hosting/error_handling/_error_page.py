@@ -17,6 +17,7 @@ from simple_module_inertia import (
 from starlette.requests import Request
 from starlette.responses import Response
 
+from simple_module_hosting.error_handling.sanitization import sanitize_error_payload
 from simple_module_hosting.frontend._inertia_shared import resolve_inertia_shared
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,8 @@ async def render_error_page(
     429/503 have to survive the switch — widening the set of statuses that
     render a page must not quietly narrow what those responses carry.
     """
+    message = sanitize_error_payload(message)
+    required_permission = sanitize_error_payload(required_permission)
     try:
         # Inside the try, not above it: this lookup is exactly the kind of
         # thing that is missing when the app is half-built, and an error page

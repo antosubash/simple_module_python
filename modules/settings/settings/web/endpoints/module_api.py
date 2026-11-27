@@ -6,14 +6,15 @@ masked secrets without clobbering the real value.
 
 from __future__ import annotations
 
-import json
 from contextlib import contextmanager
 from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 from simple_module_core.settings.module_settings import module_settings_registry
 from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.error_handling.sanitization import sanitize_error_payload
 from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from simple_module_hosting.rate_limit.rate_limit_deps import RateLimit
 
@@ -87,10 +88,14 @@ def _settings_errors(t):
         yield
     except ValidationError as exc:
         # ``exc.errors()`` still leaves ``ctx.error`` holding the raw Python
-        # exception (not JSON-serializable). Round-trip through pydantic's
-        # own JSON encoder to get clean, serializable errors. ``input`` is
-        # dropped: it echoes the submitted value, which may be a secret.
-        clean = json.loads(exc.json(include_url=False, include_input=False))
+        # exception. Convert it to text before sanitizing; pydantic's JSON
+        # encoder itself rejects surrogates. Input may be a secret: omit it.
+        clean = sanitize_error_payload(
+            jsonable_encoder(
+                exc.errors(include_url=False, include_input=False),
+                custom_encoder={Exception: str},
+            )
+        )
         raise HTTPException(status_code=422, detail=clean) from exc
     except EnvPinnedError as exc:
         # Shaped like a pydantic 422 so the editor shows it on the field.
