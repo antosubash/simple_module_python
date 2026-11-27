@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createServer, type Plugin, resolveConfig, type ViteDevServer } from 'vite';
+import { createLogger, createServer, type Plugin, resolveConfig } from 'vite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import scaffoldConfig from '../../framework/cli/simple_module_cli/templates/host/client_app/vite.config.ts';
 import hostConfig from './vite.config.ts';
@@ -12,6 +12,108 @@ const dirs: string[] = [];
 afterEach(() => {
   vi.useRealTimers();
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+});
+
+type WatcherServer = {
+  watcher: Pick<EventEmitter, 'on' | 'off'>;
+  config: { server: { watch?: object | null } };
+};
+
+function watcherChecks() {
+  let failure: string | undefined;
+  const logger = createLogger();
+  const logError = logger.error;
+  logger.error = (message, options) => {
+    // Vite can log startup errors before createServer returns its watcher.
+    if (message.includes('file watcher error:')) failure = message;
+    else logError(message, options);
+  };
+  return {
+    logger,
+    async waitFor(server: WatcherServer, check: () => void) {
+      const onError = (error: NodeJS.ErrnoException) => {
+        failure = `${error.code ?? 'error'}: ${error.message}`;
+      };
+      server.watcher.on('error', onError);
+      try {
+        await vi.waitFor(
+          () => {
+            if (server.config.server.watch === null) failure ??= 'watching is disabled';
+            if ('closed' in server.watcher && server.watcher.closed)
+              failure ??= 'watcher is closed';
+            if (!failure) check();
+          },
+          { timeout: 5000 },
+        );
+      } catch (error) {
+        if (!failure) throw error;
+      } finally {
+        server.watcher.off('error', onError);
+      }
+      if (failure) throw new Error(`Generated i18n file watcher unavailable: ${failure}`);
+    },
+  };
+}
+
+describe('i18n watcher checks', () => {
+  function server(watch: null | object = {}) {
+    return {
+      watcher: Object.assign(new EventEmitter(), { closed: false }),
+      config: { server: { watch } },
+    };
+  }
+
+  it('allows delivery later than the default one-second wait', async () => {
+    vi.useFakeTimers();
+    let delivered = false;
+    setTimeout(() => {
+      delivered = true;
+    }, 1500);
+    const result = watcherChecks()
+      .waitFor(server(), () => expect(delivered).toBe(true))
+      .then(
+        () => undefined,
+        (error: Error) => error,
+      );
+    expect(await result).toBeUndefined();
+  });
+
+  it.each(['ENOSPC', 'EMFILE'])(
+    'reports a startup %s from Vite before checking files',
+    async (code) => {
+      const checks = watcherChecks();
+      checks.logger.error(`file watcher error: ${code}: watch limit exhausted`);
+      await expect(checks.waitFor(server(), () => {})).rejects.toThrow(
+        new RegExp(`i18n.*watcher.*${code}`),
+      );
+    },
+  );
+
+  it('reports a chokidar error while waiting for a change', async () => {
+    const checks = watcherChecks();
+    const vite = server();
+    const result = checks.waitFor(vite, () => {
+      vite.watcher.emit(
+        'error',
+        Object.assign(new Error('watch limit exhausted'), { code: 'ENOSPC' }),
+      );
+      expect(false).toBe(true);
+    });
+    await expect(result).rejects.toThrow(/i18n.*watcher.*ENOSPC.*watch limit exhausted/);
+    expect(vite.watcher.listenerCount('error')).toBe(0);
+  });
+
+  it('fails when file watching is disabled', async () => {
+    await expect(watcherChecks().waitFor(server(null), () => {})).rejects.toThrow(
+      /i18n.*watcher.*disabled/,
+    );
+  });
+
+  it('fails when the watcher has closed', async () => {
+    const vite = server();
+    vite.watcher.closed = true;
+    await expect(watcherChecks().waitFor(vite, () => {})).rejects.toThrow(/i18n.*watcher.*closed/);
+  });
 });
 
 for (const [name, config] of [
@@ -105,7 +207,7 @@ for (const [name, config] of [
       expect(hook).toBeDefined();
       if (!hook) return;
       Reflect.apply(typeof hook === 'function' ? hook : hook.handler, {}, [
-        { watcher, restart, config: { logger: { error: vi.fn() } } } as Partial<ViteDevServer>,
+        { watcher, restart, config: { logger: { error: vi.fn() } } },
       ]);
       expect(watcher.add).toHaveBeenCalledWith(files);
       vi.useFakeTimers();
@@ -130,21 +232,28 @@ for (const [name, config] of [
     it('receives generated file changes from an installed node_modules package', async () => {
       const { files, load } = await setup();
       const { resolved } = await load();
+      const checks = watcherChecks();
       const server = await createServer({
         ...resolved.inlineConfig,
+        customLogger: checks.logger,
         server: { middlewareMode: true, ws: false },
         optimizeDeps: { noDiscovery: true, include: [] },
       });
       const restart = vi.spyOn(server, 'restart').mockResolvedValue();
       try {
-        await vi.waitFor(() => {
-          expect(Object.values(server.watcher.getWatched()).flat()).toContain('keys.generated.ts');
+        await checks.waitFor(server, () => {
+          for (const file of files) {
+            expect(
+              server.watcher.getWatched()[path.dirname(file)],
+              `Generated i18n file watcher did not register ${file}`,
+            ).toContain(path.basename(file));
+          }
         });
         fs.writeFileSync(files[0], 'export const keys = { changed: true };');
-        await vi.waitFor(() => expect(restart).toHaveBeenCalledExactlyOnceWith(true));
+        await checks.waitFor(server, () => expect(restart).toHaveBeenCalledExactlyOnceWith(true));
       } finally {
         await server.close();
       }
-    });
+    }, 15_000);
   });
 }
