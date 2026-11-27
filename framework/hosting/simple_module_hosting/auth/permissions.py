@@ -19,11 +19,12 @@ from simple_module_core.access.principal_permissions import (
 )
 from simple_module_core.access.principals import PRINCIPALS_KEY
 from simple_module_core.access.resources import ResourcePrincipal
-from simple_module_core.access.tenancy import is_tenant_role, tenant_role
+from simple_module_core.access.tenancy import is_tenant_role, request_tenant_id, tenant_role
 from simple_module_core.modules.app_state import get_services
 
 from simple_module_hosting.auth._anonymous import demote_to_anonymous
 from simple_module_hosting.auth.token_guard import GATE_PERMISSION
+from simple_module_hosting.pipeline.tenancy import single_tenant_id
 
 if TYPE_CHECKING:
     from simple_module_core.access.permissions import PermissionRegistry
@@ -59,7 +60,7 @@ async def resolve_request_permissions(
     if user is None:
         request.state.resolved_permissions = set()
         return set()
-    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_id = request_tenant_id(request)
     if getattr(user, "tenant_id", None) != tenant_id:
         # Grant sources see the effective tenant without changing the auth context.
         user = copy(user)
@@ -91,7 +92,11 @@ def _resource_principal_for(request: Request, principal: ResourcePrincipal) -> R
             return ResourcePrincipal(None)
     if builder is None:
         return principal
-    tenant_id = principal.tenant_id if builder.multi_tenant else builder.default_tenant
+    tenant_id = (
+        principal.tenant_id
+        if builder.multi_tenant
+        else builder.default_tenant or single_tenant_id(request.app)
+    )
     # Tenant roles are membership facts, never platform/identity-provider claims.
     roles = frozenset(r for r in principal.roles if not is_tenant_role(r))
     role = getattr(request.state, "tenant_role", None)

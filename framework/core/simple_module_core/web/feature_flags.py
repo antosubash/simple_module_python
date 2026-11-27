@@ -10,8 +10,8 @@ Resolution order: tenant override > system override > definition default.
 
 Consumers check a flag inside a FastAPI endpoint via ``is_flag_enabled``,
 ``flag_enabled``, ``require_flag``, or the ``@feature_flag`` decorator —
-all tenant-aware using ``request.state.tenant_id`` set by
-``TenantMiddleware``. Every helper accepts either a
+all tenant-aware using the resolved request tenant or the single-tenant
+install's ID. Every helper accepts either a
 ``FeatureFlagDefinition`` (preferred: pass the constant you registered) or
 the raw flag name.
 """
@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import HTTPException, Request
+
+from simple_module_core.access.tenancy import request_tenant_id
 
 
 @dataclass(frozen=True)
@@ -105,13 +107,12 @@ def is_flag_enabled(request: Request, flag: FeatureFlagDefinition | str) -> bool
     """Return whether ``flag`` is enabled for this request's tenant context.
 
     Reads the registry from ``request.app.state.sm.feature_flags`` and the
-    tenant from ``request.state.tenant_id`` (set by ``TenantMiddleware``).
-    Without a tenant on the request, falls back to the system value or the
+    tenant from the resolved request or the single-tenant install's ID.
+    An unresolved multi-tenant request falls back to the system value or the
     definition default.
     """
     registry: FeatureFlagRegistry = request.app.state.sm.feature_flags
-    tenant_id: str | None = getattr(request.state, "tenant_id", None)
-    return registry.is_enabled(_flag_name(flag), tenant_id=tenant_id)
+    return registry.is_enabled(_flag_name(flag), tenant_id=request_tenant_id(request))
 
 
 def flag_enabled(flag: FeatureFlagDefinition | str) -> Callable[[Request], bool]:

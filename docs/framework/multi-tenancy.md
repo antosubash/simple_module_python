@@ -256,6 +256,14 @@ single-tenant install every row is the install's, whatever `tenant_id` it
 carries — rows written under `default_tenant`, or while `multi_tenant` was
 briefly on, must not vanish. Strict mode never uses the constant; it raises.
 
+Authorization and feature flags still have an install ID: request and headless
+resource principals, permission grant sources, and the request flag helpers use
+`single_tenant_id(app)`'s value — `default_tenant` when set, otherwise
+`DEFAULT_TENANT_ID`. A tenant flag override stored for `"default"` therefore
+applies even without `default_tenant` (#1261). This fallback does not bind the
+database context or narrow unbound reads. Multi-tenant requests keep their
+resolved tenant, with no single-tenant fallback.
+
 To give the single tenant a name of your choosing instead, set
 `default_tenant` (a `HostSettings` field, e.g. `main`): every request, and
 every background task with no tenant on its message, then *binds* that tenant
