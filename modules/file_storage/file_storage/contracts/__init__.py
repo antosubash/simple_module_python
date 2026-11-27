@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import AbstractContextManager
 from os import PathLike
 from pathlib import Path
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 from uuid import UUID
 
 from file_storage.contracts.events import FileDeleted, FileUploaded
@@ -23,10 +23,15 @@ from file_storage.contracts.service import (
 )
 from file_storage.models import StoredFile
 
+if TYPE_CHECKING:
+    from file_storage.files.service import FileStorageService as FileStorageService
+    from file_storage.web.deps import get_file_storage_service as get_file_storage_service
+
 __all__ = [
     "ConfigurationError",
     "DirectUploadBackend",
     "FileDeleted",
+    "FileStorageService",
     "FileUploaded",
     "NotSupportedError",
     "ObjectInfo",
@@ -38,10 +43,24 @@ __all__ = [
     "StoredFile",
     "StoredFileListOut",
     "StoredFileOut",
+    "get_file_storage_service",
     "open_local",
     "presigned_url",
     "store_path",
 ]
+
+
+def __getattr__(name: str):
+    # Service and dependency imports also load contracts submodules.
+    if name == "FileStorageService":
+        from file_storage.files.service import FileStorageService
+
+        return FileStorageService
+    if name == "get_file_storage_service":
+        from file_storage.web.deps import get_file_storage_service
+
+        return get_file_storage_service
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def store_path(

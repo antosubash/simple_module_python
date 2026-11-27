@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- File storage: `file_storage.contracts` now re-exports `FileStorageService` and `get_file_storage_service` for module-owned upload routes, with lazy imports to avoid import cycles (#1231).
 - Hosting: `build_host_app(..., app_name="Acme")` and `create_app(..., app_name="Acme")` supply an app-local default for the API title, branding, Inertia titles and users' account emails. Environment and DB overrides retain priority; scaffolded hosts pass their project name (#1225).
 - User directories: `search(..., match_email=False)` matches full names before the result limit, and every built-in provider supports case-insensitive exact `find_by_email`. The optional `EmailLookupUserDirectory` protocol supplies the lookup default without changing legacy structural conformance; default search behavior is unchanged. Third-party `UserDirectory` implementations keep working at runtime; to stay statically conformant they should accept the new keyword-only `match_email: bool = True` parameter on `search` (#1227).
 
