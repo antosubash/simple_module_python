@@ -2170,6 +2170,8 @@ pip install "simple-module-file-storage[s3]"
 From another module:
 
 ```python
+from fastapi import Depends, File, UploadFile
+
 from file_storage.contracts import FileStorageService, get_file_storage_service
 
 
@@ -2177,8 +2179,8 @@ async def attach_receipt(
     svc: FileStorageService = Depends(get_file_storage_service),
     upload: UploadFile = File(...),
 ):
-    record = await svc.save(upload, folder="receipts/")
-    return {"file_id": record.id, "url": record.url}
+    record = await svc.upload(upload)
+    return {"file_id": record.id}
 ```
 
 Env config (example, S3):
