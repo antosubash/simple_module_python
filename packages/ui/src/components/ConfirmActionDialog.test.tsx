@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Trash2 } from 'lucide-react';
 import type React from 'react';
+import { useState } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 
 import { ConfirmActionDialog } from './ConfirmActionDialog';
@@ -24,7 +25,120 @@ function renderDialog(props: Partial<React.ComponentProps<typeof ConfirmActionDi
   return { onConfirm, onOpenChange };
 }
 
+function FocusDialog({
+  onCloseAutoFocus,
+  removeOpener = false,
+  disableOpener = false,
+}: {
+  onCloseAutoFocus?: React.ComponentProps<typeof ConfirmActionDialog>['onCloseAutoFocus'];
+  removeOpener?: boolean;
+  disableOpener?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {!removeOpener && (
+        <button type="button" disabled={disableOpener} onClick={() => setOpen(true)}>
+          Open confirmation
+        </button>
+      )}
+      <button type="button" onClick={() => setOpen(true)}>
+        Focus destination
+      </button>
+      <ConfirmActionDialog
+        open={open}
+        onOpenChange={setOpen}
+        onCloseAutoFocus={onCloseAutoFocus}
+        icon={Trash2}
+        title="Delete project"
+        description="This removes every dataset it holds."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={() => {}}
+      />
+    </>
+  );
+}
+
+function openConfirmation() {
+  const opener = screen.getByRole('button', { name: 'Open confirmation' });
+  opener.focus();
+  fireEvent.click(opener);
+  expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+  return opener;
+}
+
 describe('ConfirmActionDialog', () => {
+  test.each(['Escape', 'Cancel', 'Delete'])(
+    'returns focus to the opener after %s',
+    async (action) => {
+      render(<FocusDialog />);
+      const opener = openConfirmation();
+      if (action === 'Escape') {
+        fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: action }));
+      }
+      await waitFor(() => expect(opener).toHaveFocus());
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    },
+  );
+
+  test('lets a caller preventing close autofocus choose the focus destination', async () => {
+    render(
+      <FocusDialog
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          screen.getByRole('button', { name: 'Focus destination' }).focus();
+        }}
+      />,
+    );
+    openConfirmation();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Focus destination' })).toHaveFocus(),
+    );
+  });
+
+  test('restores the opener when the caller does not prevent close autofocus', async () => {
+    const onCloseAutoFocus = vi.fn();
+    render(<FocusDialog onCloseAutoFocus={onCloseAutoFocus} />);
+    const opener = openConfirmation();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(opener).toHaveFocus());
+    expect(onCloseAutoFocus).toHaveBeenCalledTimes(1);
+  });
+
+  test('remembers the current opener on each opening', async () => {
+    render(<FocusDialog />);
+    const firstOpener = openConfirmation();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(firstOpener).toHaveFocus());
+    const nextOpener = screen.getByRole('button', { name: 'Focus destination' });
+    nextOpener.focus();
+    fireEvent.click(nextOpener);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(nextOpener).toHaveFocus());
+  });
+
+  test.each(['removed', 'disabled'])('closes safely when the opener is %s', async (state) => {
+    const onCloseAutoFocus = vi.fn();
+    const { rerender } = render(<FocusDialog onCloseAutoFocus={onCloseAutoFocus} />);
+    const opener = openConfirmation();
+    rerender(
+      <FocusDialog
+        onCloseAutoFocus={onCloseAutoFocus}
+        removeOpener={state === 'removed'}
+        disableOpener={state === 'disabled'}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(onCloseAutoFocus).toHaveBeenCalledTimes(1));
+    expect(document.body).toHaveFocus();
+    expect(opener).not.toHaveFocus();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
   test('shows the title, description and both buttons when open', () => {
     renderDialog();
     expect(screen.getByText('Delete project')).toBeInTheDocument();
