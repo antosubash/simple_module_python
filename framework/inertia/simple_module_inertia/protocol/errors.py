@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from fastapi import Request, Response, status
-from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from simple_module_inertia.protocol.request import is_inertia_request
 from simple_module_inertia.protocol.response import back_url, version_conflict
-from simple_module_inertia.protocol.validation import errors_from_validation, scope_errors
+from simple_module_inertia.protocol.validation import (
+    errors_from_validation,
+    sanitize_error_payload,
+    scope_errors,
+)
 
 
 class InertiaVersionConflictException(Exception):  # noqa: N818 - upstream name; hosting imports it
@@ -32,10 +36,15 @@ async def inertia_request_validation_exception_handler(
 ) -> Response:
     """Flash validation errors and send the browser back, scoped by error bag."""
     if not is_inertia_request(request.scope):
-        return await request_validation_exception_handler(request, exc)
+        return JSONResponse(
+            status_code=422,
+            content={"detail": sanitize_error_payload(jsonable_encoder(exc.errors()))},
+        )
 
     errors = errors_from_validation(exc.errors(), request_source=True)
-    request.session["_errors"] = scope_errors(errors, request.headers.get("X-Inertia-Error-Bag"))
+    request.session["_errors"] = sanitize_error_payload(
+        scope_errors(errors, request.headers.get("X-Inertia-Error-Bag"))
+    )
 
     code = (
         status.HTTP_307_TEMPORARY_REDIRECT if request.method == "GET" else status.HTTP_303_SEE_OTHER

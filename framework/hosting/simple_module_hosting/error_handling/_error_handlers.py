@@ -16,6 +16,7 @@ from starlette.responses import Response
 
 from simple_module_hosting.error_handling._error_negotiation import _wants_json
 from simple_module_hosting.error_handling._error_page import render_error_page
+from simple_module_hosting.error_handling.sanitization import sanitize_error_payload
 from simple_module_hosting.frontend.inertia_utils import redirect_back_with_errors
 from simple_module_hosting.observability._observability import CorrelationIdMiddleware
 
@@ -30,20 +31,21 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
     # FastAPI's stock handler does — on the rendered page as well as the JSON
     # body, since both answer with the same status.
     headers = getattr(exc, "headers", None)
+    detail = sanitize_error_payload(exc.detail)
     if exc.status_code in _INERTIA_ERROR_STATUSES and not _wants_json(request):
-        detail = str(exc.detail) if exc.detail else ""
+        message = str(detail) if detail else ""
         required = exc.permission if isinstance(exc, PermissionDenied) else None
-        return await render_error_page(request, exc.status_code, detail, headers, required)
+        return await render_error_page(request, exc.status_code, message, headers, required)
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
+        content={"detail": detail},
         headers=headers,
     )
 
 
 async def not_found_error_handler(request: Request, exc: NotFoundError) -> Response:
     if _wants_json(request):
-        return JSONResponse(status_code=404, content={"detail": str(exc)})
+        return JSONResponse(status_code=404, content={"detail": sanitize_error_payload(str(exc))})
     return await render_error_page(request, 404, str(exc))
 
 
@@ -68,7 +70,10 @@ async def request_validation_error_handler(
             errors = errors_from_validation(body_errors, request_source=True)
             return redirect_back_with_errors(request, errors)
     if _wants_json(request):
-        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
+        return JSONResponse(
+            status_code=422,
+            content={"detail": sanitize_error_payload(jsonable_encoder(exc.errors()))},
+        )
     return await render_error_page(request, 422, "The requested URL contains invalid parameters.")
 
 

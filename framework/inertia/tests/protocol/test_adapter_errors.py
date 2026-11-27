@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -58,6 +60,23 @@ async def test_non_inertia_validation_errors_keep_fastapis_422() -> None:
     assert resp.status_code == 422
 
 
+async def test_non_inertia_validation_errors_replace_surrogates() -> None:
+    exc = RequestValidationError(
+        [{"loc": ("body", "comment"), "msg": "invalid", "input": "bad\ud800"}]
+    )
+    resp = await inertia_request_validation_exception_handler(_request({}), exc)
+    assert resp.status_code == 422
+    assert json.loads(resp.body.decode("utf-8"))["detail"][0]["input"] == "bad�"
+
+
+async def test_inertia_validation_flash_replaces_surrogate_keys_and_messages() -> None:
+    req = _request({"X-Inertia": "true", "X-Inertia-Error-Bag": "form"})
+    exc = RequestValidationError([{"loc": ("body", "field\ud800"), "msg": "bad\udfff"}])
+    resp = await inertia_request_validation_exception_handler(req, exc)
+    assert resp.status_code == 303
+    assert req.session["_errors"] == {"form": {"field\\ud800": "bad�"}}
+
+
 @pytest.mark.parametrize("bag", [None, "order"])
 async def test_adapter_validation_keeps_first_message_for_union_and_list_fields(bag):
     class Order(SQLModel):
@@ -77,3 +96,16 @@ async def test_adapter_validation_keeps_first_message_for_union_and_list_fields(
         "tags": "Input should be a valid integer, unable to parse string as an integer",
     }
     assert req.session["_errors"] == (expected if bag is None else {bag: expected})
+
+
+def test_error_payload_sanitizer_keeps_surrogate_keys_distinct():
+    import json
+
+    from simple_module_inertia.protocol.validation import sanitize_error_payload
+
+    raw = {chr(0xD800): "a" + chr(0xDC00), chr(0xDFFF): 1, "\ufffd": 2, "ok": ["x"]}
+    payload = sanitize_error_payload(raw)
+
+    assert set(payload) == {"\\ud800", "\\udfff", "�", "ok"}
+    assert payload["\\ud800"] == "a�"
+    json.dumps(payload, ensure_ascii=False).encode("utf-8")
