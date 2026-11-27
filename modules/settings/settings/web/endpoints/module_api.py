@@ -14,7 +14,6 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 from simple_module_core.settings.module_settings import module_settings_registry
 from simple_module_hosting.auth.permissions import RequiresPermission
-from simple_module_hosting.error_handling.sanitization import sanitize_error_payload
 from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from simple_module_hosting.rate_limit.rate_limit_deps import RateLimit
 
@@ -88,13 +87,11 @@ def _settings_errors(t):
         yield
     except ValidationError as exc:
         # ``exc.errors()`` still leaves ``ctx.error`` holding the raw Python
-        # exception. Convert it to text before sanitizing; pydantic's JSON
-        # encoder itself rejects surrogates. Input may be a secret: omit it.
-        clean = sanitize_error_payload(
-            jsonable_encoder(
-                exc.errors(include_url=False, include_input=False),
-                custom_encoder={Exception: str},
-            )
+        # exception. Convert it to text; the HTTP handler sanitizes surrogates.
+        # Pydantic's JSON encoder rejects them. Input may be a secret: omit it.
+        clean = jsonable_encoder(
+            exc.errors(include_url=False, include_input=False),
+            custom_encoder={Exception: str},
         )
         raise HTTPException(status_code=422, detail=clean) from exc
     except EnvPinnedError as exc:

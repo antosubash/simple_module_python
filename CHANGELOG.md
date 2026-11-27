@@ -78,7 +78,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- Hosting and settings: error responses replace lone Unicode surrogates with U+FFFD while preserving validation payload fields, so malformed string input keeps its 422 status. Browser error pages and Inertia form errors use the same sanitization (#1258).
+- Hosting and settings: error responses replace lone Unicode surrogates with U+FFFD while preserving validation payload fields, so malformed string input keeps its 422 status. Browser error pages, maintenance responses, standalone Inertia validation and form errors use the same sanitization (#1258).
 
 - Settings editor: focus new secret inputs, distinguish unset secrets (including empty typed secrets) from stored values, announce only one JSON field error, replace invalid module deep links with the fallback, and keep the active module in rail search results (#1237).
 

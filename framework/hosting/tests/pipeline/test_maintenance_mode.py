@@ -161,6 +161,13 @@ class TestDegradedDependencies:
 
 
 class TestJsonCallers:
+    async def test_surrogate_message_keeps_503_and_retry_after(self) -> None:
+        app = _build_app(enabled=True, message="Back soon\ud800")
+        resp = await _get(app, "/api/thing")
+        assert resp.status_code == 503
+        assert resp.json() == {"detail": "Back soon�"}
+        assert resp.headers["Retry-After"] == "3600"
+
     async def test_api_caller_gets_json_not_html(self) -> None:
         app = _build_app(enabled=True, message="Back at 14:00 UTC")
         resp = await _get(app, "/api/thing")
