@@ -43,6 +43,7 @@ vi.mock('@simple-module-py/i18n', () => {
     keys: {
       ui: {
         nav: { breadcrumb: 'ui.nav.breadcrumb' },
+        actions: { close: 'ui.actions.close' },
         topbar: { log_out: 'ui.topbar.log_out' },
         switcher: { label: 'ui.switcher.label', single_locale: 'ui.switcher.single_locale' },
         command_palette: {
