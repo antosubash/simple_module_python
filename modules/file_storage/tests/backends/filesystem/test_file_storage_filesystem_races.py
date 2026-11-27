@@ -196,7 +196,10 @@ async def test_leaf_symlink_swapped_at_io_is_refused(tmp_path, monkeypatch, oper
     assert outside.read_bytes() == b"secret"
 
 
-async def test_cancelled_open_finishes_before_descriptor_cleanup(tmp_path, monkeypatch, chunks):
+@pytest.mark.parametrize("shutdown", [False, True])
+async def test_cancelled_open_finishes_before_descriptor_cleanup(
+    tmp_path, monkeypatch, chunks, shutdown
+):
     from file_storage.backends._fs_confined import Directory
 
     backend = FilesystemBackend(tmp_path)
@@ -212,14 +215,16 @@ async def test_cancelled_open_finishes_before_descriptor_cleanup(tmp_path, monke
         return file
 
     monkeypatch.setattr(Directory, "open", slow_open)
+    existing_tasks = asyncio.all_tasks()
     task = asyncio.create_task(
         backend.put("abc", chunks(b"data"), content_type="text/plain", size=4)
     )
     try:
         assert await asyncio.to_thread(entered.wait, 3)
-        task.cancel()
-        await asyncio.to_thread(lambda: None)
-        assert not task.done()
+        for pending in asyncio.all_tasks() - existing_tasks if shutdown else {task}:
+            pending.cancel()
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(asyncio.shield(task), 0.1)
     finally:
         release.set()
     with pytest.raises(asyncio.CancelledError):

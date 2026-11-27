@@ -3398,7 +3398,6 @@ name = "simple-module-file-storage"
 version = "0.0.49"
 source = { editable = "modules/file_storage" }
 dependencies = [
-    { name = "aiofiles" },
     { name = "pillow" },
     { name = "simple-module-core" },
     { name = "simple-module-db" },
@@ -3417,7 +3416,6 @@ tasks = [
 [package.metadata]
 requires-dist = [
     { name = "aioboto3", marker = "extra == 's3'", specifier = ">=13,<16" },
-    { name = "aiofiles", specifier = ">=23,<26" },
     { name = "pillow", specifier = ">=10,<14" },
     { name = "simple-module-background-tasks", marker = "extra == 'tasks'", editable = "modules/background_tasks" },
     { name = "simple-module-core", editable = "framework/core" },

@@ -28,8 +28,10 @@ relative to an anchored storage directory. Each child directory is opened withou
 following symlinks, reads retain their opened file until the stream is closed,
 and atomic writes, deletes, metadata queries and stale-object scans use directory
 descriptors. A shard or `.multipart` directory swapped for a symlink cannot
-redirect these operations outside the opened store (#1269). Existing symlinks
-below the configured root are refused, including ones pointing inside the store.
+redirect these operations outside the opened store (#1269). Traversing symlinks
+below the configured root is refused, including ones pointing inside the store.
+Deleting or atomically replacing a leaf symlink can remove the link itself
+without accessing its target; stale-object scans skip symlinks.
 The configured root itself may be a symlink; its location and parent directories
 must be trusted.
 

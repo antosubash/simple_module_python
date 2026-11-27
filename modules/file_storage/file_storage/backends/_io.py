@@ -1,13 +1,16 @@
 """Finish worker-thread I/O before cancellation releases its resources."""
 
 import asyncio
+import contextvars
 from collections.abc import Callable
 from typing import Any
 
 
 async def _io(fn: Callable[..., Any], *args: Any) -> Any:
-    # Finish in-flight I/O before cancellation can close or reuse its spool.
-    task = asyncio.create_task(asyncio.to_thread(fn, *args))
+    # A separate asyncio task could be cancelled at shutdown while its thread still runs.
+    task = asyncio.get_running_loop().run_in_executor(
+        None, contextvars.copy_context().run, fn, *args
+    )
     cancelled = None
     while True:
         try:
@@ -15,8 +18,6 @@ async def _io(fn: Callable[..., Any], *args: Any) -> Any:
             break
         except asyncio.CancelledError as exc:
             if task.cancelled():
-                # The I/O task itself was cancelled (loop shutdown cancels every task):
-                # nothing is in flight, and shielding it again would spin forever.
                 raise
             cancelled = exc
         except BaseException:

@@ -140,3 +140,24 @@ async def test_operations_keep_symlinked_relative_root(tmp_path, monkeypatch, ch
     await backend.put("ab/file", chunks(b"data"), content_type="text/plain", size=4)
     assert (root / "ab" / "ab" / "file").read_bytes() == b"data"
     assert b"".join([c async for c in await backend.get("ab/file")]) == b"data"
+
+
+@pytest.mark.parametrize("length", [None, 0])
+async def test_stream_eof_closes_file_once(length):
+    from io import BytesIO
+
+    from file_storage.backends._fs_confined import FileStream
+
+    class CountedFile(BytesIO):
+        closes = 0
+
+        def close(self):
+            self.closes += 1
+            super().close()
+
+    file = CountedFile()
+    body = FileStream(length)
+    body.file = file
+    assert [chunk async for chunk in body] == []
+    await body.aclose()
+    assert file.closed and file.closes == 1

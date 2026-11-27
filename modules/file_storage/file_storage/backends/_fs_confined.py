@@ -210,5 +210,5 @@ class FileStream:
             raise
 
     async def aclose(self) -> None:
-        if self.file is not None:
+        if self.file is not None and not self.file.closed:
             await _io(self.file.close)
