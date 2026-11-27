@@ -4,9 +4,13 @@
 // anything else -- a model-level validator (empty `loc`), a `loc` naming no
 // field -- is surfaced at form level so a 422 is never swallowed.
 
+import { keys, type TranslationKey, t } from '@simple-module-py/i18n';
+
 export interface ValidationDetail {
   loc?: (string | number)[];
   msg: string;
+  type?: string;
+  ctx?: Record<string, unknown>;
 }
 
 export interface SplitErrors {
@@ -21,6 +25,36 @@ export function stripValueErrorPrefix(message: string): string {
   return message.replace(VALUE_ERROR_PREFIX, '');
 }
 
+function validationMessage(error: ValidationDetail): string {
+  const fallback = stripValueErrorPrefix(String(error?.msg ?? ''));
+  const k = keys.settings.validation;
+  const messages: Record<string, [TranslationKey, string?]> = {
+    greater_than: [k.greater_than, 'gt'],
+    greater_than_equal: [k.greater_than_equal, 'ge'],
+    less_than: [k.less_than, 'lt'],
+    less_than_equal: [k.less_than_equal, 'le'],
+    int_parsing: [k.integer],
+    int_from_float: [k.integer],
+    float_parsing: [k.number],
+    bool_parsing: [k.boolean],
+    missing: [k.required],
+    string_too_short: [k.string_too_short, 'min_length'],
+    string_too_long: [k.string_too_long, 'max_length'],
+    too_long: [k.too_long, 'max_length'],
+    url_parsing: [k.url],
+    url_scheme: [k.url_scheme, 'expected_schemes'],
+    literal_error: [k.choice, 'expected'],
+    enum: [k.choice, 'expected'],
+    json_invalid: [k.json],
+  };
+  const type = error?.type ?? '';
+  if (!Object.hasOwn(messages, type)) return fallback;
+  const [key, context] = messages[type];
+  const value = context ? error.ctx?.[context] : undefined;
+  if (context && typeof value !== 'string' && typeof value !== 'number') return fallback;
+  return t(key, { limit: value, expected: value });
+}
+
 export function splitValidationErrors(
   detail: unknown,
   fieldNames?: readonly string[],
@@ -33,7 +67,7 @@ export function splitValidationErrors(
   if (!Array.isArray(detail)) return out;
   const known = fieldNames ? new Set(fieldNames) : null;
   for (const d of detail as ValidationDetail[]) {
-    const msg = stripValueErrorPrefix(String(d?.msg ?? ''));
+    const msg = validationMessage(d);
     if (!msg) continue;
     let loc = (d?.loc ?? []).map(String);
     if (loc[0] === 'body') loc = loc.slice(1);

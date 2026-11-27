@@ -312,7 +312,13 @@ over those defaults.
 
 ## Locales
 
-Top-level keys in `settings/locales/en.json`: `browse`, `table`, `scopes`, `value_types`, `form`, `create`, `edit`, `modules`.
+Top-level keys in `settings/locales/en.json` include `browse`, `table`, `scopes`, `value_types`, `form`, `create`, `edit`, `modules`, and `validation`.
+
+The module settings editor translates common validation errors into the active
+language (English or German), including constraint values. Custom validator and
+unknown error messages retain the server text, with Pydantic's `Value error, `
+prefix removed. Errors needing unavailable constraint values also retain the
+server text.
 
 ## Notes
 

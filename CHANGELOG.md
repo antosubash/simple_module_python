@@ -78,6 +78,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Settings: translate common validation errors in English and German with constraint values; preserve custom validator and unknown error messages (#1238).
 - **Behaviour change:** UI: Sheet and Dialog close buttons have a 44px minimum hit area on all screens around their 16px icons, accept `closeButtonClassName` overrides, and use translated labels; the optional Dialog footer close label is translated too (#1254).
 - **Behaviour change:** UI: `ConfirmActionDialog` restores focus to its opener after Escape, Cancel or confirmation, while preserving caller-provided focus handling and safely handling removed or unfocusable openers (#1255).
 - Settings: drop locale keys no page uses (`settings.modules.back_link`, `no_fields`, `secret_badge`, `table.*`) (#1233).
