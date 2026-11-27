@@ -178,6 +178,8 @@ def embeds_credential(value: Any) -> bool:
 
 
 def mask(value: Any) -> Any:
+    if isinstance(value, (SecretStr, SecretBytes)) and not value.get_secret_value():
+        return ""
     if value in (None, "", [], {}):
         return value
     return SECRET_MASK

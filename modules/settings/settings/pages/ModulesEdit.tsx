@@ -49,13 +49,22 @@ function ModulesEdit({ modules, testable = {} }: Props) {
       visit.only[0] === 'modules',
   );
 
-  useEffect(
-    () =>
-      router.on('navigate', ({ detail: { page } }) => {
-        setSelected(moduleFromUrl(page.url));
-      }),
-    [visible],
-  );
+  useEffect(() => {
+    function syncSelection(href: string) {
+      const pkg = moduleFromUrl(href);
+      setSelected(pkg);
+      const url = new URL(href, window.location.origin);
+      if (!pkg || !url.searchParams.has('module') || url.searchParams.get('module') === pkg) return;
+      url.searchParams.set('module', pkg);
+      router.replace({
+        url: `${url.pathname}${url.search}${url.hash}`,
+        preserveState: true,
+        preserveScroll: true,
+      });
+    }
+    syncSelection(window.location.href);
+    return router.on('navigate', ({ detail: { page } }) => syncSelection(page.url));
+  }, [visible]);
 
   function select(pkg: string) {
     setDirty(false);
@@ -85,19 +94,25 @@ function ModulesEdit({ modules, testable = {} }: Props) {
       ),
     [visible, titles, collator],
   );
-  const filtered = useMemo(() => {
-    if (!q) return sorted;
+  const { filtered, noMatches } = useMemo(() => {
+    if (!q) return { filtered: sorted, noMatches: false };
     const query = q.toLowerCase();
     const hit = (s: string) => s.toLowerCase().includes(query);
-    return sorted.filter((m) => {
+    const matches = (m: ModuleView) => {
       const text = settingsText(m.package, lookup);
       return (
         hit(titles[m.package] ?? '') ||
         hit(m.package) ||
         m.fields.some((f) => hit(f.name) || hit(text.label(f)))
       );
-    });
-  }, [sorted, q, lookup, titles]);
+    };
+    // Keep the open module listed even when it doesn't match (#1237), and
+    // still say so when nothing does (#1159).
+    return {
+      filtered: sorted.filter((m) => m.package === selected || matches(m)),
+      noMatches: !sorted.some(matches),
+    };
+  }, [sorted, q, lookup, titles, selected]);
 
   function pick(pkg: string, from: HTMLElement | null) {
     if (pkg === selected) return;
@@ -124,6 +139,7 @@ function ModulesEdit({ modules, testable = {} }: Props) {
         <ModuleNav
           modules={sorted}
           filtered={filtered}
+          noMatches={noMatches}
           titles={titles}
           selected={selected}
           query={q}

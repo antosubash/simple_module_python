@@ -132,6 +132,7 @@
     "requires_restart": "Neustart erforderlich",
     "reset_to_default": "Auf Standard zurücksetzen",
     "set_new_value": "Neuen Wert setzen",
+    "secret_not_set": "Nicht gesetzt",
     "invalid_json": "Ungültiges JSON — wird beim Speichern abgelehnt.",
     "not_set": "Nicht gesetzt (Standard)",
     "option_on": "Ein",

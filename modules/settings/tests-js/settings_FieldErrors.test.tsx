@@ -86,15 +86,20 @@ test.each([false, true])(
 );
 
 test('appends the JSON hint after description and server error, and removes it when valid', () => {
-  render(row({ type: 'json', value: {} }, 'Rejected'));
+  const meta = { type: 'json', value: {} };
+  const { rerender } = render(row(meta));
   const control = screen.getByLabelText('Setting');
   fireEvent.change(control, { target: { value: '{' } });
   const hint = screen.getByText('Invalid JSON');
+  expect(screen.getByRole('alert')).toBe(hint);
+  rerender(row(meta, 'Rejected'));
   const description = screen.getByText('Help text.');
   const error = screen.getByText('Rejected');
   expect(hint.id).not.toBe('');
   expect(control).toHaveAttribute('aria-describedby', `${description.id} ${error.id} ${hint.id}`);
-  expect(hint).toHaveAttribute('role', 'alert');
+  expect(hint).toBeVisible();
+  expect(screen.getAllByRole('alert')).toHaveLength(1);
+  expect(screen.getByRole('alert')).toBe(error);
   fireEvent.change(control, { target: { value: '{}' } });
   expect(screen.queryByText('Invalid JSON')).not.toBeInTheDocument();
   expect(control).toHaveAttribute('aria-describedby', `${description.id} ${error.id}`);

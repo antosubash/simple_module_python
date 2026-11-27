@@ -1138,6 +1138,7 @@ const resources = {
     'settings.modules_form.save_failed': '',
     'settings.modules_form.saved_toast': '',
     'settings.modules_form.saving': '',
+    'settings.modules_form.secret_not_set': '',
     'settings.modules_form.set_new_value': '',
     'settings.modules_form.show_secret': '',
     'settings.modules_form.validation_failed': '',

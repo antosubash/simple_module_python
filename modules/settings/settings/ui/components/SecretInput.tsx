@@ -2,7 +2,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { PasswordInput } from '@simple-module-py/ui/components/PasswordInput';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import type { SettingsFieldRendererProps } from '@simple-module-py/ui/extensions';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function SecretInput({
   field,
@@ -13,6 +13,12 @@ export function SecretInput({
 }: SettingsFieldRendererProps & { className: string }) {
   const { t } = useT();
   const [editing, setEditing] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const hasValue = typeof field.value === 'string' && field.value !== '';
+
+  useEffect(() => {
+    if (editing) input.current?.focus();
+  }, [editing]);
 
   return (
     <div className="flex items-center gap-2">
@@ -20,6 +26,7 @@ export function SecretInput({
         {editing ? (
           <PasswordInput
             {...controlProps}
+            ref={input}
             value={String(value ?? '')}
             autoComplete="new-password"
             onChange={(event) => onChange(field.name, event.target.value)}
@@ -31,7 +38,8 @@ export function SecretInput({
           <Input
             {...controlProps}
             type="password"
-            value="••••••••••"
+            value={hasValue ? '••••••••••' : ''}
+            placeholder={t(keys.settings.modules_form.secret_not_set)}
             readOnly
             className={`font-mono ${className}`}
           />

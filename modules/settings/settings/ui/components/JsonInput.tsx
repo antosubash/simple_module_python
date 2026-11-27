@@ -83,7 +83,11 @@ export function JsonInput({
         className={`font-mono text-xs ${className}`}
       />
       {invalid && (
-        <p id={hintId} role="alert" className="text-xs text-destructive">
+        <p
+          id={hintId}
+          role={serverInvalid ? undefined : 'alert'}
+          className="text-xs text-destructive"
+        >
           {t(keys.settings.modules_form.invalid_json)}
         </p>
       )}
