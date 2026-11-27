@@ -87,7 +87,10 @@ def _build_mailer(app: FastAPI, state, s) -> None:
         # name — never imported, so users stays decoupled from branding.
         branding = getattr(app.state, "branding", None)
         name = getattr(getattr(branding, "settings", None), "app_name", None)
-        return name or default_app_name()
+        host = getattr(getattr(app.state, "host", None), "settings", None)
+        title = getattr(host, "api_title", "") or ""
+        # API titles accept newlines; email subjects must not carry them.
+        return name or " ".join(title.split()) or default_app_name()
 
     from simple_module_hosting.pipeline.public_urls import public_origin
 

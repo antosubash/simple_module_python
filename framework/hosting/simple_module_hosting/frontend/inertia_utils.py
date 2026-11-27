@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from simple_module_inertia import errors_from_validation, scope_errors
 from starlette.responses import RedirectResponse
 
+from simple_module_hosting.error_handling.sanitization import sanitize_error_payload
 from simple_module_hosting.pipeline.redirects import safe_referer_or_root
 
 SESSION_ERRORS_KEY = "_errors"
@@ -25,5 +26,5 @@ def redirect_back_with_errors(request: Request, errors: dict[str, str]) -> Redir
     accessible to any attacker who can trigger a form validation error.
     With an ``X-Inertia-Error-Bag`` header the errors nest under that bag."""
     bag = request.headers.get("X-Inertia-Error-Bag")
-    request.session[SESSION_ERRORS_KEY] = scope_errors(errors, bag)
+    request.session[SESSION_ERRORS_KEY] = sanitize_error_payload(scope_errors(errors, bag))
     return RedirectResponse(safe_referer_or_root(request), status_code=303)

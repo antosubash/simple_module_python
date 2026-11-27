@@ -52,6 +52,15 @@ The framework's first-party modules live on PyPI as `simple_module_<name>` and a
 | `file_storage` | Pluggable file storage (filesystem, S3) + browse/download UI |
 | `background_tasks` | Celery + Redis workers, persistent task history, retry, worker dashboard |
 | `dashboard` | Authenticated landing page |
+| `tenants` | Organisations, memberships and tenant resolution |
+| `site_lock` | Site-wide password gate |
+| `oidc` | Generic OpenID Connect authentication |
+| `audit_log` | Audit trail and recent activity |
+| `keycloak` | Keycloak authentication |
+| `mail` | DB-configured outgoing mail |
+| `sharing` | Resource-scoped sharing |
+| `api_tokens` | Personal access tokens and service API keys |
+| `branding` | App name, logos, favicon and colours |
 
 See [Bundled modules](/modules/) for details on each.
 

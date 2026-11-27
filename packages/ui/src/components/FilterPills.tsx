@@ -1,4 +1,4 @@
-import { cn } from '@simple-module-py/ui/lib/utils';
+import { cn } from '../lib/utils';
 
 interface FilterPillsProps<T extends string> {
   options: { value: T; label: string }[];

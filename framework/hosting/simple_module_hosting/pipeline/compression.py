@@ -1,5 +1,6 @@
 """Host response compression with range and media-type exclusions."""
 
+import re
 from http import HTTPStatus
 from inspect import signature
 from typing import TypedDict
@@ -38,6 +39,27 @@ _RESPONDER_OPTIONS: _ResponderOptions = (
 
 def _media_type(value: str) -> str:
     return value.partition(";")[0].strip().lower()
+
+
+_QUALITY = re.compile(r"q[ \t]*=[ \t]*(0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)", re.IGNORECASE)
+
+
+def _accepts_gzip(value: str) -> bool:
+    """Apply explicit coding preferences before the RFC 9110 wildcard fallback."""
+    accepted: dict[str, bool] = {}
+    for entry in value.split(","):
+        coding, separator, parameter = entry.partition(";")
+        coding = coding.strip().lower()
+        if coding == "x-gzip":
+            coding = "gzip"
+        if coding not in {"gzip", "*"}:
+            continue
+        quality = 1.0
+        if separator:
+            match = _QUALITY.fullmatch(parameter.strip())
+            quality = float(match[1]) if match else 0.0
+        accepted[coding] = quality > 0
+    return accepted.get("gzip", accepted.get("*", False))
 
 
 class HostGZipMiddleware(GZipMiddleware):
@@ -92,7 +114,7 @@ class HostGZipMiddleware(GZipMiddleware):
             await self.app(scope, receive, send_with_exclusions)
 
         responder: IdentityResponder
-        if "gzip" in Headers(scope=scope).get("accept-encoding", ""):
+        if _accepts_gzip(",".join(Headers(scope=scope).getlist("accept-encoding"))):
             responder = GZipResponder(
                 select_response, self.minimum_size, self.compresslevel, **_RESPONDER_OPTIONS
             )

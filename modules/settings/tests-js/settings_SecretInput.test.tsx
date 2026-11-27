@@ -11,6 +11,7 @@ configureI18n({
     'settings.modules_form.set_new_value': 'Set new value',
     'settings.modules_form.show_secret': 'Show secret',
     'settings.modules_form.hide_secret': 'Hide secret',
+    'settings.modules_form.secret_not_set': 'Not set',
     'settings.form.cancel_button': 'Cancel',
   },
 });
@@ -35,6 +36,48 @@ const module: ModuleView = {
 };
 
 afterEach(() => vi.unstubAllGlobals());
+
+test('Set new value focuses the password input', () => {
+  render(<ModuleForm module={module} />);
+  const button = screen.getByRole('button', { name: 'Set new value' });
+  button.focus();
+  fireEvent.click(button);
+  expect(screen.getByLabelText('Password')).toHaveFocus();
+});
+
+test.each([{ value: '' }, { value: null }, { value: [] }, { value: {} }])(
+  'an unset secret ($value) has no mask',
+  ({ value }) => {
+    render(
+      <ModuleForm module={{ ...module, fields: module.fields.map((f) => ({ ...f, value })) }} />,
+    );
+    expect(screen.getByLabelText('Password')).toHaveValue('');
+    expect(screen.getByLabelText('Password')).toHaveAttribute('placeholder', 'Not set');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  },
+);
+
+test('saving a previously unset secret shows a mask, including after Cancel and Discard', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })));
+  render(
+    <ModuleForm module={{ ...module, fields: module.fields.map((f) => ({ ...f, value: '' })) }} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'first-secret' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(screen.getByLabelText('Password')).toHaveAttribute('readonly'));
+  const mask = (screen.getByLabelText('Password') as HTMLInputElement).value;
+  expect(mask).toMatch(/^•+$/);
+  expect(screen.queryByDisplayValue('first-secret')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByLabelText('Password')).toHaveValue(mask);
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Set new value' }));
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'draft' } });
+  fireEvent.click(screen.getByRole('button', { name: /discard/i }));
+  expect(screen.getByLabelText('Password')).toHaveValue(mask);
+});
 
 test('new secrets stay hidden, toggle visibility, and Cancel restores the unchanged mask', () => {
   render(<ModuleForm module={module} />);

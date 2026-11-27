@@ -90,10 +90,7 @@
   },
   "modules": {
     "title": "Moduleinstellungen",
-    "back_link": "Zurück zu den Überschreibungen",
     "empty_title": "Keine Module mit Einstellungen",
-    "no_fields": "Keine Felder deklariert.",
-    "secret_badge": "geheim",
     "browse_link": "Formulare pro Modul",
     "search_placeholder": "Einstellungen suchen…",
     "field_count_one": "{count} Feld",
@@ -103,13 +100,6 @@
     "unsaved_count_one": "{count} ungespeicherte Änderung",
     "unsaved_count_other": "{count} ungespeicherte Änderungen",
     "browse_free_form_link": "Rohe Überschreibungen anzeigen →",
-    "table": {
-      "field": "Feld",
-      "env_var": "Umgebungsvariable",
-      "value": "Wert",
-      "default": "Standard",
-      "description": "Beschreibung"
-    },
     "test_connection": "Verbindung zu {name} testen",
     "test_connection_generic": "Verbindung testen",
     "testing": "Wird getestet…",
@@ -142,6 +132,7 @@
     "requires_restart": "Neustart erforderlich",
     "reset_to_default": "Auf Standard zurücksetzen",
     "set_new_value": "Neuen Wert setzen",
+    "secret_not_set": "Nicht gesetzt",
     "invalid_json": "Ungültiges JSON — wird beim Speichern abgelehnt.",
     "not_set": "Nicht gesetzt (Standard)",
     "option_on": "Ein",
@@ -161,5 +152,22 @@
   "audit": {
     "setting": "Einstellung"
   },
-  "permission_group": "Einstellungen"
+  "permission_group": "Einstellungen",
+  "validation": {
+    "greater_than": "Muss größer als {limit} sein.",
+    "greater_than_equal": "Muss mindestens {limit} sein.",
+    "less_than": "Muss kleiner als {limit} sein.",
+    "less_than_equal": "Darf höchstens {limit} sein.",
+    "integer": "Geben Sie eine ganze Zahl ein.",
+    "number": "Geben Sie eine Zahl ein.",
+    "boolean": "Geben Sie true oder false ein.",
+    "required": "Dieses Feld ist erforderlich.",
+    "string_too_short": "Verwenden Sie mindestens {limit} Zeichen.",
+    "string_too_long": "Verwenden Sie höchstens {limit} Zeichen.",
+    "too_long": "Verwenden Sie höchstens {limit} Einträge.",
+    "url": "Geben Sie eine gültige URL ein.",
+    "url_scheme": "Verwenden Sie eine URL mit einem dieser Schemata: {expected}.",
+    "choice": "Wählen Sie einen dieser Werte: {expected}.",
+    "json": "Geben Sie gültiges JSON ein."
+  }
 }

@@ -60,8 +60,7 @@ def test_wizard_custom_picks_only_yes_answers() -> None:
     picks = ["y" if name == "permissions" else "n" for name in CATALOG]
     answers = ["", "", "4", *picks, "", ""]
     _, _, selected, out = _drive(answers)
-    assert set(selected) == {"permissions", "users", "auth"}
-    assert "Added users (required by permissions)" in out
+    assert set(selected) == {"permissions", "auth"}
     assert "Added auth (required by permissions)" in out
 
 

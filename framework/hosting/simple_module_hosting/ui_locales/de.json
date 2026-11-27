@@ -1,4 +1,7 @@
 {
+  "actions": {
+    "close": "Schließen"
+  },
   "errors": {
     "generic_title": "Etwas ist schiefgelaufen",
     "generic_description": "Auf der Seite ist ein unerwarteter Fehler aufgetreten. Laden Sie sie neu oder kehren Sie zur Startseite zurück.",

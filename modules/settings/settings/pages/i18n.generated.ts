@@ -61,7 +61,6 @@ export const keys = {
       value_type_label: 'settings.form.value_type_label',
     },
     modules: {
-      back_link: 'settings.modules.back_link',
       browse_free_form_link: 'settings.modules.browse_free_form_link',
       browse_link: 'settings.modules.browse_link',
       default_value: 'settings.modules.default_value',
@@ -78,27 +77,18 @@ export const keys = {
       managed_title: 'settings.modules.managed_title',
       module_picker_label: 'settings.modules.module_picker_label',
       navigation_label: 'settings.modules.navigation_label',
-      no_fields: 'settings.modules.no_fields',
       no_results: 'settings.modules.no_results',
       overridden_count: 'settings.modules.overridden_count',
       overridden_count_one: 'settings.modules.overridden_count_one',
       overridden_count_other: 'settings.modules.overridden_count_other',
       search_label: 'settings.modules.search_label',
       search_placeholder: 'settings.modules.search_placeholder',
-      secret_badge: 'settings.modules.secret_badge',
       secret_write_only: 'settings.modules.secret_write_only',
       source_db: 'settings.modules.source_db',
       source_db_ignored_for_env: 'settings.modules.source_db_ignored_for_env',
       source_default: 'settings.modules.source_default',
       source_env: 'settings.modules.source_env',
       source_unsaved: 'settings.modules.source_unsaved',
-      table: {
-        default: 'settings.modules.table.default',
-        description: 'settings.modules.table.description',
-        env_var: 'settings.modules.table.env_var',
-        field: 'settings.modules.table.field',
-        value: 'settings.modules.table.value',
-      },
       test_connection: 'settings.modules.test_connection',
       test_connection_generic: 'settings.modules.test_connection_generic',
       test_failed: 'settings.modules.test_failed',
@@ -126,6 +116,7 @@ export const keys = {
       save_failed: 'settings.modules_form.save_failed',
       saved_toast: 'settings.modules_form.saved_toast',
       saving: 'settings.modules_form.saving',
+      secret_not_set: 'settings.modules_form.secret_not_set',
       set_new_value: 'settings.modules_form.set_new_value',
       show_secret: 'settings.modules_form.show_secret',
       validation_failed: 'settings.modules_form.validation_failed',
@@ -156,6 +147,23 @@ export const keys = {
       scope: 'settings.table.scope',
       value: 'settings.table.value',
       value_type: 'settings.table.value_type',
+    },
+    validation: {
+      boolean: 'settings.validation.boolean',
+      choice: 'settings.validation.choice',
+      greater_than: 'settings.validation.greater_than',
+      greater_than_equal: 'settings.validation.greater_than_equal',
+      integer: 'settings.validation.integer',
+      json: 'settings.validation.json',
+      less_than: 'settings.validation.less_than',
+      less_than_equal: 'settings.validation.less_than_equal',
+      number: 'settings.validation.number',
+      required: 'settings.validation.required',
+      string_too_long: 'settings.validation.string_too_long',
+      string_too_short: 'settings.validation.string_too_short',
+      too_long: 'settings.validation.too_long',
+      url: 'settings.validation.url',
+      url_scheme: 'settings.validation.url_scheme',
     },
     value_types: {
       bool: 'settings.value_types.bool',
@@ -220,7 +228,6 @@ type ModuleTranslationResources = {
   readonly 'settings.form.value_label': '';
   readonly 'settings.form.value_placeholder': '';
   readonly 'settings.form.value_type_label': '';
-  readonly 'settings.modules.back_link': '';
   readonly 'settings.modules.browse_free_form_link': '';
   readonly 'settings.modules.browse_link': '';
   readonly 'settings.modules.default_value': '';
@@ -236,24 +243,17 @@ type ModuleTranslationResources = {
   readonly 'settings.modules.managed_title': '';
   readonly 'settings.modules.module_picker_label': '';
   readonly 'settings.modules.navigation_label': '';
-  readonly 'settings.modules.no_fields': '';
   readonly 'settings.modules.no_results': '';
   readonly 'settings.modules.overridden_count_one': '';
   readonly 'settings.modules.overridden_count_other': '';
   readonly 'settings.modules.search_label': '';
   readonly 'settings.modules.search_placeholder': '';
-  readonly 'settings.modules.secret_badge': '';
   readonly 'settings.modules.secret_write_only': '';
   readonly 'settings.modules.source_db': '';
   readonly 'settings.modules.source_db_ignored_for_env': '';
   readonly 'settings.modules.source_default': '';
   readonly 'settings.modules.source_env': '';
   readonly 'settings.modules.source_unsaved': '';
-  readonly 'settings.modules.table.default': '';
-  readonly 'settings.modules.table.description': '';
-  readonly 'settings.modules.table.env_var': '';
-  readonly 'settings.modules.table.field': '';
-  readonly 'settings.modules.table.value': '';
   readonly 'settings.modules.test_connection': '';
   readonly 'settings.modules.test_connection_generic': '';
   readonly 'settings.modules.test_failed': '';
@@ -278,6 +278,7 @@ type ModuleTranslationResources = {
   readonly 'settings.modules_form.save_failed': '';
   readonly 'settings.modules_form.saved_toast': '';
   readonly 'settings.modules_form.saving': '';
+  readonly 'settings.modules_form.secret_not_set': '';
   readonly 'settings.modules_form.set_new_value': '';
   readonly 'settings.modules_form.show_secret': '';
   readonly 'settings.modules_form.validation_failed': '';
@@ -300,6 +301,21 @@ type ModuleTranslationResources = {
   readonly 'settings.table.scope': '';
   readonly 'settings.table.value': '';
   readonly 'settings.table.value_type': '';
+  readonly 'settings.validation.boolean': '';
+  readonly 'settings.validation.choice': '';
+  readonly 'settings.validation.greater_than': '';
+  readonly 'settings.validation.greater_than_equal': '';
+  readonly 'settings.validation.integer': '';
+  readonly 'settings.validation.json': '';
+  readonly 'settings.validation.less_than': '';
+  readonly 'settings.validation.less_than_equal': '';
+  readonly 'settings.validation.number': '';
+  readonly 'settings.validation.required': '';
+  readonly 'settings.validation.string_too_long': '';
+  readonly 'settings.validation.string_too_short': '';
+  readonly 'settings.validation.too_long': '';
+  readonly 'settings.validation.url': '';
+  readonly 'settings.validation.url_scheme': '';
   readonly 'settings.value_types.bool': '';
   readonly 'settings.value_types.float': '';
   readonly 'settings.value_types.int': '';

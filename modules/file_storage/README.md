@@ -52,8 +52,7 @@ From another module, inject the service via its dependency:
 ```python
 from fastapi import Depends, File, UploadFile
 
-from file_storage.web.deps import get_file_storage_service
-from file_storage.files.service import FileStorageService
+from file_storage.contracts import FileStorageService, get_file_storage_service
 
 
 async def attach_receipt(
@@ -69,7 +68,6 @@ Backend and S3 credentials are configured from the admin UI at **/admin/settings
 ## Depends on
 
 - `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_settings`
-- `aiofiles`
 - Optional: `aioboto3` (install the `[s3]` extra)
 - Optional: `simple_module_background_tasks` (install the `[tasks]` extra)
 

@@ -14,7 +14,12 @@ from simple_module_core.access.principals import PRINCIPALS_KEY, PrincipalRegist
 from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_core.access.tenancy import is_tenant_role, tenant_role
 
-from simple_module_db.scoping.tenancy import is_valid_tenant_id, no_tenant, tenant_context
+from simple_module_db.scoping.tenancy import (
+    DEFAULT_TENANT_ID,
+    is_valid_tenant_id,
+    no_tenant,
+    tenant_context,
+)
 
 
 def bind_principal_registry(factory: Any, registry: PrincipalRegistry) -> None:
@@ -62,7 +67,11 @@ async def principal_for(
             if role is not None:
                 roles.append(tenant_role(role))
         user = SimpleNamespace(
-            id=user_id, email=account.email, name=account.label, roles=roles, tenant_id=tenant_id
+            id=user_id,
+            email=account.email,
+            name=account.label,
+            roles=roles,
+            tenant_id=tenant_id if registry.multi_tenant else tenant_id or DEFAULT_TENANT_ID,
         )
         permissions = registry.permissions
         if registry.role_overlays is not None:

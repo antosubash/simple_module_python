@@ -1,6 +1,6 @@
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type React from 'react';
 import { useRef } from 'react';
+import { cn } from '../lib/utils';
 
 export interface SegmentedOption<V extends string> {
   value: V;

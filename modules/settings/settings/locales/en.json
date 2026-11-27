@@ -90,10 +90,7 @@
   },
   "modules": {
     "title": "Module Settings",
-    "back_link": "Back to overrides",
     "empty_title": "No modules with settings",
-    "no_fields": "No fields declared.",
-    "secret_badge": "secret",
     "browse_link": "Per-module forms",
     "search_placeholder": "Search settings…",
     "field_count_one": "{count} field",
@@ -103,13 +100,6 @@
     "unsaved_count_one": "{count} unsaved change",
     "unsaved_count_other": "{count} unsaved changes",
     "browse_free_form_link": "Browse raw overrides →",
-    "table": {
-      "field": "Field",
-      "env_var": "Env var",
-      "value": "Value",
-      "default": "Default",
-      "description": "Description"
-    },
     "test_connection": "Test {name} connection",
     "test_connection_generic": "Test connection",
     "testing": "Testing…",
@@ -142,6 +132,7 @@
     "requires_restart": "Requires restart",
     "reset_to_default": "Reset to default",
     "set_new_value": "Set new value",
+    "secret_not_set": "Not set",
     "invalid_json": "Not valid JSON — it will be rejected on save.",
     "not_set": "Not set (default)",
     "option_on": "On",
@@ -161,5 +152,22 @@
   "audit": {
     "setting": "Setting"
   },
-  "permission_group": "Settings"
+  "permission_group": "Settings",
+  "validation": {
+    "greater_than": "Must be greater than {limit}.",
+    "greater_than_equal": "Must be at least {limit}.",
+    "less_than": "Must be less than {limit}.",
+    "less_than_equal": "Must be at most {limit}.",
+    "integer": "Enter a whole number.",
+    "number": "Enter a number.",
+    "boolean": "Enter true or false.",
+    "required": "This field is required.",
+    "string_too_short": "Use at least {limit} characters.",
+    "string_too_long": "Use at most {limit} characters.",
+    "too_long": "Use at most {limit} items.",
+    "url": "Enter a valid URL.",
+    "url_scheme": "Use a URL with one of these schemes: {expected}.",
+    "choice": "Choose one of: {expected}.",
+    "json": "Enter valid JSON."
+  }
 }

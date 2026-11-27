@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
 from tempfile import SpooledTemporaryFile
 from typing import TYPE_CHECKING, Any
 
+from file_storage.backends._io import _io
 from file_storage.contracts.service import Part, StorageBackendError
 from file_storage.core import constants
 from file_storage.multipart import support as upload_support
@@ -184,26 +184,3 @@ async def _send(client, backend: S3Backend, key, upload_id, parts, buf: _Buf) ->
     except Exception as exc:
         raise StorageBackendError(f"S3 upload_part failed: {exc}") from exc
     return Part(no=number, etag=result["ETag"], size=length)
-
-
-async def _io(fn: Callable[..., Any], *args: Any) -> Any:
-    # Finish in-flight I/O before cancellation can close or reuse its spool.
-    task = asyncio.create_task(asyncio.to_thread(fn, *args))
-    cancelled = None
-    while True:
-        try:
-            result = await asyncio.shield(task)
-            break
-        except asyncio.CancelledError as exc:
-            if task.cancelled():
-                # The I/O task itself was cancelled (loop shutdown cancels every task):
-                # nothing is in flight, and shielding it again would spin forever.
-                raise
-            cancelled = exc
-        except BaseException:
-            if cancelled is not None:
-                raise cancelled from None
-            raise
-    if cancelled is not None:
-        raise cancelled
-    return result

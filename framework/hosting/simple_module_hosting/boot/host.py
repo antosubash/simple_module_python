@@ -37,6 +37,7 @@ def _is_workspace_member(host_dir: Path) -> bool:
 def build_host_app(
     entry_file: str | Path,
     *,
+    app_name: str | None = None,
     project_root: str | Path | None = None,
     routers: Iterable[APIRouter | str] = (),
     database: DatabaseState | Callable[[Settings], DatabaseState] | None = None,
@@ -64,6 +65,7 @@ def build_host_app(
     states and factory results remain caller-owned; dispose their engines yourself.
     ``customize(app)`` runs after all module registration hooks, with
     ``app.state.sm`` available, before the outer middleware pipeline is finished.
+    ``app_name`` defaults the API title and application identity below env/DB values.
     """
     host_dir = Path(entry_file).resolve().parent
     if str(host_dir) not in sys.path:
@@ -84,7 +86,9 @@ def build_host_app(
     from simple_module_hosting import create_app, merge_host_settings
     from simple_module_hosting.observability.logging import setup_logging
 
-    settings = merge_host_settings()
+    settings = (
+        merge_host_settings(app_name=app_name) if app_name is not None else merge_host_settings()
+    )
     setup_logging(level=settings.log_level, json_format=settings.log_format == "json")
     options: dict[str, Any] = {"database": database} if database is not None else {}
     if customize is not None:

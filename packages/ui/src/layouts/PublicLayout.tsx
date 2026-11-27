@@ -1,6 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +9,7 @@ import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { NavIcon } from '../components/NavIcon';
+import { Button } from '../components/ui/button';
 import { Toaster } from '../components/ui/sonner';
 import { usePageProps } from '../hooks/usePageProps';
 import { LOGIN_PATH } from '../lib/auth-routes';

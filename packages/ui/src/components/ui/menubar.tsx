@@ -1,9 +1,9 @@
 'use client';
 
-import { cn } from '@simple-module-py/ui/lib/utils';
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
 import { Menubar as MenubarPrimitive } from 'radix-ui';
 import type * as React from 'react';
+import { cn } from '../../lib/utils';
 
 function Menubar({ className, ...props }: React.ComponentProps<typeof MenubarPrimitive.Root>) {
   return (

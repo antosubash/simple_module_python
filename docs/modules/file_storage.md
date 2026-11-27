@@ -20,6 +20,26 @@ process restarts. Existing files must be migrated separately when changing roots
 or buckets. The connection check probes the currently active web backend, so it
 continues to test the old configuration until restart.
 
+## Filesystem security
+
+On platforms with descriptor-relative filesystem APIs and no-follow support
+(including Linux), object operations and multipart scratch files are opened
+relative to an anchored storage directory. Each child directory is opened without
+following symlinks, reads retain their opened file until the stream is closed,
+and atomic writes, deletes, metadata queries and stale-object scans use directory
+descriptors. A shard or `.multipart` directory swapped for a symlink cannot
+redirect these operations outside the opened store (#1269). Traversing symlinks
+below the configured root is refused, including ones pointing inside the store.
+Deleting or atomically replacing a leaf symlink can remove the link itself
+without accessing its target; stale-object scans skip symlinks.
+The configured root itself may be a symlink; its location and parent directories
+must be trusted.
+
+Windows and platforms lacking the required `dir_fd`, descriptor listing or
+no-follow APIs retain path-based operations and key validation from #1266. That
+fallback cannot prevent concurrent symlink/rename races. Restrict filesystem
+access to the storage directory and its parents on those platforms.
+
 ## ModuleMeta
 
 | Field | Value |
@@ -190,10 +210,21 @@ Upload through the module's service while its request tenant and uploader are
 bound, passing the same tag before any file becomes visible:
 
 ```python
-stored = await files.upload(upload, owner_module=FILE_OWNER_LICENCE)
+from fastapi import Depends, File, UploadFile
+
+from file_storage.contracts import FileStorageService, get_file_storage_service
+from guides.core.constants import FILE_OWNER_LICENCE
+
+
+async def upload_licence(
+    upload: UploadFile = File(...),
+    files: FileStorageService = Depends(get_file_storage_service),
+):
+    stored = await files.upload(upload, owner_module=FILE_OWNER_LICENCE)
+    return {"file_id": stored.id}
 ```
 
-Here `files` is the service supplied by `file_storage.web.deps.get_file_storage_service`.
+Both the service and its FastAPI dependency are public exports of `file_storage.contracts`.
 Trusted service callers remain responsible for their own authorization. The
 registry-backed service refuses `public=True` for a never-publishable or unknown
 tag before writing bytes. A service constructed directly should receive the

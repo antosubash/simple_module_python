@@ -79,7 +79,7 @@ def register_tenant_definitions(app: FastAPI) -> None:
     from settings.contracts.schemas import SettingScope
 
     registry = app.state.settings.registry
-    defaults = BrandingSettings().model_dump()
+    defaults = type(app.state.branding.settings)().model_dump()
     for name in TENANT_FIELDS:
         asset = _ASSET_OF.get(name)
         upload_url = f"{ROUTE_PREFIX}/tenant/{asset}" if asset else ""

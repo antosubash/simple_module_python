@@ -1,8 +1,8 @@
 import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import { Button } from '@simple-module-py/ui/components/ui/button';
 import { X } from 'lucide-react';
 import { BrandingMark } from '../components/BrandingMark';
+import { Button } from '../components/ui/button';
 import { SIDEBAR_ICON_FOCUS, type SidebarTheme } from './sidebar-theme';
 
 interface SidebarBrandRowProps {

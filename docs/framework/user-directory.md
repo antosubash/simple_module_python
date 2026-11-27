@@ -20,10 +20,25 @@ found = await directory.get_many(db, ["3f0c…", "celery-worker"])  # {id: Direc
 | Member | Returns |
 |---|---|
 | `get_many(db, ids, *, with_roles=False)` | `{id: DirectoryUser}` keyed by **your** id strings. Ids that are not uuids or name nobody are absent, never an error. Implementations chunk (`GET_MANY_CHUNK`, 500 ids per query). |
-| `search(db, term, *, limit, include_ids=None, exclude_ids=(), active_only=False, exact_email=False)` | Users ordered by email. Filters apply before the limit: optional allowed ids, excluded ids, usable accounts only, or exact case-insensitive email instead of name/email substring. Defaults keep the unrestricted search. |
+| `search(db, term, *, limit, include_ids=None, exclude_ids=(), active_only=False, exact_email=False, match_email=True)` | Users ordered by email. Filters apply before the limit: optional allowed ids, excluded ids, usable accounts only, or exact case-insensitive email instead of name/email substring. `match_email=False` searches full names only. Defaults keep the unrestricted search. |
+| `find_by_email(db, email)` | One `DirectoryUser` or `None`, using a case-insensitive exact email match. Available on every built-in directory through the optional `EmailLookupUserDirectory` protocol. |
 | `match_ids(term)` | An **unexecuted** `SELECT` of the matching text ids, for use as an unbounded subquery (the audit log's Actor filter). `None` when the provider cannot express it. |
 | `stats(db, *, active_window)` | `DirectoryStats(total, active_since, created_this_month)`; a `None` field means "cannot say", not zero. |
 | `entity_type` | The audit-link key user rows are recorded under (`"User"`), or `None` when they have no audited model to link to. |
+
+Use `search(db, term, limit=20, match_email=False)` when callers may search
+names but must not discover users through partial email addresses (#1227).
+The name filter runs in SQL before the limit, and users without a full name
+do not fall back to email for matching. Matching ignores case, trims the
+term, and treats `%`, `_` and `\` literally. As with the default search, an
+empty or whitespace-only term lists users subject to the other filters.
+`exact_email=True` takes precedence over `match_email=False`.
+
+`find_by_email` trims the address and returns `None` for a blank or missing
+email. It uses the provider's existing `search(..., exact_email=True)` query,
+with the same session scope and account visibility; it does not restrict the
+result to active accounts. Keycloak and OIDC search only their local caches,
+so users who have never signed in cannot be found.
 
 `DirectoryUser` carries `id`, `email`, `full_name`, `is_active` (false for a
 disabled account too) and `roles`: a tuple of role names when `with_roles=True`
@@ -55,6 +70,16 @@ A new provider implements the four methods and `entity_type`, and registers
 it. Ids must come back in the canonical hyphenated text form the rest of the
 app stores (`str(uuid)`); `KeycloakDirectory` shows how to render that on
 SQLite, where SQLAlchemy's `Uuid` is 32 bare hex characters.
+
+`UserDirectory` remains a runtime-checkable structural protocol. Exact-email
+lookup is an optional extension so existing third-party implementations still
+satisfy `isinstance(directory, UserDirectory)`. Inherit `EmailLookupUserDirectory`
+to get its default `find_by_email`, or implement that method directly. Callers
+using an unknown provider can check `isinstance(directory, EmailLookupUserDirectory)`
+before calling it; otherwise use the existing
+`search(db, email, limit=1, exact_email=True)` contract. Third-party providers
+must accept `match_email` to support the new name-only search option; existing
+calls that omit it keep their previous behavior.
 
 ## Who uses it
 

@@ -20,6 +20,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting.error_handling._error_negotiation import _wants_json
 from simple_module_hosting.error_handling._error_page import render_error_page
+from simple_module_hosting.error_handling.sanitization import sanitize_error_payload
 from simple_module_hosting.pipeline.path_matching import matches_path, validated_prefixes
 from simple_module_hosting.pipeline.public_access import is_public
 
@@ -98,7 +99,9 @@ class MaintenanceMiddleware:
         if _wants_json(request):
             return JSONResponse(
                 status_code=503,
-                content={"detail": message or "Service temporarily unavailable"},
+                content={
+                    "detail": sanitize_error_payload(message) or "Service temporarily unavailable"
+                },
                 headers=_RETRY_AFTER,
             )
         return await render_error_page(request, 503, message, _RETRY_AFTER)

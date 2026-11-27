@@ -1,6 +1,9 @@
 """Validation shared by mail messages and transports."""
 
 import re
+from email import policy
+from email.errors import NonASCIILocalPartDefect
+from email.headerregistry import Address
 
 _HEADER_NAME = re.compile(r"[!-9;-~]{1,997}")
 _UNSAFE_VALUE = re.compile(r"[\x00-\x08\x0a-\x1f\x7f-\x9f\u2028\u2029]")
@@ -29,6 +32,24 @@ _RESERVED_HEADERS = frozenset(
 
 # Routing, authentication and delivery trace fields belong to the transport/MTA.
 _RESERVED_PREFIXES = ("content-", "resent-", "arc-", "x-original-", "x-delivered-", "x-envelope-")
+
+
+def parse_mailbox(value: str, *, allow_smtputf8: bool = False) -> Address:
+    """Parse one complete mailbox, optionally accepting SMTPUTF8 local parts."""
+    header = policy.default.header_factory("To", value)
+    if (
+        any(
+            not (allow_smtputf8 and isinstance(defect, NonASCIILocalPartDefect))
+            for defect in header.defects
+        )
+        or len(header.addresses) != 1
+        or any(group.display_name is not None for group in header.groups)
+    ):
+        raise ValueError("expected one complete mailbox")
+    address = header.addresses[0]
+    if not address.username or not address.domain:
+        raise ValueError("expected a mailbox with a local part and domain")
+    return address
 
 
 def validate_mail_headers(headers: dict[str, str]) -> dict[str, str]:
