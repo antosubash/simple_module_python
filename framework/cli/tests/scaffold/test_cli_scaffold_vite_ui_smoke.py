@@ -33,8 +33,8 @@ def _pack(package: str, dest: Path) -> Path:
     return dest / out.stdout.strip().splitlines()[-1]
 
 
-@pytest.mark.skipif(shutil.which("npm") is None, reason="npm not installed")
-def test_ui_package_optimises_under_the_scaffolds_vite(tmp_path: Path) -> None:
+def test_ui_package_optimises_under_the_scaffolds_vite(tmp_path: Path, require_cli_asset) -> None:
+    require_cli_asset(shutil.which("npm") is not None, "npm not installed")
     tarballs = {f"@simple-module-py/{name}": _pack(name, tmp_path) for name in _LOCAL_PACKAGES}
     app = tmp_path / "app"
     app.mkdir()
@@ -54,8 +54,9 @@ def test_ui_package_optimises_under_the_scaffolds_vite(tmp_path: Path) -> None:
         timeout=600,
     )
 
+    # Resolve Vite from the temporary app, not from the helper's checkout path.
     result = subprocess.run(
-        ["node", str(_SMOKE_SCRIPT)],
+        ["node", "--input-type=module", "--eval", _SMOKE_SCRIPT.read_text(encoding="utf-8")],
         cwd=app,
         capture_output=True,
         text=True,
