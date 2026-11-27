@@ -45,7 +45,7 @@ class FilesystemBackend(FilesystemMultipartMixin):
             or "\\" in key
             or key.startswith("/")
             or PureWindowsPath(key).drive
-            or shard in {".", ".."}
+            or shard == ".."
             or any(ord(c) < 0x20 or ord(c) == 0x7F for c in key)
             or any(seg in {".", ".."} for seg in key.split("/"))
         ):
@@ -53,7 +53,7 @@ class FilesystemBackend(FilesystemMultipartMixin):
         try:
             root = self.root.resolve()
             candidate = (root / shard / key).resolve()
-        except (OSError, RuntimeError) as exc:
+        except (OSError, RuntimeError, UnicodeError) as exc:
             raise StorageBackendError(f"Invalid storage key: {key!r}") from exc
         if not candidate.is_relative_to(root) or candidate == root:
             raise StorageBackendError(f"Invalid storage key: {key!r}")

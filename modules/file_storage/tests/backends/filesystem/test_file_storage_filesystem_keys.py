@@ -32,6 +32,14 @@ def test_invalid_keys_rejected(tmp_path, key):
         FilesystemBackend(tmp_path)._resolve(key)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows paths use UTF-16 instead of UTF-8.")
+@pytest.mark.parametrize("key", ["ab\ud800", "ab\udfff"])
+def test_unencodable_keys_raise_backend_error(tmp_path, key):
+    with pytest.raises(StorageBackendError):
+        FilesystemBackend(tmp_path)._resolve(key)
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_parent_shard_rejected_even_if_symlink_points_back_inside(tmp_path):
     root = tmp_path / "root"
     root.mkdir()
