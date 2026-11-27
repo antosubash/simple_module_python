@@ -1,6 +1,7 @@
 """Error payloads containing lone surrogates keep their intended status (#1258)."""
 
 import json
+import logging
 from types import SimpleNamespace
 
 import httpx
@@ -178,7 +179,10 @@ async def test_other_errors_keep_status_and_sanitize(surrogate_client, path, sta
     assert "�" in str(detail)
 
 
-async def test_half_built_error_page_fallback_is_safe():
+async def test_half_built_error_page_fallback_is_safe(caplog):
+    # The fallback logs the surrogate-bearing exception; keep it out of the
+    # captured report, which xdist cannot serialize between workers.
+    caplog.set_level(logging.CRITICAL, logger="simple_module_hosting.error_handling._error_page")
     app = FastAPI()
     app.add_exception_handler(HTTPException, http_exception_handler)
 
