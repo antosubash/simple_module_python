@@ -1,9 +1,9 @@
-import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Input } from '@simple-module-py/ui/components/ui/input';
-import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
-import { cn } from '@simple-module-py/ui/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
+import { cn } from '../../lib/utils';
+import { Button } from './button';
+import { Input } from './input';
+import { Textarea } from './textarea';
 
 function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
   return (

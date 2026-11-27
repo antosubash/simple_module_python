@@ -1,4 +1,4 @@
-import { cn } from '@simple-module-py/ui/lib/utils';
+import { cn } from '../lib/utils';
 
 export type StrengthLevel = 'none' | 'weak' | 'ok' | 'strong';
 

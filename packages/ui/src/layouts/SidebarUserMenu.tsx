@@ -1,5 +1,8 @@
 import { Link } from '@inertiajs/react';
-import { Avatar, AvatarFallback } from '@simple-module-py/ui/components/ui/avatar';
+import { ChevronsUpDown } from 'lucide-react';
+import type React from 'react';
+import { NavIcon } from '../components/NavIcon';
+import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,10 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@simple-module-py/ui/components/ui/dropdown-menu';
-import { ChevronsUpDown } from 'lucide-react';
-import type React from 'react';
-import { NavIcon } from '../components/NavIcon';
+} from '../components/ui/dropdown-menu';
 import { initials } from '../lib/initials';
 import { isPostMenuItem, type MenuItem } from '../types';
 

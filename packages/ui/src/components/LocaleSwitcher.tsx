@@ -1,13 +1,13 @@
 import { usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { useRef } from 'react';
+import { cn } from '../lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@simple-module-py/ui/components/ui/dropdown-menu';
-import { useRef } from 'react';
-import { cn } from '../lib/utils';
+} from './ui/dropdown-menu';
 
 /**
  * Static map of locale code -> label in that locale's own language.

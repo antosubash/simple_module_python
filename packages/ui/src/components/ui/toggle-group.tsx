@@ -1,10 +1,10 @@
 'use client';
 
-import { toggleVariants } from '@simple-module-py/ui/components/ui/toggle';
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type { VariantProps } from 'class-variance-authority';
 import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui';
 import * as React from 'react';
+import { cn } from '../../lib/utils';
+import { toggleVariants } from './toggle';
 
 const ToggleGroupContext = React.createContext<
   VariantProps<typeof toggleVariants> & {

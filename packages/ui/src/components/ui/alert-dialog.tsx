@@ -1,10 +1,10 @@
 'use client';
 
-import { buttonVariants } from '@simple-module-py/ui/components/ui/button';
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type { VariantProps } from 'class-variance-authority';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
+import { cn } from '../../lib/utils';
+import { buttonVariants } from './button';
 
 function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;

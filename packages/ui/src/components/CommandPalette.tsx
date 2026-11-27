@@ -1,5 +1,9 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { Search } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isPostMenuItem, type MenuItem } from '../types';
+import { NavIcon } from './NavIcon';
 import {
   CommandDialog,
   CommandEmpty,
@@ -7,11 +11,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@simple-module-py/ui/components/ui/command';
-import { Search } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isPostMenuItem, type MenuItem } from '../types';
-import { NavIcon } from './NavIcon';
+} from './ui/command';
 
 interface CommandPaletteProps {
   /** Sidebar entries, already filtered to what this user may see. */

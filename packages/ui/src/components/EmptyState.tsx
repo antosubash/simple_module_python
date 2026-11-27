@@ -1,12 +1,6 @@
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyMedia,
-  EmptyTitle,
-} from '@simple-module-py/ui/components/ui/empty';
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type { LucideIcon } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { Empty, EmptyContent, EmptyDescription, EmptyMedia, EmptyTitle } from './ui/empty';
 
 interface EmptyStateProps {
   icon: LucideIcon;

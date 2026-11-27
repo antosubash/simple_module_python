@@ -1,3 +1,7 @@
+import type { LucideIcon } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { cn } from '../lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -7,13 +11,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@simple-module-py/ui/components/ui/alert-dialog';
-import { Input } from '@simple-module-py/ui/components/ui/input';
-import { Label } from '@simple-module-py/ui/components/ui/label';
-import { cn } from '@simple-module-py/ui/lib/utils';
-import type { LucideIcon } from 'lucide-react';
-import type React from 'react';
-import { useEffect, useId, useRef, useState } from 'react';
+} from './ui/alert-dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 
 interface ConfirmActionDialogProps {
   open: boolean;
