@@ -1,6 +1,6 @@
-import { cn } from '@simple-module-py/ui/lib/utils';
 import { ChevronDownIcon } from 'lucide-react';
 import type * as React from 'react';
+import { cn } from '../../lib/utils';
 
 /**
  * `className` styles the `<select>`. Width utilities belong on

@@ -1,5 +1,10 @@
 import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { isUnder, samePath, trimmed } from '../lib/current-path';
+import { isPostMenuItem, type MenuItem } from '../types';
+import { CommandPalette } from './CommandPalette';
+import { LocaleSwitcher } from './LocaleSwitcher';
+import { usePageHeading } from './page-heading';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -7,12 +12,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from '@simple-module-py/ui/components/ui/breadcrumb';
-import { isUnder, samePath, trimmed } from '../lib/current-path';
-import { isPostMenuItem, type MenuItem } from '../types';
-import { CommandPalette } from './CommandPalette';
-import { LocaleSwitcher } from './LocaleSwitcher';
-import { usePageHeading } from './page-heading';
+} from './ui/breadcrumb';
 
 interface AppTopbarProps {
   navItems: MenuItem[];

@@ -1,7 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
-import { TooltipProvider } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { activeSection, findSection } from '../components/AppTopbar';
@@ -11,6 +9,8 @@ import { BrandingHead } from '../components/BrandingHead';
 import { DemoBanner } from '../components/DemoBanner';
 import { LocaleSwitcher, useHasMultipleLocales } from '../components/LocaleSwitcher';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
+import { Toaster } from '../components/ui/sonner';
+import { TooltipProvider } from '../components/ui/tooltip';
 import { darkSurfaceLogo } from '../lib/brand';
 import { useHomeUrl } from '../lib/home-url';
 import type { MenuItem } from '../types';

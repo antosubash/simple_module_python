@@ -1,6 +1,6 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import { Button } from '@simple-module-py/ui/components/ui/button';
-import { cn } from '@simple-module-py/ui/lib/utils';
+import { cn } from '../lib/utils';
+import { Button } from './ui/button';
 
 interface PaginationBarProps {
   /** The page being shown (1-based) — echo the server's value, not the URL's. */

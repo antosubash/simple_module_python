@@ -1,7 +1,7 @@
-import { Card } from '@simple-module-py/ui/components/ui/card';
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type { LucideIcon } from 'lucide-react';
 import type React from 'react';
+import { cn } from '../lib/utils';
+import { Card } from './ui/card';
 
 interface InlineBannerProps {
   icon: LucideIcon;

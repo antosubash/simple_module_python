@@ -1,7 +1,7 @@
-import { Input } from '@simple-module-py/ui/components/ui/input';
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type React from 'react';
 import { useState } from 'react';
+import { cn } from '../lib/utils';
+import { Input } from './ui/input';
 
 interface PasswordInputProps extends Omit<React.ComponentProps<typeof Input>, 'type'> {
   showLabel: string;

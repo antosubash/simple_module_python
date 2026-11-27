@@ -1,5 +1,5 @@
-import { TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import type React from 'react';
+import { TableCell, TableRow } from './ui/table';
 
 interface TableEmptyRowProps {
   /** How many columns the surrounding table has — sets the cell's colSpan. */

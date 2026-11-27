@@ -1,8 +1,8 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import { ErrorScreen } from '@simple-module-py/ui/components/ErrorScreen';
-import { Button } from '@simple-module-py/ui/components/ui/button';
-import { reportClientError } from '@simple-module-py/ui/lib/client-errors';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportClientError } from '../lib/client-errors';
+import { ErrorScreen } from './ErrorScreen';
+import { Button } from './ui/button';
 
 interface Props {
   children: ReactNode;

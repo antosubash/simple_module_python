@@ -1,5 +1,5 @@
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type React from 'react';
+import { cn } from '../lib/utils';
 
 interface SectionTitleProps extends Pick<React.ComponentPropsWithRef<'h3'>, 'ref' | 'tabIndex'> {
   children: React.ReactNode;

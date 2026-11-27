@@ -1,7 +1,7 @@
-import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { cn } from '@simple-module-py/ui/lib/utils';
 import type { LucideIcon } from 'lucide-react';
 import type React from 'react';
+import { cn } from '../lib/utils';
+import { Card, CardContent } from './ui/card';
 
 interface StatCardProps {
   label: string;

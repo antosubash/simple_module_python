@@ -8,7 +8,10 @@ from pathlib import Path
 
 import pytest
 import simple_module_cli
-from simple_module_cli.scaffold._app_project_manifests import _APP_NPM_OVERRIDES
+from simple_module_cli.scaffold._app_project_manifests import (
+    _APP_NPM_DEV_DEPS,
+    _APP_NPM_OVERRIDES,
+)
 from simple_module_cli.scaffold.app_project import create_app_project
 
 _CLIENT_APP = Path(simple_module_cli.__file__).parent / "templates" / "host" / "client_app"
@@ -51,8 +54,10 @@ def test_app_overrides_match_this_repos() -> None:
 
 
 @pytest.mark.parametrize("flat", [False, True])
-def test_scaffold_caps_vite_before_the_8_4_optimizer_regression(tmp_path: Path, flat: bool) -> None:
-    """GH #1212: both installed manifests must exclude the broken Vite minor."""
+def test_scaffold_requires_the_vite_minor_the_ui_package_supports(
+    tmp_path: Path, flat: bool
+) -> None:
+    """GH #1212/#1245: both installed manifests start at the verified Vite 8.4."""
     target = tmp_path / "app"
     create_app_project(target, name="app", db="sqlite", tenancy=False, selected=[], flat=flat)
     client = target / ("client_app" if flat else "host/client_app")
@@ -61,14 +66,14 @@ def test_scaffold_caps_vite_before_the_8_4_optimizer_regression(tmp_path: Path, 
         manifests.append(target / "package.json")
     for manifest in manifests:
         pkg = json.loads(manifest.read_text(encoding="utf-8"))
-        assert pkg["devDependencies"]["vite"] == "~8.3.7", manifest
+        assert pkg["devDependencies"]["vite"] == _APP_NPM_DEV_DEPS["vite"], manifest
 
 
-def test_repo_and_lockfile_use_the_scaffolds_capped_vite_range() -> None:
+def test_repo_and_lockfile_use_the_scaffolds_vite_range() -> None:
     lock = json.loads((_REPO_ROOT / "package-lock.json").read_text(encoding="utf-8"))
     for location in ("", "host/client_app"):
         manifest = _REPO_ROOT / location / "package.json"
         pkg = json.loads(manifest.read_text(encoding="utf-8"))
-        assert pkg["devDependencies"]["vite"] == "~8.3.7", manifest
-        assert lock["packages"][location]["devDependencies"]["vite"] == "~8.3.7"
-    assert lock["packages"]["node_modules/vite"]["version"] == "8.3.7"
+        assert pkg["devDependencies"]["vite"] == _APP_NPM_DEV_DEPS["vite"], manifest
+        assert lock["packages"][location]["devDependencies"]["vite"] == _APP_NPM_DEV_DEPS["vite"]
+    assert lock["packages"]["node_modules/vite"]["version"].startswith("8.4.")

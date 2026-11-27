@@ -1,9 +1,9 @@
 import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import { Button } from '@simple-module-py/ui/components/ui/button';
 import { ChevronLeft, Menu } from 'lucide-react';
 import type React from 'react';
 import { type PageMobileAction, usePageChrome } from '../components/page-heading';
+import { Button } from '../components/ui/button';
 import { initials } from '../lib/initials';
 import type { SidebarTheme } from './sidebar-theme';
 import { SIDEBAR_ICON_FOCUS } from './sidebar-theme';
