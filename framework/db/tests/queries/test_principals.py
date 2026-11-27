@@ -97,6 +97,7 @@ async def test_single_tenant_ignores_memberships_and_caller_tenant():
     registry.membership_role = None
     who = await principal_for(db, USER_ID, "other")
     assert who.permissions == {"test.read"}
+    assert who.tenant_id == "single"
 
 
 async def test_platform_admin_without_membership_keeps_wildcard():
@@ -127,13 +128,14 @@ async def test_unbound_single_tenant_does_not_inherit_an_ambient_bypass():
     async def direct(session, user):
         assert current_tenant_id.get() is None
         assert not is_all_tenants()
-        return ["test.direct"]
+        return ["test.direct"] if user.tenant_id == "default" else []
 
     registry.permissions.add_grant_source(direct, session_source=direct)
     with tenant_context("outer"), all_tenants():
         who = await principal_for(db, USER_ID, "other")
         assert is_all_tenants()
     assert who.permissions == {"test.read", "test.direct"}
+    assert who.tenant_id == "default"
 
 
 async def test_unknown_idp_roles_are_not_guessed_but_sources_and_membership_apply():

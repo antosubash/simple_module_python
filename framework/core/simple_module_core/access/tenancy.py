@@ -18,6 +18,7 @@ from enum import StrEnum
 from typing import Any
 
 from simple_module_core.modules.app_state import (
+    get_services,
     get_tenant_exists,
     get_tenant_members,
     get_tenant_slug,
@@ -44,6 +45,21 @@ class TenancyMode(StrEnum):
 
     SINGLE = "single"
     MULTI = "multi"
+
+
+def request_tenant_id(request: Any) -> str | None:
+    """The effective tenant for authorization and flags, without binding DB scope.
+
+    Single-tenant hosts publish their install ID on the database state, even
+    when requests stay unbound so reads can see every row. Bare apps without
+    that state retain their request's tenant; multi-tenant hosts never fall back.
+    """
+    sm = get_services(request.app)
+    if getattr(sm, "tenancy", TenancyMode.SINGLE) is TenancyMode.SINGLE:
+        default = getattr(getattr(sm, "db", None), "default_tenant_id", None)
+        if default:
+            return default
+    return getattr(request.state, "tenant_id", None)
 
 
 def tenant_role(name: str) -> str:
@@ -135,6 +151,7 @@ __all__ = [
     "TenantRole",
     "TenantSlug",
     "is_tenant_role",
+    "request_tenant_id",
     "tenant_exists",
     "tenant_member_ids",
     "tenant_role",

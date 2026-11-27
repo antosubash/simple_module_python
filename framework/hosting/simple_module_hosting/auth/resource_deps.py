@@ -32,6 +32,7 @@ from typing import Any
 from fastapi import Depends, HTTPException, Request
 from simple_module_core.access.permission_denied import PermissionDenied
 from simple_module_core.access.resources import ResourcePolicy, ResourcePrincipal
+from simple_module_core.access.tenancy import TenancyMode, request_tenant_id
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.resource_policy import load_authorized
 
@@ -41,6 +42,7 @@ from simple_module_hosting.auth.permissions import (
     ensure_resolved_permissions,
 )
 from simple_module_hosting.auth.token_guard import GATE_PERMISSION, TOKEN_GATE_ATTR
+from simple_module_hosting.pipeline.tenancy import tenancy_mode
 
 RESOURCE_PERMISSION_PREFIX = "resource:"
 """``PermissionDenied.permission`` for an object-level refusal: ``resource:<action>``."""
@@ -54,11 +56,21 @@ async def resource_principal(request: Request) -> ResourcePrincipal:
     """
     user = getattr(request.state, "user", None)
     if user is None:
-        return ResourcePrincipal(user_id=None)
+        return ResourcePrincipal(
+            user_id=None,
+            tenant_id=request_tenant_id(request)
+            if tenancy_mode(request.app) is TenancyMode.SINGLE
+            else None,
+        )
     held = await ensure_resolved_permissions(request)
     user = getattr(request.state, "user", None)  # resolution may demote a stale token
     if user is None:
-        return ResourcePrincipal(user_id=None)
+        return ResourcePrincipal(
+            user_id=None,
+            tenant_id=request_tenant_id(request)
+            if tenancy_mode(request.app) is TenancyMode.SINGLE
+            else None,
+        )
     principal = getattr(request.state, "resource_principal", None)
     if principal is None:
         user_id = getattr(user, "id", None)
@@ -66,7 +78,7 @@ async def resource_principal(request: Request) -> ResourcePrincipal:
             user_id=str(user_id) if user_id is not None else None,
             permissions=frozenset(held),
             roles=frozenset(getattr(user, "roles", None) or ()),
-            tenant_id=getattr(request.state, "tenant_id", None),
+            tenant_id=request_tenant_id(request),
         )
     return _resource_principal_for(request, principal)
 
