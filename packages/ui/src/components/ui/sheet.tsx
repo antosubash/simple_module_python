@@ -1,5 +1,6 @@
 'use client';
 
+import { keys, useT } from '@simple-module-py/i18n';
 import { cn } from '@simple-module-py/ui/lib/utils';
 import { XIcon } from 'lucide-react';
 import { Dialog as SheetPrimitive } from 'radix-ui';
@@ -42,11 +43,14 @@ function SheetContent({
   children,
   side = 'right',
   showCloseButton = true,
+  closeButtonClassName,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left';
   showCloseButton?: boolean;
+  closeButtonClassName?: string;
 }) {
+  const { t } = useT();
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -68,9 +72,14 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">
+          <SheetPrimitive.Close
+            className={cn(
+              'absolute top-0.5 right-0.5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary',
+              closeButtonClassName,
+            )}
+          >
             <XIcon className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t(keys.ui.actions.close)}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Content>
