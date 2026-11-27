@@ -116,6 +116,7 @@ export const keys = {
       save_failed: 'settings.modules_form.save_failed',
       saved_toast: 'settings.modules_form.saved_toast',
       saving: 'settings.modules_form.saving',
+      secret_not_set: 'settings.modules_form.secret_not_set',
       set_new_value: 'settings.modules_form.set_new_value',
       show_secret: 'settings.modules_form.show_secret',
       validation_failed: 'settings.modules_form.validation_failed',
@@ -260,6 +261,7 @@ type ModuleTranslationResources = {
   readonly 'settings.modules_form.save_failed': '';
   readonly 'settings.modules_form.saved_toast': '';
   readonly 'settings.modules_form.saving': '';
+  readonly 'settings.modules_form.secret_not_set': '';
   readonly 'settings.modules_form.set_new_value': '';
   readonly 'settings.modules_form.show_secret': '';
   readonly 'settings.modules_form.validation_failed': '';

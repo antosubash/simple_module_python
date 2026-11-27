@@ -111,25 +111,57 @@ test('follows URLs restored by back/forward navigation', () => {
 
 test('falls back to a visible module for an unknown query', () => {
   window.history.replaceState({}, '', '/admin/settings/?module=missing');
+  const historyLength = window.history.length;
   render(<ModulesEdit modules={modules} />);
   expect(screen.getByLabelText('Sender')).toHaveValue('users original');
+  expect(window.location.search).toBe('?module=users');
+  expect(window.history.length).toBe(historyLength);
+  expect(mocks.replace).toHaveBeenCalledWith({
+    url: '/admin/settings/?module=users',
+    preserveState: true,
+    preserveScroll: true,
+  });
+});
+
+test('normalizes an unknown module restored by navigation even when the fallback is already open', () => {
+  render(<ModulesEdit modules={modules} />);
+  act(() => {
+    window.history.replaceState({}, '', '/admin/settings/?module=missing');
+    mocks.navigate?.({ detail: { page: { url: '/admin/settings/?module=missing' } } });
+  });
+  expect(screen.getByLabelText('Sender')).toHaveValue('users original');
+  expect(window.location.search).toBe('?module=users');
 });
 
 test('ignores a hidden module and preserves unrelated query parameters and fragments', () => {
   window.history.replaceState({}, '', '/admin/settings/?module=disabled&filter=active#fields');
   render(<ModulesEdit modules={[...modules, { ...moduleView('disabled'), fields: [] }]} />);
   expect(screen.getByLabelText('Sender')).toHaveValue('users original');
+  expect(window.location.search).toBe('?module=users&filter=active');
+  expect(window.location.hash).toBe('#fields');
   fireEvent.click(screen.getByRole('button', { name: /Mail/ }));
   expect(window.location.search).toBe('?module=mail&filter=active');
   expect(window.location.hash).toBe('#fields');
 });
 
-test('shows a no-results message without losing the selected draft', () => {
+test('keeps the active module and its draft in an unmatched search', () => {
   render(<ModulesEdit modules={modules} />);
   fireEvent.change(screen.getByLabelText('Sender'), { target: { value: 'draft' } });
-  fireEvent.change(screen.getByPlaceholderText('Search modules'), { target: { value: 'zzz' } });
-  expect(screen.getByText('No matching modules')).toBeVisible();
+  fireEvent.change(screen.getByPlaceholderText('Search modules'), { target: { value: '(' } });
+  expect(screen.getByRole('button', { name: /Users/ })).toHaveAttribute('aria-current', 'page');
+  expect(screen.queryByRole('button', { name: /Mail/ })).not.toBeInTheDocument();
   expect(screen.getByLabelText('Sender')).toHaveValue('draft');
+});
+
+test('search retains matches and follows the active module after switching', () => {
+  render(<ModulesEdit modules={modules} />);
+  fireEvent.change(screen.getByPlaceholderText('Search modules'), { target: { value: 'mail' } });
+  expect(screen.getByRole('button', { name: /Users/ })).toHaveAttribute('aria-current', 'page');
+  fireEvent.click(screen.getByRole('button', { name: /Mail/ }));
+  expect(screen.getByRole('button', { name: /Mail/ })).toHaveAttribute('aria-current', 'page');
+  expect(screen.queryByRole('button', { name: /Users/ })).not.toBeInTheDocument();
+  fireEvent.change(screen.getByPlaceholderText('Search modules'), { target: { value: '' } });
+  expect(screen.getByRole('button', { name: /Users/ })).toBeVisible();
 });
 
 test('Cancel preserves a draft and focus; confirming switches module and URL', async () => {

@@ -128,7 +128,7 @@ export function ModuleForm({ module: m, checks = [], onDirtyChange }: Props) {
       // of being discarded by an immediate Inertia reload.
       // A saved secret goes back to its mask: the typed value leaves the form.
       const masked = Object.fromEntries(
-        m.fields.filter((f) => f.is_secret && f.name in changed).map((f) => [f.name, f.value]),
+        m.fields.filter((f) => f.is_secret && f.name in changed).map((f) => [f.name, '••••••••']),
       );
       setBuffer((prev) => ({
         values: { ...prev.values, ...masked },

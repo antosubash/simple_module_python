@@ -49,13 +49,22 @@ function ModulesEdit({ modules, testable = {} }: Props) {
       visit.only[0] === 'modules',
   );
 
-  useEffect(
-    () =>
-      router.on('navigate', ({ detail: { page } }) => {
-        setSelected(moduleFromUrl(page.url));
-      }),
-    [visible],
-  );
+  useEffect(() => {
+    function syncSelection(href: string) {
+      const pkg = moduleFromUrl(href);
+      setSelected(pkg);
+      const url = new URL(href, window.location.origin);
+      if (!pkg || !url.searchParams.has('module') || url.searchParams.get('module') === pkg) return;
+      url.searchParams.set('module', pkg);
+      router.replace({
+        url: `${url.pathname}${url.search}${url.hash}`,
+        preserveState: true,
+        preserveScroll: true,
+      });
+    }
+    syncSelection(window.location.href);
+    return router.on('navigate', ({ detail: { page } }) => syncSelection(page.url));
+  }, [visible]);
 
   function select(pkg: string) {
     setDirty(false);
@@ -92,12 +101,13 @@ function ModulesEdit({ modules, testable = {} }: Props) {
     return sorted.filter((m) => {
       const text = settingsText(m.package, lookup);
       return (
+        m.package === selected ||
         hit(titles[m.package] ?? '') ||
         hit(m.package) ||
         m.fields.some((f) => hit(f.name) || hit(text.label(f)))
       );
     });
-  }, [sorted, q, lookup, titles]);
+  }, [sorted, q, lookup, titles, selected]);
 
   function pick(pkg: string, from: HTMLElement | null) {
     if (pkg === selected) return;
