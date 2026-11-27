@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Trash2 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 
 import { ConfirmActionDialog } from './ConfirmActionDialog';
+import * as Menu from './ui/dropdown-menu';
 
 function renderDialog(props: Partial<React.ComponentProps<typeof ConfirmActionDialog>> = {}) {
   const onConfirm = vi.fn();
@@ -29,34 +30,54 @@ function FocusDialog({
   onCloseAutoFocus,
   removeOpener = false,
   disableOpener = false,
+  children,
+  menuOpener = false,
+  unmountClosed = false,
 }: {
   onCloseAutoFocus?: React.ComponentProps<typeof ConfirmActionDialog>['onCloseAutoFocus'];
   removeOpener?: boolean;
   disableOpener?: boolean;
+  children?: React.ReactNode;
+  menuOpener?: boolean;
+  unmountClosed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <>
-      {!removeOpener && (
-        <button type="button" disabled={disableOpener} onClick={() => setOpen(true)}>
-          Open confirmation
-        </button>
-      )}
+    <StrictMode>
+      {!removeOpener &&
+        (menuOpener ? (
+          <Menu.DropdownMenu defaultOpen>
+            <Menu.DropdownMenuTrigger>Actions</Menu.DropdownMenuTrigger>
+            <Menu.DropdownMenuContent>
+              <Menu.DropdownMenuItem onSelect={() => setOpen(true)}>
+                Open confirmation
+              </Menu.DropdownMenuItem>
+            </Menu.DropdownMenuContent>
+          </Menu.DropdownMenu>
+        ) : (
+          <button type="button" disabled={disableOpener} onClick={() => setOpen(true)}>
+            Open confirmation
+          </button>
+        ))}
       <button type="button" onClick={() => setOpen(true)}>
         Focus destination
       </button>
-      <ConfirmActionDialog
-        open={open}
-        onOpenChange={setOpen}
-        onCloseAutoFocus={onCloseAutoFocus}
-        icon={Trash2}
-        title="Delete project"
-        description="This removes every dataset it holds."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={() => {}}
-      />
-    </>
+      {(!unmountClosed || open) && (
+        <ConfirmActionDialog
+          open={open}
+          onOpenChange={setOpen}
+          onCloseAutoFocus={onCloseAutoFocus}
+          icon={Trash2}
+          title="Delete project"
+          description="This removes every dataset it holds."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          onConfirm={() => {}}
+        >
+          {children}
+        </ConfirmActionDialog>
+      )}
+    </StrictMode>
   );
 }
 
@@ -69,10 +90,68 @@ function openConfirmation() {
 }
 
 describe('ConfirmActionDialog', () => {
+  test('keeps the new opener when reopened before the previous close autofocus runs', async () => {
+    const onCloseAutoFocus = vi.fn();
+    render(<FocusDialog onCloseAutoFocus={onCloseAutoFocus} />);
+    openConfirmation();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    const next = screen.getByRole('button', { name: 'Focus destination' });
+    next.focus();
+    fireEvent.click(next);
+    await waitFor(() => expect(onCloseAutoFocus).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(next).toHaveFocus());
+  });
+
+  test('closes safely after a menu opener and its trigger unmount', async () => {
+    const onCloseAutoFocus = vi.fn();
+    const { rerender } = render(<FocusDialog menuOpener onCloseAutoFocus={onCloseAutoFocus} />);
+    const item = screen.getByRole('menuitem', { name: 'Open confirmation' });
+    item.focus();
+    fireEvent.click(item);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    rerender(<FocusDialog menuOpener removeOpener onCloseAutoFocus={onCloseAutoFocus} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(onCloseAutoFocus).toHaveBeenCalledTimes(1));
+    expect(document.body).toHaveFocus();
+  });
+
+  test('keeps focus moved by the closing action before delayed autofocus runs', async () => {
+    const onCloseAutoFocus = vi.fn();
+    render(<FocusDialog onCloseAutoFocus={onCloseAutoFocus} />);
+    openConfirmation();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    const destination = screen.getByRole('button', { name: 'Focus destination' });
+    destination.focus();
+    await waitFor(() => expect(onCloseAutoFocus).toHaveBeenCalledTimes(1));
+    expect(destination).toHaveFocus();
+  });
+
+  test('does not reuse a previous opener when a child already has focus on reopening', async () => {
+    const onCloseAutoFocus = vi.fn();
+    const { rerender } = render(<FocusDialog onCloseAutoFocus={onCloseAutoFocus} />);
+    const previous = openConfirmation();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(previous).toHaveFocus());
+    rerender(
+      <FocusDialog onCloseAutoFocus={onCloseAutoFocus}>
+        <input aria-label="Dialog input" ref={(input) => input?.focus()} />
+      </FocusDialog>,
+    );
+    const next = screen.getByRole('button', { name: 'Focus destination' });
+    next.focus();
+    fireEvent.click(next);
+    expect(screen.getByRole('textbox')).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(onCloseAutoFocus).toHaveBeenCalledTimes(2));
+    expect(previous).not.toHaveFocus();
+  });
+
   test.each(['Escape', 'Cancel', 'Delete'])(
     'returns focus to the opener after %s',
     async (action) => {
-      render(<FocusDialog />);
+      render(<FocusDialog unmountClosed />);
       const opener = openConfirmation();
       if (action === 'Escape') {
         fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });

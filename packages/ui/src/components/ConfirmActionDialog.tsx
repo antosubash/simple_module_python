@@ -70,7 +70,7 @@ export function ConfirmActionDialog({
 }: ConfirmActionDialogProps) {
   const inputId = useId();
   const [typed, setTyped] = useState('');
-  const opener = useRef<HTMLElement | null>(null);
+  const opener = useRef<{ target: HTMLElement; dialog: EventTarget | null } | null>(null);
 
   // Reopening the dialog must re-ask for the confirmation, not inherit the
   // answer someone typed before they cancelled.
@@ -84,19 +84,33 @@ export function ConfirmActionDialog({
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
-        onOpenAutoFocus={() => {
+        onOpenAutoFocus={(event) => {
           opener.current =
             document.activeElement instanceof HTMLElement &&
             document.activeElement !== document.body
-              ? document.activeElement
+              ? { target: document.activeElement, dialog: event.currentTarget }
               : null;
         }}
         onCloseAutoFocus={(event) => {
           onCloseAutoFocus?.(event);
-          if (event.defaultPrevented || !opener.current?.isConnected) return;
-          opener.current.focus();
+          const previous = opener.current;
+          // A queued close belongs to the old content if the dialog reopened.
+          if (!previous || previous.dialog !== event.currentTarget) return;
+          opener.current = null;
+          const { target } = previous;
+          if (event.defaultPrevented || !target.isConnected) return;
+          // A navigation or another dialog may already have moved focus.
+          if (
+            document.activeElement !== document.body &&
+            !(
+              event.currentTarget instanceof HTMLElement &&
+              event.currentTarget.contains(document.activeElement)
+            )
+          )
+            return;
+          target.focus();
           // Leave Radix's fallback intact if the opener can no longer take focus.
-          if (document.activeElement === opener.current) event.preventDefault();
+          if (document.activeElement === target) event.preventDefault();
         }}
       >
         {/* Not AlertDialogMedia: that slot is size-16 and row-spans beside the
