@@ -110,3 +110,54 @@ async def test_symlink_escape_rejected(tmp_path):
         await backend.put(
             "ab/escape/pwn.txt", _bytes_stream(b"x"), content_type="text/plain", size=1
         )
+
+
+async def test_path_fallback_roundtrip(tmp_path, monkeypatch, chunks):
+    from file_storage.backends import _fs_confined
+
+    monkeypatch.setattr(_fs_confined, "CONFINED", False)
+    backend = FilesystemBackend(tmp_path)
+    await backend.put("ab/file", chunks(b"original"), content_type="text/plain", size=8)
+    assert b"".join([c async for c in await backend.get_range("ab/file", 1, 3)]) == b"rig"
+    assert (await backend.head("ab/file")).size == 8
+    upload_id = await backend.create_multipart("ab/file", "text/plain")
+    part = await backend.write_part("ab/file", upload_id, 1, chunks(b"new"), max_bytes=3)
+    assert await backend.list_parts("ab/file", upload_id) == [part]
+    await backend.complete_multipart("ab/file", upload_id, [part])
+    assert b"".join([c async for c in await backend.get("ab/file")]) == b"new"
+    await backend.delete("ab/file")
+    assert await backend.exists("ab/file") is False
+
+
+async def test_operations_keep_symlinked_relative_root(tmp_path, monkeypatch, chunks):
+    from pathlib import Path
+
+    root = tmp_path / "actual"
+    root.mkdir()
+    (tmp_path / "alias").symlink_to(root, target_is_directory=True)
+    monkeypatch.chdir(tmp_path)
+    backend = FilesystemBackend(Path("alias"))
+    await backend.put("ab/file", chunks(b"data"), content_type="text/plain", size=4)
+    assert (root / "ab" / "ab" / "file").read_bytes() == b"data"
+    assert b"".join([c async for c in await backend.get("ab/file")]) == b"data"
+
+
+@pytest.mark.parametrize("length", [None, 0])
+async def test_stream_eof_closes_file_once(length):
+    from io import BytesIO
+
+    from file_storage.backends._fs_confined import FileStream
+
+    class CountedFile(BytesIO):
+        closes = 0
+
+        def close(self):
+            self.closes += 1
+            super().close()
+
+    file = CountedFile()
+    body = FileStream(length)
+    body.file = file
+    assert [chunk async for chunk in body] == []
+    await body.aclose()
+    assert file.closed and file.closes == 1
