@@ -21,6 +21,7 @@ class BookingConfirmed(Event):
         "not-an-address",
         "guide@",
         "guide@bad domain",
+        "jäne@example.com",
         "guide@example.com, other@example.com",
         "guide@example.com; other@example.com",
         '"Doe, Jane" <guide@example.com>, Other <other@example.com>',

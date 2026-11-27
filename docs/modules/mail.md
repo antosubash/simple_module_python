@@ -24,9 +24,19 @@ DB-backed (`MailSettings`, package `mail`), hot-reloaded without a restart.
 | `smtp_port` | `587` | |
 | `smtp_username` | `""` | blank means no authentication |
 | `smtp_password` | `""` | masked in the settings UI |
-| `smtp_from` | `no-reply@localhost` | |
+| `smtp_from` | `no-reply@localhost` | One mailbox: `sender@example.com` or `Example Team <sender@example.com>`; required, stored with surrounding whitespace trimmed |
 | `smtp_tls` | `true` | enables TLS using `smtp_tls_mode`; `false` disables both implicit TLS and STARTTLS regardless of the mode |
 | `smtp_tls_mode` | `auto` | `auto`: implicit TLS on port 465 and mandatory STARTTLS elsewhere; `starttls`: mandatory STARTTLS on any port; `implicit`: implicit TLS on any port, including custom or mapped ports such as 1465 |
+
+`smtp_from` accepts one mailbox with a local part and domain, including the
+default localhost address and quoted display names. Blank values, address lists,
+groups, malformed mailboxes and ASCII control characters (including CR/LF) are rejected
+on save with a field-level 422 error. The address is limited to 254 characters
+(the conventional mailbox limit), and the full value to 320 characters to leave
+room for a display name while bounding the setting. Limits apply after trimming.
+Previously stored invalid values are logged and ignored during hydration, using
+`no-reply@localhost` while preserving other settings and leaving the stored rows
+untouched. Saving the default sender clears its override (#1239).
 
 Both delivery and **Test connection** use the same TLS mode. For an implicit-TLS
 server mapped to port 1465, keep `smtp_tls=true` and select `smtp_tls_mode=implicit`.
