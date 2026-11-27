@@ -151,6 +151,8 @@ test('keeps the active module and its draft in an unmatched search', () => {
   expect(screen.getByRole('button', { name: /Users/ })).toHaveAttribute('aria-current', 'page');
   expect(screen.queryByRole('button', { name: /Mail/ })).not.toBeInTheDocument();
   expect(screen.getByLabelText('Sender')).toHaveValue('draft');
+  // Nothing matched, so say so even though the open module stays listed.
+  expect(screen.getByRole('status')).toHaveTextContent('No matching modules');
 });
 
 test('search retains matches and follows the active module after switching', () => {

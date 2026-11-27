@@ -17,6 +17,8 @@ type Props = {
   modules: ModuleView[];
   /** `modules` after the search filter; the rail shows these. */
   filtered: ModuleView[];
+  /** The query matched no module; the open one may still be listed. */
+  noMatches: boolean;
   titles: Record<string, string>;
   selected?: string;
   query: string;
@@ -30,7 +32,16 @@ type Props = {
  * full-width select replaces it — the rail used to stack above the form as a
  * 288px scroll box that pushed every field below the first screen.
  */
-export function ModuleNav({ modules, filtered, titles, selected, query, onQuery, onPick }: Props) {
+export function ModuleNav({
+  modules,
+  filtered,
+  noMatches,
+  titles,
+  selected,
+  query,
+  onQuery,
+  onPick,
+}: Props) {
   const { t } = useT();
   const selectId = useId();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -119,7 +130,7 @@ export function ModuleNav({ modules, filtered, titles, selected, query, onQuery,
               </button>
             );
           })}
-          {filtered.length === 0 && modules.length > 0 && (
+          {noMatches && (
             <p role="status" className="px-3 py-2 text-sm text-muted-foreground">
               {t(keys.settings.modules.no_results)}
             </p>
