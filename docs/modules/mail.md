@@ -30,7 +30,7 @@ DB-backed (`MailSettings`, package `mail`), hot-reloaded without a restart.
 
 `smtp_from` accepts one mailbox with a local part and domain, including the
 default localhost address and quoted display names. Blank values, address lists,
-groups, malformed mailboxes and CR/LF or other control characters are rejected
+groups, malformed mailboxes and ASCII control characters (including CR/LF) are rejected
 on save with a field-level 422 error. The address is limited to 254 characters
 (the conventional mailbox limit), and the full value to 320 characters to leave
 room for a display name while bounding the setting. Limits apply after trimming.

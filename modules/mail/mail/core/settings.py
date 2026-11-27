@@ -6,12 +6,12 @@ secret-field pattern (``simple_module_core.settings.secret_fields.is_secret_fiel
 
 from __future__ import annotations
 
-from email import policy
-from email.errors import HeaderParseError, NonASCIILocalPartDefect
+from email.errors import HeaderParseError
 from typing import Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
+from simple_module_core.mailer.mail import parse_mailbox, smtp_address_header
 from simple_module_core.settings.settings_base import DbBackedSettings
 
 from mail.core import constants as c
@@ -46,25 +46,19 @@ class MailSettings(DbBackedSettings):
             "and domain, at most 254 address characters and 320 total, "
             "without control characters; blank is not allowed"
         )
-        # Check newlines before trimming so surrounding CR/LF cannot hide injection.
-        if "\r" in value or "\n" in value:
+        # Reject controls before trimming can hide them.
+        if any(ord(c) < 32 or ord(c) == 127 for c in value):
             raise ValueError(error)
         value = value.strip()
-        if not value or len(value) > 320 or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        if not value or len(value) > 320:
             raise ValueError(error)
         try:
-            header = policy.default.header_factory("From", value)
-        except (ValueError, HeaderParseError) as exc:
+            address = parse_mailbox(value, allow_smtputf8=True)
+            smtp_address_header(value)
+        # The stdlib parser also raises these for incomplete quotes/domain literals.
+        except (ValueError, HeaderParseError, IndexError, AttributeError) as exc:
             raise ValueError(error) from exc
-        if (
-            # SMTPUTF8 local parts are already supported by the sender.
-            any(not isinstance(defect, NonASCIILocalPartDefect) for defect in header.defects)
-            or len(header.addresses) != 1
-            or any(group.display_name is not None for group in header.groups)
-        ):
-            raise ValueError(error)
-        address = header.addresses[0]
-        if not address.username or not address.domain or len(address.addr_spec) > 254:
+        if len(address.addr_spec) > 254:
             raise ValueError(error)
         return value
 

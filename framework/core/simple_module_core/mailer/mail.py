@@ -19,7 +19,6 @@ import logging
 import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from email import policy
 from email.errors import HeaderParseError
 from email.headerregistry import Address, Group
 from email.message import EmailMessage
@@ -28,7 +27,7 @@ from typing import Annotated, Any, Protocol, runtime_checkable
 from pydantic import BeforeValidator, ConfigDict, field_serializer, field_validator
 from sqlmodel import SQLModel
 
-from simple_module_core.mailer._mail_headers import validate_mail_headers
+from simple_module_core.mailer._mail_headers import parse_mailbox, validate_mail_headers
 
 logger = logging.getLogger("simple_module.mail")
 
@@ -138,18 +137,9 @@ def _validate_reply_to(value: str) -> None:
     if not value or any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise ValueError(error)
     try:
-        header = policy.default.header_factory("To", value)
+        parse_mailbox(value)
     except (ValueError, HeaderParseError) as exc:
         raise ValueError(error) from exc
-    if (
-        header.defects
-        or len(header.addresses) != 1
-        or any(group.display_name is not None for group in header.groups)
-    ):
-        raise ValueError(error)
-    address = header.addresses[0]
-    if not address.username or not address.domain:
-        raise ValueError(error)
 
 
 @dataclass(frozen=True)

@@ -15,6 +15,10 @@ _LONG_ADDRESS = "a" * 64 + "@" + ".".join(["b" * 63, "c" * 63, "d" * 61])
         "   ",
         "not-an-address",
         "sender@",
+        '"',
+        "sender@[",
+        "sender@a.\u200b.de",
+        "sender@" + "é" * 64 + ".de",
         "@example.com",
         "sender@example..com",
         "sender@example.com, other@example.com",
@@ -26,6 +30,9 @@ _LONG_ADDRESS = "a" * 64 + "@" + ".".join(["b" * 63, "c" * 63, "d" * 61])
         "sender@example.com\r\nBcc: other@example.com",
         "\nsender@example.com",
         "sender@example.com\r",
+        "\tsender@example.com",
+        "sender@example.com\v",
+        "\fsender@example.com",
         "Sender\x00 <sender@example.com>",
         "Sender\x7f <sender@example.com>",
         "x" * 1200,
@@ -49,6 +56,7 @@ def test_smtp_from_rejects_invalid_mailboxes(value):
         "Example Team <sender@example.com>",
         '"Doe, Jane" <sender@example.com>',
         "Jäne <sender@bücher.de>",
+        "sender@" + "é" * 57 + ".de",
         "jäne@example.com",
         _LONG_ADDRESS,
         "N" * 299 + " <sender@example.com>",
@@ -58,7 +66,10 @@ def test_smtp_from_preserves_valid_mailboxes_and_trims_outer_spaces(value):
     assert MailSettings(smtp_from=f"  {value}  ").smtp_from == value
 
 
-@pytest.mark.parametrize("value", ["   ", "invalid", "x" * 1200, "a@test\nBcc: b@test"])
+@pytest.mark.parametrize(
+    "value",
+    ["   ", "invalid", "x" * 1200, "a@test\nBcc: b@test", '"', "sender@[", "sender@a.\u200b.de"],
+)
 def test_invalid_stored_sender_falls_back_without_losing_other_settings(value, caplog):
     stored = {"smtp_from": (value, "string"), "smtp_port": ("2525", "int")}
     cfg = build_settings(MailSettings, stored, lenient=True)

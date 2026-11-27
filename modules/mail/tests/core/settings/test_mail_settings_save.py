@@ -39,7 +39,10 @@ def target():
     return app, _Store()
 
 
-@pytest.mark.parametrize("value", ["", "   ", "invalid", "a@test, b@test", "x" * 1200])
+@pytest.mark.parametrize(
+    "value",
+    ["", "   ", "invalid", "a@test, b@test", "x" * 1200, '"', "sender@[", "sender@a.\u200b.de"],
+)
 async def test_invalid_sender_save_returns_field_422_without_writing(target, value):
     app, store = target
     store.rows["smtp_from"] = ("existing@example.com", "string")
