@@ -50,7 +50,8 @@ describe('CommandPalette focus', () => {
       await user.keyboard('{Enter}');
       expect(screen.getByRole('combobox')).toHaveFocus();
 
-      if (dismiss === 'Close') await user.click(screen.getByRole('button', { name: 'Close' }));
+      if (dismiss === 'Close')
+        await user.click(screen.getByRole('button', { name: 'ui.actions.close' }));
       else if (dismiss === 'overlay') {
         const overlay = document.querySelector('[data-slot="dialog-overlay"]');
         if (!overlay) throw new Error('Missing dialog overlay');

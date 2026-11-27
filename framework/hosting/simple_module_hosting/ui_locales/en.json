@@ -1,4 +1,7 @@
 {
+  "actions": {
+    "close": "Close"
+  },
   "errors": {
     "generic_title": "Something went wrong",
     "generic_description": "The page encountered an unexpected error. Try reloading, or return home.",

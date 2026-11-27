@@ -1380,6 +1380,7 @@ const resources = {
     'tenants.settings_form.title': '',
     'tenants.status.active': '',
     'tenants.status.suspended': '',
+    'ui.actions.close': '',
     'ui.admin.back_to_app': '',
     'ui.admin.panel_badge': '',
     'ui.command_palette.description': '',

@@ -1989,6 +1989,9 @@ export const keys = {
     },
   },
   ui: {
+    actions: {
+      close: 'ui.actions.close',
+    },
     admin: {
       back_to_app: 'ui.admin.back_to_app',
       panel_badge: 'ui.admin.panel_badge',
