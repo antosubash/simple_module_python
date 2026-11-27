@@ -8,7 +8,7 @@ import os
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import aiofiles
 
@@ -39,17 +39,22 @@ class FilesystemBackend(FilesystemMultipartMixin):
         self.root = root
 
     def _resolve(self, key: str) -> Path:
+        shard = key[:2] if len(key) >= 2 else "_"
         if (
             not key
             or "\\" in key
             or key.startswith("/")
+            or PureWindowsPath(key).drive
+            or shard == ".."
             or any(ord(c) < 0x20 or ord(c) == 0x7F for c in key)
             or any(seg in {".", ".."} for seg in key.split("/"))
         ):
             raise StorageBackendError(f"Invalid storage key: {key!r}")
-        root = self.root.resolve()
-        shard = key[:2] if len(key) >= 2 else "_"
-        candidate = (root / shard / key).resolve()
+        try:
+            root = self.root.resolve()
+            candidate = (root / shard / key).resolve()
+        except (OSError, RuntimeError, UnicodeError) as exc:
+            raise StorageBackendError(f"Invalid storage key: {key!r}") from exc
         if not candidate.is_relative_to(root) or candidate == root:
             raise StorageBackendError(f"Invalid storage key: {key!r}")
         return candidate
@@ -111,10 +116,13 @@ class FilesystemBackend(FilesystemMultipartMixin):
                 # Preserve the previous shard/key-directory/file glob depth.
                 if len(relative.parts) < 3:
                     continue
+                key = relative.as_posix().split("/", 1)[1]
                 # Another delete (including this sweep) may have removed a variant.
-                with contextlib.suppress(FileNotFoundError):
+                with contextlib.suppress(FileNotFoundError, StorageBackendError):
+                    if self._resolve(key) != path.resolve():
+                        continue
                     if path.is_file() and path.stat().st_mtime < cutoff_ts:
-                        keys.append(relative.as_posix().split("/", 1)[1])
+                        keys.append(key)
         return keys
 
     async def exists(self, key: str) -> bool:
